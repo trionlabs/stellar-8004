@@ -153,3 +153,76 @@ fn test_name_and_symbol() {
     assert_eq!(client.name(), String::from_str(&env, "Agent Registry"));
     assert_eq!(client.symbol(), String::from_str(&env, "AGENT"));
 }
+
+// --- Negative tests ---
+
+#[test]
+fn test_non_owner_cannot_set_uri() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let owner = Address::generate(&env);
+    let stranger = Address::generate(&env);
+
+    client.register(&owner);
+    let result =
+        client.try_set_agent_uri(&stranger, &0, &String::from_str(&env, "https://evil.com"));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_non_owner_cannot_set_metadata() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let owner = Address::generate(&env);
+    let stranger = Address::generate(&env);
+
+    client.register(&owner);
+    let result = client.try_set_metadata(
+        &stranger,
+        &0,
+        &String::from_str(&env, "key"),
+        &Bytes::from_slice(&env, b"val"),
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_non_owner_cannot_set_wallet() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let owner = Address::generate(&env);
+    let stranger = Address::generate(&env);
+    let wallet = Address::generate(&env);
+
+    client.register(&owner);
+    let result = client.try_set_agent_wallet(&stranger, &0, &wallet);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_non_owner_cannot_unset_wallet() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let owner = Address::generate(&env);
+    let stranger = Address::generate(&env);
+    let wallet = Address::generate(&env);
+
+    client.register(&owner);
+    client.set_agent_wallet(&owner, &0, &wallet);
+    let result = client.try_unset_agent_wallet(&stranger, &0);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_upgrade_requires_auth() {
+    let env = Env::default();
+    // No mock_all_auths - proves auth is enforced
+    let (client, _admin) = create_client(&env);
+    let fake_hash = soroban_sdk::BytesN::from_array(&env, &[0u8; 32]);
+    let result = client.try_upgrade(&fake_hash);
+    assert!(result.is_err());
+}

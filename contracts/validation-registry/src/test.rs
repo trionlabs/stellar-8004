@@ -223,3 +223,85 @@ fn test_version() {
     let (client, _, _, _) = setup(&env);
     assert_eq!(client.version(), String::from_str(&env, "0.1.0"));
 }
+
+// --- Negative tests ---
+
+#[test]
+fn test_non_designated_validator_cannot_respond() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, agent_owner, validator) = setup(&env);
+    let stranger = Address::generate(&env);
+
+    let hash = test_hash(&env, 1);
+    client.validation_request(
+        &agent_owner,
+        &validator,
+        &0,
+        &String::from_str(&env, ""),
+        &hash,
+    );
+
+    // Stranger tries to respond instead of designated validator
+    let result = client.try_validation_response(
+        &stranger,
+        &hash,
+        &80,
+        &String::from_str(&env, ""),
+        &test_hash(&env, 2),
+        &String::from_str(&env, ""),
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_duplicate_request_hash_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, agent_owner, validator) = setup(&env);
+
+    let hash = test_hash(&env, 1);
+    client.validation_request(
+        &agent_owner,
+        &validator,
+        &0,
+        &String::from_str(&env, ""),
+        &hash,
+    );
+
+    // Same hash again should fail
+    let result = client.try_validation_request(
+        &agent_owner,
+        &validator,
+        &0,
+        &String::from_str(&env, ""),
+        &hash,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_response_to_nonexistent_request_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, validator) = setup(&env);
+
+    let result = client.try_validation_response(
+        &validator,
+        &test_hash(&env, 99),
+        &50,
+        &String::from_str(&env, ""),
+        &test_hash(&env, 2),
+        &String::from_str(&env, ""),
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_upgrade_requires_auth() {
+    let env = Env::default();
+    let (client, _, _, _) = setup(&env);
+    let fake_hash = soroban_sdk::BytesN::from_array(&env, &[0u8; 32]);
+    let result = client.try_upgrade(&fake_hash);
+    assert!(result.is_err());
+}

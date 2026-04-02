@@ -289,3 +289,123 @@ fn test_version() {
     let (client, _, _, _) = setup(&env);
     assert_eq!(client.version(), String::from_str(&env, "0.1.0"));
 }
+
+// --- Negative tests ---
+
+#[test]
+fn test_non_submitter_cannot_revoke() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+    let stranger = Address::generate(&env);
+
+    client.give_feedback(
+        &reviewer,
+        &0,
+        &80,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+
+    // Stranger tries to revoke reviewer's feedback
+    let result = client.try_revoke_feedback(&stranger, &0, &1);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_non_owner_cannot_append_response() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+    let stranger = Address::generate(&env);
+
+    client.give_feedback(
+        &reviewer,
+        &0,
+        &75,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+
+    let result = client.try_append_response(
+        &stranger,
+        &0,
+        &reviewer,
+        &1,
+        &String::from_str(&env, ""),
+        &zero_hash(&env),
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_invalid_value_decimals_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+
+    // decimals > 18 should fail
+    let result = client.try_give_feedback(
+        &reviewer,
+        &0,
+        &100,
+        &19,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_revoke_nonexistent_feedback_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+
+    let result = client.try_revoke_feedback(&reviewer, &0, &999);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_double_revoke_fails() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+
+    client.give_feedback(
+        &reviewer,
+        &0,
+        &50,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+
+    client.revoke_feedback(&reviewer, &0, &1);
+    // Second revoke should fail
+    let result = client.try_revoke_feedback(&reviewer, &0, &1);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_upgrade_requires_auth() {
+    let env = Env::default();
+    let (client, _, _, _) = setup(&env);
+    let fake_hash = soroban_sdk::BytesN::from_array(&env, &[0u8; 32]);
+    let result = client.try_upgrade(&fake_hash);
+    assert!(result.is_err());
+}
