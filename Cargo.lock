@@ -579,13 +579,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
-name = "erc8004-common"
-version = "0.1.0"
-dependencies = [
- "soroban-sdk",
-]
-
-[[package]]
 name = "escape-bytes"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -764,7 +757,6 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 name = "identity-registry"
 version = "0.1.0"
 dependencies = [
- "erc8004-common",
  "soroban-sdk",
  "stellar-access",
  "stellar-contract-utils",
@@ -1067,7 +1059,6 @@ dependencies = [
 name = "reputation-registry"
 version = "0.1.0"
 dependencies = [
- "erc8004-common",
  "identity-registry",
  "soroban-sdk",
  "stellar-access",
@@ -1677,7 +1668,6 @@ checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 name = "validation-registry"
 version = "0.1.0"
 dependencies = [
- "erc8004-common",
  "identity-registry",
  "soroban-sdk",
  "stellar-access",

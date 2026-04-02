@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "contracts/*",
-    "packages/*",
 ]
 
 [workspace.dependencies]
@@ -11,7 +10,6 @@ stellar-tokens = { git = "https://github.com/OpenZeppelin/stellar-contracts", re
 stellar-access = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "9dd85c30" }
 stellar-macros = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "9dd85c30" }
 stellar-contract-utils = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "9dd85c30" }
-erc8004-common = { path = "packages/erc8004-common" }
 
 [profile.release]
 opt-level = "z"

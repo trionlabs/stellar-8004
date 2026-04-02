@@ -39,7 +39,7 @@ impl ReputationRegistryContract {
     ) -> Result<(), ReputationError> {
         caller.require_auth();
 
-        if value_decimals > erc8004_common::MAX_FEEDBACK_VALUE_DECIMALS {
+        if value_decimals > 18 {
             return Err(ReputationError::InvalidValueDecimals);
         }
 
