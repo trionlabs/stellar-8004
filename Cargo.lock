@@ -1070,6 +1070,8 @@ dependencies = [
  "erc8004-common",
  "identity-registry",
  "soroban-sdk",
+ "stellar-access",
+ "stellar-macros",
 ]
 
 [[package]]
@@ -1678,6 +1680,8 @@ dependencies = [
  "erc8004-common",
  "identity-registry",
  "soroban-sdk",
+ "stellar-access",
+ "stellar-macros",
 ]
 
 [[package]]
