@@ -44,10 +44,6 @@ pub fn get_agent_uri(e: &Env, agent_id: u32) -> Option<String> {
     e.storage().persistent().get(&DataKey::AgentUri(agent_id))
 }
 
-pub fn has_agent_uri(e: &Env, agent_id: u32) -> bool {
-    e.storage().persistent().has(&DataKey::AgentUri(agent_id))
-}
-
 // --- Agent Metadata ---
 
 pub fn set_metadata(e: &Env, agent_id: u32, key: &String, value: &Bytes) {

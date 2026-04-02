@@ -6,8 +6,6 @@ use soroban_sdk::contracterror;
 pub enum ReputationError {
     SelfFeedback = 1,
     FeedbackNotFound = 2,
-    NotFeedbackAuthor = 3,
-    InvalidValueDecimals = 4,
-    NotOwnerOrApproved = 5,
-    AgentNotFound = 6,
+    InvalidValueDecimals = 3,
+    NotOwnerOrApproved = 4,
 }
