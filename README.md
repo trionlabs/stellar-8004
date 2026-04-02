@@ -1,8 +1,8 @@
 # Trustless Agents on Stellar/Soroban
 
-Implementation of the [8004 standard](https://eips.ethereum.org/EIPS/eip-8004) (Trustless Agents) on Stellar/Soroban. Three smart contracts providing decentralized agent identity, reputation, and validation registries.
+Implementation of the [8004 standard](https://www.8004.org) (Trustless Agents) on Stellar/Soroban.
 
-The 8004 standard enables agent discovery, portable identity, and verifiable reputation across organizational boundaries without centralized intermediaries. Originally specified as ERC-8004 on Ethereum, the standard is chain-agnostic - this is the Stellar implementation.
+The 8004 standard enables agent discovery, portable identity, and verifiable reputation. It's originally specified as [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) on Ethereum and this is the Stellar implementation.
 
 Note: The Identity and Reputation registries are stable and deployed across EVM chains. The Validation Registry is still under active community discussion and not yet deployed in the ecosystem. Our implementation follows the current draft spec and may need updates when the design is finalized.
 
