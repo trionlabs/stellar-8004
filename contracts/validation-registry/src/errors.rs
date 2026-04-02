@@ -5,9 +5,9 @@ use soroban_sdk::contracterror;
 #[repr(u32)]
 pub enum ValidationError {
     NotOwnerOrApproved = 1,
-    AgentNotFound = 2,
-    RequestNotFound = 3,
-    InvalidResponse = 4,
-    RequestAlreadyExists = 5,
-    NotDesignatedValidator = 6,
+    RequestNotFound = 2,
+    InvalidResponse = 3,
+    RequestAlreadyExists = 4,
+    NotDesignatedValidator = 5,
+    AlreadyResponded = 6,
 }

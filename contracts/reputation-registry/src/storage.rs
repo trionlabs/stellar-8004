@@ -96,7 +96,7 @@ fn get_client_count(e: &Env, agent_id: u32) -> u32 {
 pub fn get_clients_paginated(e: &Env, agent_id: u32, start: u32, limit: u32) -> Vec<Address> {
     let count = get_client_count(e, agent_id);
     let mut result = Vec::new(e);
-    let end = core::cmp::min(start + limit, count);
+    let end = core::cmp::min(start.saturating_add(limit), count);
     for i in start..end {
         if let Some(addr) = e
             .storage()
