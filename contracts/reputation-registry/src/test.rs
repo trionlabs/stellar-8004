@@ -20,11 +20,16 @@ mod mock_identity {
     #[contractimpl]
     impl MockIdentityRegistry {
         pub fn set_owner(e: &Env, token_id: u32, owner: Address) {
-            e.storage().persistent().set(&DataKey::Owner(token_id), &owner);
+            e.storage()
+                .persistent()
+                .set(&DataKey::Owner(token_id), &owner);
         }
 
         pub fn owner_of(e: &Env, token_id: u32) -> Address {
-            e.storage().persistent().get(&DataKey::Owner(token_id)).unwrap()
+            e.storage()
+                .persistent()
+                .get(&DataKey::Owner(token_id))
+                .unwrap()
         }
 
         pub fn get_approved(_e: &Env, _token_id: u32) -> Option<Address> {
@@ -39,7 +44,9 @@ mod mock_identity {
 
 use mock_identity::{MockIdentityRegistry, MockIdentityRegistryClient};
 
-fn setup(e: &Env) -> (
+fn setup(
+    e: &Env,
+) -> (
     ReputationRegistryContractClient<'_>,
     MockIdentityRegistryClient<'_>,
     Address,
@@ -177,18 +184,35 @@ fn test_revoke_updates_aggregate() {
     let (client, _, _, reviewer) = setup(&env);
 
     client.give_feedback(
-        &reviewer, &0, &100, &0,
-        &empty_str(&env), &empty_str(&env), &empty_str(&env), &empty_str(&env), &zero_hash(&env),
+        &reviewer,
+        &0,
+        &100,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
     );
     client.give_feedback(
-        &reviewer, &0, &50, &0,
-        &empty_str(&env), &empty_str(&env), &empty_str(&env), &empty_str(&env), &zero_hash(&env),
+        &reviewer,
+        &0,
+        &50,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
     );
 
     client.revoke_feedback(&reviewer, &0, &1);
 
     let summary = client.get_summary(
-        &0, &Vec::<Address>::new(&env), &empty_str(&env), &empty_str(&env),
+        &0,
+        &Vec::<Address>::new(&env),
+        &empty_str(&env),
+        &empty_str(&env),
     );
     assert_eq!(summary.count, 1);
     assert_eq!(summary.summary_value, 50);
@@ -202,12 +226,26 @@ fn test_client_tracking() {
     let reviewer2 = Address::generate(&env);
 
     client.give_feedback(
-        &reviewer, &0, &80, &0,
-        &empty_str(&env), &empty_str(&env), &empty_str(&env), &empty_str(&env), &zero_hash(&env),
+        &reviewer,
+        &0,
+        &80,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
     );
     client.give_feedback(
-        &reviewer2, &0, &90, &0,
-        &empty_str(&env), &empty_str(&env), &empty_str(&env), &empty_str(&env), &zero_hash(&env),
+        &reviewer2,
+        &0,
+        &90,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
     );
 
     let clients = client.get_clients_paginated(&0, &0, &10);
@@ -221,8 +259,15 @@ fn test_append_response() {
     let (client, _, agent_owner, reviewer) = setup(&env);
 
     client.give_feedback(
-        &reviewer, &0, &75, &0,
-        &empty_str(&env), &empty_str(&env), &empty_str(&env), &empty_str(&env), &zero_hash(&env),
+        &reviewer,
+        &0,
+        &75,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
     );
 
     // Agent owner responds

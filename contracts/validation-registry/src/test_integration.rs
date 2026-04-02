@@ -6,7 +6,9 @@ use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String, Vec};
 use crate::contract::{ValidationRegistryContract, ValidationRegistryContractClient};
 use identity_registry::contract::{IdentityRegistryContract, IdentityRegistryContractClient};
 
-fn setup(e: &Env) -> (
+fn setup(
+    e: &Env,
+) -> (
     ValidationRegistryContractClient<'_>,
     IdentityRegistryContractClient<'_>,
     Address,

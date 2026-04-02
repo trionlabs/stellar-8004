@@ -6,7 +6,9 @@ use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String, Vec};
 use crate::contract::{ReputationRegistryContract, ReputationRegistryContractClient};
 use identity_registry::contract::{IdentityRegistryContract, IdentityRegistryContractClient};
 
-fn setup(e: &Env) -> (
+fn setup(
+    e: &Env,
+) -> (
     ReputationRegistryContractClient<'_>,
     IdentityRegistryContractClient<'_>,
     Address,
@@ -128,9 +130,15 @@ fn test_multiple_reviewers_with_real_identity() {
         let reviewer = Address::generate(&env);
         let val = 80i128;
         rep_client.give_feedback(
-            &reviewer, &agent_id, &val, &0,
-            &empty_str(&env), &empty_str(&env),
-            &empty_str(&env), &empty_str(&env), &zero_hash(&env),
+            &reviewer,
+            &agent_id,
+            &val,
+            &0,
+            &empty_str(&env),
+            &empty_str(&env),
+            &empty_str(&env),
+            &empty_str(&env),
+            &zero_hash(&env),
         );
         total += val;
     }

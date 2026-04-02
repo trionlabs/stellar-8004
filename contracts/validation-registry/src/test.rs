@@ -19,11 +19,16 @@ mod mock_identity {
     #[contractimpl]
     impl MockIdentityRegistry {
         pub fn set_owner(e: &Env, token_id: u32, owner: Address) {
-            e.storage().persistent().set(&DataKey::Owner(token_id), &owner);
+            e.storage()
+                .persistent()
+                .set(&DataKey::Owner(token_id), &owner);
         }
 
         pub fn owner_of(e: &Env, token_id: u32) -> Address {
-            e.storage().persistent().get(&DataKey::Owner(token_id)).unwrap()
+            e.storage()
+                .persistent()
+                .get(&DataKey::Owner(token_id))
+                .unwrap()
         }
 
         pub fn get_approved(_e: &Env, _token_id: u32) -> Option<Address> {
@@ -38,7 +43,9 @@ mod mock_identity {
 
 use mock_identity::{MockIdentityRegistry, MockIdentityRegistryClient};
 
-fn setup(e: &Env) -> (
+fn setup(
+    e: &Env,
+) -> (
     ValidationRegistryContractClient<'_>,
     MockIdentityRegistryClient<'_>,
     Address,
@@ -105,13 +112,8 @@ fn test_non_owner_cannot_request() {
     let random = Address::generate(&env);
 
     let hash = test_hash(&env, 1);
-    let result = client.try_validation_request(
-        &random,
-        &validator,
-        &0,
-        &String::from_str(&env, ""),
-        &hash,
-    );
+    let result =
+        client.try_validation_request(&random, &validator, &0, &String::from_str(&env, ""), &hash);
     assert!(result.is_err());
 }
 
@@ -153,29 +155,39 @@ fn test_get_summary() {
     let hash2 = test_hash(&env, 2);
 
     client.validation_request(
-        &agent_owner, &validator, &0,
-        &String::from_str(&env, ""), &hash1,
+        &agent_owner,
+        &validator,
+        &0,
+        &String::from_str(&env, ""),
+        &hash1,
     );
     client.validation_request(
-        &agent_owner, &validator, &0,
-        &String::from_str(&env, ""), &hash2,
+        &agent_owner,
+        &validator,
+        &0,
+        &String::from_str(&env, ""),
+        &hash2,
     );
 
     // Respond to both
     client.validation_response(
-        &validator, &hash1, &80,
-        &String::from_str(&env, ""), &test_hash(&env, 10), &String::from_str(&env, ""),
-    );
-    client.validation_response(
-        &validator, &hash2, &60,
-        &String::from_str(&env, ""), &test_hash(&env, 11), &String::from_str(&env, ""),
-    );
-
-    let summary = client.get_summary(
-        &0,
-        &Vec::<Address>::new(&env),
+        &validator,
+        &hash1,
+        &80,
+        &String::from_str(&env, ""),
+        &test_hash(&env, 10),
         &String::from_str(&env, ""),
     );
+    client.validation_response(
+        &validator,
+        &hash2,
+        &60,
+        &String::from_str(&env, ""),
+        &test_hash(&env, 11),
+        &String::from_str(&env, ""),
+    );
+
+    let summary = client.get_summary(&0, &Vec::<Address>::new(&env), &String::from_str(&env, ""));
     assert_eq!(summary.count, 2);
     assert_eq!(summary.average_response, 70); // (80 + 60) / 2
 }
@@ -190,8 +202,11 @@ fn test_pagination() {
     for i in 0..3u8 {
         let hash = test_hash(&env, i + 1);
         client.validation_request(
-            &agent_owner, &validator, &0,
-            &String::from_str(&env, ""), &hash,
+            &agent_owner,
+            &validator,
+            &0,
+            &String::from_str(&env, ""),
+            &hash,
         );
     }
 

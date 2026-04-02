@@ -122,12 +122,7 @@ pub fn get_response_count(e: &Env, agent_id: u32, client: &Address, feedback_ind
         .unwrap_or(0)
 }
 
-pub fn increment_response_count(
-    e: &Env,
-    agent_id: u32,
-    client: &Address,
-    feedback_index: u64,
-) {
+pub fn increment_response_count(e: &Env, agent_id: u32, client: &Address, feedback_index: u64) {
     let count = get_response_count(e, agent_id, client, feedback_index);
     e.storage().persistent().set(
         &DataKey::ResponseCount(agent_id, client.clone(), feedback_index),

@@ -14,9 +14,7 @@ pub enum DataKey {
 }
 
 pub fn extend_instance_ttl(e: &Env) {
-    e.storage()
-        .instance()
-        .extend_ttl(TTL_THRESHOLD, TTL_BUMP);
+    e.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_BUMP);
 }
 
 pub fn extend_agent_ttl(e: &Env, agent_id: u32) {
@@ -43,15 +41,11 @@ pub fn set_agent_uri(e: &Env, agent_id: u32, uri: &String) {
 }
 
 pub fn get_agent_uri(e: &Env, agent_id: u32) -> Option<String> {
-    e.storage()
-        .persistent()
-        .get(&DataKey::AgentUri(agent_id))
+    e.storage().persistent().get(&DataKey::AgentUri(agent_id))
 }
 
 pub fn has_agent_uri(e: &Env, agent_id: u32) -> bool {
-    e.storage()
-        .persistent()
-        .has(&DataKey::AgentUri(agent_id))
+    e.storage().persistent().has(&DataKey::AgentUri(agent_id))
 }
 
 // --- Agent Metadata ---
