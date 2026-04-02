@@ -1,6 +1,8 @@
 use soroban_sdk::{
     contract, contractclient, contractimpl, Address, BytesN, Env, String, Vec,
 };
+use stellar_access::ownable::{self as ownable};
+use stellar_macros::only_owner;
 
 use crate::errors::ReputationError;
 use crate::events;
@@ -20,7 +22,8 @@ pub struct ReputationRegistryContract;
 
 #[contractimpl]
 impl ReputationRegistryContract {
-    pub fn __constructor(e: &Env, identity_registry: Address) {
+    pub fn __constructor(e: &Env, owner: Address, identity_registry: Address) {
+        ownable::set_owner(e, &owner);
         storage::set_identity_registry(e, &identity_registry);
     }
 
@@ -270,6 +273,13 @@ impl ReputationRegistryContract {
 
     pub fn extend_ttl(e: &Env) {
         storage::extend_instance_ttl(e);
+    }
+
+    // --- Admin ---
+
+    #[only_owner]
+    pub fn upgrade(e: &Env, new_wasm_hash: BytesN<32>) {
+        e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 
     pub fn version(e: &Env) -> String {

@@ -55,8 +55,9 @@ fn setup(e: &Env) -> (
     // Set agent 0 owner
     identity_client.set_owner(&0, &agent_owner);
 
-    // Deploy reputation registry pointing to mock identity
-    let rep_addr = e.register(ReputationRegistryContract, (identity_addr,));
+    // Deploy reputation registry with admin + identity reference
+    let admin = Address::generate(e);
+    let rep_addr = e.register(ReputationRegistryContract, (admin, identity_addr));
     let rep_client = ReputationRegistryContractClient::new(e, &rep_addr);
 
     (rep_client, identity_client, agent_owner, reviewer)

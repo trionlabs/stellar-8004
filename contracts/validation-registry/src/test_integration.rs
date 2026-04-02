@@ -18,7 +18,7 @@ fn setup(e: &Env) -> (
     let identity_addr = e.register(IdentityRegistryContract, (admin.clone(), name, symbol));
     let identity_client = IdentityRegistryContractClient::new(e, &identity_addr);
 
-    let val_addr = e.register(ValidationRegistryContract, (identity_addr,));
+    let val_addr = e.register(ValidationRegistryContract, (admin.clone(), identity_addr));
     let val_client = ValidationRegistryContractClient::new(e, &val_addr);
 
     (val_client, identity_client, admin)

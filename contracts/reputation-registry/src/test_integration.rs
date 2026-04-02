@@ -19,8 +19,8 @@ fn setup(e: &Env) -> (
     let identity_addr = e.register(IdentityRegistryContract, (admin.clone(), name, symbol));
     let identity_client = IdentityRegistryContractClient::new(e, &identity_addr);
 
-    // Deploy Reputation Registry with real Identity Registry
-    let rep_addr = e.register(ReputationRegistryContract, (identity_addr,));
+    // Deploy Reputation Registry with admin + real Identity Registry
+    let rep_addr = e.register(ReputationRegistryContract, (admin.clone(), identity_addr));
     let rep_client = ReputationRegistryContractClient::new(e, &rep_addr);
 
     (rep_client, identity_client, admin)

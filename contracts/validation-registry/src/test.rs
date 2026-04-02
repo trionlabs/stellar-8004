@@ -51,7 +51,8 @@ fn setup(e: &Env) -> (
     let identity_client = MockIdentityRegistryClient::new(e, &identity_addr);
     identity_client.set_owner(&0, &agent_owner);
 
-    let val_addr = e.register(ValidationRegistryContract, (identity_addr,));
+    let admin = Address::generate(e);
+    let val_addr = e.register(ValidationRegistryContract, (admin, identity_addr));
     let val_client = ValidationRegistryContractClient::new(e, &val_addr);
 
     (val_client, identity_client, agent_owner, validator)
