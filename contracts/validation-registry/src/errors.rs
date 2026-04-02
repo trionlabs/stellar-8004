@@ -8,4 +8,5 @@ pub enum ValidationError {
     AgentNotFound = 2,
     RequestNotFound = 3,
     InvalidResponse = 4,
+    RequestAlreadyExists = 5,
 }
