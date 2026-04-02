@@ -99,6 +99,10 @@ impl ValidationRegistryContract {
             return Err(ValidationError::NotDesignatedValidator);
         }
 
+        if status.has_response {
+            return Err(ValidationError::AlreadyResponded);
+        }
+
         status.response = response;
         status.response_hash = response_hash.clone();
         status.tag = tag.clone();

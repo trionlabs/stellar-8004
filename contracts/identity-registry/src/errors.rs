@@ -5,7 +5,5 @@ use soroban_sdk::contracterror;
 #[repr(u32)]
 pub enum IdentityError {
     NotOwnerOrApproved = 1,
-    AgentNotFound = 2,
-    WalletNotSet = 3,
-    UriNotSet = 4,
+    UriNotSet = 2,
 }

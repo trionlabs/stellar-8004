@@ -12,14 +12,6 @@ pub struct FeedbackData {
 
 #[contracttype]
 #[derive(Clone)]
-pub struct AggregateData {
-    pub count: u64,
-    pub sum_value: i128,
-    pub max_decimals: u32,
-}
-
-#[contracttype]
-#[derive(Clone)]
 pub struct SummaryResult {
     pub count: u64,
     pub summary_value: i128,
