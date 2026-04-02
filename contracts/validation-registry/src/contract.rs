@@ -31,16 +31,21 @@ impl ValidationRegistryContract {
     ) -> Result<(), ValidationError> {
         caller.require_auth();
 
-        // Only agent owner or approved can request validation
+        // Only agent owner, approved, or approved-for-all can request
         let identity_addr = storage::get_identity_registry(e);
         let identity = IdentityRegistryClient::new(e, &identity_addr);
         let owner = identity.owner_of(&agent_id);
         if caller != owner {
+            let mut authorized = false;
             if let Some(approved) = identity.get_approved(&agent_id) {
-                if caller != approved {
-                    return Err(ValidationError::NotOwnerOrApproved);
+                if caller == approved {
+                    authorized = true;
                 }
-            } else {
+            }
+            if !authorized && identity.is_approved_for_all(&owner, &caller) {
+                authorized = true;
+            }
+            if !authorized {
                 return Err(ValidationError::NotOwnerOrApproved);
             }
         }
@@ -86,6 +91,10 @@ impl ValidationRegistryContract {
 
         let mut status = storage::get_validation(e, &request_hash)
             .ok_or(ValidationError::RequestNotFound)?;
+
+        if caller != status.validator_address {
+            return Err(ValidationError::NotDesignatedValidator);
+        }
 
         status.response = response;
         status.response_hash = response_hash.clone();
@@ -182,6 +191,12 @@ impl ValidationRegistryContract {
         limit: u32,
     ) -> Vec<BytesN<32>> {
         storage::get_validator_requests_paginated(e, &validator_address, start, limit)
+    }
+
+    // --- TTL ---
+
+    pub fn extend_ttl(e: &Env) {
+        storage::extend_instance_ttl(e);
     }
 
     pub fn version(e: &Env) -> String {

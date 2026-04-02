@@ -9,4 +9,5 @@ pub enum ValidationError {
     RequestNotFound = 3,
     InvalidResponse = 4,
     RequestAlreadyExists = 5,
+    NotDesignatedValidator = 6,
 }
