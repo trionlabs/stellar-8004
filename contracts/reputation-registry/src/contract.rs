@@ -262,6 +262,10 @@ impl ReputationRegistryContract {
         storage::get_response_count(e, agent_id, &client_address, feedback_index)
     }
 
+    pub fn get_identity_registry(e: &Env) -> Address {
+        storage::get_identity_registry(e)
+    }
+
     // --- TTL ---
 
     pub fn extend_ttl(e: &Env) {

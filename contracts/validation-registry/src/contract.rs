@@ -196,6 +196,10 @@ impl ValidationRegistryContract {
         storage::get_validator_requests_paginated(e, &validator_address, start, limit)
     }
 
+    pub fn get_identity_registry(e: &Env) -> Address {
+        storage::get_identity_registry(e)
+    }
+
     // --- TTL ---
 
     pub fn extend_ttl(e: &Env) {
