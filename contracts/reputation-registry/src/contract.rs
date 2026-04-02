@@ -141,16 +141,21 @@ impl ReputationRegistryContract {
     ) -> Result<(), ReputationError> {
         caller.require_auth();
 
-        // Only agent owner or approved can respond
+        // Only agent owner, approved, or approved-for-all can respond
         let identity_addr = storage::get_identity_registry(e);
         let identity = IdentityRegistryClient::new(e, &identity_addr);
         let owner = identity.owner_of(&agent_id);
         if caller != owner {
+            let mut authorized = false;
             if let Some(approved) = identity.get_approved(&agent_id) {
-                if caller != approved {
-                    return Err(ReputationError::NotOwnerOrApproved);
+                if caller == approved {
+                    authorized = true;
                 }
-            } else {
+            }
+            if !authorized && identity.is_approved_for_all(&owner, &caller) {
+                authorized = true;
+            }
+            if !authorized {
                 return Err(ReputationError::NotOwnerOrApproved);
             }
         }

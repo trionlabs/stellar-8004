@@ -2,6 +2,13 @@ use soroban_sdk::{contracttype, Address, Env, Vec};
 
 use crate::types::{FeedbackData, SummaryResult};
 
+pub const TTL_THRESHOLD: u32 = 518_400;
+pub const TTL_BUMP: u32 = 1_036_800;
+
+pub fn extend_instance_ttl(e: &Env) {
+    e.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_BUMP);
+}
+
 #[contracttype]
 #[derive(Clone)]
 pub enum DataKey {

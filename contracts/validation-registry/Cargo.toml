@@ -14,3 +14,4 @@ erc8004-common = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
+identity-registry = { path = "../identity-registry" }
