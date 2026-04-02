@@ -1,11 +1,37 @@
 use soroban_sdk::{contracttype, Address, Bytes, Env, String};
 
+// ~30 days at 5s/ledger
+pub const TTL_THRESHOLD: u32 = 518_400;
+// ~60 days
+pub const TTL_BUMP: u32 = 1_036_800;
+
 #[contracttype]
 #[derive(Clone)]
 pub enum DataKey {
     AgentUri(u32),
     Metadata(u32, String),
     AgentWallet(u32),
+}
+
+pub fn extend_instance_ttl(e: &Env) {
+    e.storage()
+        .instance()
+        .extend_ttl(TTL_THRESHOLD, TTL_BUMP);
+}
+
+pub fn extend_agent_ttl(e: &Env, agent_id: u32) {
+    let key = DataKey::AgentUri(agent_id);
+    if e.storage().persistent().has(&key) {
+        e.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
+    }
+    let wallet_key = DataKey::AgentWallet(agent_id);
+    if e.storage().persistent().has(&wallet_key) {
+        e.storage()
+            .persistent()
+            .extend_ttl(&wallet_key, TTL_THRESHOLD, TTL_BUMP);
+    }
 }
 
 // --- Agent URI ---

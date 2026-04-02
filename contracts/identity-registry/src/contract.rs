@@ -157,6 +157,13 @@ impl IdentityRegistryContract {
         Ok(())
     }
 
+    // --- TTL ---
+
+    pub fn extend_ttl(e: &Env, agent_id: u32) {
+        storage::extend_instance_ttl(e);
+        storage::extend_agent_ttl(e, agent_id);
+    }
+
     // --- Admin ---
 
     #[only_owner]
