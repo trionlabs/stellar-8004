@@ -34,17 +34,17 @@ if (typeof window !== "undefined") {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CDOTQZMJZEWIEWMFQS3HIQBM4WIJANHSYQKMOWMJP6UL6EIZXXVNSD6Y",
+    contractId: "CA6GIV7QB4B3O5SBZZRL3E3XMFFECGRETSN4JXAYTFKF5HUTD4JY2SJQ",
   }
 } as const
 
 export const ValidationError = {
   1: {message:"NotOwnerOrApproved"},
-  2: {message:"AgentNotFound"},
-  3: {message:"RequestNotFound"},
-  4: {message:"InvalidResponse"},
-  5: {message:"RequestAlreadyExists"},
-  6: {message:"NotDesignatedValidator"}
+  2: {message:"RequestNotFound"},
+  3: {message:"InvalidResponse"},
+  4: {message:"RequestAlreadyExists"},
+  5: {message:"NotDesignatedValidator"},
+  6: {message:"AlreadyResponded"}
 }
 
 
@@ -98,6 +98,11 @@ export interface Client {
   get_validator_requests_paginated: ({validator_address, start, limit}: {validator_address: string, start: u32, limit: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Array<Buffer>>>
 
   /**
+   * Construct and simulate a get_identity_registry transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_identity_registry: (options?: MethodOptions) => Promise<AssembledTransaction<string>>
+
+  /**
    * Construct and simulate a extend_ttl transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   extend_ttl: (options?: MethodOptions) => Promise<AssembledTransaction<null>>
@@ -139,10 +144,11 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAALZ2V0X3N1bW1hcnkAAAAAAwAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAAAAABN2YWxpZGF0b3JfYWRkcmVzc2VzAAAAA+oAAAATAAAAAAAAAAN0YWcAAAAAEAAAAAEAAAfQAAAAEVZhbGlkYXRpb25TdW1tYXJ5AAAA",
         "AAAAAAAAAAAAAAAfZ2V0X2FnZW50X3ZhbGlkYXRpb25zX3BhZ2luYXRlZAAAAAADAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAAAAAAABXN0YXJ0AAAAAAAABAAAAAAAAAAFbGltaXQAAAAAAAAEAAAAAQAAA+oAAAPuAAAAIA==",
         "AAAAAAAAAAAAAAAgZ2V0X3ZhbGlkYXRvcl9yZXF1ZXN0c19wYWdpbmF0ZWQAAAADAAAAAAAAABF2YWxpZGF0b3JfYWRkcmVzcwAAAAAAABMAAAAAAAAABXN0YXJ0AAAAAAAABAAAAAAAAAAFbGltaXQAAAAAAAAEAAAAAQAAA+oAAAPuAAAAIA==",
+        "AAAAAAAAAAAAAAAVZ2V0X2lkZW50aXR5X3JlZ2lzdHJ5AAAAAAAAAAAAAAEAAAAT",
         "AAAAAAAAAAAAAAAKZXh0ZW5kX3R0bAAAAAAAAAAAAAA=",
         "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAA1uZXdfd2FzbV9oYXNoAAAAAAAD7gAAACAAAAAA",
         "AAAAAAAAAAAAAAAHdmVyc2lvbgAAAAAAAAAAAQAAABA=",
-        "AAAABAAAAAAAAAAAAAAAD1ZhbGlkYXRpb25FcnJvcgAAAAAGAAAAAAAAABJOb3RPd25lck9yQXBwcm92ZWQAAAAAAAEAAAAAAAAADUFnZW50Tm90Rm91bmQAAAAAAAACAAAAAAAAAA9SZXF1ZXN0Tm90Rm91bmQAAAAAAwAAAAAAAAAPSW52YWxpZFJlc3BvbnNlAAAAAAQAAAAAAAAAFFJlcXVlc3RBbHJlYWR5RXhpc3RzAAAABQAAAAAAAAAWTm90RGVzaWduYXRlZFZhbGlkYXRvcgAAAAAABg==",
+        "AAAABAAAAAAAAAAAAAAAD1ZhbGlkYXRpb25FcnJvcgAAAAAGAAAAAAAAABJOb3RPd25lck9yQXBwcm92ZWQAAAAAAAEAAAAAAAAAD1JlcXVlc3ROb3RGb3VuZAAAAAACAAAAAAAAAA9JbnZhbGlkUmVzcG9uc2UAAAAAAwAAAAAAAAAUUmVxdWVzdEFscmVhZHlFeGlzdHMAAAAEAAAAAAAAABZOb3REZXNpZ25hdGVkVmFsaWRhdG9yAAAAAAAFAAAAAAAAABBBbHJlYWR5UmVzcG9uZGVkAAAABg==",
         "AAAABQAAAAAAAAAAAAAAE1ZhbGlkYXRpb25SZXF1ZXN0ZWQAAAAAAQAAABR2YWxpZGF0aW9uX3JlcXVlc3RlZAAAAAQAAAAAAAAAEXZhbGlkYXRvcl9hZGRyZXNzAAAAAAAAEwAAAAEAAAAAAAAACGFnZW50X2lkAAAABAAAAAEAAAAAAAAADHJlcXVlc3RfaGFzaAAAA+4AAAAgAAAAAAAAAAAAAAALcmVxdWVzdF91cmkAAAAAEAAAAAAAAAAC",
         "AAAABQAAAAAAAAAAAAAAE1ZhbGlkYXRpb25SZXNwb25kZWQAAAAAAQAAABR2YWxpZGF0aW9uX3Jlc3BvbmRlZAAAAAcAAAAAAAAAEXZhbGlkYXRvcl9hZGRyZXNzAAAAAAAAEwAAAAEAAAAAAAAACGFnZW50X2lkAAAABAAAAAEAAAAAAAAADHJlcXVlc3RfaGFzaAAAA+4AAAAgAAAAAAAAAAAAAAAIcmVzcG9uc2UAAAAEAAAAAAAAAAAAAAAMcmVzcG9uc2VfdXJpAAAAEAAAAAAAAAAAAAAADXJlc3BvbnNlX2hhc2gAAAAAAAPuAAAAIAAAAAAAAAAAAAAAA3RhZwAAAAAQAAAAAAAAAAI=",
         "AAAAAQAAAAAAAAAAAAAAEFZhbGlkYXRpb25TdGF0dXMAAAAHAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAAAAAAADGhhc19yZXNwb25zZQAAAAEAAAAAAAAAC2xhc3RfdXBkYXRlAAAAAAYAAAAAAAAACHJlc3BvbnNlAAAABAAAAAAAAAANcmVzcG9uc2VfaGFzaAAAAAAAA+4AAAAgAAAAAAAAAAN0YWcAAAAAEAAAAAAAAAARdmFsaWRhdG9yX2FkZHJlc3MAAAAAAAAT",
@@ -157,6 +163,7 @@ export class Client extends ContractClient {
         get_summary: this.txFromJSON<ValidationSummary>,
         get_agent_validations_paginated: this.txFromJSON<Array<Buffer>>,
         get_validator_requests_paginated: this.txFromJSON<Array<Buffer>>,
+        get_identity_registry: this.txFromJSON<string>,
         extend_ttl: this.txFromJSON<null>,
         upgrade: this.txFromJSON<null>,
         version: this.txFromJSON<string>

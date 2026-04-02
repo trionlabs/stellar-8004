@@ -34,17 +34,15 @@ if (typeof window !== "undefined") {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CACIFRSDXQ5BQDWN6UNKH65IFA2ALRMLVQWRK33EXZYVYOS32TLUP5UG",
+    contractId: "CAOSF6L4UPTJSZD6KOJMGOOKUKXZNYRNPA2QBPZPTLGGK6XLGCW72YM4",
   }
 } as const
 
 export const ReputationError = {
   1: {message:"SelfFeedback"},
   2: {message:"FeedbackNotFound"},
-  3: {message:"NotFeedbackAuthor"},
-  4: {message:"InvalidValueDecimals"},
-  5: {message:"NotOwnerOrApproved"},
-  6: {message:"AgentNotFound"}
+  3: {message:"InvalidValueDecimals"},
+  4: {message:"NotOwnerOrApproved"}
 }
 
 
@@ -108,6 +106,11 @@ export interface Client {
   get_response_count: ({agent_id, client_address, feedback_index}: {agent_id: u32, client_address: string, feedback_index: u64}, options?: MethodOptions) => Promise<AssembledTransaction<u32>>
 
   /**
+   * Construct and simulate a get_identity_registry transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_identity_registry: (options?: MethodOptions) => Promise<AssembledTransaction<string>>
+
+  /**
    * Construct and simulate a extend_ttl transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   extend_ttl: (options?: MethodOptions) => Promise<AssembledTransaction<null>>
@@ -151,10 +154,11 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAAVZ2V0X2NsaWVudHNfcGFnaW5hdGVkAAAAAAAAAwAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAAAAAAVzdGFydAAAAAAAAAQAAAAAAAAABWxpbWl0AAAAAAAABAAAAAEAAAPqAAAAEw==",
         "AAAAAAAAAAAAAAAOZ2V0X2xhc3RfaW5kZXgAAAAAAAIAAAAAAAAACGFnZW50X2lkAAAABAAAAAAAAAAOY2xpZW50X2FkZHJlc3MAAAAAABMAAAABAAAABg==",
         "AAAAAAAAAAAAAAASZ2V0X3Jlc3BvbnNlX2NvdW50AAAAAAADAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAAAAAAADmNsaWVudF9hZGRyZXNzAAAAAAATAAAAAAAAAA5mZWVkYmFja19pbmRleAAAAAAABgAAAAEAAAAE",
+        "AAAAAAAAAAAAAAAVZ2V0X2lkZW50aXR5X3JlZ2lzdHJ5AAAAAAAAAAAAAAEAAAAT",
         "AAAAAAAAAAAAAAAKZXh0ZW5kX3R0bAAAAAAAAAAAAAA=",
         "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAA1uZXdfd2FzbV9oYXNoAAAAAAAD7gAAACAAAAAA",
         "AAAAAAAAAAAAAAAHdmVyc2lvbgAAAAAAAAAAAQAAABA=",
-        "AAAABAAAAAAAAAAAAAAAD1JlcHV0YXRpb25FcnJvcgAAAAAGAAAAAAAAAAxTZWxmRmVlZGJhY2sAAAABAAAAAAAAABBGZWVkYmFja05vdEZvdW5kAAAAAgAAAAAAAAARTm90RmVlZGJhY2tBdXRob3IAAAAAAAADAAAAAAAAABRJbnZhbGlkVmFsdWVEZWNpbWFscwAAAAQAAAAAAAAAEk5vdE93bmVyT3JBcHByb3ZlZAAAAAAABQAAAAAAAAANQWdlbnROb3RGb3VuZAAAAAAAAAY=",
+        "AAAABAAAAAAAAAAAAAAAD1JlcHV0YXRpb25FcnJvcgAAAAAEAAAAAAAAAAxTZWxmRmVlZGJhY2sAAAABAAAAAAAAABBGZWVkYmFja05vdEZvdW5kAAAAAgAAAAAAAAAUSW52YWxpZFZhbHVlRGVjaW1hbHMAAAADAAAAAAAAABJOb3RPd25lck9yQXBwcm92ZWQAAAAAAAQ=",
         "AAAABQAAAAAAAAAAAAAAC05ld0ZlZWRiYWNrAAAAAAEAAAAMbmV3X2ZlZWRiYWNrAAAACgAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAQAAAAAAAAAOY2xpZW50X2FkZHJlc3MAAAAAABMAAAABAAAAAAAAAA5mZWVkYmFja19pbmRleAAAAAAABgAAAAAAAAAAAAAABXZhbHVlAAAAAAAACwAAAAAAAAAAAAAADnZhbHVlX2RlY2ltYWxzAAAAAAAEAAAAAAAAAAAAAAAEdGFnMQAAABAAAAAAAAAAAAAAAAR0YWcyAAAAEAAAAAAAAAAAAAAACGVuZHBvaW50AAAAEAAAAAAAAAAAAAAADGZlZWRiYWNrX3VyaQAAABAAAAAAAAAAAAAAAA1mZWVkYmFja19oYXNoAAAAAAAD7gAAACAAAAAAAAAAAg==",
         "AAAABQAAAAAAAAAAAAAAD0ZlZWRiYWNrUmV2b2tlZAAAAAABAAAAEGZlZWRiYWNrX3Jldm9rZWQAAAADAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAABAAAAAAAAAA5jbGllbnRfYWRkcmVzcwAAAAAAEwAAAAEAAAAAAAAADmZlZWRiYWNrX2luZGV4AAAAAAAGAAAAAAAAAAI=",
         "AAAABQAAAAAAAAAAAAAAEFJlc3BvbnNlQXBwZW5kZWQAAAABAAAAEXJlc3BvbnNlX2FwcGVuZGVkAAAAAAAABgAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAQAAAAAAAAAOY2xpZW50X2FkZHJlc3MAAAAAABMAAAABAAAAAAAAAAlyZXNwb25kZXIAAAAAAAATAAAAAAAAAAAAAAAOZmVlZGJhY2tfaW5kZXgAAAAAAAYAAAAAAAAAAAAAAAxyZXNwb25zZV91cmkAAAAQAAAAAAAAAAAAAAANcmVzcG9uc2VfaGFzaAAAAAAAA+4AAAAgAAAAAAAAAAI=",
@@ -172,6 +176,7 @@ export class Client extends ContractClient {
         get_clients_paginated: this.txFromJSON<Array<string>>,
         get_last_index: this.txFromJSON<u64>,
         get_response_count: this.txFromJSON<u32>,
+        get_identity_registry: this.txFromJSON<string>,
         extend_ttl: this.txFromJSON<null>,
         upgrade: this.txFromJSON<null>,
         version: this.txFromJSON<string>
