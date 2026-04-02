@@ -86,7 +86,7 @@ pub fn get_agent_validations_paginated(
 ) -> Vec<BytesN<32>> {
     let count = get_agent_validation_count(e, agent_id);
     let mut result = Vec::new(e);
-    let end = core::cmp::min(start + limit, count);
+    let end = core::cmp::min(start.saturating_add(limit), count);
     for i in start..end {
         if let Some(hash) = get_agent_validation_at(e, agent_id, i) {
             result.push_back(hash);
@@ -124,7 +124,7 @@ pub fn get_validator_requests_paginated(
 ) -> Vec<BytesN<32>> {
     let count = get_validator_request_count(e, validator);
     let mut result = Vec::new(e);
-    let end = core::cmp::min(start + limit, count);
+    let end = core::cmp::min(start.saturating_add(limit), count);
     for i in start..end {
         if let Some(hash) = e
             .storage()
