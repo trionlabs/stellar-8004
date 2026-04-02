@@ -7,10 +7,10 @@ members = [
 
 [workspace.dependencies]
 soroban-sdk = "25"
-stellar-tokens = { git = "https://github.com/OpenZeppelin/stellar-contracts", branch = "main" }
-stellar-access = { git = "https://github.com/OpenZeppelin/stellar-contracts", branch = "main" }
-stellar-macros = { git = "https://github.com/OpenZeppelin/stellar-contracts", branch = "main" }
-stellar-contract-utils = { git = "https://github.com/OpenZeppelin/stellar-contracts", branch = "main" }
+stellar-tokens = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "9dd85c30" }
+stellar-access = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "9dd85c30" }
+stellar-macros = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "9dd85c30" }
+stellar-contract-utils = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "9dd85c30" }
 erc8004-common = { path = "packages/erc8004-common" }
 
 [profile.release]
