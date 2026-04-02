@@ -9,4 +9,5 @@ pub enum IdentityError {
     InvalidDeadline = 3,
     InvalidSignature = 4,
     WalletNotSet = 5,
+    UriNotSet = 6,
 }
