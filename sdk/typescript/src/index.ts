@@ -1,4 +1,4 @@
-import { Networks, rpc, xdr, scValToNative } from "@stellar/stellar-sdk";
+import { Networks, rpc, scValToNative } from "@stellar/stellar-sdk";
 
 export interface NetworkConfig {
   rpcUrl: string;
@@ -27,7 +27,8 @@ export interface FeedbackEntry {
   endpoint: string;
   feedbackUri: string;
   feedbackHash: string;
-  isRevoked: boolean;
+  ledger: number;
+  txHash: string;
 }
 
 export function agentIdentifier(
@@ -37,20 +38,32 @@ export function agentIdentifier(
   return `stellar:testnet:${config.identityRegistryId}#${agentId}`;
 }
 
+export interface ReadAllFeedbackOptions {
+  startLedger?: number;
+}
+
 export async function readAllFeedback(
   config: NetworkConfig,
   agentId: number,
+  options?: ReadAllFeedbackOptions,
 ): Promise<FeedbackEntry[]> {
   const server = new rpc.Server(config.rpcUrl);
   const entries: FeedbackEntry[] = [];
+
+  // Determine start ledger - use provided, or query the oldest available
+  let startLedger = options?.startLedger;
+  if (!startLedger) {
+    const latest = await server.getLatestLedger();
+    // RPC retains ~7 days of events. Use oldest available ledger.
+    // getLatestLedger returns the latest; we go back ~120k ledgers (~7 days at 5s)
+    startLedger = Math.max(1, latest.sequence - 120_000);
+  }
 
   let cursor: string | undefined;
   let hasMore = true;
 
   while (hasMore) {
-    const response = await server.getEvents({
-      startLedger: cursor ? undefined : 1,
-      cursor: cursor,
+    const params: rpc.Server.GetEventsRequest = {
       filters: [
         {
           type: "contract",
@@ -58,14 +71,41 @@ export async function readAllFeedback(
         },
       ],
       limit: 100,
-    });
+    };
+
+    if (cursor) {
+      params.cursor = cursor;
+    } else {
+      params.startLedger = startLedger;
+    }
+
+    const response = await server.getEvents(params);
 
     for (const event of response.events) {
       try {
-        const topicSym = scValToNative(event.topic[0]);
-        if (topicSym === "NewFeedback" || topicSym === "new_feedback") {
-          entries.push(parseNewFeedbackEvent(event, agentId));
-        }
+        const topicName = scValToNative(event.topic[0]);
+        if (topicName !== "new_feedback") continue;
+
+        const eventAgentId = Number(scValToNative(event.topic[1]));
+        if (eventAgentId !== agentId) continue;
+
+        const clientAddress = scValToNative(event.topic[2]) as string;
+        const data = scValToNative(event.value) as Record<string, unknown>;
+
+        entries.push({
+          agentId: eventAgentId,
+          clientAddress,
+          feedbackIndex: Number(data.feedback_index ?? 0),
+          value: BigInt(String(data.value ?? "0")),
+          valueDecimals: Number(data.value_decimals ?? 0),
+          tag1: String(data.tag1 ?? ""),
+          tag2: String(data.tag2 ?? ""),
+          endpoint: String(data.endpoint ?? ""),
+          feedbackUri: String(data.feedback_uri ?? ""),
+          feedbackHash: String(data.feedback_hash ?? ""),
+          ledger: event.ledger,
+          txHash: event.txHash,
+        });
       } catch {
         // Skip unparseable events
       }
@@ -79,29 +119,5 @@ export async function readAllFeedback(
     }
   }
 
-  return entries.filter((e) => e.agentId === agentId);
+  return entries;
 }
-
-function parseNewFeedbackEvent(event: rpc.Api.EventResponse, _agentId: number): FeedbackEntry {
-  // Topics: [event_name, agent_id, client_address]
-  // Value: struct with remaining fields
-  const agentId = Number(scValToNative(event.topic[1]));
-  const clientAddress = String(scValToNative(event.topic[2]));
-  const data = scValToNative(event.value) as Record<string, unknown>;
-
-  return {
-    agentId,
-    clientAddress,
-    feedbackIndex: Number(data.feedback_index ?? 0),
-    value: BigInt(data.value?.toString() ?? "0"),
-    valueDecimals: Number(data.value_decimals ?? 0),
-    tag1: String(data.tag1 ?? ""),
-    tag2: String(data.tag2 ?? ""),
-    endpoint: String(data.endpoint ?? ""),
-    feedbackUri: String(data.feedback_uri ?? ""),
-    feedbackHash: String(data.feedback_hash ?? ""),
-    isRevoked: false,
-  };
-}
-
-export { NetworkConfig as Config };
