@@ -19,6 +19,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           targets: wasm32v1-none
+          components: rustfmt
 
       - name: Cache cargo
         uses: actions/cache@v4
