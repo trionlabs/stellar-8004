@@ -116,22 +116,33 @@ fn test_set_metadata() {
 }
 
 #[test]
+fn test_set_agent_wallet() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let wallet = Address::generate(&env);
+
+    client.register(&user);
+    client.set_agent_wallet(&user, &0, &wallet);
+    assert_eq!(client.get_agent_wallet(&0), Some(wallet));
+}
+
+#[test]
 fn test_transfer_clears_wallet() {
     let env = Env::default();
     env.mock_all_auths();
     let (client, _) = create_client(&env);
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
+    let wallet = Address::generate(&env);
 
     client.register(&user1);
+    client.set_agent_wallet(&user1, &0, &wallet);
+    assert_eq!(client.get_agent_wallet(&0), Some(wallet.clone()));
 
-    // Manually set wallet in storage for test purposes
-    // Since set_agent_wallet requires signature, we test the transfer clearing
-    // by using unset_agent_wallet as a proxy to verify the flow works.
-    // The actual wallet clearing on transfer is tested via the transfer itself.
     client.transfer(&user1, &user2, &0);
     assert_eq!(client.owner_of(&0), user2);
-    // Wallet should have been cleared (returns None)
     assert_eq!(client.get_agent_wallet(&0), None);
 }
 

@@ -114,28 +114,10 @@ impl IdentityRegistryContract {
         caller: Address,
         agent_id: u32,
         new_wallet: Address,
-        deadline: u64,
-        signature: BytesN<64>,
-        public_key: BytesN<32>,
     ) -> Result<(), IdentityError> {
         caller.require_auth();
+        new_wallet.require_auth();
         Self::require_owner_or_approved(e, &caller, agent_id)?;
-
-        let current_ledger = e.ledger().sequence() as u64;
-        if deadline < current_ledger {
-            return Err(IdentityError::InvalidDeadline);
-        }
-
-        // Build message: sha256(agent_id || deadline)
-        // The new wallet proves ownership by signing this
-        let mut payload = Bytes::new(e);
-        payload.append(&Bytes::from_slice(e, &agent_id.to_be_bytes()));
-        payload.append(&Bytes::from_slice(e, &deadline.to_be_bytes()));
-        let hash = e.crypto().sha256(&payload);
-
-        e.crypto()
-            .ed25519_verify(&public_key, &hash.into(), &signature);
-
         storage::set_agent_wallet(e, agent_id, &new_wallet);
         events::wallet_set(e, agent_id, &new_wallet);
         Ok(())
