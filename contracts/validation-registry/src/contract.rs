@@ -92,8 +92,8 @@ impl ValidationRegistryContract {
             return Err(ValidationError::InvalidResponse);
         }
 
-        let mut status = storage::get_validation(e, &request_hash)
-            .ok_or(ValidationError::RequestNotFound)?;
+        let mut status =
+            storage::get_validation(e, &request_hash).ok_or(ValidationError::RequestNotFound)?;
 
         if caller != status.validator_address {
             return Err(ValidationError::NotDesignatedValidator);

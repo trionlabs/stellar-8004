@@ -1,6 +1,4 @@
-use soroban_sdk::{
-    contract, contractclient, contractimpl, Address, BytesN, Env, String, Vec,
-};
+use soroban_sdk::{contract, contractclient, contractimpl, Address, BytesN, Env, String, Vec};
 use stellar_access::ownable::{self as ownable};
 use stellar_macros::only_owner;
 
@@ -247,12 +245,7 @@ impl ReputationRegistryContract {
         }
     }
 
-    pub fn get_clients_paginated(
-        e: &Env,
-        agent_id: u32,
-        start: u32,
-        limit: u32,
-    ) -> Vec<Address> {
+    pub fn get_clients_paginated(e: &Env, agent_id: u32, start: u32, limit: u32) -> Vec<Address> {
         storage::get_clients_paginated(e, agent_id, start, limit)
     }
 

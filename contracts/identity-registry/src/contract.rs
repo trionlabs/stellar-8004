@@ -1,9 +1,7 @@
 use soroban_sdk::{contract, contractimpl, Address, Bytes, BytesN, Env, String, Vec};
 use stellar_access::ownable::{self as ownable};
 use stellar_macros::only_owner;
-use stellar_tokens::non_fungible::{
-    Base, ContractOverrides, NonFungibleToken,
-};
+use stellar_tokens::non_fungible::{Base, ContractOverrides, NonFungibleToken};
 
 use crate::errors::IdentityError;
 use crate::events;

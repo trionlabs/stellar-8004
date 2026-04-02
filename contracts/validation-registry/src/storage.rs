@@ -110,9 +110,10 @@ pub fn add_validator_request(e: &Env, validator: &Address, request_hash: &BytesN
         &DataKey::ValidatorRequestAt(validator.clone(), count),
         request_hash,
     );
-    e.storage()
-        .persistent()
-        .set(&DataKey::ValidatorRequestCount(validator.clone()), &(count + 1));
+    e.storage().persistent().set(
+        &DataKey::ValidatorRequestCount(validator.clone()),
+        &(count + 1),
+    );
 }
 
 pub fn get_validator_requests_paginated(
