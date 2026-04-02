@@ -1,10 +1,10 @@
 #![no_std]
 
-mod contract;
-mod errors;
-mod events;
-mod storage;
-mod types;
+pub mod contract;
+pub mod errors;
+pub mod events;
+pub mod storage;
+pub mod types;
 
 #[cfg(test)]
 mod test;
