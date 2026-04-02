@@ -42,7 +42,7 @@ impl ReputationRegistryContract {
             return Err(ReputationError::InvalidValueDecimals);
         }
 
-        // Prevent self-feedback: caller must not be agent owner or approved
+        // Prevent self-feedback: caller must not be owner, approved, or operator
         let identity_addr = storage::get_identity_registry(e);
         let identity = IdentityRegistryClient::new(e, &identity_addr);
         let owner = identity.owner_of(&agent_id);
@@ -53,6 +53,9 @@ impl ReputationRegistryContract {
             if caller == approved {
                 return Err(ReputationError::SelfFeedback);
             }
+        }
+        if identity.is_approved_for_all(&owner, &caller) {
+            return Err(ReputationError::SelfFeedback);
         }
 
         // Track client
@@ -261,6 +264,12 @@ impl ReputationRegistryContract {
         feedback_index: u64,
     ) -> u32 {
         storage::get_response_count(e, agent_id, &client_address, feedback_index)
+    }
+
+    // --- TTL ---
+
+    pub fn extend_ttl(e: &Env) {
+        storage::extend_instance_ttl(e);
     }
 
     pub fn version(e: &Env) -> String {
