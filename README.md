@@ -6,6 +6,14 @@ The 8004 standard enables agent discovery, portable identity, and verifiable rep
 
 Note: The Identity and Reputation registries are stable and deployed across EVM chains. The Validation Registry is still under active community discussion and not yet deployed in the ecosystem. Our implementation follows the current draft spec and may need updates when the design is finalized.
 
+## Deployed Contracts (Testnet)
+
+| Contract | Address |
+|----------|---------|
+| Identity Registry | [`CAYPUQB3XGXJ76N4H32TUQE2FHJ65BZN62Q2JVMC6U5NWJBUYHNDGALT`](https://stellar.expert/explorer/testnet/contract/CAYPUQB3XGXJ76N4H32TUQE2FHJ65BZN62Q2JVMC6U5NWJBUYHNDGALT) |
+| Reputation Registry | [`CACIFRSDXQ5BQDWN6UNKH65IFA2ALRMLVQWRK33EXZYVYOS32TLUP5UG`](https://stellar.expert/explorer/testnet/contract/CACIFRSDXQ5BQDWN6UNKH65IFA2ALRMLVQWRK33EXZYVYOS32TLUP5UG) |
+| Validation Registry | [`CDOTQZMJZEWIEWMFQS3HIQBM4WIJANHSYQKMOWMJP6UL6EIZXXVNSD6Y`](https://stellar.expert/explorer/testnet/contract/CDOTQZMJZEWIEWMFQS3HIQBM4WIJANHSYQKMOWMJP6UL6EIZXXVNSD6Y) |
+
 ## Architecture
 
 Three independent Soroban contracts in a Cargo workspace:
@@ -80,16 +88,6 @@ stellar contract deploy \
   --source-account deployer --network testnet \
   -- --owner $DEPLOYER --identity_registry <IDENTITY_CONTRACT_ID>
 ```
-
-## Testnet Deployment
-
-Deployer: `GCOKXW3XCYYFD7ZXLT75LJPIES5SQGVMLWXKQQHGT2CE2KTSYWRBBWQU`
-
-| Contract | Address |
-|----------|---------|
-| Identity Registry | `CAYPUQB3XGXJ76N4H32TUQE2FHJ65BZN62Q2JVMC6U5NWJBUYHNDGALT` |
-| Reputation Registry | `CACIFRSDXQ5BQDWN6UNKH65IFA2ALRMLVQWRK33EXZYVYOS32TLUP5UG` |
-| Validation Registry | `CDOTQZMJZEWIEWMFQS3HIQBM4WIJANHSYQKMOWMJP6UL6EIZXXVNSD6Y` |
 
 Run the full E2E test against testnet: `bash scripts/e2e-testnet.sh`
 
