@@ -34,7 +34,7 @@ if (typeof window !== "undefined") {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CDQS2PI54MHDBHDOVAVV4HHKVQ5L3OZULEK7NVTWNOLALWC5RLF7B4ZF",
+    contractId: "CACIFRSDXQ5BQDWN6UNKH65IFA2ALRMLVQWRK33EXZYVYOS32TLUP5UG",
   }
 } as const
 
@@ -50,8 +50,6 @@ export const ReputationError = {
 
 
 
-export type DataKey = {tag: "IdentityRegistry", values: void} | {tag: "Feedback", values: readonly [u32, string, u64]} | {tag: "LastIndex", values: readonly [u32, string]} | {tag: "ClientCount", values: readonly [u32]} | {tag: "ClientAtIndex", values: readonly [u32, u32]} | {tag: "ClientExists", values: readonly [u32, string]} | {tag: "ResponseCount", values: readonly [u32, string, u64]} | {tag: "AgentAggregate", values: readonly [u32]} | {tag: "AgentTagAggregate", values: readonly [u32, string, string]};
-
 
 export interface FeedbackData {
   is_revoked: boolean;
@@ -59,13 +57,6 @@ export interface FeedbackData {
   tag2: string;
   value: i128;
   value_decimals: u32;
-}
-
-
-export interface AggregateData {
-  count: u64;
-  max_decimals: u32;
-  sum_value: i128;
 }
 
 
@@ -117,6 +108,16 @@ export interface Client {
   get_response_count: ({agent_id, client_address, feedback_index}: {agent_id: u32, client_address: string, feedback_index: u64}, options?: MethodOptions) => Promise<AssembledTransaction<u32>>
 
   /**
+   * Construct and simulate a extend_ttl transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  extend_ttl: (options?: MethodOptions) => Promise<AssembledTransaction<null>>
+
+  /**
+   * Construct and simulate a upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<null>>
+
+  /**
    * Construct and simulate a version transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   version: (options?: MethodOptions) => Promise<AssembledTransaction<string>>
@@ -125,7 +126,7 @@ export interface Client {
 export class Client extends ContractClient {
   static async deploy<T = Client>(
         /** Constructor/Initialization Args for the contract's `__constructor` method */
-        {identity_registry}: {identity_registry: string},
+        {owner, identity_registry}: {owner: string, identity_registry: string},
     /** Options for initializing a Client as well as for calling a method, with extras specific to deploying. */
     options: MethodOptions &
       Omit<ContractClientOptions, "contractId"> & {
@@ -137,11 +138,11 @@ export class Client extends ContractClient {
         format?: "hex" | "base64";
       }
   ): Promise<AssembledTransaction<T>> {
-    return ContractClient.deploy({identity_registry}, options)
+    return ContractClient.deploy({owner, identity_registry}, options)
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAEAAAAAAAAAEWlkZW50aXR5X3JlZ2lzdHJ5AAAAAAAAEwAAAAA=",
+      new ContractSpec([ "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAIAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAARaWRlbnRpdHlfcmVnaXN0cnkAAAAAAAATAAAAAA==",
         "AAAAAAAAAAAAAAANZ2l2ZV9mZWVkYmFjawAAAAAAAAkAAAAAAAAABmNhbGxlcgAAAAAAEwAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAAAAAAV2YWx1ZQAAAAAAAAsAAAAAAAAADnZhbHVlX2RlY2ltYWxzAAAAAAAEAAAAAAAAAAR0YWcxAAAAEAAAAAAAAAAEdGFnMgAAABAAAAAAAAAACGVuZHBvaW50AAAAEAAAAAAAAAAMZmVlZGJhY2tfdXJpAAAAEAAAAAAAAAANZmVlZGJhY2tfaGFzaAAAAAAAA+4AAAAgAAAAAQAAA+kAAAACAAAH0AAAAA9SZXB1dGF0aW9uRXJyb3IA",
         "AAAAAAAAAAAAAAAPcmV2b2tlX2ZlZWRiYWNrAAAAAAMAAAAAAAAABmNhbGxlcgAAAAAAEwAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAAAAAA5mZWVkYmFja19pbmRleAAAAAAABgAAAAEAAAPpAAAAAgAAB9AAAAAPUmVwdXRhdGlvbkVycm9yAA==",
         "AAAAAAAAAAAAAAAPYXBwZW5kX3Jlc3BvbnNlAAAAAAYAAAAAAAAABmNhbGxlcgAAAAAAEwAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAAAAAA5jbGllbnRfYWRkcmVzcwAAAAAAEwAAAAAAAAAOZmVlZGJhY2tfaW5kZXgAAAAAAAYAAAAAAAAADHJlc3BvbnNlX3VyaQAAABAAAAAAAAAADXJlc3BvbnNlX2hhc2gAAAAAAAPuAAAAIAAAAAEAAAPpAAAAAgAAB9AAAAAPUmVwdXRhdGlvbkVycm9yAA==",
@@ -150,14 +151,14 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAAVZ2V0X2NsaWVudHNfcGFnaW5hdGVkAAAAAAAAAwAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAAAAAAVzdGFydAAAAAAAAAQAAAAAAAAABWxpbWl0AAAAAAAABAAAAAEAAAPqAAAAEw==",
         "AAAAAAAAAAAAAAAOZ2V0X2xhc3RfaW5kZXgAAAAAAAIAAAAAAAAACGFnZW50X2lkAAAABAAAAAAAAAAOY2xpZW50X2FkZHJlc3MAAAAAABMAAAABAAAABg==",
         "AAAAAAAAAAAAAAASZ2V0X3Jlc3BvbnNlX2NvdW50AAAAAAADAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAAAAAAADmNsaWVudF9hZGRyZXNzAAAAAAATAAAAAAAAAA5mZWVkYmFja19pbmRleAAAAAAABgAAAAEAAAAE",
+        "AAAAAAAAAAAAAAAKZXh0ZW5kX3R0bAAAAAAAAAAAAAA=",
+        "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAA1uZXdfd2FzbV9oYXNoAAAAAAAD7gAAACAAAAAA",
         "AAAAAAAAAAAAAAAHdmVyc2lvbgAAAAAAAAAAAQAAABA=",
         "AAAABAAAAAAAAAAAAAAAD1JlcHV0YXRpb25FcnJvcgAAAAAGAAAAAAAAAAxTZWxmRmVlZGJhY2sAAAABAAAAAAAAABBGZWVkYmFja05vdEZvdW5kAAAAAgAAAAAAAAARTm90RmVlZGJhY2tBdXRob3IAAAAAAAADAAAAAAAAABRJbnZhbGlkVmFsdWVEZWNpbWFscwAAAAQAAAAAAAAAEk5vdE93bmVyT3JBcHByb3ZlZAAAAAAABQAAAAAAAAANQWdlbnROb3RGb3VuZAAAAAAAAAY=",
         "AAAABQAAAAAAAAAAAAAAC05ld0ZlZWRiYWNrAAAAAAEAAAAMbmV3X2ZlZWRiYWNrAAAACgAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAQAAAAAAAAAOY2xpZW50X2FkZHJlc3MAAAAAABMAAAABAAAAAAAAAA5mZWVkYmFja19pbmRleAAAAAAABgAAAAAAAAAAAAAABXZhbHVlAAAAAAAACwAAAAAAAAAAAAAADnZhbHVlX2RlY2ltYWxzAAAAAAAEAAAAAAAAAAAAAAAEdGFnMQAAABAAAAAAAAAAAAAAAAR0YWcyAAAAEAAAAAAAAAAAAAAACGVuZHBvaW50AAAAEAAAAAAAAAAAAAAADGZlZWRiYWNrX3VyaQAAABAAAAAAAAAAAAAAAA1mZWVkYmFja19oYXNoAAAAAAAD7gAAACAAAAAAAAAAAg==",
         "AAAABQAAAAAAAAAAAAAAD0ZlZWRiYWNrUmV2b2tlZAAAAAABAAAAEGZlZWRiYWNrX3Jldm9rZWQAAAADAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAABAAAAAAAAAA5jbGllbnRfYWRkcmVzcwAAAAAAEwAAAAEAAAAAAAAADmZlZWRiYWNrX2luZGV4AAAAAAAGAAAAAAAAAAI=",
         "AAAABQAAAAAAAAAAAAAAEFJlc3BvbnNlQXBwZW5kZWQAAAABAAAAEXJlc3BvbnNlX2FwcGVuZGVkAAAAAAAABgAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAQAAAAAAAAAOY2xpZW50X2FkZHJlc3MAAAAAABMAAAABAAAAAAAAAAlyZXNwb25kZXIAAAAAAAATAAAAAAAAAAAAAAAOZmVlZGJhY2tfaW5kZXgAAAAAAAYAAAAAAAAAAAAAAAxyZXNwb25zZV91cmkAAAAQAAAAAAAAAAAAAAANcmVzcG9uc2VfaGFzaAAAAAAAA+4AAAAgAAAAAAAAAAI=",
-        "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAACQAAAAAAAAAAAAAAEElkZW50aXR5UmVnaXN0cnkAAAABAAAAAAAAAAhGZWVkYmFjawAAAAMAAAAEAAAAEwAAAAYAAAABAAAAAAAAAAlMYXN0SW5kZXgAAAAAAAACAAAABAAAABMAAAABAAAAAAAAAAtDbGllbnRDb3VudAAAAAABAAAABAAAAAEAAAAAAAAADUNsaWVudEF0SW5kZXgAAAAAAAACAAAABAAAAAQAAAABAAAAAAAAAAxDbGllbnRFeGlzdHMAAAACAAAABAAAABMAAAABAAAAAAAAAA1SZXNwb25zZUNvdW50AAAAAAAAAwAAAAQAAAATAAAABgAAAAEAAAAAAAAADkFnZW50QWdncmVnYXRlAAAAAAABAAAABAAAAAEAAAAAAAAAEUFnZW50VGFnQWdncmVnYXRlAAAAAAAAAwAAAAQAAAAQAAAAEA==",
         "AAAAAQAAAAAAAAAAAAAADEZlZWRiYWNrRGF0YQAAAAUAAAAAAAAACmlzX3Jldm9rZWQAAAAAAAEAAAAAAAAABHRhZzEAAAAQAAAAAAAAAAR0YWcyAAAAEAAAAAAAAAAFdmFsdWUAAAAAAAALAAAAAAAAAA52YWx1ZV9kZWNpbWFscwAAAAAABA==",
-        "AAAAAQAAAAAAAAAAAAAADUFnZ3JlZ2F0ZURhdGEAAAAAAAADAAAAAAAAAAVjb3VudAAAAAAAAAYAAAAAAAAADG1heF9kZWNpbWFscwAAAAQAAAAAAAAACXN1bV92YWx1ZQAAAAAAAAs=",
         "AAAAAQAAAAAAAAAAAAAADVN1bW1hcnlSZXN1bHQAAAAAAAADAAAAAAAAAAVjb3VudAAAAAAAAAYAAAAAAAAADXN1bW1hcnlfdmFsdWUAAAAAAAALAAAAAAAAABZzdW1tYXJ5X3ZhbHVlX2RlY2ltYWxzAAAAAAAE" ]),
       options
     )
@@ -171,6 +172,8 @@ export class Client extends ContractClient {
         get_clients_paginated: this.txFromJSON<Array<string>>,
         get_last_index: this.txFromJSON<u64>,
         get_response_count: this.txFromJSON<u32>,
+        extend_ttl: this.txFromJSON<null>,
+        upgrade: this.txFromJSON<null>,
         version: this.txFromJSON<string>
   }
 }
