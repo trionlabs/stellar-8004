@@ -23,8 +23,6 @@ contracts/
   identity-registry/    - Agent registration as NFTs (OZ NonFungibleToken)
   reputation-registry/  - Feedback storage with running aggregates
   validation-registry/  - Third-party attestation requests/responses
-packages/
-  erc8004-common/       - Shared types and constants
 sdk/
   typescript/           - Auto-generated bindings + high-level wrapper
 ```

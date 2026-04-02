@@ -88,7 +88,7 @@ impl ValidationRegistryContract {
     ) -> Result<(), ValidationError> {
         caller.require_auth();
 
-        if response > erc8004_common::MAX_VALIDATION_RESPONSE {
+        if response > 100 {
             return Err(ValidationError::InvalidResponse);
         }
 
