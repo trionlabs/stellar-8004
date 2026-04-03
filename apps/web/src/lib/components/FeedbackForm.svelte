@@ -66,6 +66,7 @@
 			<div class="flex flex-col gap-3 md:flex-row">
 				<select
 					bind:value={tag1}
+					aria-label="Feedback category"
 					class="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-300"
 				>
 					<option value="starred">Starred</option>
@@ -78,6 +79,7 @@
 				<input
 					type="text"
 					bind:value={tag2}
+					aria-label="Secondary tag"
 					placeholder="Tag 2 (optional)"
 					maxlength="64"
 					class="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-300 placeholder:text-gray-600"
@@ -87,6 +89,7 @@
 			<input
 				type="text"
 				bind:value={endpoint}
+				aria-label="Endpoint tested"
 				placeholder="Endpoint tested (optional)"
 				maxlength="128"
 				class="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-300 placeholder:text-gray-600"
