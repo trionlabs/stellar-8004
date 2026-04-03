@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { wallet } from '$lib/wallet.svelte.js';
+	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress } from '$lib/formatters.js';
 	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
 	import ValidationForm from '$lib/components/ValidationForm.svelte';
 	import type { PageData } from './$types';
@@ -16,32 +17,9 @@
 
 	let activeTab = $state<TabId>('reputation');
 
-	const scoreFormatter = new Intl.NumberFormat('en-US', {
-		minimumFractionDigits: 0,
-		maximumFractionDigits: 2
-	});
-	const dateFormatter = new Intl.DateTimeFormat('en-US', {
-		month: 'short',
-		day: 'numeric',
-		year: 'numeric',
-		timeZone: 'UTC'
-	});
-	const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
-		month: 'short',
-		day: 'numeric',
-		year: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-		timeZone: 'UTC'
-	});
-
 	const isOwner = $derived.by(
 		() => wallet.address?.toUpperCase() === data.agent.owner.toUpperCase()
 	);
-
-	function shortAddress(value: string): string {
-		return `${value.slice(0, 6)}...${value.slice(-4)}`;
-	}
 </script>
 
 <svelte:head>
