@@ -18,19 +18,26 @@ CREATE OR REPLACE FUNCTION search_agents(
   result_offset integer DEFAULT 0
 )
 RETURNS SETOF agents
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
+SET search_path = ''
 AS $$
-  SELECT *
-  FROM agents
-  WHERE
-    search_query = '' OR
-    search_vector @@ plainto_tsquery('english', search_query)
-  ORDER BY
-    CASE WHEN search_query = '' THEN NULL
-         ELSE ts_rank(search_vector, plainto_tsquery('english', search_query))
-    END DESC NULLS LAST,
-    created_at DESC
-  LIMIT result_limit
-  OFFSET result_offset;
+BEGIN
+  IF search_query = '' OR search_query IS NULL THEN
+    RETURN QUERY
+      SELECT *
+      FROM public.agents
+      ORDER BY created_at DESC
+      LIMIT result_limit
+      OFFSET result_offset;
+  ELSE
+    RETURN QUERY
+      SELECT *
+      FROM public.agents
+      WHERE search_vector @@ plainto_tsquery('english', search_query)
+      ORDER BY ts_rank(search_vector, plainto_tsquery('english', search_query)) DESC
+      LIMIT result_limit
+      OFFSET result_offset;
+  END IF;
+END;
 $$;

@@ -1,299 +1,503 @@
-// Mirrors the current public schema. Regenerate with `pnpm db:generate-types`
-// once local Supabase is available.
 export type Json =
   | string
   | number
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
-      agents: {
-        Row: {
-          agent_uri: string | null;
-          agent_uri_data: Json | null;
-          created_at: string;
-          created_ledger: number | null;
-          id: number;
-          owner: string;
-          search_vector: unknown | null;
-          tx_hash: string | null;
-          updated_at: string;
-          wallet: string | null;
-        };
-        Insert: {
-          agent_uri?: string | null;
-          agent_uri_data?: Json | null;
-          created_at?: string;
-          created_ledger?: number | null;
-          id: number;
-          owner: string;
-          search_vector?: never;
-          tx_hash?: string | null;
-          updated_at?: string;
-          wallet?: string | null;
-        };
-        Update: {
-          agent_uri?: string | null;
-          agent_uri_data?: Json | null;
-          created_at?: string;
-          created_ledger?: number | null;
-          id?: number;
-          owner?: string;
-          search_vector?: never;
-          tx_hash?: string | null;
-          updated_at?: string;
-          wallet?: string | null;
-        };
-        Relationships: [];
-      };
       agent_metadata: {
         Row: {
-          agent_id: number;
-          key: string;
-          value: string | null;
-        };
+          agent_id: number
+          key: string
+          value: string | null
+        }
         Insert: {
-          agent_id: number;
-          key: string;
-          value?: string | null;
-        };
+          agent_id: number
+          key: string
+          value?: string | null
+        }
         Update: {
-          agent_id?: number;
-          key?: string;
-          value?: string | null;
-        };
+          agent_id?: number
+          key?: string
+          value?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "agent_metadata_agent_id_fkey";
-            columns: ["agent_id"];
-            isOneToOne: false;
-            referencedRelation: "agents";
-            referencedColumns: ["id"];
+            foreignKeyName: "agent_metadata_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+          {
+            foreignKeyName: "agent_metadata_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_scores"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      agents: {
+        Row: {
+          agent_uri: string | null
+          agent_uri_data: Json | null
+          created_at: string
+          created_ledger: number | null
+          id: number
+          owner: string
+          search_vector: unknown
+          tx_hash: string | null
+          updated_at: string
+          wallet: string | null
+        }
+        Insert: {
+          agent_uri?: string | null
+          agent_uri_data?: Json | null
+          created_at?: string
+          created_ledger?: number | null
+          id: number
+          owner: string
+          search_vector?: unknown
+          tx_hash?: string | null
+          updated_at?: string
+          wallet?: string | null
+        }
+        Update: {
+          agent_uri?: string | null
+          agent_uri_data?: Json | null
+          created_at?: string
+          created_ledger?: number | null
+          id?: number
+          owner?: string
+          search_vector?: unknown
+          tx_hash?: string | null
+          updated_at?: string
+          wallet?: string | null
+        }
+        Relationships: []
+      }
       feedback: {
         Row: {
-          agent_id: number;
-          client_address: string;
-          created_at: string;
-          created_ledger: number | null;
-          endpoint: string | null;
-          feedback_hash: string | null;
-          feedback_index: number;
-          feedback_uri: string | null;
-          id: number;
-          is_revoked: boolean;
-          tag1: string | null;
-          tag2: string | null;
-          tx_hash: string | null;
-          value: number;
-          value_decimals: number;
-        };
+          agent_id: number
+          client_address: string
+          created_at: string
+          created_ledger: number | null
+          endpoint: string | null
+          feedback_hash: string | null
+          feedback_index: number
+          feedback_uri: string | null
+          id: number
+          is_revoked: boolean
+          tag1: string | null
+          tag2: string | null
+          tx_hash: string | null
+          value: number
+          value_decimals: number
+        }
         Insert: {
-          agent_id: number;
-          client_address: string;
-          created_at?: string;
-          created_ledger?: number | null;
-          endpoint?: string | null;
-          feedback_hash?: string | null;
-          feedback_index: number;
-          feedback_uri?: string | null;
-          id?: number;
-          is_revoked?: boolean;
-          tag1?: string | null;
-          tag2?: string | null;
-          tx_hash?: string | null;
-          value: number;
-          value_decimals?: number;
-        };
+          agent_id: number
+          client_address: string
+          created_at?: string
+          created_ledger?: number | null
+          endpoint?: string | null
+          feedback_hash?: string | null
+          feedback_index: number
+          feedback_uri?: string | null
+          id?: never
+          is_revoked?: boolean
+          tag1?: string | null
+          tag2?: string | null
+          tx_hash?: string | null
+          value: number
+          value_decimals?: number
+        }
         Update: {
-          agent_id?: number;
-          client_address?: string;
-          created_at?: string;
-          created_ledger?: number | null;
-          endpoint?: string | null;
-          feedback_hash?: string | null;
-          feedback_index?: number;
-          feedback_uri?: string | null;
-          id?: number;
-          is_revoked?: boolean;
-          tag1?: string | null;
-          tag2?: string | null;
-          tx_hash?: string | null;
-          value?: number;
-          value_decimals?: number;
-        };
+          agent_id?: number
+          client_address?: string
+          created_at?: string
+          created_ledger?: number | null
+          endpoint?: string | null
+          feedback_hash?: string | null
+          feedback_index?: number
+          feedback_uri?: string | null
+          id?: never
+          is_revoked?: boolean
+          tag1?: string | null
+          tag2?: string | null
+          tx_hash?: string | null
+          value?: number
+          value_decimals?: number
+        }
         Relationships: [
           {
-            foreignKeyName: "feedback_agent_id_fkey";
-            columns: ["agent_id"];
-            isOneToOne: false;
-            referencedRelation: "agents";
-            referencedColumns: ["id"];
+            foreignKeyName: "feedback_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+          {
+            foreignKeyName: "feedback_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_scores"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       feedback_responses: {
         Row: {
-          agent_id: number;
-          client_address: string;
-          created_at: string;
-          feedback_index: number;
-          id: number;
-          responder: string;
-          response_hash: string | null;
-          response_index: number;
-          response_uri: string | null;
-          tx_hash: string | null;
-        };
+          agent_id: number
+          client_address: string
+          created_at: string
+          feedback_index: number
+          id: number
+          responder: string
+          response_hash: string | null
+          response_index: number
+          response_uri: string | null
+          tx_hash: string | null
+        }
         Insert: {
-          agent_id: number;
-          client_address: string;
-          created_at?: string;
-          feedback_index: number;
-          id?: number;
-          responder: string;
-          response_hash?: string | null;
-          response_index: number;
-          response_uri?: string | null;
-          tx_hash?: string | null;
-        };
+          agent_id: number
+          client_address: string
+          created_at?: string
+          feedback_index: number
+          id?: never
+          responder: string
+          response_hash?: string | null
+          response_index: number
+          response_uri?: string | null
+          tx_hash?: string | null
+        }
         Update: {
-          agent_id?: number;
-          client_address?: string;
-          created_at?: string;
-          feedback_index?: number;
-          id?: number;
-          responder?: string;
-          response_hash?: string | null;
-          response_index?: number;
-          response_uri?: string | null;
-          tx_hash?: string | null;
-        };
+          agent_id?: number
+          client_address?: string
+          created_at?: string
+          feedback_index?: number
+          id?: never
+          responder?: string
+          response_hash?: string | null
+          response_index?: number
+          response_uri?: string | null
+          tx_hash?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "feedback_responses_agent_id_fkey";
-            columns: ["agent_id"];
-            isOneToOne: false;
-            referencedRelation: "agents";
-            referencedColumns: ["id"];
+            foreignKeyName: "feedback_responses_agent_id_client_address_feedback_index_fkey"
+            columns: ["agent_id", "client_address", "feedback_index"]
+            isOneToOne: false
+            referencedRelation: "feedback"
+            referencedColumns: ["agent_id", "client_address", "feedback_index"]
           },
-        ];
-      };
+          {
+            foreignKeyName: "feedback_responses_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_responses_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_scores"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       indexer_state: {
         Row: {
-          id: string;
-          last_cursor: string | null;
-          last_ledger: number;
-          updated_at: string;
-        };
+          id: string
+          last_cursor: string | null
+          last_ledger: number
+          updated_at: string
+        }
         Insert: {
-          id: string;
-          last_cursor?: string | null;
-          last_ledger?: number;
-          updated_at?: string;
-        };
+          id: string
+          last_cursor?: string | null
+          last_ledger?: number
+          updated_at?: string
+        }
         Update: {
-          id?: string;
-          last_cursor?: string | null;
-          last_ledger?: number;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
+          id?: string
+          last_cursor?: string | null
+          last_ledger?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       validations: {
         Row: {
-          agent_id: number;
-          created_at: string;
-          has_response: boolean;
-          request_hash: string;
-          request_tx_hash: string | null;
-          request_uri: string | null;
-          responded_at: string | null;
-          response: number | null;
-          response_hash: string | null;
-          response_tx_hash: string | null;
-          response_uri: string | null;
-          tag: string | null;
-          validator_address: string;
-        };
+          agent_id: number
+          created_at: string
+          has_response: boolean
+          request_hash: string
+          request_tx_hash: string | null
+          request_uri: string | null
+          responded_at: string | null
+          response: number | null
+          response_hash: string | null
+          response_tx_hash: string | null
+          response_uri: string | null
+          tag: string | null
+          validator_address: string
+        }
         Insert: {
-          agent_id: number;
-          created_at?: string;
-          has_response?: boolean;
-          request_hash: string;
-          request_tx_hash?: string | null;
-          request_uri?: string | null;
-          responded_at?: string | null;
-          response?: number | null;
-          response_hash?: string | null;
-          response_tx_hash?: string | null;
-          response_uri?: string | null;
-          tag?: string | null;
-          validator_address: string;
-        };
+          agent_id: number
+          created_at?: string
+          has_response?: boolean
+          request_hash: string
+          request_tx_hash?: string | null
+          request_uri?: string | null
+          responded_at?: string | null
+          response?: number | null
+          response_hash?: string | null
+          response_tx_hash?: string | null
+          response_uri?: string | null
+          tag?: string | null
+          validator_address: string
+        }
         Update: {
-          agent_id?: number;
-          created_at?: string;
-          has_response?: boolean;
-          request_hash?: string;
-          request_tx_hash?: string | null;
-          request_uri?: string | null;
-          responded_at?: string | null;
-          response?: number | null;
-          response_hash?: string | null;
-          response_tx_hash?: string | null;
-          response_uri?: string | null;
-          tag?: string | null;
-          validator_address?: string;
-        };
+          agent_id?: number
+          created_at?: string
+          has_response?: boolean
+          request_hash?: string
+          request_tx_hash?: string | null
+          request_uri?: string | null
+          responded_at?: string | null
+          response?: number | null
+          response_hash?: string | null
+          response_tx_hash?: string | null
+          response_uri?: string | null
+          tag?: string | null
+          validator_address?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "validations_agent_id_fkey";
-            columns: ["agent_id"];
-            isOneToOne: false;
-            referencedRelation: "agents";
-            referencedColumns: ["id"];
+            foreignKeyName: "validations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-    };
+          {
+            foreignKeyName: "validations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_scores"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+    }
     Views: {
       leaderboard_scores: {
         Row: {
-          agent_id: number | null;
-          agent_image: string | null;
-          agent_name: string | null;
-          avg_score: number | null;
-          avg_validation_score: number | null;
-          feedback_count: number | null;
-          owner: string | null;
-          total_score: number | null;
-          unique_clients: number | null;
-          validation_count: number | null;
-        };
-      };
-    };
+          agent_id: number | null
+          agent_image: string | null
+          agent_name: string | null
+          avg_score: number | null
+          avg_validation_score: number | null
+          feedback_count: number | null
+          owner: string | null
+          total_score: number | null
+          unique_clients: number | null
+          validation_count: number | null
+        }
+        Relationships: []
+      }
+    }
     Functions: {
-      refresh_leaderboard: {
-        Args: Record<PropertyKey, never>;
-        Returns: undefined;
-      };
+      refresh_leaderboard: { Args: never; Returns: undefined }
       search_agents: {
         Args: {
-          result_limit?: number;
-          result_offset?: number;
-          search_query: string;
-        };
-        Returns: Database["public"]["Tables"]["agents"]["Row"][];
-      };
-    };
-    Enums: Record<never, never>;
-    CompositeTypes: Record<never, never>;
-  };
-};
+          result_limit?: number
+          result_offset?: number
+          search_query: string
+        }
+        Returns: {
+          agent_uri: string | null
+          agent_uri_data: Json | null
+          created_at: string
+          created_ledger: number | null
+          id: number
+          owner: string
+          search_vector: unknown
+          tx_hash: string | null
+          updated_at: string
+          wallet: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "agents"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
+  public: {
+    Enums: {},
+  },
+} as const
+
