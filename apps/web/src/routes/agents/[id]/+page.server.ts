@@ -1,36 +1,10 @@
 import type { Database } from '@stellar8004/db';
 import { error } from '@sveltejs/kit';
 import { createServerSupabase } from '$lib/supabase-server.js';
+import { readUriField, assertSuccess, toDisplayScore } from '$lib/server/utils.js';
 import type { PageServerLoad } from './$types';
 
-type AgentUriData = Database['public']['Tables']['agents']['Row']['agent_uri_data'];
 type FeedbackResponseRow = Database['public']['Tables']['feedback_responses']['Row'];
-
-function readUriField(source: AgentUriData, field: string): string | null {
-	if (!source || Array.isArray(source) || typeof source !== 'object') {
-		return null;
-	}
-
-	const value = source[field];
-
-	return typeof value === 'string' && value.length > 0 ? value : null;
-}
-
-function assertSuccess<T>(
-	result: { data: T; error: { message: string } | null },
-	label: string
-): T {
-	if (result.error) {
-		throw error(500, `${label} query failed: ${result.error.message}`);
-	}
-
-	return result.data;
-}
-
-function toDisplayScore(value: string | number | null, decimals: number): number {
-	// Display-only conversion for v1. Reputation scores are expected to stay in a small range.
-	return Number(value ?? 0) / Math.pow(10, decimals);
-}
 
 function feedbackKey(agentId: number, clientAddress: string, feedbackIndex: number): string {
 	return `${agentId}:${clientAddress}:${feedbackIndex}`;

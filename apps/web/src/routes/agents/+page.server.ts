@@ -1,9 +1,8 @@
 import type { Database } from '@stellar8004/db';
-import { error } from '@sveltejs/kit';
 import { createServerSupabase } from '$lib/supabase-server.js';
+import { readUriField, assertSuccess } from '$lib/server/utils.js';
 import type { PageServerLoad } from './$types';
 
-type AgentUriData = Database['public']['Tables']['agents']['Row']['agent_uri_data'];
 type SearchAgentRow = Database['public']['Functions']['search_agents']['Returns'][number];
 type LeaderboardRow = Database['public']['Views']['leaderboard_scores']['Row'];
 
@@ -20,27 +19,6 @@ type AgentListItem = {
 };
 
 const SORT_OPTIONS = ['created_at', 'score', 'feedback'] as const;
-
-function readUriField(source: AgentUriData, field: string): string | null {
-	if (!source || Array.isArray(source) || typeof source !== 'object') {
-		return null;
-	}
-
-	const value = source[field];
-
-	return typeof value === 'string' && value.length > 0 ? value : null;
-}
-
-function assertSuccess<T>(
-	result: { data: T; error: { message: string } | null },
-	label: string
-): T {
-	if (result.error) {
-		throw error(500, `${label} query failed: ${result.error.message}`);
-	}
-
-	return result.data;
-}
 
 function compareNullableNumbers(
 	left: number | null,
@@ -100,7 +78,7 @@ async function loadScoreMap(
 	);
 }
 
-function normalizeAgentRow(agent: SearchAgentRow, score?: LeaderboardRow | null): AgentListItem {
+function normalizeAgentRow(agent: Pick<SearchAgentRow, 'id' | 'owner' | 'agent_uri_data' | 'created_at'>, score?: LeaderboardRow | null): AgentListItem {
 	return {
 		id: agent.id,
 		name: readUriField(agent.agent_uri_data, 'name') ?? `Agent #${agent.id}`,
@@ -182,7 +160,7 @@ export const load: PageServerLoad = async ({ url }) => {
 				await db
 					.from('agents')
 					.select(
-						'id, owner, agent_uri_data, created_at, agent_uri, created_ledger, tx_hash, updated_at, wallet, search_vector'
+						'id, owner, agent_uri_data, created_at'
 					)
 					.order('created_at', { ascending: order === 'asc' })
 					.range(offset, offset + perPage - 1),

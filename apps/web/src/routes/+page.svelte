@@ -1,20 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { statFormatter, scoreFormatter, dateFormatter } from '$lib/formatters.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-
-	const statFormatter = new Intl.NumberFormat('en-US');
-	const scoreFormatter = new Intl.NumberFormat('en-US', {
-		minimumFractionDigits: 0,
-		maximumFractionDigits: 2
-	});
-	const dateFormatter = new Intl.DateTimeFormat('en-US', {
-		month: 'short',
-		day: 'numeric',
-		year: 'numeric',
-		timeZone: 'UTC'
-	});
 </script>
 
 <svelte:head>

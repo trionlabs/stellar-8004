@@ -6,11 +6,11 @@
 
 	let validatorAddress = $state('');
 	let requestUri = $state('');
-	let status = $state<'idle' | 'signing' | 'submitting' | 'success' | 'error'>('idle');
+	let status = $state<'idle' | 'submitting' | 'success' | 'error'>('idle');
 	let errorMsg = $state('');
 	let txHash = $state('');
 
-	const busy = $derived(status === 'signing' || status === 'submitting');
+	const busy = $derived(status === 'submitting');
 	const hasValidAddress = $derived(
 		validatorAddress.length === 0 ||
 			(validatorAddress.startsWith('G') && validatorAddress.length === 56)
@@ -29,11 +29,10 @@
 			return;
 		}
 
-		status = 'signing';
+		status = 'submitting';
 		errorMsg = '';
 
 		try {
-			status = 'submitting';
 			const result = await requestValidation({
 				agentId,
 				validatorAddress,
@@ -91,11 +90,7 @@
 				disabled={!validatorAddress || !hasValidAddress || busy}
 				class="w-full rounded-lg bg-indigo-600 py-2 text-sm text-white transition hover:bg-indigo-700 disabled:opacity-50"
 			>
-				{status === 'signing'
-					? 'Sign in wallet...'
-					: status === 'submitting'
-						? 'Submitting...'
-						: 'Request Validation'}
+				{status === 'submitting' ? 'Submitting...' : 'Request Validation'}
 			</button>
 
 			{#if status === 'error'}
