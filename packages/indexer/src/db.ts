@@ -256,7 +256,7 @@ export async function writeReputationEvent(
       );
 
       const responseIndex = (maxResult.data?.response_index ?? 0) + 1;
-      const upsertResult = await db.from('feedback_responses').upsert(
+      const insertResult = await db.from('feedback_responses').upsert(
         {
           agent_id: event.agentId,
           client_address: event.clientAddress,
@@ -268,12 +268,12 @@ export async function writeReputationEvent(
           created_at: event.ledgerClosedAt,
           tx_hash: event.txHash,
         },
-        { onConflict: 'agent_id,client_address,feedback_index,response_index' },
+        { onConflict: 'agent_id,client_address,feedback_index,response_index', ignoreDuplicates: true },
       );
 
       assertNoError(
-        upsertResult,
-        `[reputation] failed to append response ${event.agentId}:${event.clientAddress}:${event.feedbackIndex}:${responseIndex}`,
+        insertResult,
+        `[reputation] failed to insert response ${event.agentId}:${event.clientAddress}:${event.feedbackIndex}:${responseIndex}`,
       );
       break;
     }

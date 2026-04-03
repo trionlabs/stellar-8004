@@ -64,6 +64,7 @@
 			<input
 				type="text"
 				bind:value={validatorAddress}
+				aria-label="Validator Stellar address"
 				placeholder="Validator Stellar address (G...)"
 				maxlength="56"
 				class="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-300 placeholder:text-gray-600"
@@ -76,6 +77,7 @@
 			<input
 				type="text"
 				bind:value={requestUri}
+				aria-label="Request URI"
 				placeholder="Request URI (optional)"
 				maxlength="512"
 				class="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-300 placeholder:text-gray-600"
