@@ -1,5 +1,9 @@
 -- 008_leaderboard_view.sql
 -- Pre-computed leaderboard scores (global only - tag-based filtering is v2)
+-- NOTE: Composite score formula assumes avg_score is on a 0-100 scale after
+-- decimal normalization (value / 10^value_decimals). The contract does NOT
+-- enforce this range - out-of-range values are clamped by LEAST/GREATEST.
+-- If feedback scoring conventions change, this formula needs adjustment.
 
 CREATE MATERIALIZED VIEW leaderboard_scores AS
 SELECT
@@ -44,13 +48,13 @@ CREATE OR REPLACE FUNCTION refresh_leaderboard()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = ''
 AS $$
 BEGIN
-  REFRESH MATERIALIZED VIEW leaderboard_scores;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY public.leaderboard_scores;
 END;
 $$;
 
+-- REVOKE FROM public covers anon/authenticated (they inherit from public)
 REVOKE EXECUTE ON FUNCTION refresh_leaderboard() FROM public;
-REVOKE EXECUTE ON FUNCTION refresh_leaderboard() FROM anon;
-REVOKE EXECUTE ON FUNCTION refresh_leaderboard() FROM authenticated;
 GRANT EXECUTE ON FUNCTION refresh_leaderboard() TO service_role;
