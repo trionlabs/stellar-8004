@@ -87,6 +87,7 @@ export async function runIndexer(): Promise<IndexerResult> {
     contracts: {},
   };
   let needsLeaderboardRefresh = false;
+  const { sequence: latestLedger } = await rpcServer.getLatestLedger();
 
   for (const contract of contracts) {
     const contractResult: ContractIndexerResult = {
@@ -96,7 +97,6 @@ export async function runIndexer(): Promise<IndexerResult> {
     };
 
     const lastLedger = await getLastLedger(db, contract.name);
-    const { sequence: latestLedger } = await rpcServer.getLatestLedger();
 
     if (lastLedger >= latestLedger) {
       contractResult.lastLedger = lastLedger;
