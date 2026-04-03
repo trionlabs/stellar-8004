@@ -112,6 +112,20 @@ describe('parseReputationEvent', () => {
     expect(result).not.toHaveProperty('responseIndex');
   });
 
+  it('throws when ResponseAppended is missing responder', () => {
+    const event = mockEvent({
+      topics: ['response_appended', 1, MOCK_CLIENT],
+      data: {
+        feedback_index: 1n,
+        response_uri: '',
+        response_hash: new Uint8Array(32),
+      },
+      typeHints: { feedback_index: 'u64' },
+    });
+
+    expect(() => parseReputationEvent(event)).toThrow('responder field missing');
+  });
+
   it('returns null for too-short topic lists', () => {
     const event = mockEvent({ topics: ['new_feedback', 1] });
 
