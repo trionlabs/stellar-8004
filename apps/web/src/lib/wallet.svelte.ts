@@ -1,4 +1,5 @@
-import { isConnected, requestAccess, signTransaction } from '@stellar/freighter-api';
+import freighterApi from '@stellar/freighter-api';
+const { isConnected, requestAccess, signTransaction } = freighterApi;
 import { stellarConfig } from './stellar.js';
 
 class WalletState {
