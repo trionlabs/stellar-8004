@@ -2,7 +2,7 @@
 -- Responses appended to feedback entries
 
 CREATE TABLE feedback_responses (
-  id serial PRIMARY KEY,
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   agent_id integer NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
   client_address text NOT NULL,
   feedback_index bigint NOT NULL,
@@ -12,7 +12,10 @@ CREATE TABLE feedback_responses (
   response_hash text,
   created_at timestamptz NOT NULL DEFAULT now(),
   tx_hash text,
-  UNIQUE (agent_id, client_address, feedback_index, response_index)
+  UNIQUE (agent_id, client_address, feedback_index, response_index),
+  FOREIGN KEY (agent_id, client_address, feedback_index)
+    REFERENCES feedback (agent_id, client_address, feedback_index)
+    ON DELETE CASCADE
 );
 
 CREATE INDEX idx_feedback_responses_lookup

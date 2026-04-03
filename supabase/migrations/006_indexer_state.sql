@@ -11,6 +11,7 @@ CREATE TABLE indexer_state (
 INSERT INTO indexer_state (id, last_ledger) VALUES
   ('identity', 0),
   ('reputation', 0),
-  ('validation', 0);
+  ('validation', 0)
+ON CONFLICT (id) DO NOTHING;
 
 COMMENT ON TABLE indexer_state IS 'Indexer checkpoint - last processed ledger per contract';
