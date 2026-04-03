@@ -15,6 +15,15 @@
 	</button>
 {:else if wallet.connected}
 	<div class="flex items-center gap-2">
+		{#if wallet.network}
+			<span
+				class="rounded px-1.5 py-0.5 text-xs font-medium {wallet.networkMismatch
+					? 'bg-amber-500/20 text-amber-300'
+					: 'bg-green-500/20 text-green-300'}"
+			>
+				{wallet.network}
+			</span>
+		{/if}
 		<span class="font-mono text-sm text-gray-300">{wallet.truncatedAddress}</span>
 		<button
 			onclick={() => wallet.disconnect()}
