@@ -1,0 +1,23 @@
+{
+  "name": "stellar8004",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @stellar8004/web dev",
+    "build": "pnpm --filter @stellar8004/web build",
+    "db:generate-types": "pnpm --filter @stellar8004/db generate-types",
+    "db:migrate": "npx supabase db push",
+    "indexer:build": "./scripts/build-edge-function.sh",
+    "indexer:serve": "./scripts/build-edge-function.sh && npx supabase functions serve indexer --env-file supabase/.env.local",
+    "indexer:deploy": "./scripts/build-edge-function.sh && npx supabase functions deploy indexer",
+    "lint": "pnpm -r --if-present lint",
+    "check": "pnpm -r check"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
