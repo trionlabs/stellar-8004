@@ -9,7 +9,7 @@ class WalletState {
 
 	get truncatedAddress(): string | null {
 		if (!this.address) return null;
-		return `${this.address.slice(0, 4)}...${this.address.slice(-4)}`;
+		return `${this.address.slice(0, 6)}...${this.address.slice(-4)}`;
 	}
 
 	async connect(): Promise<void> {

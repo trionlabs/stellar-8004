@@ -20,36 +20,7 @@ export const TESTNET: NetworkConfig = {
   },
 };
 
-type GlobalWithEnv = typeof globalThis & {
-  Deno?: { env?: { get?: (key: string) => string | undefined } };
-  process?: { env?: Record<string, string | undefined> };
-};
-
-/**
- * Reads env vars in both Node and Deno runtimes.
- * Deno access is guarded because env permissions may be denied.
- */
-function env(key: string): string | undefined {
-  const runtime = globalThis as GlobalWithEnv;
-
-  try {
-    if (runtime.process?.env?.[key] !== undefined) {
-      return runtime.process.env[key];
-    }
-  } catch {
-    // Ignore missing Node globals.
-  }
-
-  try {
-    if (typeof runtime.Deno?.env?.get === 'function') {
-      return runtime.Deno.env.get(key);
-    }
-  } catch {
-    // Ignore missing Deno globals or denied env permissions.
-  }
-
-  return undefined;
-}
+import { env } from './env.js';
 
 export function getConfig(): NetworkConfig {
   const network = env('STELLAR_NETWORK') ?? 'testnet';

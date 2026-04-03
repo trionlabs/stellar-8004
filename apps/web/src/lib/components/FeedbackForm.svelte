@@ -8,11 +8,11 @@
 	let tag1 = $state('starred');
 	let tag2 = $state('');
 	let endpoint = $state('');
-	let status = $state<'idle' | 'signing' | 'submitting' | 'success' | 'error'>('idle');
+	let status = $state<'idle' | 'submitting' | 'success' | 'error'>('idle');
 	let errorMsg = $state('');
 	let txHash = $state('');
 
-	const busy = $derived(status === 'signing' || status === 'submitting');
+	const busy = $derived(status === 'submitting');
 
 	async function submit() {
 		if (!wallet.connected) {
@@ -21,11 +21,10 @@
 			return;
 		}
 
-		status = 'signing';
+		status = 'submitting';
 		errorMsg = '';
 
 		try {
-			status = 'submitting';
 			const result = await giveFeedback({
 				agentId,
 				value,
@@ -98,11 +97,7 @@
 				disabled={busy}
 				class="w-full rounded-lg bg-indigo-600 py-2 text-sm text-white transition hover:bg-indigo-700 disabled:opacity-50"
 			>
-				{status === 'signing'
-					? 'Sign in wallet...'
-					: status === 'submitting'
-						? 'Submitting...'
-						: 'Submit Feedback'}
+				{status === 'submitting' ? 'Submitting...' : 'Submit Feedback'}
 			</button>
 
 			{#if status === 'error'}
