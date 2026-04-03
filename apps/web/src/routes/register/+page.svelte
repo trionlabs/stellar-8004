@@ -51,10 +51,16 @@
 		</div>
 	{:else}
 		<div class="space-y-4 rounded-xl border border-gray-800 bg-gray-900 p-6">
-			<div class="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
-				Freighter must be on the same network as the app configuration:
-				<span class="font-semibold uppercase">{stellarConfig.network}</span>.
-			</div>
+			{#if wallet.networkMismatch}
+				<div class="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+					Freighter is on <span class="font-semibold">{wallet.network}</span> — switch to
+					<span class="font-semibold uppercase">{stellarConfig.network}</span> in Freighter settings before registering.
+				</div>
+			{:else}
+				<div class="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-200">
+					Connected to <span class="font-semibold uppercase">{stellarConfig.network}</span> network.
+				</div>
+			{/if}
 
 			<div>
 				<label class="mb-1 block text-sm text-gray-400" for="agent-uri">Agent URI (optional)</label>
@@ -73,7 +79,7 @@
 
 			<button
 				onclick={submit}
-				disabled={busy}
+				disabled={busy || wallet.networkMismatch}
 				class="w-full rounded-lg bg-indigo-600 py-3 font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
 			>
 				{status === 'submitting' ? 'Registering...' : 'Register Agent'}
