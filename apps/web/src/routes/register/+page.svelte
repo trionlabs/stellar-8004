@@ -5,17 +5,16 @@
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let agentUri = $state('');
-	let status = $state<'idle' | 'signing' | 'submitting' | 'success' | 'error'>('idle');
+	let status = $state<'idle' | 'submitting' | 'success' | 'error'>('idle');
 	let errorMsg = $state('');
 
-	const busy = $derived(status === 'signing' || status === 'submitting');
+	const busy = $derived(status === 'submitting');
 
 	async function submit() {
-		status = 'signing';
+		status = 'submitting';
 		errorMsg = '';
 
 		try {
-			status = 'submitting';
 			const result = await registerAgent(agentUri || undefined);
 			status = 'success';
 			await goto(`/agents/${result.agentId}`);
@@ -77,11 +76,7 @@
 				disabled={busy}
 				class="w-full rounded-lg bg-indigo-600 py-3 font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
 			>
-				{status === 'signing'
-					? 'Sign in wallet...'
-					: status === 'submitting'
-						? 'Registering...'
-						: 'Register Agent'}
+				{status === 'submitting' ? 'Registering...' : 'Register Agent'}
 			</button>
 
 			{#if status === 'error'}
