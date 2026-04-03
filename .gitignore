@@ -39,6 +39,9 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Markdown files (docs kept locally, not in git history)
+*.md
+
 # OS files
 .DS_Store
 Thumbs.db
