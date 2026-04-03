@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { wallet } from '$lib/wallet.svelte.js';
+	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
+	import ValidationForm from '$lib/components/ValidationForm.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -219,7 +221,7 @@
 			</div>
 
 			{#if wallet.connected}
-				<p class="text-sm text-gray-500">Feedback submission UI will be added in backlog 008.</p>
+				<FeedbackForm agentId={data.agent.id} />
 			{/if}
 
 			<div class="overflow-hidden rounded-[1.75rem] border border-gray-800 bg-gray-900/70">
@@ -342,7 +344,7 @@
 			</div>
 
 			{#if wallet.connected && isOwner}
-				<p class="text-sm text-gray-500">Validation request UI will be added in backlog 008.</p>
+				<ValidationForm agentId={data.agent.id} />
 			{/if}
 
 			<div class="overflow-hidden rounded-[1.75rem] border border-gray-800 bg-gray-900/70">
