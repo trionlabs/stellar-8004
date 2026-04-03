@@ -87,9 +87,13 @@
 				This form assumes the connected wallet owns the agent; the parent page must enforce that.
 			</p>
 
+			{#if wallet.networkMismatch}
+				<p class="text-xs text-amber-400">Switch Freighter to the correct network before submitting.</p>
+			{/if}
+
 			<button
 				onclick={submit}
-				disabled={!validatorAddress || !hasValidAddress || busy}
+				disabled={!validatorAddress || !hasValidAddress || busy || wallet.networkMismatch}
 				class="w-full rounded-lg bg-indigo-600 py-2 text-sm text-white transition hover:bg-indigo-700 disabled:opacity-50"
 			>
 				{status === 'submitting' ? 'Submitting...' : 'Request Validation'}
