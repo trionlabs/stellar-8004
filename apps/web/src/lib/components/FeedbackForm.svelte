@@ -95,9 +95,13 @@
 				class="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-300 placeholder:text-gray-600"
 			/>
 
+			{#if wallet.networkMismatch}
+				<p class="text-xs text-amber-400">Switch Freighter to the correct network before submitting.</p>
+			{/if}
+
 			<button
 				onclick={submit}
-				disabled={busy}
+				disabled={busy || wallet.networkMismatch}
 				class="w-full rounded-lg bg-indigo-600 py-2 text-sm text-white transition hover:bg-indigo-700 disabled:opacity-50"
 			>
 				{status === 'submitting' ? 'Submitting...' : 'Submit Feedback'}
