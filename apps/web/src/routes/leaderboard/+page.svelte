@@ -1,14 +1,12 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { scoreFormatter, shortAddress } from '$lib/formatters.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	function formatMetric(value: number | null) {
-		return Number(value ?? 0).toFixed(1);
-	}
-
-	function formatOwner(owner: string | null) {
-		return owner ? `${owner.slice(0, 6)}...${owner.slice(-4)}` : 'Unknown';
+		return scoreFormatter.format(Number(value ?? 0));
 	}
 </script>
 
@@ -46,13 +44,13 @@
 							<td class="px-4 py-3 font-mono text-gray-500">{data.startRank + i}</td>
 							<td class="px-4 py-3">
 								<a
-									href="/agents/{leader.agent_id}"
+									href={resolve('/agents/[id]', { id: String(leader.agent_id) })}
 									class="font-medium text-indigo-400 hover:text-indigo-300"
 								>
 									{leader.agent_name ?? `Agent #${leader.agent_id}`}
 								</a>
 								<div class="mt-0.5 font-mono text-xs text-gray-600">
-									{formatOwner(leader.owner)}
+									{leader.owner ? shortAddress(leader.owner) : 'Unknown'}
 								</div>
 							</td>
 							<td class="px-4 py-3 text-right">
@@ -76,7 +74,7 @@
 	<div class="flex items-center justify-between">
 		{#if data.page > 1}
 			<a
-				href="/leaderboard?page={data.page - 1}"
+				href="{resolve('/leaderboard')}?page={data.page - 1}"
 				class="rounded-lg bg-gray-800 px-4 py-2 text-sm hover:bg-gray-700"
 			>
 				Previous
@@ -89,7 +87,7 @@
 
 		{#if data.hasMore}
 			<a
-				href="/leaderboard?page={data.page + 1}"
+				href="{resolve('/leaderboard')}?page={data.page + 1}"
 				class="rounded-lg bg-gray-800 px-4 py-2 text-sm hover:bg-gray-700"
 			>
 				Next

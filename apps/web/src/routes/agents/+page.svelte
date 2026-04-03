@@ -1,17 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { scoreFormatter, shortAddress } from '$lib/formatters.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-
-	const scoreFormatter = new Intl.NumberFormat('en-US', {
-		minimumFractionDigits: 0,
-		maximumFractionDigits: 2
-	});
-
-	function shortAddress(value: string): string {
-		return `${value.slice(0, 6)}...${value.slice(-4)}`;
-	}
 
 	const baseAgentsPath = resolve('/agents');
 </script>
