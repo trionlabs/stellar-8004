@@ -1,0 +1,42 @@
+import { runIndexer } from '../_shared/indexer/indexer.ts';
+
+function json(body: unknown, init?: ResponseInit): Response {
+  return new Response(JSON.stringify(body), {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...init?.headers,
+    },
+  });
+}
+
+Deno.serve(async (request: Request) => {
+  const authHeader = request.headers.get('Authorization');
+  const expectedKey = Deno.env.get('INDEXER_SECRET');
+
+  if (expectedKey && authHeader !== `Bearer ${expectedKey}`) {
+    return json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const startedAt = Date.now();
+    const result = await runIndexer();
+    const durationMs = Date.now() - startedAt;
+
+    console.log(
+      `Indexer completed in ${durationMs}ms: ${result.processed} processed, ${result.errors} errors`,
+    );
+
+    return json({ ok: true, ...result, durationMs });
+  } catch (error) {
+    console.error('Indexer fatal error:', error);
+
+    return json(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
+  }
+});
