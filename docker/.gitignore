@@ -1,0 +1,15 @@
+# Supabase compose env
+.env
+.env.*
+!.env.example
+
+# Runtime data — never commit
+volumes/db/data/
+volumes/storage/
+volumes/snippets/
+
+# TLS certificates and private keys
+*.pem
+*.key
+*.crt
+volumes/api/server.*
