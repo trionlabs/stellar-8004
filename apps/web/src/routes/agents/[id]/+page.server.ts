@@ -46,6 +46,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			.select('*')
 			.eq('agent_id', agentId)
 			.order('created_at', { ascending: false })
+			.limit(200)
 	]);
 
 	const agent = assertSuccess(agentResult, 'Agent');
