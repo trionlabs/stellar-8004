@@ -16,7 +16,11 @@ Deno.serve(async (request: Request) => {
   const authHeader = request.headers.get('Authorization');
   const expectedKey = Deno.env.get('INDEXER_SECRET');
 
-  if (expectedKey && authHeader !== `Bearer ${expectedKey}`) {
+  if (!expectedKey || expectedKey.length < 16) {
+    return json({ ok: false, error: 'INDEXER_SECRET not configured' }, { status: 503 });
+  }
+
+  if (authHeader !== `Bearer ${expectedKey}`) {
     return json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
