@@ -239,41 +239,20 @@ export async function writeReputationEvent(
         return;
       }
 
-      const feedbackIndex = toDbBigint(event.feedbackIndex);
-      const maxResult = await db
-        .from('feedback_responses')
-        .select('response_index')
-        .eq('agent_id', event.agentId)
-        .eq('client_address', event.clientAddress)
-        .eq('feedback_index', feedbackIndex)
-        .order('response_index', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const result = await db.rpc('insert_feedback_response', {
+        p_agent_id: event.agentId,
+        p_client_address: event.clientAddress,
+        p_feedback_index: toDbBigint(event.feedbackIndex),
+        p_responder: event.responder,
+        p_response_uri: event.responseUri || null,
+        p_response_hash: event.responseHash || null,
+        p_created_at: event.ledgerClosedAt,
+        p_tx_hash: event.txHash,
+      });
 
       assertNoError(
-        maxResult,
-        `[reputation] failed to read latest response index for ${event.agentId}:${event.clientAddress}:${event.feedbackIndex}`,
-      );
-
-      const responseIndex = (maxResult.data?.response_index ?? 0) + 1;
-      const insertResult = await db.from('feedback_responses').upsert(
-        {
-          agent_id: event.agentId,
-          client_address: event.clientAddress,
-          feedback_index: feedbackIndex,
-          response_index: responseIndex,
-          responder: event.responder,
-          response_uri: event.responseUri || null,
-          response_hash: event.responseHash || null,
-          created_at: event.ledgerClosedAt,
-          tx_hash: event.txHash,
-        },
-        { onConflict: 'agent_id,client_address,feedback_index,response_index', ignoreDuplicates: true },
-      );
-
-      assertNoError(
-        insertResult,
-        `[reputation] failed to insert response ${event.agentId}:${event.clientAddress}:${event.feedbackIndex}:${responseIndex}`,
+        result,
+        `[reputation] failed to insert response for ${event.agentId}:${event.clientAddress}:${event.feedbackIndex}`,
       );
       break;
     }
