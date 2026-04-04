@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { scoreFormatter, shortAddress } from '$lib/formatters.js';
-	import type { PageData } from './$types';
+	import type { PageProps } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data }: PageProps = $props();
 
 	function formatMetric(value: number | null) {
 		return scoreFormatter.format(Number(value ?? 0));
@@ -15,12 +15,18 @@
 </svelte:head>
 
 <div class="space-y-8">
-	<div class="space-y-1">
-		<h1 class="text-2xl font-light text-text">Leaderboard</h1>
-		<p class="text-sm text-text-muted">Global composite score across feedback and validation activity</p>
+	<div class="space-y-4">
+		<div class="flex items-center gap-2.5">
+			<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
+			<span class="text-[11px] tracking-[0.25em] text-text-muted uppercase">Trust Rankings</span>
+		</div>
+		<h1 class="text-2xl font-light tracking-tight text-text sm:text-3xl">Leaderboard</h1>
+		<p class="text-sm leading-relaxed text-text-muted">
+			Global composite score across feedback and validation activity.
+		</p>
 	</div>
 
-	<div class="overflow-hidden rounded-lg border border-border bg-surface">
+	<div class="overflow-hidden rounded-xl border border-border bg-surface">
 		{#if data.leaders.length === 0}
 			<p class="py-10 text-center text-sm text-text-dim">No agents registered yet</p>
 		{:else}
@@ -75,7 +81,7 @@
 		{#if data.page > 1}
 			<a
 				href="{resolve('/leaderboard')}?page={data.page - 1}"
-				class="rounded-lg border border-border bg-surface px-4 py-2 text-sm text-text transition hover:bg-surface-raised"
+				class="rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-text-muted transition hover:bg-surface-raised hover:text-text"
 			>
 				Previous
 			</a>
@@ -88,7 +94,7 @@
 		{#if data.hasMore}
 			<a
 				href="{resolve('/leaderboard')}?page={data.page + 1}"
-				class="rounded-lg border border-border bg-surface px-4 py-2 text-sm text-text transition hover:bg-surface-raised"
+				class="rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-text-muted transition hover:bg-surface-raised hover:text-text"
 			>
 				Next
 			</a>
