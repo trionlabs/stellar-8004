@@ -15,6 +15,7 @@ import {
 import { parseIdentityEvent } from './parsers/identity.js';
 import { parseReputationEvent } from './parsers/reputation.js';
 import { parseValidationEvent } from './parsers/validation.js';
+import { withRetry } from './retry.js';
 
 interface ContractIndexConfig {
   name: string;
@@ -124,7 +125,10 @@ export async function runIndexer(): Promise<IndexerResult> {
       let response: rpc.Api.GetEventsResponse;
 
       try {
-        response = await rpcServer.getEvents(request);
+        response = await withRetry(() => rpcServer.getEvents(request), {
+          maxAttempts: 3,
+          baseDelayMs: 1000,
+        });
       } catch (error) {
         console.error(`[${contract.name}] RPC getEvents error:`, error);
         contractResult.errors++;
@@ -161,7 +165,10 @@ export async function runIndexer(): Promise<IndexerResult> {
       break;
     }
 
-    contractResult.lastLedger = Math.max(maxLedger, latestLedger);
+    contractResult.lastLedger =
+      contractResult.processed > 0
+        ? Math.max(maxLedger, latestLedger)
+        : lastLedger;
     await updateCheckpoint(db, contract.name, contractResult.lastLedger, cursor);
 
     result.processed += contractResult.processed;

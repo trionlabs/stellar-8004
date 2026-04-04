@@ -1,5 +1,7 @@
 import { runIndexer } from '../_shared/indexer/indexer.ts';
 
+const INDEXER_TIMEOUT_MS = 120_000;
+
 function json(body: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(body), {
     ...init,
@@ -20,7 +22,12 @@ Deno.serve(async (request: Request) => {
 
   try {
     const startedAt = Date.now();
-    const result = await runIndexer();
+    const result = await Promise.race([
+      runIndexer(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Indexer timeout')), INDEXER_TIMEOUT_MS),
+      ),
+    ]);
     const durationMs = Date.now() - startedAt;
 
     console.log(
