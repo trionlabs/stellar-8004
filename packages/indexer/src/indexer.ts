@@ -138,7 +138,7 @@ async function runIndexerLoop(
     const startLedger =
       lastLedger === 0 ? Math.max(1, latestLedger - 17_280) : lastLedger + 1;
 
-    if (expectedNext && startLedger > expectedNext + GAP_THRESHOLD) {
+    if (expectedNext != null && startLedger > expectedNext + GAP_THRESHOLD) {
       const gapSize = startLedger - expectedNext;
       log({
         level: 'error',
@@ -158,6 +158,7 @@ async function runIndexerLoop(
 
     let cursor: string | undefined;
     let maxLedger = startLedger;
+    let scanCompleted = true;
 
     log({
       level: 'info',
@@ -186,6 +187,7 @@ async function runIndexerLoop(
           baseDelayMs: 1000,
         });
       } catch (error) {
+        scanCompleted = false;
         log({
           level: 'error',
           msg: 'RPC getEvents error',
@@ -245,10 +247,13 @@ async function runIndexerLoop(
     }
 
     contractResult.lastLedger =
-      contractResult.processed > 0
+      scanCompleted && contractResult.processed > 0
         ? Math.max(maxLedger, latestLedger)
         : lastLedger;
-    const nextExpected = contractResult.processed > 0 ? latestLedger + 1 : expectedNext ?? undefined;
+    const nextExpected =
+      scanCompleted && contractResult.processed > 0
+        ? latestLedger + 1
+        : expectedNext ?? undefined;
     await updateCheckpoint(db, contract.name, contractResult.lastLedger, cursor, nextExpected);
 
     log({
