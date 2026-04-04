@@ -79,16 +79,23 @@ services:
     container_name: supabase-kong
     image: kong/kong:3.9.1
     restart: unless-stopped
+    cap_drop:
+      - ALL
     networks:
       default:
         aliases:
           - api-gw
+      dokploy-network:
+        aliases:
+          - supabase-kong
     healthcheck:
       test: ["CMD", "kong", "health"]
       interval: 5s
       timeout: 5s
       retries: 5
     depends_on:
+      analytics:
+        condition: service_healthy
       studio:
         condition: service_healthy
     # Ports removed — internal only, SvelteKit reaches kong via Docker network
@@ -127,6 +134,8 @@ services:
     container_name: supabase-auth
     image: supabase/gotrue:v2.186.0
     restart: unless-stopped
+    cap_drop:
+      - ALL
     healthcheck:
       test:
         [
@@ -142,7 +151,8 @@ services:
       retries: 3
     depends_on:
       db:
-        # Disable this if you are using an external Postgres database
+        condition: service_healthy
+      analytics:
         condition: service_healthy
     environment:
       GOTRUE_API_HOST: 0.0.0.0
@@ -262,9 +272,12 @@ services:
     container_name: supabase-rest
     image: postgrest/postgrest:v14.6
     restart: unless-stopped
+    cap_drop:
+      - ALL
     depends_on:
       db:
-        # Disable this if you are using an external Postgres database
+        condition: service_healthy
+      analytics:
         condition: service_healthy
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
@@ -287,9 +300,12 @@ services:
     container_name: realtime-dev.supabase-realtime
     image: supabase/realtime:v2.76.5
     restart: unless-stopped
+    cap_drop:
+      - ALL
     depends_on:
       db:
-        # Disable this if you are using an external Postgres database
+        condition: service_healthy
+      analytics:
         condition: service_healthy
     healthcheck:
       test:
@@ -309,7 +325,7 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB}
       DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
-      DB_ENC_KEY: supabaserealtime
+      DB_ENC_KEY: ${REALTIME_DB_ENC_KEY}
 
       # Legacy symmetric HS256 key
       API_JWT_SECRET: ${JWT_SECRET}
@@ -332,14 +348,17 @@ services:
     container_name: supabase-storage
     image: supabase/storage-api:v1.44.2
     restart: unless-stopped
+    cap_drop:
+      - ALL
     depends_on:
       db:
-        # Disable this if you are using an external Postgres database
         condition: service_healthy
       rest:
         condition: service_started
       imgproxy:
         condition: service_started
+      analytics:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -417,9 +436,12 @@ services:
     container_name: supabase-meta
     image: supabase/postgres-meta:v0.95.2
     restart: unless-stopped
+    cap_drop:
+      - ALL
     depends_on:
       db:
-        # Disable this if you are using an external Postgres database
+        condition: service_healthy
+      analytics:
         condition: service_healthy
     environment:
       PG_META_PORT: 8080
@@ -434,11 +456,15 @@ services:
     container_name: supabase-edge-functions
     image: supabase/edge-runtime:v1.71.2
     restart: unless-stopped
+    cap_drop:
+      - ALL
     volumes:
-      - ../supabase/functions:/home/deno/functions:Z
+      - ../supabase/functions:/home/deno/functions:ro,Z
       - deno-cache:/root/.cache/deno
     depends_on:
       kong:
+        condition: service_healthy
+      analytics:
         condition: service_healthy
     environment:
       # Legacy symmetric HS256 key
@@ -566,6 +592,8 @@ services:
         "log_min_messages=fatal" # prevents Realtime polling queries from appearing in logs
       ]
 
+  # SECURITY NOTE: Docker socket is mounted read-only for log collection.
+  # For hardened production, consider tecnativa/docker-socket-proxy instead.
   vector:
     container_name: supabase-vector
     image: timberio/vector:0.53.0-alpine
@@ -601,9 +629,10 @@ services:
     container_name: supabase-pooler
     image: supabase/supavisor:2.7.4
     restart: unless-stopped
-    ports:
-      - ${POSTGRES_PORT}:5432
-      - ${POOLER_PROXY_PORT_TRANSACTION}:6543
+    # Ports removed — internal only, no direct DB access from host
+    # ports:
+    #   - ${POSTGRES_PORT}:5432
+    #   - ${POOLER_PROXY_PORT_TRANSACTION}:6543
     volumes:
       - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
     healthcheck:
@@ -623,6 +652,8 @@ services:
       start_period: 30s
     depends_on:
       db:
+        condition: service_healthy
+      analytics:
         condition: service_healthy
     environment:
       PORT: 4000
@@ -652,24 +683,44 @@ services:
   # ── stellar8004: DB migrations on startup ──────────────────
   migrate:
     container_name: supabase-migrate
-    image: node:22-slim
-    working_dir: /project
+    image: postgres:15-alpine
     volumes:
-      - ..:/project
+      - ..:/project:ro,z
+      - ../supabase/functions:/functions:z
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        echo "Building edge functions..." &&
-        ./scripts/build-edge-function.sh &&
-        echo "Applying migrations..." &&
-        npx supabase db push --db-url "$$DATABASE_URL" &&
-        echo "Migrations complete."
+        set -e
+        echo "=== Building edge functions ==="
+        SRC=/project/packages/indexer/src
+        DEST=/functions/_shared/indexer
+        rm -rf "$$DEST" && mkdir -p "$$DEST" && cp -R "$$SRC"/. "$$DEST"/
+        find "$$DEST" -name '*.ts' | sort | while read f; do
+          sed -i -E "s/(['\"]\.\.?\/[^'\"]*)\\.js(['\"])/\1.ts\2/g" "$$f"
+        done
+        echo "Edge functions built."
+        echo "=== Applying migrations ==="
+        for f in /project/supabase/migrations/*.sql; do
+          echo "  $(basename $$f)..."
+          psql -v ON_ERROR_STOP=1 -f "$$f" 2>&1 || { echo "FAILED: $$f"; exit 1; }
+        done
+        echo "=== All migrations applied ==="
     depends_on:
       db:
         condition: service_healthy
     restart: "no"
+
+networks:
+  default:
+    name: supabase-internal
+  dokploy-network:
+    external: true
 
 volumes:
   db-config:
