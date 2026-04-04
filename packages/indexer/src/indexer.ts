@@ -35,6 +35,7 @@ export interface IndexerResult {
   processed: number;
   errors: number;
   contracts: Record<string, ContractIndexerResult>;
+  skipped?: boolean;
 }
 
 function assertIndexerConfig(config: ReturnType<typeof getConfig>): void {
@@ -57,6 +58,26 @@ export async function runIndexer(): Promise<IndexerResult> {
     allowHttp: config.rpcUrl.startsWith('http://'),
   });
   const db = createSupabaseAdmin();
+
+  // Concurrent run guard (table-based lock, pgBouncer-safe)
+  const lockResult = await db.rpc('acquire_indexer_lock');
+  if (!lockResult.data) {
+    console.warn('[indexer] Another instance is running, skipping');
+    return { processed: 0, errors: 0, contracts: {}, skipped: true };
+  }
+
+  try {
+    return await runIndexerLoop(rpcServer, db, config);
+  } finally {
+    await db.rpc('release_indexer_lock');
+  }
+}
+
+async function runIndexerLoop(
+  rpcServer: StellarSdk.rpc.Server,
+  db: SupabaseClient,
+  config: ReturnType<typeof getConfig>,
+): Promise<IndexerResult> {
 
   const contracts: ContractIndexConfig[] = [
     {
@@ -146,6 +167,17 @@ export async function runIndexer(): Promise<IndexerResult> {
             if (contract.affectsLeaderboard) {
               needsLeaderboardRefresh = true;
             }
+          } else {
+            console.warn(
+              JSON.stringify({
+                level: 'warn',
+                msg: 'Skipped unparseable event',
+                contract: contract.name,
+                eventId: event.id,
+                ledger: event.ledger,
+                topicCount: event.topic?.length ?? 0,
+              }),
+            );
           }
         } catch (error) {
           console.error(`[${contract.name}] Event ${event.id} error:`, error);
