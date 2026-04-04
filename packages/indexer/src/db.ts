@@ -49,16 +49,34 @@ export async function getLastLedger(
   return Number(result.data?.last_ledger ?? 0);
 }
 
+export async function getExpectedNextLedger(
+  db: SupabaseClient,
+  contractName: string,
+): Promise<number | null> {
+  const result = await db
+    .from('indexer_state')
+    .select('expected_next_ledger')
+    .eq('id', contractName)
+    .maybeSingle();
+
+  assertNoError(result, `[indexer_state] failed to read expected_next_ledger for ${contractName}`);
+
+  const val = result.data?.expected_next_ledger;
+  return val != null ? Number(val) : null;
+}
+
 export async function updateCheckpoint(
   db: SupabaseClient,
   contractName: string,
   ledger: number,
   cursor?: string,
+  expectedNextLedger?: number,
 ): Promise<void> {
   const result = await db.from('indexer_state').upsert({
     id: contractName,
     last_ledger: ledger,
     last_cursor: cursor ?? null,
+    expected_next_ledger: expectedNextLedger ?? null,
     updated_at: new Date().toISOString(),
   });
 
