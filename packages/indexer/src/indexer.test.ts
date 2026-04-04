@@ -222,6 +222,42 @@ describe('runIndexer', () => {
     expect(result.contracts.identity.processed).toBe(2);
   });
 
+  it('does not advance checkpoints after a partial scan if a later page fails', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    mocks.getLastLedger.mockImplementation((_db: unknown, contractName: string) =>
+      Promise.resolve(contractName === 'identity' ? 10 : 20),
+    );
+    mocks.getEvents
+      .mockResolvedValueOnce({
+        events: [
+          { id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true },
+        ],
+        cursor: 'cursor-1',
+      })
+      .mockRejectedValue(new Error('page 2 failed'));
+    mocks.parseIdentityEvent.mockReturnValue({ type: 'Registered' });
+
+    const promise = runIndexer();
+
+    await vi.runAllTimersAsync();
+
+    const result = await promise;
+
+    expect(result.processed).toBe(1);
+    expect(result.errors).toBe(1);
+    expect(result.contracts.identity.lastLedger).toBe(10);
+    expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
+      1,
+      mocks.db,
+      'identity',
+      10,
+      'cursor-1',
+      undefined,
+    );
+  });
+
   it('releases lock even when an error occurs', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
