@@ -1,4 +1,5 @@
 import { runIndexer } from '../_shared/indexer/indexer.ts';
+import { log } from '../_shared/indexer/logger.ts';
 
 const INDEXER_TIMEOUT_MS = 120_000;
 
@@ -34,13 +35,23 @@ Deno.serve(async (request: Request) => {
     ]);
     const durationMs = Date.now() - startedAt;
 
-    console.log(
-      `Indexer completed in ${durationMs}ms: ${result.processed} processed, ${result.errors} errors`,
-    );
+    log({
+      level: 'info',
+      msg: 'Indexer request complete',
+      durationMs,
+      processed: result.processed,
+      errors: result.errors,
+      skipped: result.skipped ?? false,
+      gapCount: result.gaps.length,
+    });
 
     return json({ ok: true, ...result, durationMs });
   } catch (error) {
-    console.error('Indexer fatal error:', error);
+    log({
+      level: 'error',
+      msg: 'Indexer fatal error',
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     return json(
       {
