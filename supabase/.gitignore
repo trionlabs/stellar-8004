@@ -6,3 +6,7 @@
 .env.keys
 .env.local
 .env.*.local
+
+# Env files
+.env
+.env.*
