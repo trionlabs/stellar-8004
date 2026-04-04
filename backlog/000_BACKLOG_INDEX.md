@@ -17,4 +17,4 @@
 | 013 | 5 | [DONE](./013_PHASE5_CONCURRENCY_INTEGRITY.md) | Concurrency guard & data integrity | `feat/indexer-integrity` | 012 |
 | 014 | 5 | [DONE](./014_PHASE5_OBSERVABILITY.md) | Observability & ledger gap detection | `feat/indexer-observability` | 012 |
 | 015 | 5 | [DONE](./015_PHASE5_ASYNC_URI.md) | Async URI resolution | `feat/indexer-async-uri` | 012 |
-| 016 | 5 | [TODO](./016_PHASE5_SCHEMA_VALIDATION.md) | Schema & validation hardening | `feat/indexer-validation` | 012 |
+| 016 | 5 | [DONE](./016_PHASE5_SCHEMA_VALIDATION.md) | Schema & validation hardening | `feat/indexer-validation` | 012 |

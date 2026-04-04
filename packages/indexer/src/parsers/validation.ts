@@ -1,7 +1,7 @@
 import { scValToNative } from '@stellar/stellar-sdk';
 import type { rpc } from '@stellar/stellar-sdk';
 
-import { parseEventData, toHex } from '../helpers.js';
+import { isValidStellarAddress, parseEventData, toHex } from '../helpers.js';
 
 export interface ValidationRequestedEvent {
   type: 'ValidationRequested';
@@ -39,7 +39,9 @@ export function parseValidationEvent(
 
   const eventName = scValToNative(event.topic[0]) as string;
   const validatorAddress = String(scValToNative(event.topic[1]));
+  if (!isValidStellarAddress(validatorAddress)) return null;
   const agentId = Number(scValToNative(event.topic[2]));
+  if (!Number.isSafeInteger(agentId) || agentId < 0) return null;
 
   const base = {
     validatorAddress,
@@ -52,11 +54,13 @@ export function parseValidationEvent(
   switch (eventName) {
     case 'validation_requested': {
       const data = parseEventData(scValToNative(event.value));
+      const requestHash = toHex(data.request_hash);
+      if (requestHash.length !== 64) return null;
 
       return {
         type: 'ValidationRequested',
         ...base,
-        requestHash: toHex(data.request_hash),
+        requestHash,
         requestUri: String(data.request_uri ?? ''),
       };
     }
@@ -68,11 +72,18 @@ export function parseValidationEvent(
         throw new TypeError('ValidationResponded: response field missing');
       }
 
+      const requestHash = toHex(data.request_hash);
+      if (requestHash.length !== 64) return null;
+      const response = Number(data.response);
+      if (!Number.isInteger(response) || response < 0 || response > 100) {
+        return null;
+      }
+
       return {
         type: 'ValidationResponded',
         ...base,
-        requestHash: toHex(data.request_hash),
-        response: Number(data.response),
+        requestHash,
+        response,
         responseUri: String(data.response_uri ?? ''),
         responseHash: toHex(data.response_hash),
         tag: String(data.tag ?? ''),
