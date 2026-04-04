@@ -1,7 +1,7 @@
 import { scValToNative } from '@stellar/stellar-sdk';
 import type { rpc } from '@stellar/stellar-sdk';
 
-import { bytesToUtf8, parseEventData } from '../helpers.js';
+import { bytesToUtf8, isValidStellarAddress, parseEventData } from '../helpers.js';
 
 export interface RegisteredEvent {
   type: 'Registered';
@@ -64,6 +64,7 @@ export function parseIdentityEvent(
 
   const eventName = scValToNative(event.topic[0]) as string;
   const agentId = Number(scValToNative(event.topic[1]));
+  if (!Number.isSafeInteger(agentId) || agentId < 0) return null;
 
   const base = {
     agentId,
@@ -76,6 +77,7 @@ export function parseIdentityEvent(
     case 'registered': {
       if (event.topic.length < 3) return null;
       const owner = String(scValToNative(event.topic[2]));
+      if (!isValidStellarAddress(owner)) return null;
       const data = parseEventData(scValToNative(event.value));
 
       return {
@@ -89,6 +91,7 @@ export function parseIdentityEvent(
     case 'uri_updated': {
       if (event.topic.length < 3) return null;
       const updatedBy = String(scValToNative(event.topic[2]));
+      if (!isValidStellarAddress(updatedBy)) return null;
       const data = parseEventData(scValToNative(event.value));
 
       return {
@@ -112,11 +115,13 @@ export function parseIdentityEvent(
 
     case 'wallet_set': {
       const data = parseEventData(scValToNative(event.value));
+      const wallet = String(data.wallet ?? '');
+      if (!isValidStellarAddress(wallet)) return null;
 
       return {
         type: 'WalletSet',
         ...base,
-        wallet: String(data.wallet ?? ''),
+        wallet,
       };
     }
 
