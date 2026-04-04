@@ -75,9 +75,13 @@ export type Database = {
           created_ledger: number | null
           id: number
           owner: string
+          resolve_uri_pending: boolean
           search_vector: unknown
+          services: Json
+          supported_trust: string[]
           tx_hash: string | null
           updated_at: string
+          uri_resolve_attempts: number
           wallet: string | null
         }
         Insert: {
@@ -87,9 +91,13 @@ export type Database = {
           created_ledger?: number | null
           id: number
           owner: string
+          resolve_uri_pending?: boolean
           search_vector?: unknown
+          services?: Json
+          supported_trust?: string[]
           tx_hash?: string | null
           updated_at?: string
+          uri_resolve_attempts?: number
           wallet?: string | null
         }
         Update: {
@@ -99,9 +107,13 @@ export type Database = {
           created_ledger?: number | null
           id?: number
           owner?: string
+          resolve_uri_pending?: boolean
           search_vector?: unknown
+          services?: Json
+          supported_trust?: string[]
           tx_hash?: string | null
           updated_at?: string
+          uri_resolve_attempts?: number
           wallet?: string | null
         }
         Relationships: []
@@ -236,20 +248,38 @@ export type Database = {
           },
         ]
       }
+      indexer_locks: {
+        Row: {
+          acquired_at: string
+          lock_name: string
+        }
+        Insert: {
+          acquired_at?: string
+          lock_name: string
+        }
+        Update: {
+          acquired_at?: string
+          lock_name?: string
+        }
+        Relationships: []
+      }
       indexer_state: {
         Row: {
+          expected_next_ledger: number | null
           id: string
           last_cursor: string | null
           last_ledger: number
           updated_at: string
         }
         Insert: {
+          expected_next_ledger?: number | null
           id: string
           last_cursor?: string | null
           last_ledger?: number
           updated_at?: string
         }
         Update: {
+          expected_next_ledger?: number | null
           id?: string
           last_cursor?: string | null
           last_ledger?: number
@@ -330,7 +360,9 @@ export type Database = {
           avg_score: number | null
           avg_validation_score: number | null
           feedback_count: number | null
+          has_services: boolean | null
           owner: string | null
+          supported_trust: string[] | null
           total_score: number | null
           unique_clients: number | null
           validation_count: number | null
@@ -339,7 +371,22 @@ export type Database = {
       }
     }
     Functions: {
+      acquire_indexer_lock: { Args: never; Returns: boolean }
+      insert_feedback_response: {
+        Args: {
+          p_agent_id: number
+          p_client_address: string
+          p_created_at: string
+          p_feedback_index: number
+          p_responder: string
+          p_response_hash: string
+          p_response_uri: string
+          p_tx_hash: string
+        }
+        Returns: number
+      }
       refresh_leaderboard: { Args: never; Returns: undefined }
+      release_indexer_lock: { Args: never; Returns: undefined }
       search_agents: {
         Args: {
           result_limit?: number
@@ -353,9 +400,13 @@ export type Database = {
           created_ledger: number | null
           id: number
           owner: string
+          resolve_uri_pending: boolean
           search_vector: unknown
+          services: Json
+          supported_trust: string[]
           tx_hash: string | null
           updated_at: string
+          uri_resolve_attempts: number
           wallet: string | null
         }[]
         SetofOptions: {
@@ -364,6 +415,30 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      search_agents_advanced: {
+        Args: {
+          has_services_filter?: boolean
+          min_score?: number
+          result_limit?: number
+          result_offset?: number
+          search_query?: string
+          trust_filter?: string[]
+        }
+        Returns: {
+          agent_id: number
+          agent_image: string
+          agent_name: string
+          avg_score: number
+          avg_validation_score: number
+          feedback_count: number
+          has_services: boolean
+          owner: string
+          supported_trust: string[]
+          total_score: number
+          unique_clients: number
+          validation_count: number
+        }[]
       }
     }
     Enums: {
