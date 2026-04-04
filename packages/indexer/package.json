@@ -6,7 +6,8 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "sync:shared": "node ../../scripts/sync-indexer-to-shared.js"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^15.0.0",
