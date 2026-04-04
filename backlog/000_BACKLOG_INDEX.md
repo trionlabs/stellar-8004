@@ -18,3 +18,14 @@
 | 014 | 5 | [DONE](./014_PHASE5_OBSERVABILITY.md) | Observability & ledger gap detection | `feat/indexer-observability` | 012 |
 | 015 | 5 | [DONE](./015_PHASE5_ASYNC_URI.md) | Async URI resolution | `feat/indexer-async-uri` | 012 |
 | 016 | 5 | [DONE](./016_PHASE5_SCHEMA_VALIDATION.md) | Schema & validation hardening | `feat/indexer-validation` | 012 |
+| 017 | 6 | [DONE](./_archive/017_PHASE6_DISCOVERY_DB.md) | DB: discovery columns + advanced search | `feat/discovery-db` | 016 |
+| 018 | 6 | [REVIEWED](./018_PHASE6_URI_EXTRACT.md) | URI resolver: extract services/trust | `feat/uri-extract` | 017 |
+| 019 | 6 | [REVIEWED](./019_PHASE6_EVIDENCE_FLOW.md) | FeedbackForm: evidence chain (SHA-256 + IPFS) | `feat/evidence-flow` | 017 |
+| 020 | 6 | [REVIEWED](./020_PHASE6_METADATA_SPEC.md) | Metadata format spec alignment (docs) | `feat/metadata-spec` | — |
+| 021 | 7 | [REVIEWED](./021_PHASE7_AGENT_SERVICES.md) | Agent detail: services cards + trust badges | `feat/agent-services` | 017, 018 |
+| 022 | 7 | [REVIEWED](./022_PHASE7_SCORE_EVIDENCE.md) | Agent detail: score breakdown + evidence viewer | `feat/score-evidence` | 019 |
+| 023 | 7 | [REVIEWED](./023_PHASE7_TAG_FILTER.md) | Agent detail: tag filter + per-client breakdown | `feat/tag-filter` | 017 |
+| 024 | 7 | [REVIEWED](./024_PHASE7_ADVANCED_SEARCH.md) | Agents list: advanced filtering UI | `feat/advanced-search` | 017 |
+| 025 | 8 | [TODO](./025_PHASE8_CLI_CONTRACTS.md) | CLI: reputation contract wrappers + types | `feat/cli-contracts` | — |
+| 026 | 8 | [TODO](./026_PHASE8_CLI_CONFIG.md) | CLI: feedback config + evidence generator | `feat/cli-config` | 025 |
+| 027 | 8 | [TODO](./027_PHASE8_CLI_SCRIPTS.md) | CLI: give-feedback, verify, update-metadata | `feat/cli-scripts` | 025, 026 |
