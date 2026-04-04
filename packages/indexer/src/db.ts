@@ -12,12 +12,6 @@ type SupabaseResult = {
 
 const utf8Decoder = new TextDecoder('utf-8', { fatal: false });
 
-const IPFS_GATEWAYS = [
-  'https://ipfs.io/ipfs/',
-  'https://cloudflare-ipfs.com/ipfs/',
-  'https://gateway.pinata.cloud/ipfs/',
-];
-
 function assertNoError(result: SupabaseResult, context: string): void {
   if (result.error) {
     throw new Error(`${context}: ${result.error.message}`);
@@ -109,13 +103,16 @@ export async function writeIdentityEvent(
         return;
       }
 
-      const uriData = event.agentUri ? await resolveUri(event.agentUri) : null;
+      const shouldResolveUri =
+        typeof event.agentUri === 'string' && event.agentUri.length > 0;
       const result = await db.from('agents').upsert(
         {
           id: event.agentId,
           owner: event.owner,
           agent_uri: event.agentUri,
-          agent_uri_data: uriData,
+          agent_uri_data: null,
+          uri_resolve_attempts: 0,
+          resolve_uri_pending: shouldResolveUri,
           created_at: event.ledgerClosedAt,
           created_ledger: event.ledger,
           tx_hash: event.txHash,
@@ -133,12 +130,13 @@ export async function writeIdentityEvent(
         return;
       }
 
-      const uriData = await resolveUri(event.newUri);
       const result = await db
         .from('agents')
         .update({
           agent_uri: event.newUri,
-          agent_uri_data: uriData,
+          agent_uri_data: null,
+          uri_resolve_attempts: 0,
+          resolve_uri_pending: true,
         })
         .eq('id', event.agentId);
 
@@ -353,36 +351,4 @@ export async function writeValidationEvent(
 export async function refreshLeaderboard(db: SupabaseClient): Promise<void> {
   const result = await db.rpc('refresh_leaderboard');
   assertNoError(result, '[leaderboard] failed to refresh materialized view');
-}
-
-async function resolveUri(uri: string): Promise<unknown | null> {
-  if (!uri) return null;
-
-  if (!uri.startsWith('ipfs://')) {
-    return fetchJson(uri);
-  }
-
-  const cid = uri.slice('ipfs://'.length);
-  for (const gateway of IPFS_GATEWAYS) {
-    const data = await fetchJson(`${gateway}${cid}`);
-    if (data != null) {
-      return data;
-    }
-  }
-
-  return null;
-}
-
-async function fetchJson(url: string): Promise<unknown | null> {
-  try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return await response.json();
-  } catch {
-    return null;
-  }
 }
