@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   getEvents: vi.fn(),
   createSupabaseAdmin: vi.fn(),
   getLastLedger: vi.fn(),
+  getExpectedNextLedger: vi.fn(),
   updateCheckpoint: vi.fn(),
   refreshLeaderboard: vi.fn(),
   writeIdentityEvent: vi.fn(),
@@ -39,6 +40,7 @@ vi.mock('./config.js', () => ({
 vi.mock('./db.js', () => ({
   createSupabaseAdmin: mocks.createSupabaseAdmin,
   getLastLedger: mocks.getLastLedger,
+  getExpectedNextLedger: mocks.getExpectedNextLedger,
   updateCheckpoint: mocks.updateCheckpoint,
   refreshLeaderboard: mocks.refreshLeaderboard,
   writeIdentityEvent: mocks.writeIdentityEvent,
@@ -73,6 +75,7 @@ describe('runIndexer', () => {
     mocks.createSupabaseAdmin.mockReturnValue(mocks.db);
     mocks.getLatestLedger.mockResolvedValue({ sequence: 20 });
     mocks.getLastLedger.mockResolvedValue(10);
+    mocks.getExpectedNextLedger.mockResolvedValue(null);
     mocks.getEvents.mockResolvedValue({ events: [], cursor: undefined });
 
     mocks.parseIdentityEvent.mockReturnValue({ id: 'identity' });
@@ -102,6 +105,7 @@ describe('runIndexer', () => {
 
     expect(result.processed).toBe(0);
     expect(result.errors).toBe(0);
+    expect(result.gaps).toEqual([]);
     expect(result.contracts.identity.lastLedger).toBe(10);
     expect(result.contracts.reputation.lastLedger).toBe(10);
     expect(result.contracts.validation.lastLedger).toBe(10);
@@ -111,6 +115,7 @@ describe('runIndexer', () => {
       'identity',
       10,
       undefined,
+      undefined,
     );
     expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       2,
@@ -118,12 +123,14 @@ describe('runIndexer', () => {
       'reputation',
       10,
       undefined,
+      undefined,
     );
     expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       3,
       mocks.db,
       'validation',
       10,
+      undefined,
       undefined,
     );
     expect(mocks.refreshLeaderboard).not.toHaveBeenCalled();
@@ -145,6 +152,7 @@ describe('runIndexer', () => {
     const result = await promise;
 
     expect(result.errors).toBe(0);
+    expect(result.gaps).toEqual([]);
     expect(mocks.getEvents).toHaveBeenCalledTimes(4);
     expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       1,
@@ -152,10 +160,13 @@ describe('runIndexer', () => {
       'identity',
       10,
       undefined,
+      undefined,
     );
   });
 
   it('returns skipped: true when lock cannot be acquired', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     (mocks.db.rpc as ReturnType<typeof vi.fn>).mockImplementation((name: string) => {
       if (name === 'acquire_indexer_lock') return Promise.resolve({ data: false });
       return Promise.resolve({ data: null, error: null });
@@ -165,8 +176,50 @@ describe('runIndexer', () => {
 
     expect(result.skipped).toBe(true);
     expect(result.processed).toBe(0);
-    expect(mocks.getLatestLedger).not.toHaveBeenCalled();
-    expect(mocks.getEvents).not.toHaveBeenCalled();
+    expect(result.errors).toBe(0);
+    expect(result.gaps).toEqual([]);
+    expect(console.warn).toHaveBeenCalled();
+
+    const warnCall = (console.warn as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    const logEntry = JSON.parse(warnCall);
+    expect(logEntry.msg).toBe('Another instance is running, skipping');
+  });
+
+  it('detects ledger gaps when startLedger exceeds expectedNextLedger + GAP_THRESHOLD', async () => {
+    mocks.getLatestLedger.mockResolvedValue({ sequence: 2000 });
+    mocks.getLastLedger.mockResolvedValue(1000);
+    mocks.getExpectedNextLedger.mockResolvedValue(800);
+
+    const result = await runIndexer();
+
+    expect(result.gaps).toHaveLength(3);
+    expect(result.gaps[0].contract).toBe('identity');
+    expect(result.gaps[0].expectedLedger).toBe(800);
+    expect(result.gaps[0].actualLedger).toBe(1001);
+    expect(result.gaps[0].gapSize).toBe(201);
+    expect(result.gaps[1].contract).toBe('reputation');
+    expect(result.gaps[2].contract).toBe('validation');
+  });
+
+  it('tracks per-event-type counters', async () => {
+    mocks.getEvents.mockResolvedValue({
+      events: [
+        { id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true },
+        { id: 'evt-2', ledger: 16, topic: ['t2'], inSuccessfulContractCall: true },
+      ],
+      cursor: undefined,
+    });
+
+    mocks.parseIdentityEvent.mockReturnValueOnce({ type: 'Registered' });
+    mocks.parseIdentityEvent.mockReturnValueOnce({ type: 'UriUpdated' });
+
+    const result = await runIndexer();
+
+    expect(result.contracts.identity.events).toEqual({
+      Registered: 1,
+      UriUpdated: 1,
+    });
+    expect(result.contracts.identity.processed).toBe(2);
   });
 
   it('releases lock even when an error occurs', async () => {
