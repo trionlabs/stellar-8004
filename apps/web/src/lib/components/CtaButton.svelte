@@ -20,15 +20,15 @@
 	} = $props();
 
 	const base =
-		'relative inline-flex items-center justify-center font-medium tracking-wide transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-40';
+		'group relative inline-flex items-center justify-center font-medium tracking-wide transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-40';
 
 	const variants: Record<string, string> = {
 		primary:
-			'bg-linear-to-r from-accent/90 to-accent/70 text-surface-raised shadow-[0_0_20px_rgba(196,181,165,0.15)] hover:shadow-[0_0_30px_rgba(196,181,165,0.25)] hover:from-accent hover:to-accent/80 active:scale-[0.97]',
+			'cta-btn cta-btn--primary bg-linear-to-r from-accent/90 to-accent/70 text-surface-raised shadow-(--shadow-accent-sm) hover:shadow-(--shadow-accent-md) hover:from-accent hover:to-accent/80 active:scale-[0.98]',
 		secondary:
-			'border border-accent/30 text-accent hover:border-accent/60 hover:bg-accent/5 active:scale-[0.97]',
+			'cta-btn cta-btn--secondary border border-accent/20 text-accent hover:border-accent/50 hover:bg-accent/5 active:scale-[0.98]',
 		ghost:
-			'text-text-muted hover:text-accent hover:bg-accent/5 active:scale-[0.97]'
+			'text-text-muted hover:text-accent hover:bg-accent/5 active:scale-[0.98]'
 	};
 
 	const sizes: Record<string, string> = {
@@ -49,3 +49,56 @@
 		{@render children()}
 	</button>
 {/if}
+
+<style>
+	/* Glow border — thin outer glow that intensifies on hover */
+	.cta-btn {
+		position: relative;
+		overflow: visible;
+	}
+
+	.cta-btn::before {
+		content: '';
+		position: absolute;
+		inset: -1px;
+		border-radius: inherit;
+		opacity: 0;
+		transition: opacity 0.4s ease;
+		pointer-events: none;
+		z-index: -1;
+	}
+
+	.cta-btn--primary::before {
+		box-shadow:
+			0 0 8px oklch(0.74 0.07 250 / 0.25),
+			0 0 20px oklch(0.74 0.07 250 / 0.10);
+	}
+
+	.cta-btn--secondary::before {
+		box-shadow:
+			0 0 6px oklch(0.74 0.07 250 / 0.20),
+			0 0 16px oklch(0.74 0.07 250 / 0.08);
+	}
+
+	.cta-btn:hover::before {
+		opacity: 1;
+	}
+
+	/* Subtle inner shine line on top edge */
+	.cta-btn--primary::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 10%;
+		right: 10%;
+		height: 1px;
+		background: linear-gradient(
+			90deg,
+			transparent,
+			oklch(0.90 0.03 250 / 0.4),
+			transparent
+		);
+		border-radius: inherit;
+		pointer-events: none;
+	}
+</style>
