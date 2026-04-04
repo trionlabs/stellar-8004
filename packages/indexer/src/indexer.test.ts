@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
       validation: 'CVALIDATION',
     },
   },
-  db: {},
+  db: {} as Record<string, unknown>,
   serverCtor: vi.fn(),
   getLatestLedger: vi.fn(),
   getEvents: vi.fn(),
@@ -84,6 +84,12 @@ describe('runIndexer', () => {
     mocks.writeValidationEvent.mockResolvedValue(undefined);
     mocks.updateCheckpoint.mockResolvedValue(undefined);
     mocks.refreshLeaderboard.mockResolvedValue(undefined);
+
+    mocks.db.rpc = vi.fn().mockImplementation((name: string) => {
+      if (name === 'acquire_indexer_lock') return Promise.resolve({ data: true });
+      if (name === 'release_indexer_lock') return Promise.resolve({ data: undefined });
+      return Promise.resolve({ data: null, error: null });
+    });
   });
 
   afterEach(() => {
@@ -147,5 +153,54 @@ describe('runIndexer', () => {
       10,
       undefined,
     );
+  });
+
+  it('returns skipped: true when lock cannot be acquired', async () => {
+    (mocks.db.rpc as ReturnType<typeof vi.fn>).mockImplementation((name: string) => {
+      if (name === 'acquire_indexer_lock') return Promise.resolve({ data: false });
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    const result = await runIndexer();
+
+    expect(result.skipped).toBe(true);
+    expect(result.processed).toBe(0);
+    expect(mocks.getLatestLedger).not.toHaveBeenCalled();
+    expect(mocks.getEvents).not.toHaveBeenCalled();
+  });
+
+  it('releases lock even when an error occurs', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    mocks.getLatestLedger.mockRejectedValue(new Error('rpc down'));
+
+    await expect(runIndexer()).rejects.toThrow('rpc down');
+
+    expect(mocks.db.rpc).toHaveBeenCalledWith('release_indexer_lock');
+  });
+
+  it('logs a warning when parser returns null', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    mocks.parseIdentityEvent.mockReturnValue(null);
+    mocks.parseReputationEvent.mockReturnValue(null);
+    mocks.parseValidationEvent.mockReturnValue(null);
+
+    mocks.getEvents.mockResolvedValue({
+      events: [
+        { id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true },
+      ],
+      cursor: undefined,
+    });
+
+    const result = await runIndexer();
+
+    expect(result.processed).toBe(0);
+    expect(console.warn).toHaveBeenCalled();
+
+    const warnCall = (console.warn as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    const logEntry = JSON.parse(warnCall);
+    expect(logEntry.msg).toBe('Skipped unparseable event');
+    expect(logEntry.contract).toBe('identity');
   });
 });
