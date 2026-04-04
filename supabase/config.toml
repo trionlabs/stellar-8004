@@ -385,3 +385,6 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 [functions.indexer]
 verify_jwt = false
+
+[functions.resolve-uris]
+verify_jwt = false
