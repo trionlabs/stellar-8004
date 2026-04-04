@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="24" fill="#141211"/>
+  <g transform="translate(64,64)">
+    <!-- Outer trust ring -->
+    <circle r="44" fill="none" stroke="#c4b5a5" stroke-width="1.5" opacity="0.25"/>
+    <!-- Inner ring -->
+    <circle r="30" fill="none" stroke="#c4b5a5" stroke-width="1" opacity="0.15"/>
+    <!-- 8004 shield shape -->
+    <path d="M0-36 L22-18 L22 12 L0 30 L-22 12 L-22-18 Z" fill="none" stroke="#c4b5a5" stroke-width="2.5" stroke-linejoin="round"/>
+    <!-- Center dot -->
+    <circle r="4" fill="#c4b5a5"/>
+    <!-- Trust nodes -->
+    <circle cx="0" cy="-36" r="3" fill="#c4b5a5" opacity="0.8"/>
+    <circle cx="22" cy="-18" r="2.5" fill="#9ca88e" opacity="0.7"/>
+    <circle cx="22" cy="12" r="2.5" fill="#9ca88e" opacity="0.7"/>
+    <circle cx="0" cy="30" r="3" fill="#c4b5a5" opacity="0.8"/>
+    <circle cx="-22" cy="12" r="2.5" fill="#9ca88e" opacity="0.7"/>
+    <circle cx="-22" cy="-18" r="2.5" fill="#9ca88e" opacity="0.7"/>
+  </g>
+</svg>
