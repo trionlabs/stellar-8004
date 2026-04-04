@@ -3,9 +3,9 @@
 	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress } from '$lib/formatters.js';
 	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
 	import ValidationForm from '$lib/components/ValidationForm.svelte';
-	import type { PageData } from './$types';
+	import type { PageProps } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data }: PageProps = $props();
 
 	const tabs = [
 		{ id: 'metadata', label: 'Metadata' },
@@ -45,8 +45,12 @@
 				</div>
 
 				<div class="space-y-3">
-					<div>
-						<h1 class="text-2xl font-light text-text sm:text-3xl">{data.agent.name}</h1>
+					<div class="space-y-2">
+						<span class="inline-flex items-center gap-1.5 rounded-full border border-accent/12 bg-accent/4 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase">
+							<span class="h-1 w-1 rounded-full bg-accent"></span>
+							Agent #{data.agent.id}
+						</span>
+						<h1 class="text-2xl font-light tracking-tight text-text sm:text-3xl">{data.agent.name}</h1>
 						{#if data.agent.description}
 							<p class="mt-2 max-w-2xl text-sm leading-relaxed text-text-muted">
 								{data.agent.description}
@@ -55,9 +59,6 @@
 					</div>
 
 					<div class="flex flex-wrap gap-2 text-xs text-text-muted">
-						<span class="rounded-md border border-border bg-surface-raised px-2.5 py-1">
-							Agent #{data.agent.id}
-						</span>
 						<span class="rounded-md border border-border bg-surface-raised px-2.5 py-1 font-mono">
 							{shortAddress(data.agent.owner)}
 						</span>
