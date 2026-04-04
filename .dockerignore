@@ -1,0 +1,17 @@
+.git
+.pnpm-store
+node_modules
+apps/web/node_modules
+apps/web/.svelte-kit
+apps/web/build
+packages/*/node_modules
+.env
+.env.*
+!.env.example
+supabase/.branches
+supabase/.temp
+docker/
+docs/
+backlog/
+skills/
+stellar-agentic-skills/

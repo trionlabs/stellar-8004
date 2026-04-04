@@ -1,5 +1,5 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { rpc, stellarConfig } from './stellar.js';
+import { getRpc, getStellarConfig } from './stellar.js';
 import { wallet } from './wallet.svelte.js';
 
 const POLL_INTERVAL_MS = 2000;
@@ -21,18 +21,18 @@ async function buildAndSign(
 ): Promise<{ hash: string; result?: StellarSdk.xdr.ScVal }> {
 	if (!wallet.address) throw new Error('Wallet not connected');
 
-	const account = await rpc.getAccount(wallet.address);
+	const account = await getRpc().getAccount(wallet.address);
 	const contract = new StellarSdk.Contract(contractId);
 
 	let tx = new StellarSdk.TransactionBuilder(account, {
 		fee: StellarSdk.BASE_FEE,
-		networkPassphrase: stellarConfig.networkPassphrase
+		networkPassphrase: getStellarConfig().networkPassphrase
 	})
 		.addOperation(contract.call(method, ...args))
 		.setTimeout(180)
 		.build();
 
-	const simulation = await rpc.simulateTransaction(tx);
+	const simulation = await getRpc().simulateTransaction(tx);
 	if (StellarSdk.rpc.Api.isSimulationError(simulation)) {
 		throw new Error(`Simulation failed: ${simulation.error}`);
 	}
@@ -42,10 +42,10 @@ async function buildAndSign(
 	const signedXdr = await wallet.sign(tx.toXDR());
 	const signedTx = StellarSdk.TransactionBuilder.fromXDR(
 		signedXdr,
-		stellarConfig.networkPassphrase
+		getStellarConfig().networkPassphrase
 	) as StellarSdk.Transaction;
 
-	const response = await rpc.sendTransaction(signedTx);
+	const response = await getRpc().sendTransaction(signedTx);
 
 	switch (response.status) {
 		case 'PENDING':
@@ -60,13 +60,13 @@ async function buildAndSign(
 	}
 
 	const deadline = Date.now() + POLL_TIMEOUT_MS;
-	let result = await rpc.getTransaction(response.hash);
+	let result = await getRpc().getTransaction(response.hash);
 	while (result.status === 'NOT_FOUND') {
 		if (Date.now() > deadline) {
 			throw new Error('Transaction confirmation timed out — it may still be pending on-chain.');
 		}
 		await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-		result = await rpc.getTransaction(response.hash);
+		result = await getRpc().getTransaction(response.hash);
 	}
 
 	if (result.status === 'SUCCESS') {
@@ -96,7 +96,7 @@ export async function registerAgent(agentUri?: string): Promise<{ agentId: numbe
 		: [ownerAddress];
 
 	const method = agentUri ? 'register_with_uri' : 'register';
-	const { hash, result } = await buildAndSign(method, stellarConfig.contracts.identity, args);
+	const { hash, result } = await buildAndSign(method, getStellarConfig().contracts.identity, args);
 	const agentId = result ? (StellarSdk.scValToNative(result) as number) : 0;
 	return { agentId, hash };
 }
@@ -134,7 +134,7 @@ export async function giveFeedback(params: {
 		StellarSdk.nativeToScVal(params.feedbackHash, { type: 'bytes' })
 	];
 
-	const { hash } = await buildAndSign('give_feedback', stellarConfig.contracts.reputation, args);
+	const { hash } = await buildAndSign('give_feedback', getStellarConfig().contracts.reputation, args);
 	return { hash };
 }
 
@@ -170,7 +170,7 @@ export async function requestValidation(params: {
 
 	const { hash } = await buildAndSign(
 		'validation_request',
-		stellarConfig.contracts.validation,
+		getStellarConfig().contracts.validation,
 		args
 	);
 	return { hash };

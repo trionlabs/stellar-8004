@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@stellar8004/db';
-import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 
-export const supabase = createClient<Database>(
-	PUBLIC_SUPABASE_URL,
-	PUBLIC_SUPABASE_ANON_KEY
-);
+export function createSupabase() {
+	return createClient<Database>(env.PUBLIC_SUPABASE_URL, env.PUBLIC_SUPABASE_ANON_KEY);
+}
