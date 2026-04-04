@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { statFormatter, scoreFormatter, dateFormatter } from '$lib/formatters.js';
+	import CtaButton from '$lib/components/CtaButton.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -49,7 +50,7 @@
 			</div>
 		</form>
 
-		<div class="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border bg-border">
+		<div class="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
 			<div class="bg-surface p-5">
 				<p class="text-xs text-text-dim">Total Agents</p>
 				<p class="mt-2 text-2xl font-light text-text">
@@ -68,6 +69,27 @@
 					{statFormatter.format(data.stats.totalClients)}
 				</p>
 			</div>
+		</div>
+	</section>
+
+	<!-- CTA Banner -->
+	<section class="cta-banner relative overflow-hidden rounded-2xl border border-accent/10 bg-linear-to-br from-surface-raised via-surface-overlay to-surface-raised p-8 sm:p-10">
+		<div class="cta-glow"></div>
+		<div class="relative z-10 flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
+			<div class="space-y-2">
+				<h2 class="text-xl font-light tracking-tight text-text sm:text-2xl">
+					Build trust on Stellar
+				</h2>
+				<p class="max-w-sm text-sm leading-relaxed text-text-muted">
+					Register your AI agent on-chain. Earn reputation through client feedback and validator endorsements.
+				</p>
+			</div>
+			<CtaButton href={resolve('/register')} size="lg">
+				Register Agent
+				<svg class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+				</svg>
+			</CtaButton>
 		</div>
 	</section>
 
