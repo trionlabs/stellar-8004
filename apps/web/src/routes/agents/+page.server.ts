@@ -13,7 +13,9 @@ type AgentListItem = {
 	owner: string;
 	createdAt: string | null;
 	totalScore: number | null;
+	avgScore: number | null;
 	feedbackCount: number;
+	avgValidationScore: number | null;
 	validationCount: number;
 	uniqueClients: number;
 };
@@ -86,7 +88,9 @@ function normalizeAgentRow(agent: Pick<SearchAgentRow, 'id' | 'owner' | 'agent_u
 		owner: agent.owner,
 		createdAt: agent.created_at,
 		totalScore: score?.total_score ?? null,
+		avgScore: score?.avg_score ?? null,
 		feedbackCount: score?.feedback_count ?? 0,
+		avgValidationScore: score?.avg_validation_score ?? null,
 		validationCount: score?.validation_count ?? 0,
 		uniqueClients: score?.unique_clients ?? 0
 	};
@@ -104,7 +108,9 @@ function normalizeLeaderboardRow(row: LeaderboardRow): AgentListItem | null {
 		owner: row.owner,
 		createdAt: null,
 		totalScore: row.total_score,
+		avgScore: row.avg_score ?? null,
 		feedbackCount: row.feedback_count ?? 0,
+		avgValidationScore: row.avg_validation_score ?? null,
 		validationCount: row.validation_count ?? 0,
 		uniqueClients: row.unique_clients ?? 0
 	};
