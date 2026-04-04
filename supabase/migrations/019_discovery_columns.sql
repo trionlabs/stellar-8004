@@ -140,7 +140,7 @@ BEGIN
       ))
       AND (
         cardinality(COALESCE(trust_filter, '{}'::text[])) = 0
-        OR ls.supported_trust @> COALESCE(trust_filter, '{}'::text[])
+        OR ls.supported_trust && COALESCE(trust_filter, '{}'::text[])
       )
       AND ls.total_score >= min_score
       AND (has_services_filter IS NULL OR ls.has_services = has_services_filter)
