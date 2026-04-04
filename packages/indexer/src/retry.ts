@@ -1,3 +1,5 @@
+import { log } from './logger.js';
+
 export interface RetryOptions {
   maxAttempts?: number;
   baseDelayMs?: number;
@@ -83,9 +85,14 @@ export async function withRetry<T>(
         delay = Math.max(delay, retryAfter * 1000);
       }
 
-      console.warn(
-        `[retry] attempt ${attempt}/${maxAttempts} failed, retrying in ${Math.round(delay)}ms`,
-      );
+      log({
+        level: 'warn',
+        msg: 'Retrying operation after failure',
+        attempt,
+        maxAttempts,
+        delayMs: Math.round(delay),
+        error: error instanceof Error ? error.message : String(error),
+      });
 
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
