@@ -117,15 +117,15 @@ BEGIN
       ORDER BY created_at DESC
       LIMIT result_limit
       OFFSET result_offset;
+  ELSE
+    RETURN QUERY
+      SELECT *
+      FROM public.agents
+      WHERE search_vector @@ plainto_tsquery('english', search_query)
+      ORDER BY ts_rank(search_vector, plainto_tsquery('english', search_query)) DESC
+      LIMIT result_limit
+      OFFSET result_offset;
   END IF;
-
-  RETURN QUERY
-    SELECT *
-    FROM public.agents
-    WHERE search_vector @@ plainto_tsquery('english', search_query)
-    ORDER BY ts_rank(search_vector, plainto_tsquery('english', search_query)) DESC
-    LIMIT result_limit
-    OFFSET result_offset;
 END;
 $$;
 
