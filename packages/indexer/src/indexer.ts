@@ -136,7 +136,7 @@ async function runIndexerLoop(
     }
 
     const startLedger =
-      lastLedger === 0 ? Math.max(1, latestLedger - 17_280) : lastLedger + 1;
+      lastLedger === 0 ? Math.max(1, latestLedger - 4_320) : lastLedger + 1;
 
     if (expectedNext != null && startLedger > expectedNext + GAP_THRESHOLD) {
       const gapSize = startLedger - expectedNext;
