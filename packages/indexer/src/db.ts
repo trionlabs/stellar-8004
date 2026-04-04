@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { requireEnv } from './env.js';
+import { log } from './logger.js';
 import type { IdentityEvent } from './parsers/identity.js';
 import type { ReputationEvent } from './parsers/reputation.js';
 import type { ValidationEvent } from './parsers/validation.js';
@@ -25,6 +26,20 @@ function assertNoError(result: SupabaseResult, context: string): void {
 
 function toDbBigint(value: bigint): string {
   return value.toString();
+}
+
+function logMalformedEvent(
+  contract: 'identity' | 'reputation' | 'validation',
+  eventType: string,
+  payload: unknown,
+): void {
+  log({
+    level: 'error',
+    msg: 'Malformed event payload',
+    contract,
+    event: eventType,
+    payload,
+  });
 }
 
 export function createSupabaseAdmin(): SupabaseClient {
@@ -90,7 +105,7 @@ export async function writeIdentityEvent(
   switch (event.type) {
     case 'Registered': {
       if (event.agentId == null || !event.owner) {
-        console.error('[identity] Malformed Registered event:', event);
+        logMalformedEvent('identity', 'Registered', event);
         return;
       }
 
@@ -114,7 +129,7 @@ export async function writeIdentityEvent(
 
     case 'UriUpdated': {
       if (event.agentId == null || !event.newUri) {
-        console.error('[identity] Malformed UriUpdated event:', event);
+        logMalformedEvent('identity', 'UriUpdated', event);
         return;
       }
 
@@ -133,7 +148,7 @@ export async function writeIdentityEvent(
 
     case 'MetadataSet': {
       if (event.agentId == null || !event.key) {
-        console.error('[identity] Malformed MetadataSet event:', event);
+        logMalformedEvent('identity', 'MetadataSet', event);
         return;
       }
 
@@ -160,7 +175,7 @@ export async function writeIdentityEvent(
 
     case 'WalletSet': {
       if (event.agentId == null || !event.wallet) {
-        console.error('[identity] Malformed WalletSet event:', event);
+        logMalformedEvent('identity', 'WalletSet', event);
         return;
       }
 
@@ -175,7 +190,7 @@ export async function writeIdentityEvent(
 
     case 'WalletRemoved': {
       if (event.agentId == null) {
-        console.error('[identity] Malformed WalletRemoved event:', event);
+        logMalformedEvent('identity', 'WalletRemoved', event);
         return;
       }
 
@@ -197,7 +212,7 @@ export async function writeReputationEvent(
   switch (event.type) {
     case 'NewFeedback': {
       if (event.agentId == null || !event.clientAddress) {
-        console.error('[reputation] Malformed NewFeedback event:', event);
+        logMalformedEvent('reputation', 'NewFeedback', event);
         return;
       }
 
@@ -229,7 +244,7 @@ export async function writeReputationEvent(
 
     case 'FeedbackRevoked': {
       if (event.agentId == null || !event.clientAddress) {
-        console.error('[reputation] Malformed FeedbackRevoked event:', event);
+        logMalformedEvent('reputation', 'FeedbackRevoked', event);
         return;
       }
 
@@ -253,7 +268,7 @@ export async function writeReputationEvent(
         !event.clientAddress ||
         !event.responder
       ) {
-        console.error('[reputation] Malformed ResponseAppended event:', event);
+        logMalformedEvent('reputation', 'ResponseAppended', event);
         return;
       }
 
@@ -284,7 +299,7 @@ export async function writeValidationEvent(
   switch (event.type) {
     case 'ValidationRequested': {
       if (!event.requestHash || event.agentId == null || !event.validatorAddress) {
-        console.error('[validation] Malformed ValidationRequested event:', event);
+        logMalformedEvent('validation', 'ValidationRequested', event);
         return;
       }
 
@@ -309,7 +324,7 @@ export async function writeValidationEvent(
 
     case 'ValidationResponded': {
       if (!event.requestHash || event.response == null) {
-        console.error('[validation] Malformed ValidationResponded event:', event);
+        logMalformedEvent('validation', 'ValidationResponded', event);
         return;
       }
 
