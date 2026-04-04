@@ -1,12 +1,12 @@
 # 017 — DB Migration: Discovery Columns + Advanced Search
 
-**Status:** REVIEWED
+**Status:** DONE
 **Owner:** Codex
 **Phase:** 6 — Protocol Compliance
 **Branch:** `feat/discovery-db`
 **Depends On:** 016
-**Plan:** [docs/plans/2026-04-05-protocol-compliance-and-discovery.md](../docs/plans/2026-04-05-protocol-compliance-and-discovery.md)
-**Critic:** [docs/plans/017-phase6-discovery-db-critic.md](../docs/plans/017-phase6-discovery-db-critic.md)
+**Plan:** [docs/plans/2026-04-05-protocol-compliance-and-discovery.md](../../docs/plans/2026-04-05-protocol-compliance-and-discovery.md)
+**Critic:** [docs/plans/017-phase6-discovery-db-critic.md](../../docs/plans/017-phase6-discovery-db-critic.md)
 
 ## Context
 
