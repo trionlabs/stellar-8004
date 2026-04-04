@@ -1,7 +1,7 @@
 import freighterApi from '@stellar/freighter-api';
 const { isConnected, isAllowed, requestAccess, getAddress, getNetwork, signTransaction } =
 	freighterApi;
-import { stellarConfig } from './stellar.js';
+import { getStellarConfig } from './stellar.js';
 
 class WalletState {
 	address = $state<string | null>(null);
@@ -82,14 +82,14 @@ class WalletState {
 		// Re-check network right before signing
 		await this.syncNetwork();
 		if (this.networkMismatch) {
-			const expected = stellarConfig.network === 'mainnet' ? 'Public' : 'Testnet';
+			const expected = getStellarConfig().network === 'mainnet' ? 'Public' : 'Testnet';
 			throw new Error(
 				`Freighter is on ${this.network ?? 'unknown'} but this app requires ${expected}. Switch network in Freighter settings.`
 			);
 		}
 
 		const result = await signTransaction(xdr, {
-			networkPassphrase: stellarConfig.networkPassphrase,
+			networkPassphrase: getStellarConfig().networkPassphrase,
 			address: this.address!
 		});
 
@@ -106,7 +106,7 @@ class WalletState {
 			if (netResult.error) return;
 
 			this.network = netResult.network;
-			this.networkMismatch = netResult.networkPassphrase !== stellarConfig.networkPassphrase;
+			this.networkMismatch = netResult.networkPassphrase !== getStellarConfig().networkPassphrase;
 		} catch {
 			// Non-fatal — we'll catch mismatch at sign time
 		}

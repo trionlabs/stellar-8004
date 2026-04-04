@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { registerAgent } from '$lib/contracts.js';
-	import { stellarConfig } from '$lib/stellar.js';
+	import { getStellarConfig } from '$lib/stellar.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import CtaButton from '$lib/components/CtaButton.svelte';
 
@@ -62,7 +62,7 @@
 						</div>
 						<div>
 							<p class="text-sm font-medium text-text">Freighter Wallet</p>
-							<p class="text-xs text-text-dim">Browser extension &middot; {stellarConfig.network}</p>
+							<p class="text-xs text-text-dim">Browser extension &middot; {getStellarConfig().network}</p>
 						</div>
 					</div>
 
@@ -83,14 +83,14 @@
 						<div class="flex items-center gap-2.5 rounded-xl bg-warning/6 px-4 py-3 ring-1 ring-warning/12">
 							<span class="h-1.5 w-1.5 rounded-full bg-warning"></span>
 							<p class="text-xs text-warning">
-								Switch to <span class="font-medium uppercase">{stellarConfig.network}</span> in Freighter
+								Switch to <span class="font-medium uppercase">{getStellarConfig().network}</span> in Freighter
 							</p>
 						</div>
 					{:else}
 						<div class="flex items-center justify-between rounded-xl bg-positive/5 px-4 py-3 ring-1 ring-positive/10">
 							<div class="flex items-center gap-2.5">
 								<span class="h-1.5 w-1.5 rounded-full bg-positive animate-pulse"></span>
-								<p class="text-xs text-positive">{stellarConfig.network}</p>
+								<p class="text-xs text-positive">{getStellarConfig().network}</p>
 							</div>
 							<p class="truncate pl-4 font-mono text-[11px] text-text-dim">{wallet.address?.slice(0, 8)}...{wallet.address?.slice(-6)}</p>
 						</div>
