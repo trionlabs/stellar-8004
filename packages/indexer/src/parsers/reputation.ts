@@ -1,7 +1,12 @@
 import { scValToNative } from '@stellar/stellar-sdk';
 import type { rpc } from '@stellar/stellar-sdk';
 
-import { parseEventData, toBigInt, toHex } from '../helpers.js';
+import {
+  isValidStellarAddress,
+  parseEventData,
+  toBigInt,
+  toHex,
+} from '../helpers.js';
 
 export interface NewFeedbackEvent {
   type: 'NewFeedback';
@@ -55,7 +60,9 @@ export function parseReputationEvent(
 
   const eventName = scValToNative(event.topic[0]) as string;
   const agentId = Number(scValToNative(event.topic[1]));
+  if (!Number.isSafeInteger(agentId) || agentId < 0) return null;
   const clientAddress = String(scValToNative(event.topic[2]));
+  if (!isValidStellarAddress(clientAddress)) return null;
 
   const base = {
     agentId,
@@ -68,13 +75,19 @@ export function parseReputationEvent(
   switch (eventName) {
     case 'new_feedback': {
       const data = parseEventData(scValToNative(event.value));
+      const feedbackIndex = toBigInt(data.feedback_index, 'feedback_index');
+      if (feedbackIndex < 1n) return null;
+      const valueDecimals = Number(data.value_decimals ?? 0);
+      if (!Number.isInteger(valueDecimals) || valueDecimals < 0 || valueDecimals > 18) {
+        return null;
+      }
 
       return {
         type: 'NewFeedback',
         ...base,
-        feedbackIndex: toBigInt(data.feedback_index, 'feedback_index'),
+        feedbackIndex,
         value: toBigInt(data.value, 'value'),
-        valueDecimals: Number(data.value_decimals ?? 0),
+        valueDecimals,
         tag1: String(data.tag1 ?? ''),
         tag2: String(data.tag2 ?? ''),
         endpoint: String(data.endpoint ?? ''),
@@ -85,11 +98,13 @@ export function parseReputationEvent(
 
     case 'feedback_revoked': {
       const data = parseEventData(scValToNative(event.value));
+      const feedbackIndex = toBigInt(data.feedback_index, 'feedback_index');
+      if (feedbackIndex < 1n) return null;
 
       return {
         type: 'FeedbackRevoked',
         ...base,
-        feedbackIndex: toBigInt(data.feedback_index, 'feedback_index'),
+        feedbackIndex,
       };
     }
 
@@ -100,11 +115,16 @@ export function parseReputationEvent(
         throw new TypeError('ResponseAppended: responder field missing');
       }
 
+      const responder = String(data.responder);
+      if (!isValidStellarAddress(responder)) return null;
+      const feedbackIndex = toBigInt(data.feedback_index, 'feedback_index');
+      if (feedbackIndex < 1n) return null;
+
       return {
         type: 'ResponseAppended',
         ...base,
-        responder: String(data.responder),
-        feedbackIndex: toBigInt(data.feedback_index, 'feedback_index'),
+        responder,
+        feedbackIndex,
         responseUri: String(data.response_uri ?? ''),
         responseHash: toHex(data.response_hash),
       };

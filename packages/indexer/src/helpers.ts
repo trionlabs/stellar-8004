@@ -1,26 +1,26 @@
 const utf8Decoder = new TextDecoder('utf-8', { fatal: false });
+const STELLAR_BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+const STELLAR_PUBLIC_KEY_VERSION_BYTE = 6 << 3;
+const STELLAR_ADDRESS_DECODED_LENGTH = 35;
 
 /**
  * Uint8Array/Buffer -> hex string conversion.
  * Works in both Node and Deno because Buffer extends Uint8Array.
  */
 export function toHex(buf: unknown): string {
+  if (buf == null) {
+    return '';
+  }
+
   if (buf instanceof Uint8Array) {
     return Array.from(buf, (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 
   if (typeof buf === 'string') {
-    if (!/^[0-9a-fA-F]*$/.test(buf)) {
-      throw new TypeError(
-        `toHex: string is not valid hex: "${buf.slice(0, 20)}${buf.length > 20 ? '...' : ''}"`,
-      );
-    }
-    return buf.toLowerCase();
+    return /^[0-9a-fA-F]*$/.test(buf) ? buf.toLowerCase() : '';
   }
 
-  throw new TypeError(
-    `toHex: expected Uint8Array or string, got ${typeof buf} (${String(buf)})`,
-  );
+  return '';
 }
 
 /**
@@ -60,4 +60,73 @@ export function toBigInt(val: unknown, fieldName: string): bigint {
   throw new TypeError(
     `toBigInt: expected bigint/number for ${fieldName}, got ${typeof val}`,
   );
+}
+
+export function isValidStellarAddress(address: string): boolean {
+  if (typeof address !== 'string' || address.length !== 56) return false;
+  if (address[0] !== 'G') return false;
+
+  try {
+    const decoded = base32Decode(address);
+    if (decoded.length !== STELLAR_ADDRESS_DECODED_LENGTH) return false;
+    if (decoded[0] !== STELLAR_PUBLIC_KEY_VERSION_BYTE) return false;
+
+    const payload = decoded.slice(0, 33);
+    const checksum = decoded.slice(33);
+    const expectedChecksum = crc16Xmodem(payload);
+
+    return (
+      checksum[0] === (expectedChecksum & 0xff) &&
+      checksum[1] === ((expectedChecksum >> 8) & 0xff)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function base32Decode(input: string): Uint8Array {
+  const bytes: number[] = [];
+  let bits = 0;
+  let value = 0;
+
+  for (const char of input) {
+    const index = STELLAR_BASE32_ALPHABET.indexOf(char);
+    if (index === -1) {
+      throw new TypeError(`Invalid base32 character: ${char}`);
+    }
+
+    value = (value << 5) | index;
+    bits += 5;
+
+    if (bits >= 8) {
+      bytes.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+
+  if (bits > 0 && (value & ((1 << bits) - 1)) !== 0) {
+    throw new TypeError('Invalid base32 trailing bits');
+  }
+
+  return Uint8Array.from(bytes);
+}
+
+function crc16Xmodem(data: Uint8Array): number {
+  let crc = 0x0000;
+
+  for (const byte of data) {
+    crc ^= byte << 8;
+
+    for (let bit = 0; bit < 8; bit++) {
+      if (crc & 0x8000) {
+        crc = (crc << 1) ^ 0x1021;
+      } else {
+        crc <<= 1;
+      }
+
+      crc &= 0xffff;
+    }
+  }
+
+  return crc;
 }
