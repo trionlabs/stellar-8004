@@ -693,6 +693,8 @@ services:
       PGUSER: postgres
       PGPASSWORD: ${POSTGRES_PASSWORD}
       PGDATABASE: ${POSTGRES_DB}
+      INDEXER_SECRET: ${INDEXER_SECRET}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -711,6 +713,11 @@ services:
           psql -v ON_ERROR_STOP=1 -f "$$f" 2>&1 || { echo "FAILED: $$f"; exit 1; }
         done
         echo "=== All migrations applied ==="
+        echo "=== Configuring vault secrets ==="
+        sed -e "s|__INDEXER_SECRET__|$$INDEXER_SECRET|g" \
+            -e "s|__SERVICE_ROLE_KEY__|$$SERVICE_ROLE_KEY|g" \
+            /project/supabase/vault-setup.sql | psql -v ON_ERROR_STOP=1
+        echo "=== Vault secrets configured ==="
     depends_on:
       db:
         condition: service_healthy
