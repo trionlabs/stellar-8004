@@ -1,6 +1,6 @@
 # 022 — Agent Detail: Score Breakdown + Evidence Viewer
 
-**Status:** REVIEWED
+**Status:** DONE
 **Owner:** Codex
 **Phase:** 7 — Discovery UX
 **Branch:** `feat/score-evidence`
