@@ -1,6 +1,6 @@
 # 024 — Agents List: Advanced Filtering UI
 
-**Status:** REVIEWED
+**Status:** DONE
 **Owner:** Codex
 **Phase:** 7 — Discovery UX
 **Branch:** `feat/advanced-search`
