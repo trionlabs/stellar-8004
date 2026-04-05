@@ -1,25 +1,35 @@
 import { PINATA_JWT } from '$env/static/private';
 
-const PINATA_API = 'https://api.pinata.cloud/pinning/pinJSONToIPFS';
+const PINATA_FILE_API = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
 
+/**
+ * Upload raw JSON string to IPFS via Pinata.
+ * Uses pinFileToIPFS (not pinJSONToIPFS) to preserve exact bytes —
+ * critical for hash verification: the uploaded bytes must match
+ * what was hashed client-side via SHA-256.
+ */
 export async function uploadEvidence(
 	name: string,
-	data: unknown
+	jsonString: string
 ): Promise<{ cid: string; uri: string }> {
 	if (!PINATA_JWT) {
 		throw new Error('PINATA_JWT not configured — cannot upload evidence to IPFS');
 	}
 
-	const response = await fetch(PINATA_API, {
+	const blob = new Blob([jsonString], { type: 'application/json' });
+	const formData = new FormData();
+	formData.append('file', blob, `${name}.json`);
+	formData.append(
+		'pinataMetadata',
+		JSON.stringify({ name })
+	);
+
+	const response = await fetch(PINATA_FILE_API, {
 		method: 'POST',
 		headers: {
-			'Content-Type': 'application/json',
 			Authorization: `Bearer ${PINATA_JWT}`
 		},
-		body: JSON.stringify({
-			pinataContent: data,
-			pinataMetadata: { name }
-		})
+		body: formData
 	});
 
 	if (!response.ok) {
