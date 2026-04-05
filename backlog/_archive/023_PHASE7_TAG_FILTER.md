@@ -5,7 +5,8 @@
 **Phase:** 7 — Discovery UX
 **Branch:** `feat/tag-filter`
 **Depends On:** 017
-**Critic:** [critic-023](../docs/plans/2026-04-05-023-tag-filter-critic.md)
+**Plan:** [docs/plans/2026-04-05-protocol-compliance-and-discovery.md](../../docs/plans/2026-04-05-protocol-compliance-and-discovery.md)
+**Critic:** [critic-023](../../docs/plans/2026-04-05-023-tag-filter-critic.md)
 
 ## Context
 
