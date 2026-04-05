@@ -1,7 +1,7 @@
 # ISSUE-001: FOR UPDATE + Aggregate Function — Silent Concurrency Bug
 
 **Severity:** HIGH
-**Status:** OPEN — needs fix
+**Status:** RESOLVED — migration 021
 **Affected:** `insert_feedback_response()` function
 **Migrations:** 013, 017, 019
 **Component:** `supabase/functions/resolve-uris/`, indexer event processing
@@ -186,10 +186,12 @@ END LOOP;
 - **Future risk: HIGH** — if parallel indexing or multi-instance deployment is introduced without fixing this
 - **Data loss potential:** Silent — `ON CONFLICT DO NOTHING` means no error, no log, just a missing response record
 
-## Action Items
+## Resolution
 
-- [ ] Choose solution (A, B, or C)
-- [ ] Write migration `021_fix_response_index_concurrency.sql`
+**Chosen: Option A (advisory lock)** — implemented in `supabase/migrations/021_fix_response_index_concurrency.sql`.
+
+- [x] Choose solution (A, B, or C) — Option A
+- [x] Write migration `021_fix_response_index_concurrency.sql`
 - [ ] Add regression test: concurrent `insert_feedback_response` calls with same tuple
-- [ ] Update migration 019 comment to reference this issue
+- [x] Update migration 019 comment to reference this issue
 - [ ] Consider adding a NOTICE/WARNING log when `ON CONFLICT DO NOTHING` fires (helps detect silent drops)
