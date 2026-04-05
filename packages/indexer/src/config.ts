@@ -8,6 +8,7 @@ export interface NetworkConfig {
   rpcUrl: string;
   networkPassphrase: string;
   contracts: ContractAddresses;
+  deployLedger: number;
 }
 
 export const TESTNET: NetworkConfig = {
@@ -18,6 +19,7 @@ export const TESTNET: NetworkConfig = {
     reputation: 'CAOSF6L4UPTJSZD6KOJMGOOKUKXZNYRNPA2QBPZPTLGGK6XLGCW72YM4',
     validation: 'CA6GIV7QB4B3O5SBZZRL3E3XMFFECGRETSN4JXAYTFKF5HUTD4JY2SJQ',
   },
+  deployLedger: 1819978,
 };
 
 import { env } from './env.js';
@@ -37,5 +39,6 @@ export function getConfig(): NetworkConfig {
       reputation: env('REPUTATION_REGISTRY') ?? '',
       validation: env('VALIDATION_REGISTRY') ?? '',
     },
+    deployLedger: parseInt(env('DEPLOY_LEDGER') ?? '1', 10),
   };
 }
