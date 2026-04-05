@@ -12,9 +12,9 @@
 | 008 | 2 | [DONE](./_archive/008_PHASE2_WEB_ACTIONS.md) | Web pages: leaderboard, register, forms | `feat/web-actions` | 003, 005 |
 | 009 | 3 | [DONE](./009_PHASE3_INTEGRATION.md) | Integration & E2E testing | `feat/integration` | 006, 007, 008 |
 | 010 | 4 | [IN_PROGRESS](./010_PHASE4_LOCAL_DEV.md) | Local dev setup & code quality | `feat/local-dev` | 009 |
-| 011a | 4 | [IN_PROGRESS](./011_PHASE4_SUPABASE_DEPLOY.md) | Supabase compose deploy (s8004 prefix, auth disabled) | `feat/supabase-deploy` | 009 |
-| 011b | 4 | [TODO](./011B_PHASE4_SVELTEKIT_DEPLOY.md) | SvelteKit Docker deploy + Seçenek C env | `feat/sveltekit-deploy` | 009, 011a |
-| 011c | 4 | [TODO](./011C_PHASE4_DNS_ROUTING.md) | Cloudflare DNS + Origin Cert + Traefik | `feat/dns-routing` | 011a, 011b |
+| 011a | 4 | [DONE](./011_PHASE4_SUPABASE_DEPLOY.md) | Supabase compose deploy (s8004 prefix, 15/15 healthy) | `main` | 009 |
+| 011b | 4 | [TODO](./011B_PHASE4_SVELTEKIT_DEPLOY.md) | SvelteKit Docker deploy (Dokploy Application) | `main` | 009, 011a |
+| 011c | 4 | [TODO](./011C_PHASE4_DNS_ROUTING.md) | Cloudflare DNS + Origin Cert (Seçenek C, Kong kapalı) | `main` | 011a, 011b |
 | 012 | 5 | [DONE](./012_PHASE5_RETRY_RESILIENCE.md) | Retry, backoff & RPC resilience | `feat/indexer-retry` | 009 |
 | 013 | 5 | [DONE](./013_PHASE5_CONCURRENCY_INTEGRITY.md) | Concurrency guard & data integrity | `feat/indexer-integrity` | 012 |
 | 014 | 5 | [DONE](./014_PHASE5_OBSERVABILITY.md) | Observability & ledger gap detection | `feat/indexer-observability` | 012 |
