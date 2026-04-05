@@ -34,6 +34,7 @@ export const load: PageServerLoad = async () => {
 
 	assertSuccess(agentsCountResult, 'Agents count');
 	assertSuccess(feedbackCountResult, 'Feedback count');
+	assertSuccess(validatedAgentsResult, 'Validated agents');
 
 	const uniqueClientsRows = assertSuccess(uniqueClientsResult, 'Unique clients') ?? [];
 	const recentAgentRows = assertSuccess(recentAgentsResult, 'Recent agents') ?? [];
