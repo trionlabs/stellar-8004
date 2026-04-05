@@ -10,6 +10,18 @@ function feedbackKey(agentId: number, clientAddress: string, feedbackIndex: numb
 	return `${agentId}:${clientAddress}:${feedbackIndex}`;
 }
 
+function normalizeServices(raw: unknown): Array<{ name: string; endpoint: string; version?: string }> {
+	if (!Array.isArray(raw)) return [];
+	return raw
+		.filter((s): s is Record<string, unknown> => s != null && typeof s === 'object')
+		.map((s) => ({
+			name: typeof s.name === 'string' ? s.name : 'unknown',
+			endpoint: typeof s.endpoint === 'string' ? s.endpoint : '',
+			version: typeof s.version === 'string' ? s.version : undefined
+		}))
+		.filter((s) => s.endpoint.length > 0);
+}
+
 export const load: PageServerLoad = async ({ params }) => {
 	const db = createServerSupabase();
 	const agentId = Number(params.id);
@@ -82,6 +94,8 @@ export const load: PageServerLoad = async ({ params }) => {
 			owner: agent.owner,
 			wallet: agent.wallet,
 			agentUri: agent.agent_uri,
+			supportedTrust: agent.supported_trust ?? [],
+			services: normalizeServices(agent.services),
 			createdAt: agent.created_at,
 			updatedAt: agent.updated_at,
 			registrationData: agent.agent_uri_data ? JSON.stringify(agent.agent_uri_data, null, 2) : null
