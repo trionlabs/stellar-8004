@@ -28,6 +28,6 @@
 | 022 | 7 | [DONE](./_archive/022_PHASE7_SCORE_EVIDENCE.md) | Agent detail: score breakdown + evidence viewer | `feat/score-evidence` | 019 |
 | 023 | 7 | [DONE](./_archive/023_PHASE7_TAG_FILTER.md) | Agent detail: tag filter + per-client breakdown | `feat/tag-filter` | 017 |
 | 024 | 7 | [DONE](./_archive/024_PHASE7_ADVANCED_SEARCH.md) | Agents list: advanced filtering UI | `feat/advanced-search` | 017 |
-| 025 | 8 | [TODO](./025_PHASE8_CLI_CONTRACTS.md) | CLI: reputation contract wrappers + types | `feat/cli-contracts` | — |
-| 026 | 8 | [TODO](./026_PHASE8_CLI_CONFIG.md) | CLI: feedback config + evidence generator | `feat/cli-config` | 025 |
-| 027 | 8 | [TODO](./027_PHASE8_CLI_SCRIPTS.md) | CLI: give-feedback, verify, update-metadata | `feat/cli-scripts` | 025, 026 |
+| 025 | 8 | [OUT_OF_SCOPE](./025_PHASE8_CLI_CONTRACTS.md) | CLI: reputation contract wrappers + types | — | — |
+| 026 | 8 | [OUT_OF_SCOPE](./026_PHASE8_CLI_CONFIG.md) | CLI: feedback config + evidence generator | — | — |
+| 027 | 8 | [OUT_OF_SCOPE](./027_PHASE8_CLI_SCRIPTS.md) | CLI: give-feedback, verify, update-metadata | — | — |
