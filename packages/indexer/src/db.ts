@@ -135,6 +135,8 @@ export async function writeIdentityEvent(
         .update({
           agent_uri: event.newUri,
           agent_uri_data: null,
+          supported_trust: [],
+          services: [],
           uri_resolve_attempts: 0,
           resolve_uri_pending: true,
         })
