@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress } from '$lib/formatters.js';
 	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
@@ -275,6 +276,35 @@
 				<FeedbackForm agentId={data.agent.id} />
 			{/if}
 
+			<div class="flex items-center gap-3">
+				<label for="tag-filter" class="text-xs text-text-dim">Filter by tag:</label>
+				<select
+					id="tag-filter"
+					value={data.tag}
+					onchange={(e) => {
+						const val = (e.target as HTMLSelectElement).value;
+						const url = new URL(window.location.href);
+						if (val) {
+							url.searchParams.set('tag', val);
+						} else {
+							url.searchParams.delete('tag');
+						}
+						goto(url.toString(), { replaceState: true, invalidateAll: true });
+					}}
+					class="rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-sm text-text-muted focus:border-accent/50 focus:outline-none"
+				>
+					<option value="">All</option>
+					<option value="starred">Starred</option>
+					<option value="uptime">Uptime</option>
+					<option value="reachable">Reachable</option>
+					<option value="successRate">Success Rate</option>
+					<option value="responseTime">Response Time</option>
+				</select>
+				{#if data.tag}
+					<span class="text-xs text-accent">Showing: {data.tag}</span>
+				{/if}
+			</div>
+
 			<div class="overflow-hidden rounded-lg border border-border bg-surface">
 				<div class="border-b border-border px-6 py-4">
 					<h2 class="text-sm font-medium text-text">Reputation Feed</h2>
@@ -382,6 +412,42 @@
 					</div>
 				{/if}
 			</div>
+
+			{#if data.clientBreakdown.length > 0}
+				<div class="overflow-hidden rounded-lg border border-border bg-surface">
+					<div class="border-b border-border px-6 py-4">
+						<h2 class="text-sm font-medium text-text">By Client</h2>
+					</div>
+					<div class="overflow-x-auto">
+						<table class="min-w-full text-sm">
+							<thead class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase">
+								<tr>
+									<th class="px-6 py-3 font-medium">Client</th>
+									<th class="px-6 py-3 text-right font-medium">Count</th>
+									<th class="px-6 py-3 text-right font-medium">Avg Score</th>
+									<th class="px-6 py-3 font-medium">Last Feedback</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each data.clientBreakdown as client (client.clientAddress)}
+									<tr class="border-t border-border">
+										<td class="px-6 py-3 font-mono text-xs text-text-muted">
+											{shortAddress(client.clientAddress)}
+										</td>
+										<td class="px-6 py-3 text-right text-text">{client.feedbackCount}</td>
+										<td class="px-6 py-3 text-right font-medium text-positive">
+											{scoreFormatter.format(client.avgScore)}
+										</td>
+										<td class="px-6 py-3 text-xs text-text-dim">
+											{dateTimeFormatter.format(new Date(client.lastFeedback))}
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			{/if}
 		</section>
 	{:else}
 		<section class="space-y-8">
