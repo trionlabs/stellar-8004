@@ -22,6 +22,21 @@
 	const isOwner = $derived.by(
 		() => wallet.address?.toUpperCase() === data.agent.owner.toUpperCase()
 	);
+
+	const PROTOCOL_ICONS: Record<string, string> = {
+		MCP: 'M',
+		A2A: 'A',
+		Web: 'W'
+	};
+
+	let copySuccess = $state<string | null>(null);
+
+	async function copyToClipboard(text: string) {
+		if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+		await navigator.clipboard.writeText(text);
+		copySuccess = text;
+		setTimeout(() => { copySuccess = null; }, 1500);
+	}
 </script>
 
 <svelte:head>
@@ -59,6 +74,17 @@
 							</p>
 						{/if}
 					</div>
+
+					{#if data.agent.supportedTrust.length > 0}
+						<div class="flex flex-wrap gap-1.5">
+							{#each data.agent.supportedTrust as trust}
+								<span class="inline-flex items-center gap-1 rounded-full border border-positive/20 bg-positive/5 px-2.5 py-0.5 text-[11px] text-positive">
+									<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+									{trust}
+								</span>
+							{/each}
+						</div>
+					{/if}
 
 					<div class="flex flex-wrap gap-2 text-xs text-text-muted">
 						<span class="rounded-md border border-border bg-surface-raised px-2.5 py-1 font-mono">
@@ -130,6 +156,55 @@
 	</section>
 
 	{#if activeTab === 'metadata'}
+		{#if data.agent.services.length > 0}
+			<section class="space-y-4">
+				<div>
+					<h2 class="text-sm font-medium text-text">Services</h2>
+					<p class="mt-1 text-xs text-text-dim">Endpoints exposed by this agent</p>
+				</div>
+				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+					{#each data.agent.services as service}
+						<div class="rounded-lg border border-border bg-surface p-4 space-y-2.5">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2">
+									<span class="flex h-7 w-7 items-center justify-center rounded-md border border-accent/20 bg-accent/5 text-xs font-medium text-accent">
+										{PROTOCOL_ICONS[service.name] ?? service.name.charAt(0)}
+									</span>
+									<span class="text-sm font-medium text-text">{service.name}</span>
+								</div>
+								{#if service.version}
+									<span class="rounded-full border border-border bg-surface-raised px-2 py-0.5 text-[10px] text-text-dim">
+										v{service.version}
+									</span>
+								{/if}
+							</div>
+							<div class="flex items-center gap-1.5">
+								<p class="min-w-0 flex-1 truncate font-mono text-[11px] text-text-muted">{service.endpoint}</p>
+								<button
+									type="button"
+									onclick={() => copyToClipboard(service.endpoint)}
+									class="shrink-0 rounded-md border border-border bg-surface-raised p-1 text-text-dim transition hover:text-text"
+									title="Copy endpoint URL"
+								>
+									{#if copySuccess === service.endpoint}
+										<svg class="h-3.5 w-3.5 text-positive" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+									{:else}
+										<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+									{/if}
+								</button>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</section>
+		{:else}
+			<section>
+				<div class="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-dim">
+					No services registered
+				</div>
+			</section>
+		{/if}
+
 		<section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_20rem]">
 			<div class="space-y-4">
 				<div>
