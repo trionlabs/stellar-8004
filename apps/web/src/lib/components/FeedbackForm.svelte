@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { giveFeedback } from '$lib/contracts.js';
+	import { buildFeedbackEvidence, sha256Hash } from '$lib/evidence.js';
+	import { getStellarConfig } from '$lib/stellar.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
@@ -11,6 +13,7 @@
 	let status = $state<'idle' | 'submitting' | 'success' | 'error'>('idle');
 	let errorMsg = $state('');
 	let txHash = $state('');
+	let ipfsWarning = $state('');
 
 	const busy = $derived(status === 'submitting');
 
@@ -23,8 +26,40 @@
 
 		status = 'submitting';
 		errorMsg = '';
+		ipfsWarning = '';
 
 		try {
+			const evidence = buildFeedbackEvidence({
+				agentId,
+				clientAddress: wallet.address!,
+				value,
+				tag1,
+				registryContract: getStellarConfig().contracts.reputation
+			});
+
+			const evidenceJson = JSON.stringify(evidence);
+			const feedbackHash = await sha256Hash(evidenceJson);
+
+			let feedbackUri = '';
+			try {
+				const res = await fetch('/api/ipfs-upload', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						name: `feedback-${agentId}-${Date.now()}`,
+						data: evidence
+					})
+				});
+				if (res.ok) {
+					const { uri } = await res.json();
+					feedbackUri = uri;
+				} else {
+					ipfsWarning = 'Evidence could not be uploaded — feedback will not be verifiable.';
+				}
+			} catch {
+				ipfsWarning = 'Evidence could not be uploaded — feedback will not be verifiable.';
+			}
+
 			const result = await giveFeedback({
 				agentId,
 				value,
@@ -32,8 +67,8 @@
 				tag1,
 				tag2,
 				endpoint,
-				feedbackUri: '',
-				feedbackHash: crypto.getRandomValues(new Uint8Array(32))
+				feedbackUri,
+				feedbackHash
 			});
 
 			txHash = result.hash;
@@ -53,6 +88,9 @@
 			Feedback submitted. TX:
 			<code class="text-xs">{txHash.slice(0, 12)}...</code>
 		</div>
+		{#if ipfsWarning}
+			<p class="mt-1 text-xs text-warning">{ipfsWarning}</p>
+		{/if}
 	{:else if !wallet.connected}
 		<p class="text-sm text-text-muted">Connect your wallet to submit feedback</p>
 	{:else}
