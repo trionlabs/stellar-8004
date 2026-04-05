@@ -1,6 +1,6 @@
 # 018 — URI Resolver: Extract Services & SupportedTrust
 
-**Status:** REVIEWED
+**Status:** DONE
 **Owner:** Codex
 **Phase:** 6 — Protocol Compliance
 **Branch:** `feat/uri-extract`
@@ -22,8 +22,48 @@ Task 017'de eklenen `supported_trust` ve `services` kolonları boş olarak yarat
 - [ ] `_shared/uri.ts`'de `extractSupportedTrust(uriData)` helper: `supportedTrust` array'ini parse et, string[] döndür
 - [ ] `_shared/uri.ts`'de `extractServices(uriData)` helper: spec format (`services`) ve eski format (`endpoints`) destekle, normalize et
 - [ ] `resolve-uris/index.ts`'de başarılı resolve sonrası yeni kolonları (`supported_trust`, `services`) da güncelle
-- [ ] Mevcut agent'lar için one-time backfill SQL (agent_uri_data'sı olan tüm agent'lar)
+- [ ] Mevcut agent'lar için one-time backfill SQL (aşağıda — agent_uri_data'sı olan tüm agent'lar)
 - [ ] Backward compat: `endpoints: [{type, url}]` → `services: [{name, endpoint}]` dönüşümü
+- [ ] Malformed JSONB error handling: `extractServices` ve `extractSupportedTrust` beklenmeyen yapıda boş array döndürmeli, exception fırlatmamalı
+
+### Backfill SQL (one-time, migration sonrası çalıştırılacak)
+
+```sql
+-- Backfill: agent_uri_data'dan services ve supported_trust'ı çıkar
+-- endpoints→services normalizasyonu dahil
+UPDATE public.agents
+SET
+  supported_trust = COALESCE(
+    (SELECT array_agg(elem::text)
+     FROM jsonb_array_elements_text(agent_uri_data->'supportedTrust') AS elem
+     WHERE elem::text <> ''),
+    '{}'
+  ),
+  services = COALESCE(
+    CASE
+      -- Spec format: "services" array
+      WHEN agent_uri_data ? 'services' AND jsonb_typeof(agent_uri_data->'services') = 'array'
+        THEN agent_uri_data->'services'
+      -- Legacy format: "endpoints" → normalize to services
+      WHEN agent_uri_data ? 'endpoints' AND jsonb_typeof(agent_uri_data->'endpoints') = 'array'
+        THEN (
+          SELECT jsonb_agg(jsonb_build_object(
+            'name', COALESCE(ep->>'type', ep->>'name', 'unknown'),
+            'endpoint', COALESCE(ep->>'url', ep->>'endpoint', ''),
+            'version', ep->>'version'
+          ))
+          FROM jsonb_array_elements(agent_uri_data->'endpoints') AS ep
+          WHERE COALESCE(ep->>'url', ep->>'endpoint', '') <> ''
+        )
+      ELSE '[]'::jsonb
+    END,
+    '[]'::jsonb
+  )
+WHERE agent_uri_data IS NOT NULL
+  AND agent_uri_data::text <> 'null';
+```
+
+> **NOT:** Bu SQL, `endpoints` → `services` mapping'inde `type` → `name`, `url` → `endpoint` dönüşümü yapar. Boş endpoint URL'leri filtrelenir.
 
 ## Implementation Plan
 
