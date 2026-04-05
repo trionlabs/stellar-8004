@@ -1,6 +1,6 @@
 # 021 — Agent Detail: Services Cards + Trust Badges
 
-**Status:** REVIEWED
+**Status:** DONE
 **Owner:** Codex
 **Phase:** 7 — Discovery UX
 **Branch:** `feat/agent-services`
