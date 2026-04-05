@@ -4,9 +4,54 @@
 	import CtaButton from '$lib/components/CtaButton.svelte';
 	import type { PageProps } from './$types';
 
+	import { goto } from '$app/navigation';
+
 	let { data }: PageProps = $props();
 
 	const baseAgentsPath = resolve('/agents');
+
+	let trustReputation = $state(data.filters.trust.includes('reputation'));
+	let trustCryptoEconomic = $state(data.filters.trust.includes('crypto-economic'));
+	let trustTee = $state(data.filters.trust.includes('tee-attestation'));
+	let minScoreValue = $state(data.filters.minScore);
+	let servicesOnly = $state(data.filters.hasServices);
+	let filtersOpen = $state(data.filters.trust.length > 0 || data.filters.minScore > 0 || data.filters.hasServices);
+
+	function applyFilters() {
+		const url = new URL(window.location.href);
+		url.searchParams.delete('trust');
+		url.searchParams.delete('min_score');
+		url.searchParams.delete('services');
+		url.searchParams.set('page', '1');
+
+		if (trustReputation) url.searchParams.append('trust', 'reputation');
+		if (trustCryptoEconomic) url.searchParams.append('trust', 'crypto-economic');
+		if (trustTee) url.searchParams.append('trust', 'tee-attestation');
+		const clamped = Math.max(0, Math.min(100, Number(minScoreValue) || 0));
+		if (clamped > 0) url.searchParams.set('min_score', String(clamped));
+		if (servicesOnly) url.searchParams.set('services', 'true');
+
+		goto(url.toString());
+	}
+
+	function clearFilters() {
+		trustReputation = false;
+		trustCryptoEconomic = false;
+		trustTee = false;
+		minScoreValue = 0;
+		servicesOnly = false;
+
+		const url = new URL(window.location.href);
+		url.searchParams.delete('trust');
+		url.searchParams.delete('min_score');
+		url.searchParams.delete('services');
+		url.searchParams.set('page', '1');
+		goto(url.toString());
+	}
+
+	const hasActiveFilters = $derived(
+		data.filters.trust.length > 0 || data.filters.minScore > 0 || data.filters.hasServices
+	);
 
 	/** Trust score → 5 mosaic blocks, each represents a 20-point quintile */
 	function trustBlocks(score: number | null): { filled: number; level: 'none' | 'low' | 'mid' | 'high' } {
@@ -82,9 +127,87 @@
 		</form>
 	</div>
 
+	<!-- Filter panel -->
+	<div class="space-y-3">
+		<button
+			type="button"
+			onclick={() => (filtersOpen = !filtersOpen)}
+			class="flex items-center gap-1.5 text-xs text-text-muted transition hover:text-text"
+		>
+			<svg class="h-3 w-3 transition-transform {filtersOpen ? 'rotate-90' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+			Advanced Filters
+			{#if hasActiveFilters}
+				<span class="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent">active</span>
+			{/if}
+		</button>
+
+		{#if filtersOpen}
+			<div class="rounded-xl border border-border bg-surface p-4 space-y-4">
+				<div class="flex flex-wrap gap-6">
+					<div class="space-y-2">
+						<p class="text-xs font-medium text-text-dim">Trust Mechanisms</p>
+						<div class="flex flex-wrap gap-3">
+							<label class="flex items-center gap-1.5 text-sm text-text-muted">
+								<input type="checkbox" bind:checked={trustReputation} class="rounded border-border" />
+								reputation
+							</label>
+							<label class="flex items-center gap-1.5 text-sm text-text-muted">
+								<input type="checkbox" bind:checked={trustCryptoEconomic} class="rounded border-border" />
+								crypto-economic
+							</label>
+							<label class="flex items-center gap-1.5 text-sm text-text-muted">
+								<input type="checkbox" bind:checked={trustTee} class="rounded border-border" />
+								tee-attestation
+							</label>
+						</div>
+					</div>
+
+					<div class="space-y-2">
+						<label for="min-score" class="text-xs font-medium text-text-dim">Min Score</label>
+						<input
+							id="min-score"
+							type="number"
+							min="0"
+							max="100"
+							bind:value={minScoreValue}
+							class="w-20 rounded-lg border border-border bg-surface-raised px-2.5 py-1.5 text-sm text-text-muted focus:border-accent/50 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-2">
+						<p class="text-xs font-medium text-text-dim">Services</p>
+						<label class="flex items-center gap-1.5 text-sm text-text-muted">
+							<input type="checkbox" bind:checked={servicesOnly} class="rounded border-border" />
+							Only with services
+						</label>
+					</div>
+				</div>
+
+				<div class="flex gap-2">
+					<button
+						type="button"
+						onclick={applyFilters}
+						class="rounded-lg bg-accent-soft px-4 py-1.5 text-sm text-accent transition hover:bg-accent-medium"
+					>
+						Apply Filters
+					</button>
+					{#if hasActiveFilters}
+						<button
+							type="button"
+							onclick={clearFilters}
+							class="rounded-lg border border-border px-4 py-1.5 text-sm text-text-muted transition hover:bg-surface-raised"
+						>
+							Clear All
+						</button>
+					{/if}
+				</div>
+			</div>
+		{/if}
+	</div>
+
 	<!-- Results header -->
 	<div class="flex items-center justify-between text-xs text-text-dim">
-		<span>{data.query ? `Results for "${data.query}"` : 'All indexed agents'}</span>
+		<span>{data.query ? `Results for "${data.query}"` : hasActiveFilters ? 'Filtered agents' : 'All indexed agents'}</span>
 		<span>Page {data.page}</span>
 	</div>
 
@@ -196,8 +319,13 @@
 		</div>
 	{:else}
 		<div class="rounded-xl border border-dashed border-border p-12 text-center">
-			<p class="text-sm text-text">No agents matched this query</p>
-			<p class="mt-1 text-xs text-text-dim">Try a broader search term</p>
+			<p class="text-sm text-text">No agents matched {hasActiveFilters ? 'these filters' : 'this query'}</p>
+			<p class="mt-1 text-xs text-text-dim">{hasActiveFilters ? 'Try removing some filters' : 'Try a broader search term'}</p>
+			{#if hasActiveFilters}
+				<button type="button" onclick={clearFilters} class="mt-3 rounded-lg border border-border px-4 py-1.5 text-sm text-text-muted transition hover:bg-surface-raised">
+					Clear all filters
+				</button>
+			{/if}
 		</div>
 	{/if}
 
@@ -209,6 +337,9 @@
 				<input type="hidden" name="sort" value={data.sort} />
 				{#if data.query}<input type="hidden" name="q" value={data.query} />{/if}
 				{#if data.order !== 'desc'}<input type="hidden" name="order" value={data.order} />{/if}
+				{#each data.filters.trust as t}<input type="hidden" name="trust" value={t} />{/each}
+				{#if data.filters.minScore > 0}<input type="hidden" name="min_score" value={data.filters.minScore} />{/if}
+				{#if data.filters.hasServices}<input type="hidden" name="services" value="true" />{/if}
 				<button type="submit" class="rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-text-muted transition hover:bg-surface-raised hover:text-text">
 					Previous
 				</button>
@@ -223,6 +354,9 @@
 				<input type="hidden" name="sort" value={data.sort} />
 				{#if data.query}<input type="hidden" name="q" value={data.query} />{/if}
 				{#if data.order !== 'desc'}<input type="hidden" name="order" value={data.order} />{/if}
+				{#each data.filters.trust as t}<input type="hidden" name="trust" value={t} />{/each}
+				{#if data.filters.minScore > 0}<input type="hidden" name="min_score" value={data.filters.minScore} />{/if}
+				{#if data.filters.hasServices}<input type="hidden" name="services" value="true" />{/if}
 				<button type="submit" class="rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-text-muted transition hover:bg-surface-raised hover:text-text">
 					Next
 				</button>

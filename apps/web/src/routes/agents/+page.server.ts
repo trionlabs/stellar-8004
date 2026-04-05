@@ -18,6 +18,8 @@ type AgentListItem = {
 	avgValidationScore: number | null;
 	validationCount: number;
 	uniqueClients: number;
+	supportedTrust: string[];
+	hasServices: boolean;
 };
 
 const SORT_OPTIONS = ['created_at', 'score', 'feedback'] as const;
@@ -80,7 +82,7 @@ async function loadScoreMap(
 	);
 }
 
-function normalizeAgentRow(agent: Pick<SearchAgentRow, 'id' | 'owner' | 'agent_uri_data' | 'created_at'>, score?: LeaderboardRow | null): AgentListItem {
+function normalizeAgentRow(agent: Pick<SearchAgentRow, 'id' | 'owner' | 'agent_uri_data' | 'created_at' | 'supported_trust' | 'services'>, score?: LeaderboardRow | null): AgentListItem {
 	return {
 		id: agent.id,
 		name: readUriField(agent.agent_uri_data, 'name') ?? `Agent #${agent.id}`,
@@ -92,7 +94,9 @@ function normalizeAgentRow(agent: Pick<SearchAgentRow, 'id' | 'owner' | 'agent_u
 		feedbackCount: score?.feedback_count ?? 0,
 		avgValidationScore: score?.avg_validation_score ?? null,
 		validationCount: score?.validation_count ?? 0,
-		uniqueClients: score?.unique_clients ?? 0
+		uniqueClients: score?.unique_clients ?? 0,
+		supportedTrust: agent.supported_trust ?? [],
+		hasServices: Array.isArray(agent.services) ? agent.services.length > 0 : false
 	};
 }
 
@@ -112,7 +116,9 @@ function normalizeLeaderboardRow(row: LeaderboardRow): AgentListItem | null {
 		feedbackCount: row.feedback_count ?? 0,
 		avgValidationScore: row.avg_validation_score ?? null,
 		validationCount: row.validation_count ?? 0,
-		uniqueClients: row.unique_clients ?? 0
+		uniqueClients: row.unique_clients ?? 0,
+		supportedTrust: row.supported_trust ?? [],
+		hasServices: row.has_services ?? false
 	};
 }
 
@@ -128,6 +134,56 @@ export const load: PageServerLoad = async ({ url }) => {
 	const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
 	const perPage = 20;
 	const offset = (page - 1) * perPage;
+
+	// Advanced filters
+	const trustFilter = url.searchParams.getAll('trust').filter((t) => t.length > 0);
+	const minScoreParam = Number(url.searchParams.get('min_score') ?? '0');
+	const minScore = Number.isFinite(minScoreParam) ? Math.max(0, Math.min(100, minScoreParam)) : 0;
+	const hasServicesParam = url.searchParams.get('services');
+	const hasServices = hasServicesParam === 'true' ? true : null;
+
+	const hasFilters = trustFilter.length > 0 || minScore > 0 || hasServices !== null;
+
+	if (hasFilters) {
+		const advancedRows =
+			assertSuccess(
+				await db.rpc('search_agents_advanced', {
+					search_query: query,
+					trust_filter: trustFilter,
+					min_score: minScore,
+					has_services_filter: hasServices ?? undefined,
+					result_limit: perPage,
+					result_offset: offset
+				}),
+				'Advanced search'
+			) ?? [];
+
+		const agents: AgentListItem[] = advancedRows.map((row) => ({
+			id: row.agent_id,
+			name: row.agent_name ?? `Agent #${row.agent_id}`,
+			image: row.agent_image,
+			owner: row.owner,
+			createdAt: null,
+			totalScore: row.total_score,
+			avgScore: row.avg_score ?? null,
+			feedbackCount: row.feedback_count ?? 0,
+			avgValidationScore: row.avg_validation_score ?? null,
+			validationCount: row.validation_count ?? 0,
+			uniqueClients: row.unique_clients ?? 0,
+			supportedTrust: row.supported_trust ?? [],
+			hasServices: row.has_services ?? false
+		}));
+
+		return {
+			agents,
+			query,
+			sort,
+			order,
+			page,
+			hasMore: advancedRows.length === perPage,
+			filters: { trust: trustFilter, minScore, hasServices: hasServices ?? false }
+		};
+	}
 
 	if (query.length > 0) {
 		const searchRows =
@@ -156,7 +212,8 @@ export const load: PageServerLoad = async ({ url }) => {
 			sort,
 			order,
 			page,
-			hasMore: searchRows.length === perPage
+			hasMore: searchRows.length === perPage,
+			filters: { trust: [] as string[], minScore: 0, hasServices: false }
 		};
 	}
 
@@ -166,7 +223,7 @@ export const load: PageServerLoad = async ({ url }) => {
 				await db
 					.from('agents')
 					.select(
-						'id, owner, agent_uri_data, created_at'
+						'id, owner, agent_uri_data, created_at, supported_trust, services'
 					)
 					.order('created_at', { ascending: order === 'asc' })
 					.range(offset, offset + perPage - 1),
@@ -184,7 +241,8 @@ export const load: PageServerLoad = async ({ url }) => {
 			sort,
 			order,
 			page,
-			hasMore: agentRows.length === perPage
+			hasMore: agentRows.length === perPage,
+			filters: { trust: [] as string[], minScore: 0, hasServices: false }
 		};
 	}
 
@@ -208,6 +266,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		sort,
 		order,
 		page,
-		hasMore: leaderboardRows.length === perPage
+		hasMore: leaderboardRows.length === perPage,
+		filters: { trust: [] as string[], minScore: 0, hasServices: false }
 	};
 };

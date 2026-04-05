@@ -9,12 +9,14 @@ export const load: PageServerLoad = async () => {
 		agentsCountResult,
 		feedbackCountResult,
 		uniqueClientsResult,
+		validatedAgentsResult,
 		recentAgentsResult,
 		recentFeedbackResult
 	] = await Promise.all([
 		db.from('agents').select('id', { count: 'exact', head: true }),
 		db.from('feedback').select('id', { count: 'exact', head: true }).eq('is_revoked', false),
 		db.from('leaderboard_scores').select('unique_clients'),
+		db.from('leaderboard_scores').select('agent_id', { count: 'exact', head: true }).gt('validation_count', 0),
 		db
 			.from('agents')
 			.select('id, agent_uri_data, created_at')
@@ -51,7 +53,8 @@ export const load: PageServerLoad = async () => {
 		stats: {
 			totalAgents: agentsCountResult.count ?? 0,
 			totalFeedback: feedbackCountResult.count ?? 0,
-			totalClients: uniqueClientsRows.reduce((sum, row) => sum + (row.unique_clients ?? 0), 0)
+			totalClients: uniqueClientsRows.reduce((sum, row) => sum + (row.unique_clients ?? 0), 0),
+			validatedAgents: validatedAgentsResult.count ?? 0
 		},
 		recentAgents: recentAgentRows.map((agent) => ({
 			id: agent.id,
