@@ -24,11 +24,13 @@ AS $$
 DECLARE
   v_next_index integer;
 BEGIN
-  -- Serialize concurrent calls for the same (agent_id, feedback_index) tuple.
+  -- Serialize concurrent calls for the same (agent_id, client_address, feedback_index) tuple.
   -- Advisory lock is transaction-scoped: auto-released on commit/rollback.
   -- This replaces the invalid FOR UPDATE + MAX() pattern from migrations 013/017.
+  -- Two-argument form gives 64-bit key space, avoiding hashtext 32-bit collisions.
   PERFORM pg_advisory_xact_lock(
-    hashtext(p_agent_id::text || ':' || p_feedback_index::text)
+    p_agent_id,
+    hashtext(p_client_address || ':' || p_feedback_index::text)
   );
 
   SELECT COALESCE(MAX(response_index), 0) + 1
