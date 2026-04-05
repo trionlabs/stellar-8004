@@ -208,7 +208,8 @@ BEGIN
   FROM public.feedback_responses
   WHERE agent_id = p_agent_id
     AND client_address = p_client_address
-    AND feedback_index = p_feedback_index;
+    AND feedback_index = p_feedback_index
+  FOR UPDATE;
 
   INSERT INTO public.feedback_responses (
     agent_id, client_address, feedback_index, response_index,
