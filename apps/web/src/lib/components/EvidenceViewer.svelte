@@ -25,7 +25,7 @@
 		return uri.slice('ipfs://'.length).replace(/^ipfs\//, '').replace(/^\/+/, '') || null;
 	}
 
-	async function fetchFromGateways(cid: string): Promise<string | null> {
+	async function fetchFromGateways(cid: string): Promise<{ raw: ArrayBuffer; text: string } | null> {
 		for (const gateway of IPFS_GATEWAYS) {
 			try {
 				const controller = new AbortController();
@@ -33,7 +33,9 @@
 				try {
 					const res = await fetch(`${gateway}${cid}`, { signal: controller.signal });
 					if (res.ok) {
-						return await res.text();
+						const raw = await res.arrayBuffer();
+						const text = new TextDecoder().decode(raw);
+						return { raw, text };
 					}
 				} finally {
 					clearTimeout(timeout);
@@ -45,8 +47,8 @@
 		return null;
 	}
 
-	async function verifyHash(content: string, expectedHash: string): Promise<boolean> {
-		const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content));
+	async function verifyHash(raw: ArrayBuffer, expectedHash: string): Promise<boolean> {
+		const hashBuffer = await crypto.subtle.digest('SHA-256', raw);
 		const hashHex = Array.from(new Uint8Array(hashBuffer))
 			.map((b) => b.toString(16).padStart(2, '0'))
 			.join('');
@@ -68,26 +70,26 @@
 		hashStatus = null;
 
 		try {
-			const content = await fetchFromGateways(cid);
-			if (!content) {
+			const result = await fetchFromGateways(cid);
+			if (!result) {
 				errorMsg = 'Evidence unavailable — all IPFS gateways failed';
 				return;
 			}
 
-			// Pretty-print if valid JSON, otherwise show raw
-			try {
-				const parsed = JSON.parse(content);
-				evidenceJson = JSON.stringify(parsed, null, 2);
-			} catch {
-				evidenceJson = content;
-			}
-
-			// Hash verification
+			// Hash verification against raw bytes (no text encoding normalization)
 			if (!feedbackHash) {
 				hashStatus = 'no-hash';
 			} else {
-				const valid = await verifyHash(content, feedbackHash);
+				const valid = await verifyHash(result.raw, feedbackHash);
 				hashStatus = valid ? 'verified' : 'mismatch';
+			}
+
+			// Pretty-print for display
+			try {
+				const parsed = JSON.parse(result.text);
+				evidenceJson = JSON.stringify(parsed, null, 2);
+			} catch {
+				evidenceJson = result.text;
 			}
 		} catch {
 			errorMsg = 'Failed to load evidence';
