@@ -1,6 +1,6 @@
 # 020 — Metadata Format Spec Alignment (Documentation)
 
-**Status:** REVIEWED
+**Status:** DONE
 **Owner:** Codex
 **Phase:** 6 — Protocol Compliance
 **Branch:** `feat/metadata-spec`
