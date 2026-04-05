@@ -5,7 +5,8 @@
 **Phase:** 7 — Discovery UX
 **Branch:** `feat/agent-services`
 **Depends On:** 017, 018
-**Critic:** [critic-021](../docs/plans/2026-04-05-021-agent-services-critic.md)
+**Plan:** [docs/plans/2026-04-05-protocol-compliance-and-discovery.md](../../docs/plans/2026-04-05-protocol-compliance-and-discovery.md)
+**Critic:** [critic-021](../../docs/plans/2026-04-05-021-agent-services-critic.md)
 
 ## Context
 

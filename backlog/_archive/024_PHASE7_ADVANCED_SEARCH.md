@@ -5,7 +5,8 @@
 **Phase:** 7 — Discovery UX
 **Branch:** `feat/advanced-search`
 **Depends On:** 017
-**Critic:** [critic-024](../docs/plans/2026-04-05-024-advanced-search-critic.md)
+**Plan:** [docs/plans/2026-04-05-protocol-compliance-and-discovery.md](../../docs/plans/2026-04-05-protocol-compliance-and-discovery.md)
+**Critic:** [critic-024](../../docs/plans/2026-04-05-024-advanced-search-critic.md)
 
 ## Context
 

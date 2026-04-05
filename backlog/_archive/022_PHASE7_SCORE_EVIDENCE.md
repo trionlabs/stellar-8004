@@ -5,7 +5,8 @@
 **Phase:** 7 — Discovery UX
 **Branch:** `feat/score-evidence`
 **Depends On:** 019
-**Critic:** [critic-022](../docs/plans/2026-04-05-022-score-evidence-critic.md)
+**Plan:** [docs/plans/2026-04-05-protocol-compliance-and-discovery.md](../../docs/plans/2026-04-05-protocol-compliance-and-discovery.md)
+**Critic:** [critic-022](../../docs/plans/2026-04-05-022-score-evidence-critic.md)
 
 ## Context
 
