@@ -1,6 +1,6 @@
 # 023 — Agent Detail: Tag Filter + Per-Client Breakdown
 
-**Status:** REVIEWED
+**Status:** DONE
 **Owner:** Codex
 **Phase:** 7 — Discovery UX
 **Branch:** `feat/tag-filter`

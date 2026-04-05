@@ -22,12 +22,28 @@ function normalizeServices(raw: unknown): Array<{ name: string; endpoint: string
 		.filter((s) => s.endpoint.length > 0);
 }
 
-export const load: PageServerLoad = async ({ params }) => {
+const VALID_TAGS = ['starred', 'uptime', 'reachable', 'successRate', 'responseTime'] as const;
+
+export const load: PageServerLoad = async ({ params, url }) => {
 	const db = createServerSupabase();
 	const agentId = Number(params.id);
 
 	if (!Number.isInteger(agentId) || agentId <= 0) {
 		throw error(400, 'Invalid agent ID');
+	}
+
+	const tagParam = url.searchParams.get('tag') ?? '';
+	const tag = (VALID_TAGS as readonly string[]).includes(tagParam) ? tagParam : '';
+
+	let feedbackQuery = db
+		.from('feedback')
+		.select('*')
+		.eq('agent_id', agentId)
+		.order('created_at', { ascending: false })
+		.limit(50);
+
+	if (tag) {
+		feedbackQuery = feedbackQuery.eq('tag1', tag);
 	}
 
 	const [
@@ -40,12 +56,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	] = await Promise.all([
 		db.from('agents').select('*').eq('id', agentId).maybeSingle(),
 		db.from('agent_metadata').select('*').eq('agent_id', agentId),
-		db
-			.from('feedback')
-			.select('*')
-			.eq('agent_id', agentId)
-			.order('created_at', { ascending: false })
-			.limit(50),
+		feedbackQuery,
 		db
 			.from('validations')
 			.select('*')
@@ -85,7 +96,32 @@ export const load: PageServerLoad = async ({ params }) => {
 		responsesByFeedback.set(key, entries);
 	}
 
+	// Per-client breakdown from feedback rows
+	const clientMap = new Map<string, { count: number; totalScore: number; lastFeedback: string }>();
+	for (const fb of feedbackRows) {
+		if (fb.is_revoked) continue;
+		const existing = clientMap.get(fb.client_address);
+		const score = toDisplayScore(fb.value, fb.value_decimals);
+		if (existing) {
+			existing.count++;
+			existing.totalScore += score;
+			if (fb.created_at > existing.lastFeedback) existing.lastFeedback = fb.created_at;
+		} else {
+			clientMap.set(fb.client_address, { count: 1, totalScore: score, lastFeedback: fb.created_at });
+		}
+	}
+	const clientBreakdown = [...clientMap.entries()]
+		.map(([address, data]) => ({
+			clientAddress: address,
+			feedbackCount: data.count,
+			avgScore: data.totalScore / data.count,
+			lastFeedback: data.lastFeedback
+		}))
+		.sort((a, b) => b.feedbackCount - a.feedbackCount)
+		.slice(0, 20);
+
 	return {
+		tag,
 		agent: {
 			id: agent.id,
 			name: readUriField(agent.agent_uri_data, 'name') ?? `Agent #${agent.id}`,
@@ -141,6 +177,7 @@ export const load: PageServerLoad = async ({ params }) => {
 					validationCount: leaderboard.validation_count ?? 0,
 					avgValidationScore: leaderboard.avg_validation_score
 				}
-			: null
+			: null,
+		clientBreakdown
 	};
 };
