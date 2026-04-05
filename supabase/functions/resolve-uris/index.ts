@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { resolveUri } from '../_shared/uri.ts';
+import { resolveUri, extractSupportedTrust, extractServices } from '../_shared/uri.ts';
 
 const BATCH_SIZE = 5;
 const MAX_ATTEMPTS = 5;
@@ -80,10 +80,15 @@ Deno.serve(async (request: Request) => {
 
     for (const { agent, uriData } of results) {
       if (uriData != null) {
+        const supportedTrust = extractSupportedTrust(uriData);
+        const services = extractServices(uriData);
+
         const { error: updateError } = await db
           .from('agents')
           .update({
             agent_uri_data: uriData,
+            supported_trust: supportedTrust,
+            services: services,
             uri_resolve_attempts: 0,
             resolve_uri_pending: false,
           })
@@ -126,6 +131,8 @@ Deno.serve(async (request: Request) => {
       resolved,
       failed,
       exhausted,
+      extractedTrust: results.filter(({ uriData }) => uriData != null && extractSupportedTrust(uriData).length > 0).length,
+      extractedServices: results.filter(({ uriData }) => uriData != null && extractServices(uriData).length > 0).length,
     });
 
     return json({
