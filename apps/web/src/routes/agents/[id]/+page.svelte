@@ -3,6 +3,8 @@
 	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress } from '$lib/formatters.js';
 	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
 	import ValidationForm from '$lib/components/ValidationForm.svelte';
+	import ScoreBreakdown from '$lib/components/ScoreBreakdown.svelte';
+	import EvidenceViewer from '$lib/components/EvidenceViewer.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -88,6 +90,16 @@
 							<span class="text-text-dim">Pending</span>
 						{/if}
 					</p>
+					{#if data.scores}
+						<div class="mt-2">
+							<ScoreBreakdown
+								avgScore={data.scores.avgScore ?? 0}
+								feedbackCount={data.scores.feedbackCount ?? 0}
+								avgValidationScore={data.scores.avgValidationScore ?? 0}
+								totalScore={data.scores.totalScore ?? 0}
+							/>
+						</div>
+					{/if}
 				</div>
 				<div class="bg-surface p-4">
 					<p class="text-xs text-text-dim">Feedback</p>
@@ -205,6 +217,7 @@
 									<th class="px-6 py-3 font-medium">Tag</th>
 									<th class="px-6 py-3 font-medium">Responses</th>
 									<th class="px-6 py-3 font-medium">Status</th>
+									<th class="px-6 py-3 font-medium">Evidence</th>
 									<th class="px-6 py-3 font-medium">Date</th>
 								</tr>
 							</thead>
@@ -274,9 +287,15 @@
 												</span>
 											{/if}
 										</td>
-										<td class="px-6 py-3 text-xs text-text-dim">
-											{dateTimeFormatter.format(new Date(feedback.createdAt))}
-										</td>
+										<td class="px-6 py-3">
+										<EvidenceViewer
+											feedbackUri={feedback.feedbackUri}
+											feedbackHash={feedback.feedbackHash}
+										/>
+									</td>
+									<td class="px-6 py-3 text-xs text-text-dim">
+										{dateTimeFormatter.format(new Date(feedback.createdAt))}
+									</td>
 									</tr>
 								{/each}
 							</tbody>

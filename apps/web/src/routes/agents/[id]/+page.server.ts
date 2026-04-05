@@ -93,6 +93,8 @@ export const load: PageServerLoad = async ({ params }) => {
 			score: toDisplayScore(feedback.value, feedback.value_decimals),
 			tag1: feedback.tag1,
 			tag2: feedback.tag2,
+			feedbackUri: feedback.feedback_uri,
+			feedbackHash: feedback.feedback_hash,
 			isRevoked: feedback.is_revoked,
 			createdAt: feedback.created_at,
 			responses: (
