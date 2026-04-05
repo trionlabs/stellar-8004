@@ -47,7 +47,7 @@
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
 						name: `feedback-${agentId}-${Date.now()}`,
-						data: evidence
+						data: evidenceJson
 					})
 				});
 				if (res.ok) {
