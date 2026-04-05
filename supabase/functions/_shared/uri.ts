@@ -38,6 +38,43 @@ function normalizeIpfsPath(uri: string): string | null {
   return rawPath.length > 0 ? rawPath : null;
 }
 
+export function extractSupportedTrust(uriData: unknown): string[] {
+  if (!uriData || typeof uriData !== 'object' || Array.isArray(uriData)) return [];
+  const record = uriData as Record<string, unknown>;
+  const trust = record.supportedTrust;
+  if (!Array.isArray(trust)) return [];
+  return trust.filter((t): t is string => typeof t === 'string' && t.length > 0);
+}
+
+export function extractServices(uriData: unknown): unknown[] {
+  if (!uriData || typeof uriData !== 'object' || Array.isArray(uriData)) return [];
+  const record = uriData as Record<string, unknown>;
+
+  // Spec format: "services" array with {name, endpoint, version}
+  if (Array.isArray(record.services)) {
+    return record.services.filter(
+      (s) => s && typeof s === 'object' && 'endpoint' in (s as Record<string, unknown>),
+    );
+  }
+
+  // Backward compat: "endpoints" array with {type, url} → normalize to services format
+  if (Array.isArray(record.endpoints)) {
+    return record.endpoints
+      .filter((e) => e && typeof e === 'object')
+      .map((e) => {
+        const ep = e as Record<string, unknown>;
+        return {
+          name: ep.type ?? ep.name ?? 'unknown',
+          endpoint: ep.url ?? ep.endpoint ?? '',
+          version: ep.version ?? undefined,
+        };
+      })
+      .filter((s) => typeof s.endpoint === 'string' && s.endpoint.length > 0);
+  }
+
+  return [];
+}
+
 async function fetchJson(url: string): Promise<unknown | null> {
   try {
     const response = await fetch(url, {
