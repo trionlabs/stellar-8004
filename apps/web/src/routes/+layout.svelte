@@ -2,7 +2,7 @@
 	import './layout.css';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import favicon from '$lib/assets/favicon-v9-atom.svg';
+	import favicon from '$lib/assets/logo-saturn.svg';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import ProfileBadge from '$lib/components/ProfileBadge.svelte';
 	import EllipticStars from '$lib/components/EllipticStars.svelte';
