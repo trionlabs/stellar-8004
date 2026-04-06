@@ -260,7 +260,7 @@
 			<div class="flex items-center gap-2">
 				<button onclick={submitUriUpdate}
 					disabled={uriUpdateStatus === 'submitting' || !newUri.trim()}
-					class="rounded-lg bg-accent px-4 py-2 text-sm text-white disabled:opacity-50">
+					class="rounded-lg border border-accent/30 bg-accent-fill px-4 py-2 text-sm text-accent disabled:opacity-50 hover:bg-accent-fill-hover hover:border-accent/45 transition-colors">
 					{#if uriUpdateStatus === 'submitting'}
 						Submitting...
 					{:else}
@@ -305,8 +305,16 @@
 					</div>
 					{#if wallet.connected && isOwner && (data.state === 'ready' || data.state === 'no-uri' || data.state === 'failed')}
 						<a href={resolve(`/agents/${data.agent.id}/edit`)}
-							class="ml-auto shrink-0 rounded-lg border border-border/40 px-3 py-1.5 text-[11px] text-text-dim transition hover:border-accent/20 hover:text-accent">
-							Edit
+							class="ml-auto shrink-0 flex items-center gap-1.5 rounded-lg
+							       border border-accent/20 bg-accent/5 px-4 py-2
+							       text-xs font-medium text-accent
+							       hover:bg-accent/10 hover:border-accent/30
+							       transition-colors">
+							<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+								<path stroke-linecap="round" stroke-linejoin="round"
+									d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+							</svg>
+							Edit Agent
 						</a>
 					{/if}
 				</div>

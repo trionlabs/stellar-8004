@@ -94,7 +94,7 @@
 			{#if data.ownerFilter}
 				<CtaButton href={baseAgentsPath} variant="ghost" size="sm">all</CtaButton>
 			{/if}
-			<CtaButton href={resolve('/register')} size="sm">+ Register</CtaButton>
+			<CtaButton href={resolve('/register')} variant="secondary" size="sm">+ Register</CtaButton>
 		</div>
 	</header>
 
@@ -222,6 +222,21 @@
 						{/if}
 					</div>
 
+					{#if wallet.connected && wallet.address?.toUpperCase() === agent.owner.toUpperCase()}
+						<button
+							type="button"
+							onclick={(e) => { e.preventDefault(); e.stopPropagation(); goto(resolve('/agents/[id]/edit', { id: String(agent.id) })); }}
+							class="shrink-0 rounded-md p-1.5 text-text-dim/25
+							       hover:text-accent hover:bg-accent/5
+							       transition-colors z-10"
+							aria-label="Edit {agent.name}">
+							<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+								<path stroke-linecap="round" stroke-linejoin="round"
+									d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+							</svg>
+						</button>
+					{/if}
+
 					<svg class="h-3 w-3 shrink-0 text-text-dim/15 transition-all group-hover:text-accent group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
 				</a>
 			{/each}
@@ -230,7 +245,7 @@
 		<div class="py-24 text-center">
 			{#if data.ownerFilter}
 				<p class="text-sm text-text-muted">No agents registered yet</p>
-				<div class="mt-4"><CtaButton href={resolve('/register')} size="sm">Register Agent</CtaButton></div>
+				<div class="mt-4"><CtaButton href={resolve('/register')} variant="secondary" size="sm">Register Agent</CtaButton></div>
 			{:else}
 				<p class="text-sm text-text-muted">No matches</p>
 				<p class="mt-1 text-[11px] text-text-dim">{hasActiveFilters ? 'Try fewer filters' : 'Try a broader search'}</p>
@@ -309,18 +324,17 @@
 	.search-go {
 		padding: 5px 14px;
 		border-radius: 7px;
-		background: color-mix(in oklch, var(--color-accent) 6%, transparent);
-		border: 0.5px solid color-mix(in oklch, var(--color-accent) 15%, transparent);
+		background: var(--color-accent-fill);
+		border: 0.5px solid color-mix(in oklch, var(--color-accent) 30%, transparent);
 		font-size: 11px;
 		font-weight: 500;
-		color: color-mix(in oklch, var(--color-accent) 80%, transparent);
+		color: var(--color-accent);
 		cursor: pointer;
 		transition: all 0.15s;
 	}
 	.search-go:hover {
-		background: color-mix(in oklch, var(--color-accent) 10%, transparent);
-		border-color: color-mix(in oklch, var(--color-accent) 30%, transparent);
-		color: var(--color-accent);
+		background: var(--color-accent-fill-hover);
+		border-color: color-mix(in oklch, var(--color-accent) 45%, transparent);
 	}
 
 	/* ── Chips ── */
@@ -371,8 +385,8 @@
 		gap: 0.5px;
 		border-radius: 10px;
 		overflow: hidden;
-		border: 0.5px solid color-mix(in oklch, var(--color-border) 40%, transparent);
-		background: color-mix(in oklch, var(--color-surface-overlay) 15%, transparent);
+		border: 0.5px solid var(--color-border-subtle);
+		background: var(--color-border-subtle);
 	}
 	.row {
 		display: flex;
@@ -381,7 +395,7 @@
 		padding: 11px 16px;
 		background: var(--color-surface);
 		text-decoration: none;
-		transition: background 0.1s, box-shadow 0.15s;
+		transition: background 0.15s, box-shadow 0.15s;
 		animation: fade-up 0.25s ease both;
 		animation-delay: calc(var(--i) * 18ms);
 	}
@@ -389,7 +403,7 @@
 		background:
 			radial-gradient(300px circle at var(--mx, 50%) var(--my, 50%), color-mix(in oklch, var(--color-accent) 4%, transparent), transparent 70%),
 			var(--color-surface-raised);
-		box-shadow: inset 1.5px 0 0 color-mix(in oklch, var(--color-accent) 35%, transparent);
+		box-shadow: inset 2px 0 0 color-mix(in oklch, var(--color-accent) 30%, transparent);
 	}
 	@keyframes fade-up {
 		from { opacity:0; transform:translateY(3px) }
@@ -400,14 +414,14 @@
 	.pager {
 		display:flex; align-items:center; justify-content:center;
 		width:28px; height:28px; border-radius:7px;
-		border: 0.5px solid color-mix(in oklch, var(--color-border) 35%, transparent);
+		border: 0.5px solid var(--color-border-subtle);
 		color: var(--color-text-dim);
 		background:transparent; cursor:pointer;
 		transition: all 0.15s;
 	}
 	.pager:hover {
-		border-color: color-mix(in oklch, var(--color-accent) 20%, transparent);
+		border-color: var(--color-accent);
 		color: var(--color-accent);
-		background: color-mix(in oklch, var(--color-accent) 4%, transparent);
+		background: var(--color-accent-soft);
 	}
 </style>
