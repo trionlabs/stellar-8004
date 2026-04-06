@@ -25,8 +25,11 @@ Deno.serve(async (req: Request) => {
     return errorResponse('METHOD_NOT_ALLOWED', 'Only GET requests are supported', 405);
   }
 
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  // Prefer proxy-set headers (trusted) over client-controllable ones.
+  // Order: cf-connecting-ip (Cloudflare) > x-real-ip (nginx/Dokploy) > x-forwarded-for (last resort)
+  const ip = req.headers.get('cf-connecting-ip')
     ?? req.headers.get('x-real-ip')
+    ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     ?? 'unknown';
   const rateLimit = await checkRateLimit(db, ip);
 
