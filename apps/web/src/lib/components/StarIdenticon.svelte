@@ -25,12 +25,12 @@
 	const bytes = $derived(hashBytes(seed));
 	const hue = $derived(HUES[bytes[0] % HUES.length]);
 
-	const cta1 = $derived(`oklch(0.35 0.06 ${hue})`);   // dark shade
-	const cta2 = $derived(`oklch(0.60 0.08 ${hue})`);   // light shade
-	const cta3 = 'oklch(0.92 0.005 250)';                // beyaz
+	const cta1 = $derived(`oklch(0.35 0.06 ${hue})`);
+	const cta2 = $derived(`oklch(0.60 0.08 ${hue})`);
+	const cta3 = 'oklch(0.92 0.005 250)';
 	const palette = $derived([cta1, cta2, cta3]);
+	const glowColor = $derived(`oklch(0.55 0.08 ${hue} / 0.3)`);
 
-	// 8x8 grid, 4-fold symmetry, 3 values: dark=50%, light=35%, white=15%
 	const grid = $derived.by(() => {
 		const cells: number[][] = Array.from({ length: 8 }, () => Array(8).fill(0));
 
@@ -54,6 +54,8 @@
 	height={size}
 	viewBox="0 0 64 64"
 	aria-hidden="true"
+	class="identicon"
+	style="--glow: {glowColor};"
 >
 	{#each grid as row, y}
 		{#each row as colorIdx, x}
@@ -67,3 +69,13 @@
 		{/each}
 	{/each}
 </svg>
+
+<style>
+	.identicon {
+		filter: drop-shadow(0 0 6px var(--glow));
+		transition: filter 0.3s ease;
+	}
+	.identicon:hover {
+		filter: drop-shadow(0 0 12px var(--glow));
+	}
+</style>
