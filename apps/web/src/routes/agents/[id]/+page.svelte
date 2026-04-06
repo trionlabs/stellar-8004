@@ -790,18 +790,18 @@
 
 <style>
 	.stat-row {
-		background: oklch(0.14 0.016 250);
-		box-shadow: 0 0 40px oklch(0.74 0.07 250 / 0.04);
+		background: var(--color-surface-raised);
+		box-shadow: 0 0 40px color-mix(in oklch, var(--color-accent) 4%, transparent);
 		transition: box-shadow 0.3s ease;
 	}
 	.stat-row:hover {
-		box-shadow: 0 0 40px oklch(0.74 0.07 250 / 0.08);
+		box-shadow: 0 0 40px color-mix(in oklch, var(--color-accent) 8%, transparent);
 	}
 	.stat-cell {
-		background: oklch(0.16 0.016 250 / 0.5);
+		background: color-mix(in oklch, var(--color-surface-raised) 50%, transparent);
 		transition: background 0.2s ease;
 	}
 	.stat-cell:hover {
-		background: oklch(0.18 0.018 250 / 0.6);
+		background: color-mix(in oklch, var(--color-surface-overlay) 60%, transparent);
 	}
 </style>
