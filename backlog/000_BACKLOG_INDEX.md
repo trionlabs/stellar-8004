@@ -41,4 +41,4 @@
 | 035 | 11 | [TODO](./035_PHASE11_SDK_API_CLIENT.md) | SDK API Client: read-only explorer wrapper | `feat/sdk-api-client` | 034 |
 | 036 | 11 | [TODO](./036_PHASE11_SDK_DOGFOOD.md) | Dog-food: web app SDK'ya geçiş | `feat/sdk-dogfood` | 034, 035 |
 | 037 | 11 | [TODO](./037_PHASE11_SDK_DOCS.md) | Developer portal: SDK docs + register example | `feat/sdk-docs` | 034 |
-| 038 | 11 | [TODO](./038_PHASE11_SDK_PUBLISH.md) | npm publish: @trionlabs/stellar-erc8004-sdk | `feat/sdk-publish` | 034, 035 |
+| 038 | 11 | [TODO](./038_PHASE11_SDK_PUBLISH.md) | npm publish: @trionlabs/stellar-erc8004-sdk | `feat/sdk-publish` | 034, 035, 036 |
