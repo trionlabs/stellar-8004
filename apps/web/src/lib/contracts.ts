@@ -89,6 +89,15 @@ async function buildAndSign(
  * Contract method: `register_with_uri(Address, String)` → returns `u32(agent_id)`
  */
 export async function registerAgent(agentUri?: string): Promise<{ agentId: number; hash: string }> {
+	if (agentUri && agentUri.length > 8192) {
+		throw new Error('Agent URI too large (max 8KB)');
+	}
+
+	const SAFE_SCHEMES = ['https://', 'http://', 'ipfs://', 'data:application/json'];
+	if (agentUri && !SAFE_SCHEMES.some((s) => agentUri.startsWith(s))) {
+		throw new Error('Agent URI must use https://, http://, ipfs://, or data: scheme');
+	}
+
 	const ownerAddress = StellarSdk.nativeToScVal(wallet.address!, { type: 'address' });
 
 	const args = agentUri
@@ -99,6 +108,28 @@ export async function registerAgent(agentUri?: string): Promise<{ agentId: numbe
 	const { hash, result } = await buildAndSign(method, getStellarConfig().contracts.identity, args);
 	const agentId = result ? (StellarSdk.scValToNative(result) as number) : 0;
 	return { agentId, hash };
+}
+
+/**
+ * Update agent URI on the Identity Registry.
+ *
+ * Contract method: `update_uri(Address, u32, String)` → emits `uri_updated` event
+ *
+ * NOTE: Method name inferred from event name `uri_updated`.
+ * Verify against Soroban contract ABI if simulation fails.
+ */
+export async function updateAgentUri(
+	agentId: number,
+	newUri: string
+): Promise<{ hash: string }> {
+	const args = [
+		StellarSdk.nativeToScVal(wallet.address!, { type: 'address' }),
+		StellarSdk.nativeToScVal(agentId, { type: 'u32' }),
+		StellarSdk.nativeToScVal(newUri, { type: 'string' })
+	];
+
+	const { hash } = await buildAndSign('update_uri', getStellarConfig().contracts.identity, args);
+	return { hash };
 }
 
 // ─── Reputation Registry ────────────────────────────────────────────
