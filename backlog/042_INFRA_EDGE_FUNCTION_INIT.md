@@ -1,6 +1,6 @@
 # 042 — Edge Function Init Container
 
-**Status:** IN_PROGRESS
+**Status:** DONE
 **Owner:** yaman
 **Date:** 2026-04-06
 
@@ -19,7 +19,7 @@ New `functions-init` init container (`s8004-edge-init`) that:
 
 ## Verification
 
-- [ ] `functions-init` exits 0
-- [ ] `functions` starts with populated `/home/deno/functions/`
+- [x] `functions-init` exits 0
+- [x] `functions` starts with populated `/home/deno/functions/`
 - [ ] Indexer cron returns 200
-- [ ] Migrate container no longer builds edge functions (if decoupled)
+- [x] Migrate container no longer builds edge functions (decoupled)

@@ -22,23 +22,28 @@ export const TESTNET: NetworkConfig = {
   deployLedger: 1819978,
 };
 
+export const MAINNET: NetworkConfig = {
+  rpcUrl: 'https://mainnet.sorobanrpc.com',
+  networkPassphrase: 'Public Global Stellar Network ; September 2015',
+  contracts: {
+    identity: 'CCSMX3YEKU7IZCZSLORUCX6MQEOV6WXWAGTOJZG5YITEBAEH2Q5JY4XE',
+    reputation: 'CCIZJXEVL2DJXH772F7SX262M5SF7JNOIAROW2M7I6VTPOVCJ7KKM5HT',
+    validation: 'CAI3ZKBNXC52F2DCEX2XQLXUTRAQKCPWUUXDELW5SPAF4GAW4HCQ4JT3',
+  },
+  deployLedger: 62001391,
+};
+
 import { env } from './env.js';
 
 export function getConfig(): NetworkConfig {
   const network = env('STELLAR_NETWORK') ?? 'testnet';
 
-  if (network === 'testnet') {
-    return TESTNET;
+  if (network === 'mainnet') {
+    return {
+      ...MAINNET,
+      rpcUrl: env('STELLAR_MAINNET_RPC_URL') || MAINNET.rpcUrl,
+    };
   }
 
-  return {
-    rpcUrl: env('STELLAR_MAINNET_RPC_URL') ?? '',
-    networkPassphrase: 'Public Global Stellar Network ; September 2015',
-    contracts: {
-      identity: env('IDENTITY_REGISTRY') ?? '',
-      reputation: env('REPUTATION_REGISTRY') ?? '',
-      validation: env('VALIDATION_REGISTRY') ?? '',
-    },
-    deployLedger: parseInt(env('DEPLOY_LEDGER') ?? '1', 10),
-  };
+  return TESTNET;
 }

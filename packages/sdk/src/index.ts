@@ -3,7 +3,7 @@ export {
 	SAFE_URI_SCHEMES,
 	validateAgentUri
 } from './core/client.js';
-export { TESTNET_CONFIG } from './core/config.js';
+export { TESTNET_CONFIG, MAINNET_CONFIG, getConfig } from './core/config.js';
 export type { StellarConfig } from './core/config.js';
 export {
 	buildMetadataJson,

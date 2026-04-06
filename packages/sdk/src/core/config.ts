@@ -23,3 +23,26 @@ export const TESTNET_CONFIG: StellarConfig = {
 	},
 	deployVersion: '2026-04-06'
 };
+
+export const MAINNET_CONFIG: StellarConfig = {
+	network: 'mainnet',
+	rpcUrl: 'https://mainnet.sorobanrpc.com',
+	networkPassphrase: StellarSdk.Networks.PUBLIC,
+	contracts: {
+		identity: 'CCSMX3YEKU7IZCZSLORUCX6MQEOV6WXWAGTOJZG5YITEBAEH2Q5JY4XE',
+		reputation: 'CCIZJXEVL2DJXH772F7SX262M5SF7JNOIAROW2M7I6VTPOVCJ7KKM5HT',
+		validation: 'CAI3ZKBNXC52F2DCEX2XQLXUTRAQKCPWUUXDELW5SPAF4GAW4HCQ4JT3'
+	},
+	deployVersion: '2026-04-07'
+};
+
+export function getConfig(network: 'testnet' | 'mainnet' = 'testnet'): StellarConfig {
+	switch (network) {
+		case 'testnet':
+			return TESTNET_CONFIG;
+		case 'mainnet':
+			return MAINNET_CONFIG;
+		default:
+			throw new Error(`Unknown network: ${network}`);
+	}
+}
