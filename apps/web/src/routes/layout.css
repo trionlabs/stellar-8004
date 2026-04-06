@@ -119,7 +119,7 @@ body::after {
   border-radius: 50%;
   background: radial-gradient(ellipse, color-mix(in oklch, var(--color-accent) 14%, transparent), transparent 65%);
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
   filter: blur(50px);
 }
 
