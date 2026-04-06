@@ -72,8 +72,8 @@ services:
       SNIPPETS_MANAGEMENT_FOLDER: /app/snippets
       EDGE_FUNCTIONS_MANAGEMENT_FOLDER: /app/edge-functions
     volumes:
-      - ./volumes/snippets:/app/snippets:Z
-      - ../supabase/functions:/app/edge-functions:Z
+      - snippets:/app/snippets
+      - ../supabase/functions:/app/edge-functions
 
   kong:
     container_name: s8004-kong
@@ -104,8 +104,8 @@ services:
     #   - ${KONG_HTTPS_PORT}:8443/tcp
     volumes:
       # https://github.com/supabase/supabase/issues/12661
-      - ./volumes/api/kong.yml:/home/kong/temp.yml:ro,z
-      - ./volumes/api/kong-entrypoint.sh:/home/kong/kong-entrypoint.sh:ro,z
+      - ./volumes/api/kong.yml:/home/kong/temp.yml:ro
+      - ./volumes/api/kong-entrypoint.sh:/home/kong/kong-entrypoint.sh:ro
       #- ./volumes/api/server.crt:/home/kong/server.crt:ro
       #- ./volumes/api/server.key:/home/kong/server.key:ro
     environment:
@@ -410,14 +410,14 @@ services:
       S3_PROTOCOL_ACCESS_KEY_ID: ${S3_PROTOCOL_ACCESS_KEY_ID}
       S3_PROTOCOL_ACCESS_KEY_SECRET: ${S3_PROTOCOL_ACCESS_KEY_SECRET}
     volumes:
-      - ./volumes/storage:/var/lib/storage:z
+      - storage-data:/var/lib/storage
 
   imgproxy:
     container_name: s8004-imgproxy
     image: darthsim/imgproxy:v3.30.1
     restart: unless-stopped
     volumes:
-      - ./volumes/storage:/var/lib/storage:z
+      - storage-data:/var/lib/storage
     healthcheck:
       test:
         [
@@ -546,21 +546,21 @@ services:
     image: supabase/postgres:15.8.1.085
     restart: unless-stopped
     volumes:
-      - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
+      - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:ro
       # Must be superuser to create event trigger
-      - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
+      - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:ro
       # Must be superuser to alter reserved role
-      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro
       # Initialize the database settings with JWT_SECRET and JWT_EXP
-      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
+      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:ro
       # PGDATA: named volume survives Dokploy code/ directory wipes on redeploy
       - db-data:/var/lib/postgresql/data
       # Changes required for internal supabase data such as _analytics
-      - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
+      - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:ro
       # Changes required for Analytics support
-      - ./volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
+      - ./volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:ro
       # Changes required for Pooler support
-      - ./volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
+      - ./volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:ro
       # Use named volume to persist pgsodium decryption key between restarts
       - db-config:/etc/postgresql-custom
     healthcheck:
@@ -598,8 +598,8 @@ services:
     image: timberio/vector:0.53.0-alpine
     restart: unless-stopped
     volumes:
-      - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro,z
-      - ${DOCKER_SOCKET_LOCATION}:/var/run/docker.sock:ro,z
+      - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro
+      - ${DOCKER_SOCKET_LOCATION}:/var/run/docker.sock:ro
     healthcheck:
       test:
         [
@@ -633,7 +633,7 @@ services:
     #   - ${POSTGRES_PORT}:5432
     #   - ${POOLER_PROXY_PORT_TRANSACTION}:6543
     volumes:
-      - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
+      - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro
     healthcheck:
       test:
         [
@@ -715,8 +715,7 @@ services:
             echo "  $$NAME — already applied, skipping"
           else
             echo "  $$NAME..."
-            psql -v ON_ERROR_STOP=1 -f "$$f" 2>&1 || { echo "FAILED: $$f"; exit 1; }
-            psql -c "INSERT INTO schema_migrations (filename) VALUES ('$$NAME');"
+            { echo "BEGIN;"; cat "$$f"; echo "INSERT INTO schema_migrations (filename) VALUES ('$$NAME');"; echo "COMMIT;"; } | psql -v ON_ERROR_STOP=1 2>&1 || { echo "FAILED: $$f"; exit 1; }
           fi
         done
         echo "=== All migrations applied ==="
@@ -739,5 +738,10 @@ networks:
 volumes:
   db-data:
     name: s8004-db-data
+    external: true
   db-config:
+  storage-data:
+    name: s8004-storage-data
+  snippets:
+    name: s8004-snippets
   deno-cache:
