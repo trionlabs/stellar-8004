@@ -21,7 +21,8 @@ export async function handleSearch(url: URL): Promise<Response> {
     });
 
   if (error) {
-    return errorResponse('QUERY_ERROR', error.message, 500);
+    console.error('Query error:', error.message);
+    return errorResponse('QUERY_ERROR', 'Database query failed', 500);
   }
 
   // Normalize to camelCase using the same format as other endpoints
