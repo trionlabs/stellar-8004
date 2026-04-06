@@ -37,11 +37,11 @@
 | 031 | 9 | [DEFERRED](./031_PHASE9_ENDPOINT_HEALTH.md) | Endpoint health check — ertelendi, 0 endpoint, SSRF riski | `feat/endpoint-health` | 017 |
 | 032 | 10 | [DONE](./032_PHASE10_MY_AGENTS_UX.md) | My Agents UX: owner filter, badges, WalletButton, CTAs | `feat/my-agents-ux` | 030 |
 | 033 | 9 | [DEFERRED](./033_PHASE9_FILTERED_SCORING.md) | Filtered scoring — 028'e bağlı, ertelendi | `feat/filtered-scoring` | 028 |
-| 034 | 11 | [TODO](./034_PHASE11_SDK_CORE.md) | SDK Core: contract client + metadata builder + signers | `feat/sdk-core` | — |
-| 035 | 11 | [TODO](./035_PHASE11_SDK_API_CLIENT.md) | SDK API Client: read-only explorer wrapper | `feat/sdk-api-client` | 034 |
-| 036 | 11 | [TODO](./036_PHASE11_SDK_DOGFOOD.md) | Dog-food: web app SDK'ya geçiş | `feat/sdk-dogfood` | 034, 035 |
-| 037 | 11 | [TODO](./037_PHASE11_SDK_DOCS.md) | Developer portal: SDK docs + register example | `feat/sdk-docs` | 034 |
-| 038 | 11 | [TODO](./038_PHASE11_SDK_PUBLISH.md) | npm publish: @trionlabs/stellar-erc8004-sdk | `feat/sdk-publish` | 034, 035, 036 |
+| 034 | 11 | [DONE](./034_PHASE11_SDK_CORE.md) | SDK Core: contract client + metadata builder + signers | `feat/sdk-core` | — |
+| 035 | 11 | [DONE](./035_PHASE11_SDK_API_CLIENT.md) | SDK API Client: read-only explorer wrapper | `feat/sdk-api-client` | 034 |
+| 036 | 11 | [DONE](./036_PHASE11_SDK_DOGFOOD.md) | Dog-food: web app SDK'ya geçiş | `feat/sdk-dogfood` | 034, 035 |
+| 037 | 11 | [DONE](./037_PHASE11_SDK_DOCS.md) | Developer portal: SDK docs + register example | `feat/sdk-docs` | 034 |
+| 038 | 11 | [IN_PROGRESS](./038_PHASE11_SDK_PUBLISH.md) | npm publish: @trionlabs/8004s-sdk | `feat/sdk-publish` | 034, 035, 036 |
 | 039 | — | [DONE](./039_INFRA_DOCKER_RESILIENCE.md) | Docker deploy resilience: named volumes, migration tracking, healthchecks | `main` | — |
 | 040 | — | [DONE](./040_INFRA_PG17_UPGRADE.md) | Postgres 15 → 17 upgrade | `main` | 039 |
 | 041 | — | [DONE](./041_INFRA_DOKPLOY_ENV.md) | Dokploy env management: enc key fix, documented flow | `main` | 039 |

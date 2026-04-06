@@ -29,6 +29,7 @@ authorized_keys
 known_hosts
 
 # Build and test output
+*.tgz
 dist/
 build/
 .svelte-kit/
@@ -60,6 +61,7 @@ stellar-agentic-skills/
 
 # Markdown files (docs kept locally, not in git history)
 *.md
+!packages/sdk/README.md
 
 # E2E test scripts (generate keypairs, not for production)
 scripts/e2e-*.ts
