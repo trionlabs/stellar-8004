@@ -35,7 +35,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const tagParam = url.searchParams.get('tag') ?? '';
 	const tag = (VALID_TAGS as readonly string[]).includes(tagParam) ? tagParam : '';
 	const justRegistered = url.searchParams.get('registered') === 'true';
-	const txHash = url.searchParams.get('tx') ?? null;
+	const rawTx = url.searchParams.get('tx') ?? null;
+	const txHash = rawTx && /^[a-f0-9]{64}$/i.test(rawTx) ? rawTx : null;
 
 	// Query agent first to allow early return for indexing state
 	const agentResult = await db.from('agents').select('*').eq('id', agentId).maybeSingle();
