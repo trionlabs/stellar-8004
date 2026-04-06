@@ -100,38 +100,38 @@ describe('runIndexer', () => {
     vi.restoreAllMocks();
   });
 
-  it('does not advance checkpoints when no events are processed', async () => {
+  it('advances checkpoints to latest ledger even when no events are processed', async () => {
     const result = await runIndexer();
 
     expect(result.processed).toBe(0);
     expect(result.errors).toBe(0);
     expect(result.gaps).toEqual([]);
-    expect(result.contracts.identity.lastLedger).toBe(10);
-    expect(result.contracts.reputation.lastLedger).toBe(10);
-    expect(result.contracts.validation.lastLedger).toBe(10);
+    expect(result.contracts.identity.lastLedger).toBe(20);
+    expect(result.contracts.reputation.lastLedger).toBe(20);
+    expect(result.contracts.validation.lastLedger).toBe(20);
     expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       1,
       mocks.db,
       'identity',
-      10,
+      20,
       undefined,
-      undefined,
+      21,
     );
     expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       2,
       mocks.db,
       'reputation',
-      10,
+      20,
       undefined,
-      undefined,
+      21,
     );
     expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       3,
       mocks.db,
       'validation',
-      10,
+      20,
       undefined,
-      undefined,
+      21,
     );
     expect(mocks.refreshLeaderboard).not.toHaveBeenCalled();
   });
@@ -158,9 +158,9 @@ describe('runIndexer', () => {
       1,
       mocks.db,
       'identity',
-      10,
+      20,
       undefined,
-      undefined,
+      21,
     );
   });
 
