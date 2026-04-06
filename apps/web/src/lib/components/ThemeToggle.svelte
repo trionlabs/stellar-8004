@@ -12,7 +12,8 @@
 <button
 	onclick={cycle}
 	class="relative flex h-7 w-7 items-center justify-center rounded-lg
-	       text-text-dim transition hover:text-text hover:bg-accent/5"
+	       text-text-dim transition hover:text-text hover:bg-accent/5
+	       focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
 	title="Theme: {theme.choice}"
 	aria-label="Toggle theme (currently {theme.choice})"
 >
