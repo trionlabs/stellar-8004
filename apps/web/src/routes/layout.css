@@ -107,6 +107,22 @@ body {
   color: var(--color-text);
 }
 
+/* Subtle ambient glow at the bottom */
+body::after {
+  content: '';
+  position: fixed;
+  bottom: -160px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, color-mix(in oklch, var(--color-accent) 14%, transparent), transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(50px);
+}
+
 ::selection {
   background: var(--color-accent-medium);
   color: var(--color-text);
@@ -220,7 +236,7 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 10px 8px 16px;
   border-radius: 14px;
   border: 0.5px solid var(--color-border);
   background: color-mix(in oklch, var(--color-surface) 72%, transparent);
@@ -332,6 +348,7 @@ html.theme-transitioning *:not(svg *)::after {
 }
 
 /* ── Light mode adjustments ── */
+[data-theme="light"] body::after { background: radial-gradient(ellipse, oklch(0.50 0 0 / 0.03), transparent 70%); }
 [data-theme="light"] .cta-leak--warm { background: oklch(0.50 0 0 / 0.02); }
 [data-theme="light"] .cta-leak--cool { background: oklch(0.55 0 0 / 0.015); }
 [data-theme="light"] .cta-leak--edge { background: oklch(0.50 0 0 / 0.015); }
