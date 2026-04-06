@@ -16,7 +16,7 @@ export async function handleStats(): Promise<Response> {
   ] = await Promise.all([
     db.from('agents').select('*', { count: 'exact', head: true }),
     db.from('feedback').select('*', { count: 'exact', head: true }),
-    db.from('leaderboard_scores').select('feedback_count, validation_count, avg_score, unique_clients').limit(10000),
+    db.from('leaderboard_scores').select('feedback_count, validation_count, avg_score, unique_clients').limit(STATS_SAMPLE_LIMIT),
     db.from('agents').select('id', { count: 'exact', head: true }).neq('services', '[]').neq('services', null),
     db.from('agents').select('id', { count: 'exact', head: true }).eq('x402_enabled', true),
     db.from('agents').select('services').limit(STATS_SAMPLE_LIMIT),
