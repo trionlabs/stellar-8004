@@ -36,7 +36,6 @@
 			const result = await requestValidation({
 				agentId,
 				validatorAddress,
-				// Empty string intentionally represents an optional URI in v1.
 				requestUri
 			});
 
@@ -49,16 +48,16 @@
 	}
 </script>
 
-<div class="rounded-xl border border-gray-700 bg-gray-800/50 p-4">
-	<h3 class="mb-3 text-sm font-semibold">Request Validation</h3>
+<div class="rounded-xl border border-border bg-surface-raised/40 p-4">
+	<h3 class="mb-3 text-sm font-medium text-text">Request Validation</h3>
 
 	{#if status === 'success'}
-		<div class="text-sm text-green-400">
+		<div class="text-sm text-positive">
 			Validation requested. TX:
-			<code class="text-xs">{txHash.slice(0, 12)}...</code>
+			<code class="text-xs font-mono">{txHash.slice(0, 12)}...</code>
 		</div>
 	{:else if !wallet.connected}
-		<p class="text-sm text-gray-400">Connect your wallet to request validation.</p>
+		<p class="text-sm text-text-dim">Connect your wallet to request validation.</p>
 	{:else}
 		<div class="space-y-3">
 			<input
@@ -67,11 +66,11 @@
 				aria-label="Validator Stellar address"
 				placeholder="Validator Stellar address (G...)"
 				maxlength="56"
-				class="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-300 placeholder:text-gray-600"
+				class="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
 			/>
 
 			{#if validatorAddress && !hasValidAddress}
-				<p class="text-xs text-red-400">Validator address must start with `G` and be 56 chars.</p>
+				<p class="text-xs text-negative">Validator address must start with G and be 56 chars.</p>
 			{/if}
 
 			<input
@@ -80,27 +79,27 @@
 				aria-label="Request URI"
 				placeholder="Request URI (optional)"
 				maxlength="512"
-				class="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-300 placeholder:text-gray-600"
+				class="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
 			/>
 
-			<p class="text-xs text-gray-500">
+			<p class="text-[11px] text-text-dim">
 				This form assumes the connected wallet owns the agent; the parent page must enforce that.
 			</p>
 
 			{#if wallet.networkMismatch}
-				<p class="text-xs text-amber-400">Switch Freighter to the correct network before submitting.</p>
+				<p class="text-xs text-warning">Switch Freighter to the correct network before submitting.</p>
 			{/if}
 
 			<button
 				onclick={submit}
 				disabled={!validatorAddress || !hasValidAddress || busy || wallet.networkMismatch}
-				class="w-full rounded-lg bg-indigo-600 py-2 text-sm text-white transition hover:bg-indigo-700 disabled:opacity-50"
+				class="w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-surface transition hover:bg-accent/90 disabled:opacity-40"
 			>
 				{status === 'submitting' ? 'Submitting...' : 'Request Validation'}
 			</button>
 
 			{#if status === 'error'}
-				<p class="text-xs text-red-400">{errorMsg}</p>
+				<p class="text-xs text-negative">{errorMsg}</p>
 			{/if}
 		</div>
 	{/if}
