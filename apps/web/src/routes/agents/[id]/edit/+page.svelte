@@ -1,8 +1,13 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import {
+		buildMetadataJsonForEdit,
+		getMetadataSize,
+		toDataUri
+	} from '@trionlabs/8004s-sdk';
+	import { client } from '$lib/sdk-client.js';
 	import { wallet } from '$lib/wallet.svelte.js';
-	import { buildMetadataJsonForEdit, getMetadataSize, toDataUri } from '$lib/metadata.js';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
 	import type { PageProps } from './$types';
 	import MetadataEditor from '$lib/components/agent-edit/MetadataEditor.svelte';
@@ -94,8 +99,7 @@
 				? toDataUri(buildMetadataJsonForEdit(formData, data.agent.rawUriData))
 				: manualUri.trim();
 
-			const { updateAgentUri } = await import('$lib/contracts.js');
-			const result = await updateAgentUri(data.agent.id, uri);
+			const result = await client.updateAgentUri(data.agent.id, uri);
 			saveTxHash = result.hash;
 			saveStatus = 'success';
 			unsavedChanges = false;

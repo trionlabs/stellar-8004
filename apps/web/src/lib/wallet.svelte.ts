@@ -1,39 +1,15 @@
-import freighterApi from '@stellar/freighter-api';
-const { isConnected, isAllowed, requestAccess, getAddress, getNetwork, signTransaction, signAuthEntry } =
-	freighterApi;
-import { getStellarConfig } from './stellar.js';
+import { signer, stellarConfig } from './sdk-client.js';
 
-const CONNECT_TIMEOUT_MS = 30_000;
-const DETECT_RETRY_DELAY_MS = 500;
-const DETECT_MAX_RETRIES = 4;
+type FreighterApiModule = typeof import('@stellar/freighter-api');
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-	return new Promise((resolve, reject) => {
-		const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
-		promise.then(
-			(v) => { clearTimeout(timer); resolve(v); },
-			(e) => { clearTimeout(timer); reject(e); }
-		);
-	});
-}
-
-async function detectFreighter(): Promise<boolean> {
-	for (let i = 0; i <= DETECT_MAX_RETRIES; i++) {
-		try {
-			const { isConnected: installed } = await isConnected();
-			if (installed) return true;
-		} catch {
-			// retry
-		}
-		if (i < DETECT_MAX_RETRIES) {
-			await new Promise((r) => setTimeout(r, DETECT_RETRY_DELAY_MS));
-		}
-	}
-	return false;
+async function loadFreighterApi(): Promise<FreighterApiModule> {
+	return import('@stellar/freighter-api');
 }
 
 class WalletState {
-	address = $state<string | null>(null);
+	private readonly signer = signer;
+
+	address = $state<string | null>(this.signer.publicKey || null);
 	connected = $state(false);
 	loading = $state(false);
 	error = $state<string | null>(null);
@@ -53,15 +29,17 @@ class WalletState {
 	 */
 	async restore(): Promise<void> {
 		try {
-			const installed = await detectFreighter();
+			const installed = await this.signer.detectFreighter();
 			if (!installed) return;
 
-			const { isAllowed: allowed } = await isAllowed();
+			const api = await loadFreighterApi();
+			const { isAllowed: allowed } = await api.isAllowed();
 			if (!allowed) return;
 
-			const addrResult = await getAddress();
+			const addrResult = await api.getAddress();
 			if (addrResult.error || !addrResult.address) return;
 
+			this.signer.publicKey = addrResult.address;
 			this.address = addrResult.address;
 			this.connected = true;
 			await this.syncNetwork();
@@ -75,29 +53,8 @@ class WalletState {
 		this.error = null;
 
 		try {
-			const installed = await detectFreighter();
-			if (!installed) {
-				this.error = 'Freighter wallet not detected. Install it or refresh the page.';
-				return;
-			}
-
-			const result = await withTimeout(
-				requestAccess(),
-				CONNECT_TIMEOUT_MS,
-				'Wallet connection'
-			);
-
-			if (result.error) {
-				this.error = result.error.message ?? 'Failed to connect';
-				return;
-			}
-
-			if (!result.address) {
-				this.error = 'No address returned from wallet';
-				return;
-			}
-
-			this.address = result.address;
+			const address = await this.signer.connect();
+			this.address = address;
 			this.connected = true;
 			await this.syncNetwork();
 		} catch (err) {
@@ -114,52 +71,7 @@ class WalletState {
 		this.error = null;
 		this.network = null;
 		this.networkMismatch = false;
-	}
-
-	async sign(xdr: string): Promise<string> {
-		if (!this.connected) throw new Error('Wallet not connected');
-
-		// Re-check network right before signing
-		await this.syncNetwork();
-		if (this.networkMismatch) {
-			const expected = getStellarConfig().network === 'mainnet' ? 'Public' : 'Testnet';
-			throw new Error(
-				`Freighter is on ${this.network ?? 'unknown'} but this app requires ${expected}. Switch network in Freighter settings.`
-			);
-		}
-
-		const result = await signTransaction(xdr, {
-			networkPassphrase: getStellarConfig().networkPassphrase,
-			address: this.address!
-		});
-
-		if (result.error) throw new Error(result.error.message ?? 'Signing failed');
-		return result.signedTxXdr;
-	}
-
-	/**
-	 * Sign a Soroban authorization entry via Freighter.
-	 * Used for non-invoker auth in dual-auth contract methods (e.g. set_agent_wallet).
-	 */
-	async signAuth(authEntryXdr: string, address: string): Promise<string> {
-		if (!this.connected) throw new Error('Wallet not connected');
-
-		await this.syncNetwork();
-		if (this.networkMismatch) {
-			const expected = getStellarConfig().network === 'mainnet' ? 'Public' : 'Testnet';
-			throw new Error(
-				`Freighter is on ${this.network ?? 'unknown'} but this app requires ${expected}. Switch network in Freighter settings.`
-			);
-		}
-
-		const result = await signAuthEntry(authEntryXdr, {
-			networkPassphrase: getStellarConfig().networkPassphrase,
-			address
-		});
-
-		if (result.error) throw new Error(result.error.message ?? 'Auth entry signing failed');
-		if (!result.signedAuthEntry) throw new Error('No signed auth entry returned');
-		return result.signedAuthEntry;
+		this.signer.publicKey = '';
 	}
 
 	/**
@@ -167,11 +79,12 @@ class WalletState {
 	 */
 	private async syncNetwork(): Promise<void> {
 		try {
-			const netResult = await getNetwork();
+			const api = await loadFreighterApi();
+			const netResult = await api.getNetwork();
 			if (netResult.error) return;
 
 			this.network = netResult.network;
-			this.networkMismatch = netResult.networkPassphrase !== getStellarConfig().networkPassphrase;
+			this.networkMismatch = netResult.networkPassphrase !== stellarConfig.networkPassphrase;
 		} catch {
 			// Non-fatal — we'll catch mismatch at sign time
 		}

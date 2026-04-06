@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { requestValidation } from '$lib/contracts.js';
+	import { client } from '$lib/sdk-client.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
@@ -33,7 +33,7 @@
 		errorMsg = '';
 
 		try {
-			const result = await requestValidation({
+			const result = await client.requestValidation({
 				agentId,
 				validatorAddress,
 				requestUri
