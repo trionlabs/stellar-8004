@@ -1,6 +1,9 @@
 @import 'tailwindcss';
 
 @theme {
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
   /* ── Surfaces ─────────────────────────────────────────────
      Hue 250 throughout = true lacivert undertone.
      Chroma 0.014–0.018 at low L = just enough to read as cool,
@@ -135,3 +138,18 @@ textarea:focus {
   0%, 100% { opacity: 0.6; transform: translate(0, 0) scale(1); }
   50% { opacity: 1; transform: translate(-8px, 4px) scale(1.08); }
 }
+
+/* ── Reveal animations ── */
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.reveal {
+  animation: reveal-up 0.4s ease both;
+}
+
+.reveal-d1 { animation-delay: 60ms; }
+.reveal-d2 { animation-delay: 120ms; }
+.reveal-d3 { animation-delay: 180ms; }
+.reveal-d4 { animation-delay: 240ms; }
