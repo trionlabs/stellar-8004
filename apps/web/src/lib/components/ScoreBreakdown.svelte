@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { scoreFormatter } from '$lib/formatters.js';
+	import { slide } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 
 	let {
 		avgScore,
@@ -43,7 +45,7 @@
 	</button>
 
 	{#if open}
-		<div class="rounded-lg border border-border bg-surface-raised p-4 text-xs">
+		<div in:slide={{ duration: 200, easing: cubicOut }} class="rounded-lg border border-border bg-surface-raised p-4 text-xs">
 			<div class="space-y-2.5">
 				<div class="flex items-center justify-between">
 					<span class="text-text-muted">Avg Feedback</span>
@@ -55,8 +57,18 @@
 
 				<div class="flex items-center justify-between">
 					<span class="group relative text-text-muted">
-						Volume Factor
-						<span class="pointer-events-none absolute bottom-full left-0 z-10 mb-1.5 hidden w-56 rounded-md border border-border bg-surface p-2 text-[11px] leading-relaxed text-text-muted shadow-lg group-hover:block">
+						<button
+							type="button"
+							class="inline-flex cursor-help items-center gap-1 rounded px-0.5 -outline-offset-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
+							aria-describedby="volume-tooltip"
+						>
+							Volume Factor
+						</button>
+						<span
+							id="volume-tooltip"
+							role="tooltip"
+							class="pointer-events-none absolute bottom-full left-0 z-10 mb-1.5 hidden w-56 rounded-md border border-border bg-surface p-2 text-[11px] leading-relaxed text-text-muted shadow-lg group-hover:block group-focus-within:block"
+						>
 							Logarithmic scaling: reaches maximum (100) at 100 feedback entries. Formula: ln(count) / ln(100) x 100
 						</span>
 					</span>
