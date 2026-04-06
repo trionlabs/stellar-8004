@@ -3,6 +3,7 @@
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { getStellarConfig } from '$lib/stellar.js';
 	import CtaButton from '$lib/components/CtaButton.svelte';
+	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
 
 	let { formData, uriMode, manualUri, status, errorMsg, onSubmit }: {
 		formData: AgentFormData;
@@ -35,11 +36,13 @@
 		<div class="space-y-4">
 			<div class="rounded-xl border border-border bg-surface p-4 space-y-3">
 				<h3 class="text-[10px] tracking-[0.15em] text-text-muted uppercase">Basic Information</h3>
-				{#if formData.imageUrl}
-					<div class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-raised">
+				<div class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-raised">
+					{#if formData.imageUrl}
 						<img src={formData.imageUrl} alt="" class="h-full w-full object-cover" />
-					</div>
-				{/if}
+					{:else if wallet.address}
+						<StarIdenticon seed={wallet.address ?? 'preview'} size={48} />
+					{/if}
+				</div>
 				<div>
 					<p class="text-sm font-medium text-text">{formData.name}</p>
 					{#if descPreview}<p class="text-xs text-text-muted mt-1">{descPreview}</p>{/if}
@@ -99,7 +102,7 @@
 		<div class="flex items-center gap-2.5 rounded-xl bg-positive/5 px-4 py-3 ring-1 ring-positive/10">
 			<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
 			<p class="text-xs text-text-muted">
-				Click "Register Agent" to submit to the ERC-8004 registry. This will require a blockchain transaction.
+				Click "Register Agent" to submit to the 8004 for Stellar registry. This will require a blockchain transaction.
 			</p>
 		</div>
 	{/if}
