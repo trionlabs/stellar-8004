@@ -10,7 +10,6 @@
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
 	let { children } = $props();
-	let menuOpen = $state(false);
 
 	onMount(() => {
 		wallet.restore();
@@ -22,68 +21,30 @@
 
 <EllipticStars />
 <div class="flex min-h-screen flex-col text-text">
-	<header class="relative z-20 border-b border-border/60">
-		<nav class="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
-			<a href={resolve('/')} class="flex items-center gap-2 text-lg font-medium tracking-tight text-text">
-				<img src={favicon} alt="" class="h-6 w-6" />
-				Stellar<span class="text-accent">8004</span>
+	<header class="navbar">
+		<nav class="navbar-inner">
+			<a href={resolve('/')} class="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-text">
+				<img src={favicon} alt="" class="h-5 w-5" />
+				<span>Stellar<span class="text-accent">8004</span></span>
 			</a>
 
-			<button
-				class="rounded-lg p-2 text-text-muted hover:text-text md:hidden"
-				onclick={() => (menuOpen = !menuOpen)}
-				aria-label="Toggle navigation menu"
-				aria-expanded={menuOpen}
-			>
-				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-					{#if menuOpen}
-						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-					{:else}
-						<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-					{/if}
-				</svg>
-			</button>
-
-			<div class="hidden md:flex md:items-center md:gap-6">
-				<a href={resolve('/register')} class="inline-flex items-center gap-1.5 rounded-md border border-accent/20 bg-accent/6 px-3 py-1 text-[12px] text-accent transition-all hover:bg-accent/12 hover:border-accent/35">
-					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+			<!-- Desktop nav -->
+			<div class="hidden md:flex md:items-center md:gap-1">
+				<a href={resolve('/agents')} class="nav-link">Agents</a>
+				<a href={resolve('/leaderboard')} class="nav-link">Ranks</a>
+				<a href={resolve('/developers')} class="nav-link">Devs</a>
+				<span class="mx-1.5 h-4 w-px bg-border/40"></span>
+				<a href={resolve('/register')} class="nav-link nav-link--cta">
+					<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
 					Register
 				</a>
-				<a href={resolve('/agents')} class="inline-flex items-center gap-1.5 text-[12px] text-text-muted transition hover:text-text">
-					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128H5.228A2 2 0 013 17.208V5.792A2 2 0 015.228 3.872h13.544A2 2 0 0121 5.792v4.456M9.75 7.5h.008v.008H9.75V7.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
-					Agents
-				</a>
-				<a href={resolve('/leaderboard')} class="inline-flex items-center gap-1.5 text-[12px] text-text-muted transition hover:text-text">
-					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
-					Ranks
-				</a>
-				<a href={resolve('/developers')} class="inline-flex items-center gap-1.5 text-[12px] text-text-muted transition hover:text-text">
-					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
-					Devs
-				</a>
+				<span class="mx-1.5 h-4 w-px bg-border/40"></span>
 				<ThemeToggle />
 				<ProfileBadge />
 			</div>
 
-			<div
-				class={`${menuOpen ? 'flex' : 'hidden'} w-full flex-col gap-4 pt-4 text-sm md:hidden`}
-			>
-				<a href={resolve('/register')} class="inline-flex items-center gap-2 text-accent">
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-					Register
-				</a>
-				<a href={resolve('/agents')} class="inline-flex items-center gap-2 text-text-muted transition hover:text-text">
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128H5.228A2 2 0 013 17.208V5.792A2 2 0 015.228 3.872h13.544A2 2 0 0121 5.792v4.456M9.75 7.5h.008v.008H9.75V7.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
-					Agents
-				</a>
-				<a href={resolve('/leaderboard')} class="inline-flex items-center gap-2 text-text-muted transition hover:text-text">
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
-					Ranks
-				</a>
-				<a href={resolve('/developers')} class="inline-flex items-center gap-2 text-text-muted transition hover:text-text">
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
-					Devs
-				</a>
+			<!-- Mobile top-right utilities -->
+			<div class="flex items-center gap-1 md:hidden">
 				<ThemeToggle />
 				<ProfileBadge />
 			</div>
@@ -98,9 +59,29 @@
 		</div>
 	{/if}
 
-	<main class="relative z-10 mx-auto w-full max-w-5xl flex-1 px-6 py-14">
+	<main class="relative z-10 mx-auto w-full max-w-5xl flex-1 px-6 py-14 pb-24 md:pb-14">
 		{@render children()}
 	</main>
+
+	<!-- Mobile bottom nav -->
+	<nav class="btm-nav" aria-label="Mobile navigation">
+		<a href={resolve('/agents')} class="btm-nav-item">
+			<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128H5.228A2 2 0 013 17.208V5.792A2 2 0 015.228 3.872h13.544A2 2 0 0121 5.792v4.456" /></svg>
+			<span>Agents</span>
+		</a>
+		<a href={resolve('/leaderboard')} class="btm-nav-item">
+			<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
+			<span>Ranks</span>
+		</a>
+		<a href={resolve('/register')} class="btm-nav-item btm-nav-item--accent">
+			<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+			<span>Register</span>
+		</a>
+		<a href={resolve('/developers')} class="btm-nav-item">
+			<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
+			<span>Devs</span>
+		</a>
+	</nav>
 
 	<footer class="relative z-10 mt-auto border-t border-border/40">
 		<div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-6 text-[11px] text-text-dim">
