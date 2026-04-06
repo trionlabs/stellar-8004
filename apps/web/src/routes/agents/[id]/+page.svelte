@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { wallet } from '$lib/wallet.svelte.js';
+	import { createSupabase } from '$lib/supabase.js';
 	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress } from '$lib/formatters.js';
 	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
 	import ValidationForm from '$lib/components/ValidationForm.svelte';
@@ -9,6 +11,88 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+
+	// --- Realtime + polling for transitional states ---
+	let channel: ReturnType<ReturnType<typeof createSupabase>['channel']> | null = null;
+	let pollTimer: ReturnType<typeof setInterval> | null = null;
+	let pollCount = $state(0);
+	const MAX_POLLS = 18; // 18 × 10s = 3 minutes
+	const pollTimedOut = $derived(data.state === 'indexing' && pollCount >= MAX_POLLS);
+
+	onMount(() => {
+		if (data.state === 'indexing' || data.state === 'resolving') {
+			const supabase = createSupabase();
+			channel = supabase
+				.channel(`agent-${data.agent.id}`)
+				.on('postgres_changes', {
+					event: '*',
+					schema: 'public',
+					table: 'agents',
+					filter: `id=eq.${data.agent.id}`
+				}, () => {
+					invalidateAll();
+				})
+				.subscribe();
+		}
+
+		if (data.state === 'indexing') {
+			pollTimer = setInterval(() => {
+				pollCount++;
+				if (pollCount >= MAX_POLLS) {
+					clearInterval(pollTimer!);
+					pollTimer = null;
+					return;
+				}
+				invalidateAll();
+			}, 10_000);
+		}
+
+		return () => {
+			if (channel) {
+				createSupabase().removeChannel(channel);
+				channel = null;
+			}
+			if (pollTimer) {
+				clearInterval(pollTimer);
+				pollTimer = null;
+			}
+		};
+	});
+
+	$effect(() => {
+		if (data.state !== 'indexing' && data.state !== 'resolving') {
+			if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+			if (channel) {
+				createSupabase().removeChannel(channel);
+				channel = null;
+			}
+		}
+	});
+
+	// --- URI update ---
+	let showUriEditor = $state(false);
+	let newUri = $state('');
+	let uriUpdateStatus = $state<'idle' | 'submitting' | 'success' | 'error'>('idle');
+	let uriUpdateError = $state('');
+
+	async function submitUriUpdate() {
+		if (!newUri.trim()) return;
+		uriUpdateStatus = 'submitting';
+		uriUpdateError = '';
+		try {
+			const { updateAgentUri } = await import('$lib/contracts.js');
+			await updateAgentUri(data.agent.id, newUri.trim());
+			uriUpdateStatus = 'success';
+			setTimeout(() => {
+				showUriEditor = false;
+				uriUpdateStatus = 'idle';
+			}, 1500);
+			invalidateAll();
+		} catch (err) {
+			uriUpdateError = err instanceof Error ? err.message : 'Update failed';
+			uriUpdateStatus = 'error';
+		}
+	}
 
 	const tabs = [
 		{ id: 'metadata', label: 'Metadata' },
@@ -48,7 +132,125 @@
 	/>
 </svelte:head>
 
+{#if data.state === 'indexing'}
+	<!-- Full-page indexing UI -->
+	<div class="mx-auto max-w-lg space-y-8 py-12">
+		<div class="rounded-2xl border border-border bg-surface-raised/40 p-8 text-center space-y-6">
+			{#if !pollTimedOut}
+				<div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-accent/12 bg-accent/4">
+					<svg class="h-8 w-8 animate-spin text-accent" viewBox="0 0 24 24" fill="none">
+						<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.25" />
+						<path d="M12 2a10 10 0 019.95 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+					</svg>
+				</div>
+				<div class="space-y-2">
+					<h1 class="text-xl font-light text-text">Indexing Agent #{data.agent.id}</h1>
+					<p class="text-sm text-text-muted">
+						Your registration was confirmed on Stellar. The indexer scans for new agents every 60 seconds.
+					</p>
+				</div>
+				<div class="flex items-center justify-center gap-2 text-xs text-text-dim">
+					<span class="h-1.5 w-1.5 rounded-full bg-accent animate-pulse"></span>
+					Waiting for indexer...
+				</div>
+			{:else}
+				<div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-warning/12 bg-warning/5">
+					<svg class="h-8 w-8 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+					</svg>
+				</div>
+				<div class="space-y-2">
+					<h1 class="text-xl font-light text-text">Indexer hasn't caught up yet</h1>
+					<p class="text-sm text-text-muted">
+						This can happen during high network load. Try refreshing the page, or check the transaction on Stellar Explorer.
+					</p>
+				</div>
+			{/if}
+
+			{#if data.txHash}
+				<div class="rounded-lg border border-border bg-surface p-3">
+					<p class="text-[10px] text-text-dim uppercase tracking-wider">Transaction</p>
+					<a
+						href="https://stellar.expert/explorer/testnet/tx/{data.txHash}"
+						target="_blank"
+						rel="noopener"
+						class="mt-1 block font-mono text-xs text-accent hover:underline break-all"
+					>{data.txHash}</a>
+				</div>
+			{/if}
+		</div>
+	</div>
+{:else}
 <div class="space-y-10">
+	<!-- State banners -->
+	{#if data.state === 'resolving'}
+		<div class="flex items-center gap-3 rounded-xl border border-accent/15 bg-accent/4 px-4 py-3">
+			<svg class="h-4 w-4 shrink-0 animate-spin text-accent" viewBox="0 0 24 24" fill="none">
+				<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.25" />
+				<path d="M12 2a10 10 0 019.95 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+			</svg>
+			<p class="text-sm text-accent">Resolving metadata from agent URI. This usually takes under a minute.</p>
+		</div>
+	{:else if data.state === 'failed'}
+		<div class="flex items-start gap-3 rounded-xl border border-warning/15 bg-warning/5 px-4 py-3">
+			<svg class="mt-0.5 h-4 w-4 shrink-0 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+			</svg>
+			<div class="flex-1 space-y-1">
+				<p class="text-sm font-medium text-warning">Metadata resolution failed</p>
+				<p class="text-xs text-text-muted">
+					<span class="font-mono">{data.agent.agentUri}</span> could not be resolved after {data.uriResolveAttempts} attempts.
+					Verify the URL is accessible and returns valid JSON.
+				</p>
+				{#if wallet.connected && isOwner}
+					<button onclick={() => { showUriEditor = true; newUri = data.agent.agentUri ?? ''; }}
+						class="mt-2 rounded-lg bg-warning-soft px-3 py-1.5 text-xs font-medium text-warning transition hover:bg-warning/15">
+						Update URI
+					</button>
+				{/if}
+			</div>
+		</div>
+	{:else if data.state === 'no-uri'}
+		<div class="flex items-center gap-3 rounded-xl border border-border bg-surface-raised/40 px-4 py-3">
+			<svg class="h-4 w-4 shrink-0 text-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+			</svg>
+			<p class="text-sm text-text-muted">
+				This agent was registered without a metadata URI. Name, description, and services can be set by updating the agent URI on-chain.
+			</p>
+		</div>
+	{/if}
+
+	{#if showUriEditor}
+		<div class="rounded-xl border border-border bg-surface p-4 space-y-3">
+			<label class="text-xs font-medium text-text-muted" for="new-uri">New Metadata URI</label>
+			<input id="new-uri" type="text" bind:value={newUri}
+				placeholder="https://... or ipfs://..."
+				class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none" />
+			<div class="flex items-center gap-2">
+				<button onclick={submitUriUpdate}
+					disabled={uriUpdateStatus === 'submitting' || !newUri.trim()}
+					class="rounded-lg bg-accent px-4 py-2 text-sm text-white disabled:opacity-50">
+					{#if uriUpdateStatus === 'submitting'}
+						Submitting...
+					{:else}
+						Update URI
+					{/if}
+				</button>
+				<button onclick={() => { showUriEditor = false; uriUpdateStatus = 'idle'; }}
+					class="rounded-lg border border-border px-4 py-2 text-sm text-text-muted hover:bg-surface-raised">
+					Cancel
+				</button>
+				{#if uriUpdateStatus === 'success'}
+					<span class="text-xs text-positive">URI updated — waiting for indexer to re-resolve...</span>
+				{/if}
+			</div>
+			{#if uriUpdateStatus === 'error'}
+				<p class="text-xs text-negative">{uriUpdateError}</p>
+			{/if}
+		</div>
+	{/if}
+
 	<section class="space-y-8">
 		<div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
 			<div class="flex flex-col gap-4 sm:flex-row">
@@ -76,7 +278,7 @@
 						{/if}
 					</div>
 
-					{#if data.agent.supportedTrust.length > 0}
+					{#if data.agent.supportedTrust.length > 0 || data.agent.x402Enabled}
 						<div class="flex flex-wrap gap-1.5">
 							{#each data.agent.supportedTrust as trust}
 								<span class="inline-flex items-center gap-1 rounded-full border border-positive/20 bg-positive/5 px-2.5 py-0.5 text-[11px] text-positive">
@@ -84,6 +286,12 @@
 									{trust}
 								</span>
 							{/each}
+							{#if data.agent.x402Enabled}
+								<span class="inline-flex items-center gap-1 rounded-full border border-accent/20 bg-accent/5 px-2.5 py-0.5 text-[11px] text-accent">
+									<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+									x402
+								</span>
+							{/if}
 						</div>
 					{/if}
 
@@ -201,7 +409,13 @@
 		{:else}
 			<section>
 				<div class="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-dim">
-					No services registered
+					{#if data.state === 'resolving'}
+						Services will appear after metadata is resolved from the agent URI.
+					{:else if data.state === 'failed'}
+						Service discovery requires a valid metadata URI.
+					{:else}
+						No services registered
+					{/if}
 				</div>
 			</section>
 		{/if}
@@ -408,7 +622,11 @@
 					</div>
 				{:else}
 					<div class="px-6 py-8 text-center text-sm text-text-dim">
-						No reputation entries indexed yet
+						{#if data.state === 'resolving'}
+							This agent was recently registered. Reputation entries will appear here after clients submit feedback.
+						{:else}
+							No reputation entries have been submitted for this agent yet.
+						{/if}
 					</div>
 				{/if}
 			</div>
@@ -546,10 +764,15 @@
 					</div>
 				{:else}
 					<div class="px-6 py-8 text-center text-sm text-text-dim">
-						No validation requests indexed yet
+						{#if data.state === 'resolving'}
+							Validation requests can be submitted after the agent is fully indexed.
+						{:else}
+							No validation requests have been submitted for this agent yet.
+						{/if}
 					</div>
 				{/if}
 			</div>
 		</section>
 	{/if}
 </div>
+{/if}

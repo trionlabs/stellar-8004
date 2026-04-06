@@ -34,6 +34,78 @@ export const load: PageServerLoad = async ({ params, url }) => {
 
 	const tagParam = url.searchParams.get('tag') ?? '';
 	const tag = (VALID_TAGS as readonly string[]).includes(tagParam) ? tagParam : '';
+	const justRegistered = url.searchParams.get('registered') === 'true';
+	const txHash = url.searchParams.get('tx') ?? null;
+
+	// Query agent first to allow early return for indexing state
+	const agentResult = await db.from('agents').select('*').eq('id', agentId).maybeSingle();
+	const agent = assertSuccess(agentResult, 'Agent');
+
+	if (!agent) {
+		if (justRegistered) {
+			return {
+				state: 'indexing' as const,
+				justRegistered: true,
+				txHash,
+				uriResolveAttempts: 0,
+				tag: '',
+				agent: {
+					id: agentId,
+					name: `Agent #${agentId}`,
+					description: null,
+					image: null,
+					owner: '',
+					wallet: null,
+					agentUri: null,
+					supportedTrust: [] as string[],
+					x402Enabled: false,
+					services: [] as Array<{ name: string; endpoint: string; version?: string }>,
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+					registrationData: null
+				},
+				metadata: [] as Array<{ agent_id: number; key: string; value: string | null }>,
+				feedback: [] as Array<{
+					id: number;
+					clientAddress: string;
+					score: number;
+					tag1: string | null;
+					tag2: string | null;
+					feedbackUri: string | null;
+					feedbackHash: string | null;
+					isRevoked: boolean;
+					createdAt: string;
+					responses: Array<{ id: number; responder: string; responseUri: string | null; createdAt: string }>;
+				}>,
+				validations: [] as Array<{
+					validatorAddress: string;
+					tag: string | null;
+					hasResponse: boolean;
+					score: number | null;
+					requestUri: string | null;
+					responseUri: string | null;
+					createdAt: string;
+					respondedAt: string | null;
+				}>,
+				scores: null,
+				clientBreakdown: [] as Array<{
+					clientAddress: string;
+					feedbackCount: number;
+					avgScore: number;
+					lastFeedback: string;
+				}>
+			};
+		}
+		throw error(404, 'Agent not found');
+	}
+
+	// Compute state from DB columns
+	const state = (() => {
+		if (agent.agent_uri_data) return 'ready' as const;
+		if (!agent.agent_uri) return 'no-uri' as const;
+		if (agent.resolve_uri_pending) return 'resolving' as const;
+		return 'failed' as const;
+	})();
 
 	let feedbackQuery = db
 		.from('feedback')
@@ -47,14 +119,12 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	}
 
 	const [
-		agentResult,
 		metadataResult,
 		feedbackResult,
 		validationsResult,
 		leaderboardResult,
 		responsesResult
 	] = await Promise.all([
-		db.from('agents').select('*').eq('id', agentId).maybeSingle(),
 		db.from('agent_metadata').select('*').eq('agent_id', agentId),
 		feedbackQuery,
 		db
@@ -72,7 +142,6 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			.limit(200)
 	]);
 
-	const agent = assertSuccess(agentResult, 'Agent');
 	const metadataRows = assertSuccess(metadataResult, 'Metadata') ?? [];
 	const feedbackRows = assertSuccess(feedbackResult, 'Feedback') ?? [];
 	const validationRows = assertSuccess(validationsResult, 'Validations') ?? [];
@@ -81,10 +150,6 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		responsesResult,
 		'Feedback responses'
 	) as FeedbackResponseRow[];
-
-	if (!agent) {
-		throw error(404, 'Agent not found');
-	}
 
 	const responsesByFeedback = new Map<string, FeedbackResponseRow[]>();
 
@@ -121,6 +186,10 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		.slice(0, 20);
 
 	return {
+		state,
+		justRegistered,
+		txHash,
+		uriResolveAttempts: agent.uri_resolve_attempts ?? 0,
 		tag,
 		agent: {
 			id: agent.id,
@@ -134,7 +203,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			services: normalizeServices(agent.services),
 			createdAt: agent.created_at,
 			updatedAt: agent.updated_at,
-			registrationData: agent.agent_uri_data ? JSON.stringify(agent.agent_uri_data, null, 2) : null
+			x402Enabled: agent.x402_enabled ?? false,
+				registrationData: agent.agent_uri_data ? JSON.stringify(agent.agent_uri_data, null, 2) : null
 		},
 		metadata: metadataRows,
 		feedback: feedbackRows.map((feedback) => ({
