@@ -302,6 +302,9 @@ services:
     restart: unless-stopped
     cap_drop:
       - ALL
+    cap_add:
+      - SETUID
+      - SETGID
     depends_on:
       db:
         condition: service_healthy
@@ -550,8 +553,8 @@ services:
       - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
       # Initialize the database settings with JWT_SECRET and JWT_EXP
       - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
-      # PGDATA directory is persisted between restarts
-      - ./volumes/db/data:/var/lib/postgresql/data:Z
+      # PGDATA: named volume survives Dokploy code/ directory wipes on redeploy
+      - db-data:/var/lib/postgresql/data
       # Changes required for internal supabase data such as _analytics
       - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
       # Changes required for Analytics support
@@ -563,12 +566,8 @@ services:
     healthcheck:
       test:
         [
-        "CMD",
-        "pg_isready",
-        "-U",
-        "postgres",
-        "-h",
-        "localhost"
+        "CMD-SHELL",
+        "pg_isready -U postgres -h localhost && psql -U postgres -c 'SELECT 1'"
         ]
       interval: 5s
       timeout: 5s
@@ -708,9 +707,17 @@ services:
         done
         echo "Edge functions built."
         echo "=== Applying migrations ==="
+        psql -v ON_ERROR_STOP=1 -c "CREATE TABLE IF NOT EXISTS schema_migrations (filename text PRIMARY KEY, applied_at timestamptz DEFAULT now());"
         for f in /project/supabase/migrations/*.sql; do
-          echo "  $(basename $$f)..."
-          psql -v ON_ERROR_STOP=1 -f "$$f" 2>&1 || { echo "FAILED: $$f"; exit 1; }
+          NAME=$$(basename $$f)
+          ALREADY=$$(psql -tAc "SELECT 1 FROM schema_migrations WHERE filename='$$NAME'" 2>/dev/null || true)
+          if [ "$$ALREADY" = "1" ]; then
+            echo "  $$NAME — already applied, skipping"
+          else
+            echo "  $$NAME..."
+            psql -v ON_ERROR_STOP=1 -f "$$f" 2>&1 || { echo "FAILED: $$f"; exit 1; }
+            psql -c "INSERT INTO schema_migrations (filename) VALUES ('$$NAME');"
+          fi
         done
         echo "=== All migrations applied ==="
         echo "=== Configuring vault secrets ==="
@@ -730,5 +737,7 @@ networks:
     external: true
 
 volumes:
+  db-data:
+    name: s8004-db-data
   db-config:
   deno-cache:
