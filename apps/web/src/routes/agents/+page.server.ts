@@ -161,6 +161,10 @@ export const load: PageServerLoad = async ({ url }) => {
 				'Advanced search'
 			) ?? [];
 
+		// TODO: owner filter is client-side here because the RPC function
+		// doesn't accept an owner param. Pagination may be inaccurate when
+		// owner filter is combined with advanced filters. Push to DB when
+		// the RPC function is updated.
 		const filteredAdvanced = ownerFilter
 			? advancedRows.filter((r) => r.owner.toUpperCase() === ownerFilter.toUpperCase())
 			: advancedRows;
@@ -208,6 +212,7 @@ export const load: PageServerLoad = async ({ url }) => {
 				'Agent search'
 			) ?? [];
 
+		// TODO: same client-side owner filter limitation as advanced search above
 		const filteredSearch = ownerFilter
 			? searchRows.filter((r) => r.owner.toUpperCase() === ownerFilter.toUpperCase())
 			: searchRows;

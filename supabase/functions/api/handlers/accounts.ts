@@ -27,7 +27,8 @@ export async function handleAccounts(address: string, url: URL): Promise<Respons
     .range((page - 1) * limit, page * limit - 1);
 
   if (error) {
-    return errorResponse('QUERY_ERROR', error.message, 500);
+    console.error('Query error:', error.message);
+    return errorResponse('QUERY_ERROR', 'Database query failed', 500);
   }
 
   const agentIds = (agents ?? []).map((a) => a.id);

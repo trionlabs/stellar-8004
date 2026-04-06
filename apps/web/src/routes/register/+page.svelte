@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { registerAgent } from '$lib/contracts.js';
 	import { getStellarConfig } from '$lib/stellar.js';
 	import { wallet } from '$lib/wallet.svelte.js';
@@ -199,7 +200,7 @@
 				</div>
 				<div class="h-px bg-linear-to-r from-transparent via-accent/20 to-transparent"></div>
 			</div>
-			<a href="/" class="inline-flex items-center gap-2 text-xs text-text-muted hover:text-text">← Cancel and go home</a>
+			<a href={resolve('/')} class="inline-flex items-center gap-2 text-xs text-text-muted hover:text-text">← Cancel and go home</a>
 		</div>
 	{:else}
 		<Stepper steps={STEPS} {currentStep} />
@@ -232,7 +233,7 @@
 						← Back
 					</button>
 				{:else}
-					<a href="/" class="flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm text-text-muted hover:bg-surface-raised transition-colors">
+					<a href={resolve('/')} class="flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm text-text-muted hover:bg-surface-raised transition-colors">
 						Cancel
 					</a>
 				{/if}
