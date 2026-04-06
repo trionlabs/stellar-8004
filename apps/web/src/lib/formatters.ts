@@ -1,3 +1,17 @@
+const SAFE_IMAGE_SCHEMES = ['https://', 'ipfs://', 'data:image/'];
+
+/**
+ * Sanitize image URLs to prevent tracking pixels and data: URI abuse.
+ * Only allows https://, ipfs://, and data:image/ schemes.
+ * Returns a placeholder for unsafe URLs.
+ */
+export function sanitizeImageUrl(url: string | null | undefined): string {
+	if (!url) return '';
+	const lower = url.trim().toLowerCase();
+	if (SAFE_IMAGE_SCHEMES.some((s) => lower.startsWith(s))) return url;
+	return '';
+}
+
 export function shortAddress(value: string): string {
 	return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }

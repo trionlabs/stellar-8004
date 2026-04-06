@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
-	import { scoreFormatter, shortAddress } from '$lib/formatters.js';
+	import { scoreFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import CtaButton from '$lib/components/CtaButton.svelte';
 	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
@@ -174,7 +174,7 @@
 				<a href={resolve('/agents/[id]', { id: String(agent.id) })} class="row group" style="--i:{idx}" onmousemove={handleRowMouse}>
 					<div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/40 bg-surface-raised/50">
 						{#if agent.image}
-							<img src={agent.image} alt="" class="h-full w-full object-cover" />
+							<img src={sanitizeImageUrl(agent.image)} alt="" class="h-full w-full object-cover" />
 						{:else}
 							<StarIdenticon seed={String(agent.id)} size={36} />
 						{/if}
@@ -226,14 +226,17 @@
 						<button
 							type="button"
 							onclick={(e) => { e.preventDefault(); e.stopPropagation(); goto(resolve('/agents/[id]/edit', { id: String(agent.id) })); }}
-							class="shrink-0 rounded-md p-1.5 text-text-dim/25
-							       hover:text-accent hover:bg-accent/5
+							class="shrink-0 flex items-center gap-1 rounded-md border border-accent/20
+							       bg-accent-fill px-2 py-1
+							       text-[10px] font-medium text-accent
+							       hover:bg-accent-fill-hover hover:border-accent/35
 							       transition-colors z-10"
 							aria-label="Edit {agent.name}">
-							<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+							<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
 								<path stroke-linecap="round" stroke-linejoin="round"
 									d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
 							</svg>
+							Edit
 						</button>
 					{/if}
 

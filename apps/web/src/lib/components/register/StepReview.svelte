@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sanitizeImageUrl } from '$lib/formatters.js';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { getStellarConfig } from '$lib/stellar.js';
@@ -38,7 +39,7 @@
 				<h3 class="text-[10px] tracking-[0.15em] text-text-muted uppercase">Basic Information</h3>
 				<div class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-raised">
 					{#if formData.imageUrl}
-						<img src={formData.imageUrl} alt="" class="h-full w-full object-cover" />
+						<img src={sanitizeImageUrl(formData.imageUrl)} alt="" class="h-full w-full object-cover" />
 					{:else if wallet.address}
 						<StarIdenticon seed={wallet.address ?? 'preview'} size={48} />
 					{/if}
