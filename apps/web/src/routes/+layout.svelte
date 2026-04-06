@@ -17,9 +17,9 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
-<div class="flex min-h-screen flex-col bg-surface text-text">
-	<EllipticStars />
-	<header class="relative z-10 border-b border-border/60">
+<EllipticStars />
+<div class="flex min-h-screen flex-col text-text">
+	<header class="relative z-20 border-b border-border/60">
 		<nav class="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
 			<a href={resolve('/')} class="flex items-center gap-2 text-lg font-medium tracking-tight text-text">
 				<img src={favicon} alt="" class="h-6 w-6" />
@@ -41,24 +41,45 @@
 				</svg>
 			</button>
 
-			<div class="hidden md:flex md:items-center md:gap-8">
-				<a href={resolve('/agents')} class="text-sm text-text-muted transition hover:text-text">Agents</a>
-				<a href={resolve('/leaderboard')} class="text-sm text-text-muted transition hover:text-text">Leaderboard</a>
-				<a href={resolve('/register')} class="text-sm text-text-muted transition hover:text-text">Register</a>
-				<a href={resolve('/developers')} class="text-sm text-text-muted transition hover:text-text">Developers</a>
+			<div class="hidden md:flex md:items-center md:gap-6">
+				<a href={resolve('/register')} class="inline-flex items-center gap-1.5 rounded-md border border-accent/20 bg-accent/6 px-3 py-1 text-[12px] text-accent transition-all hover:bg-accent/12 hover:border-accent/35">
+					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+					Register
+				</a>
+				<a href={resolve('/agents')} class="inline-flex items-center gap-1.5 text-[12px] text-text-muted transition hover:text-text">
+					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128H5.228A2 2 0 013 17.208V5.792A2 2 0 015.228 3.872h13.544A2 2 0 0121 5.792v4.456M9.75 7.5h.008v.008H9.75V7.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
+					Agents
+				</a>
+				<a href={resolve('/leaderboard')} class="inline-flex items-center gap-1.5 text-[12px] text-text-muted transition hover:text-text">
+					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
+					Ranks
+				</a>
+				<a href={resolve('/developers')} class="inline-flex items-center gap-1.5 text-[12px] text-text-muted transition hover:text-text">
+					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
+					Devs
+				</a>
 				<ProfileBadge />
 			</div>
 
 			<div
 				class={`${menuOpen ? 'flex' : 'hidden'} w-full flex-col gap-4 pt-4 text-sm md:hidden`}
 			>
-				<a href={resolve('/agents')} class="text-text-muted transition hover:text-text">Agents</a>
-				{#if wallet.connected}
-					<a href="{resolve('/agents')}?owner={wallet.address}" class="text-text-muted transition hover:text-text">My Agents</a>
-				{/if}
-				<a href={resolve('/leaderboard')} class="text-text-muted transition hover:text-text">Leaderboard</a>
-				<a href={resolve('/register')} class="text-text-muted transition hover:text-text">Register</a>
-				<a href={resolve('/developers')} class="text-text-muted transition hover:text-text">Developers</a>
+				<a href={resolve('/register')} class="inline-flex items-center gap-2 text-accent">
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+					Register
+				</a>
+				<a href={resolve('/agents')} class="inline-flex items-center gap-2 text-text-muted transition hover:text-text">
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128H5.228A2 2 0 013 17.208V5.792A2 2 0 015.228 3.872h13.544A2 2 0 0121 5.792v4.456M9.75 7.5h.008v.008H9.75V7.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
+					Agents
+				</a>
+				<a href={resolve('/leaderboard')} class="inline-flex items-center gap-2 text-text-muted transition hover:text-text">
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
+					Ranks
+				</a>
+				<a href={resolve('/developers')} class="inline-flex items-center gap-2 text-text-muted transition hover:text-text">
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
+					Devs
+				</a>
 				<ProfileBadge />
 			</div>
 		</nav>
