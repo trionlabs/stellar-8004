@@ -7,17 +7,17 @@
 	let { data }: PageProps = $props();
 
 	const trustSignals = [
-		{ label: 'ERC-8004', d: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
+		{ label: '8004 for Stellar', d: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
 		{ label: 'Soroban', d: 'M13 10V3L4 14h7v7l9-11h-7z' },
 		{ label: 'Freighter', d: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z' },
 	];
 </script>
 
 <svelte:head>
-	<title>8004scan Stellar</title>
+	<title>Stellar8004</title>
 	<meta
 		name="description"
-		content="Explorer for ERC-8004 Agent Trust Protocol on Stellar. Browse agents, reputation scores, feedback, and validator endorsements."
+		content="Explorer for 8004 Agent Trust Protocol on Stellar. Browse agents, reputation scores, feedback, and validator endorsements."
 	/>
 </svelte:head>
 
@@ -34,7 +34,7 @@
 					Explore AI agents on Stellar
 				</h1>
 				<p class="max-w-lg text-[15px] leading-relaxed text-text-muted font-light">
-					Browse registered agents, check reputation scores, and track validator endorsements &mdash; all indexed from ERC-8004 contracts on Stellar.
+					Browse registered agents, check reputation scores, and track validator endorsements &mdash; all indexed from 8004 for Stellar contracts.
 				</p>
 			</div>
 		</div>
