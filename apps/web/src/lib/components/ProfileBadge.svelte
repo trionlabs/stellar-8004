@@ -199,7 +199,7 @@
 	<button
 		onclick={() => wallet.connect()}
 		disabled={wallet.loading}
-		class="rounded-lg bg-accent-soft px-4 py-2 text-sm text-accent transition hover:bg-accent-medium disabled:opacity-50"
+		class="rounded-lg bg-accent-soft px-3.5 py-1.5 text-xs text-accent transition hover:bg-accent-medium disabled:opacity-50"
 	>
 		{wallet.loading ? 'Connecting...' : 'Connect'}
 	</button>
