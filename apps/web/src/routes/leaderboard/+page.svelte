@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { scoreFormatter, shortAddress } from '$lib/formatters.js';
+	import { scoreFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
 	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
 	import type { PageProps } from './$types';
 
@@ -68,7 +68,7 @@
 					<!-- Avatar -->
 					<div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/40 bg-surface-raised/50">
 						{#if leader.agent_image}
-							<img src={leader.agent_image} alt="" class="h-full w-full object-cover" />
+							<img src={sanitizeImageUrl(leader.agent_image)} alt="" class="h-full w-full object-cover" />
 						{:else if leader.owner}
 							<StarIdenticon seed={String(leader.agent_id)} size={32} />
 						{:else}
