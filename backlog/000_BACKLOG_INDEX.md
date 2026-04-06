@@ -42,3 +42,7 @@
 | 036 | 11 | [TODO](./036_PHASE11_SDK_DOGFOOD.md) | Dog-food: web app SDK'ya geçiş | `feat/sdk-dogfood` | 034, 035 |
 | 037 | 11 | [TODO](./037_PHASE11_SDK_DOCS.md) | Developer portal: SDK docs + register example | `feat/sdk-docs` | 034 |
 | 038 | 11 | [TODO](./038_PHASE11_SDK_PUBLISH.md) | npm publish: @trionlabs/stellar-erc8004-sdk | `feat/sdk-publish` | 034, 035, 036 |
+| 039 | — | [DONE](./039_INFRA_DOCKER_RESILIENCE.md) | Docker deploy resilience: named volumes, migration tracking, healthchecks | `main` | — |
+| 040 | — | [DONE](./040_INFRA_PG17_UPGRADE.md) | Postgres 15 → 17 upgrade | `main` | 039 |
+| 041 | — | [DONE](./041_INFRA_DOKPLOY_ENV.md) | Dokploy env management: enc key fix, documented flow | `main` | 039 |
+| 042 | — | [IN_PROGRESS](./042_INFRA_EDGE_FUNCTION_INIT.md) | Edge function init container (decouple from migrate) | `main` | 039 |
