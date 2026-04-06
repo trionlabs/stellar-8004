@@ -1,6 +1,6 @@
 {
   "name": "@trionlabs/8004s-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TypeScript SDK for ERC-8004 agent registration, storage, signing, and explorer reads on Stellar.",
   "license": "SEE LICENSE IN LICENSE",
   "author": {

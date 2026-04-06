@@ -705,7 +705,6 @@ services:
     image: postgres:15-alpine
     volumes:
       - ..:/project:ro
-      - ../supabase/functions:/functions
     environment:
       PGHOST: db
       PGPORT: "5432"
@@ -718,14 +717,6 @@ services:
     command:
       - |
         set -e
-        echo "=== Building edge functions ==="
-        SRC=/project/packages/indexer/src
-        DEST=/functions/_shared/indexer
-        rm -rf "$$DEST" && mkdir -p "$$DEST" && cp -R "$$SRC"/. "$$DEST"/
-        find "$$DEST" -name '*.ts' | sort | while read f; do
-          sed -i -E "s/(['\"]\.\.?\/[^'\"]*)\\.js(['\"])/\1.ts\2/g" "$$f"
-        done
-        echo "Edge functions built."
         echo "=== Applying migrations ==="
         psql -v ON_ERROR_STOP=1 -c "CREATE TABLE IF NOT EXISTS schema_migrations (filename text PRIMARY KEY, applied_at timestamptz DEFAULT now());"
         for f in /project/supabase/migrations/*.sql; do
