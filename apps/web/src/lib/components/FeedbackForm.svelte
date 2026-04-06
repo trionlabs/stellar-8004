@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { giveFeedback } from '$lib/contracts.js';
-	import { buildFeedbackEvidence, sha256Hash } from '$lib/evidence.js';
-	import { getStellarConfig } from '$lib/stellar.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
@@ -10,12 +8,18 @@
 	let tag1 = $state('starred');
 	let tag2 = $state('');
 	let endpoint = $state('');
+	let evidenceUri = $state('');
 	let status = $state<'idle' | 'submitting' | 'success' | 'error'>('idle');
 	let errorMsg = $state('');
 	let txHash = $state('');
-	let ipfsWarning = $state('');
 
 	const busy = $derived(status === 'submitting');
+
+	async function sha256Hash(content: string): Promise<Uint8Array> {
+		const encoded = new TextEncoder().encode(content);
+		const hashBuffer = await crypto.subtle.digest('SHA-256', encoded);
+		return new Uint8Array(hashBuffer);
+	}
 
 	async function submit() {
 		if (!wallet.connected) {
@@ -26,38 +30,19 @@
 
 		status = 'submitting';
 		errorMsg = '';
-		ipfsWarning = '';
 
 		try {
-			const evidence = buildFeedbackEvidence({
-				agentId,
-				clientAddress: wallet.address!,
-				value,
-				tag1,
-				registryContract: getStellarConfig().contracts.reputation
-			});
+			// Evidence URI and hash come from the user, not from us.
+			// If the user provides an evidence URI, we hash the URI itself
+			// so the on-chain record links to it. The actual evidence content
+			// and its integrity are the user's responsibility.
+			let feedbackUri = evidenceUri.trim();
+			let feedbackHash: Uint8Array;
 
-			const evidenceJson = JSON.stringify(evidence);
-			const feedbackHash = await sha256Hash(evidenceJson);
-
-			let feedbackUri = '';
-			try {
-				const res = await fetch('/api/ipfs-upload', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						name: `feedback-${agentId}-${Date.now()}`,
-						data: evidenceJson
-					})
-				});
-				if (res.ok) {
-					const { uri } = await res.json();
-					feedbackUri = uri;
-				} else {
-					ipfsWarning = 'Evidence could not be uploaded — feedback will not be verifiable.';
-				}
-			} catch {
-				ipfsWarning = 'Evidence could not be uploaded — feedback will not be verifiable.';
+			if (feedbackUri) {
+				feedbackHash = await sha256Hash(feedbackUri);
+			} else {
+				feedbackHash = new Uint8Array(32); // bytes32(0) — no evidence
 			}
 
 			const result = await giveFeedback({
@@ -88,9 +73,6 @@
 			Feedback submitted. TX:
 			<code class="text-xs">{txHash.slice(0, 12)}...</code>
 		</div>
-		{#if ipfsWarning}
-			<p class="mt-1 text-xs text-warning">{ipfsWarning}</p>
-		{/if}
 	{:else if !wallet.connected}
 		<p class="text-sm text-text-muted">Connect your wallet to submit feedback</p>
 	{:else}
@@ -131,6 +113,18 @@
 				maxlength="128"
 				class="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text-muted placeholder:text-text-dim"
 			/>
+
+			<input
+				type="text"
+				bind:value={evidenceUri}
+				aria-label="Evidence URI"
+				placeholder="Evidence URI (optional) — ipfs:// or https://"
+				maxlength="256"
+				class="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text-muted placeholder:text-text-dim"
+			/>
+			<p class="text-[11px] text-text-dim">
+				Link to off-chain evidence (interaction logs, payment proof). Leave empty for score-only feedback.
+			</p>
 
 			{#if wallet.networkMismatch}
 				<p class="text-xs text-warning">Switch Freighter to the correct network before submitting</p>
