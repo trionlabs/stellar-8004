@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { giveFeedback } from '$lib/contracts.js';
+	import { client } from '$lib/sdk-client.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
@@ -48,7 +48,7 @@
 				feedbackHash = new Uint8Array(32); // bytes32(0) — no evidence
 			}
 
-			const result = await giveFeedback({
+			const result = await client.giveFeedback({
 				agentId,
 				value,
 				valueDecimals: 0,

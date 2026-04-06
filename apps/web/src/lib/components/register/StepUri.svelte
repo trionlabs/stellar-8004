@@ -1,6 +1,11 @@
 <script lang="ts">
 	import type { AgentFormData, UriMode } from '$lib/types.js';
-	import { buildMetadataJson, toDataUri, getMetadataSize, downloadMetadataJson } from '$lib/metadata.js';
+	import {
+		buildMetadataJson,
+		downloadMetadataJson,
+		getMetadataSize,
+		toDataUri
+	} from '@trionlabs/8004s-sdk';
 
 	let { formData, uriMode = $bindable(), manualUri = $bindable() }: { formData: AgentFormData; uriMode?: UriMode; manualUri?: string } = $props();
 
