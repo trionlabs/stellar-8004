@@ -482,14 +482,13 @@ services:
     depends_on:
       functions-init:
         condition: service_completed_successfully
-    volumes:
-      - ../supabase/functions:/home/deno/functions:ro
-      - deno-cache:/root/.cache/deno
-    depends_on:
       kong:
         condition: service_healthy
       analytics:
         condition: service_healthy
+    volumes:
+      - ../supabase/functions:/home/deno/functions:ro
+      - deno-cache:/root/.cache/deno
     environment:
       # Legacy symmetric HS256 key
       JWT_SECRET: ${JWT_SECRET}
