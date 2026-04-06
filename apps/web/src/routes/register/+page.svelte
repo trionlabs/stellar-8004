@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { registerAgent } from '$lib/contracts.js';
-	import { getStellarConfig } from '$lib/stellar.js';
 	import { wallet } from '$lib/wallet.svelte.js';
-	import { buildMetadataJson, toDataUri } from '$lib/metadata.js';
+	import { client, stellarConfig } from '$lib/sdk-client.js';
+	import { buildMetadataJson, toDataUri } from '@trionlabs/8004s-sdk';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
 	import CtaButton from '$lib/components/CtaButton.svelte';
 	import Stepper from '$lib/components/Stepper.svelte';
@@ -13,7 +12,7 @@
 	import StepAdvanced from '$lib/components/register/StepAdvanced.svelte';
 	import StepUri from '$lib/components/register/StepUri.svelte';
 	import StepReview from '$lib/components/register/StepReview.svelte';
-import CodeBlock from '$lib/components/CodeBlock.svelte';
+	import CodeBlock from '$lib/components/CodeBlock.svelte';
 
 	const STEPS = [
 		{ label: 'Basic Info' },
@@ -87,7 +86,7 @@ import CodeBlock from '$lib/components/CodeBlock.svelte';
 				: manualUri.trim();
 
 			const agentUri = uri || undefined;
-			const result = await registerAgent(agentUri);
+			const result = await client.registerAgent(agentUri);
 			status = 'success';
 			sessionStorage.removeItem(STORAGE_KEY);
 			await goto(`/agents/${result.agentId}?registered=true&tx=${result.hash}`);
@@ -102,7 +101,7 @@ import CodeBlock from '$lib/components/CodeBlock.svelte';
 		errorMsg = '';
 
 		try {
-			const result = await registerAgent(agentUri.trim() || undefined);
+			const result = await client.registerAgent(agentUri.trim() || undefined);
 			status = 'success';
 			await goto(`/agents/${result.agentId}?registered=true&tx=${result.hash}`);
 		} catch (err) {
@@ -157,14 +156,14 @@ import CodeBlock from '$lib/components/CodeBlock.svelte';
 							<div class="flex items-center gap-2.5 rounded-xl bg-warning/6 px-4 py-3 ring-1 ring-warning/12">
 								<span class="h-1.5 w-1.5 rounded-full bg-warning"></span>
 								<p class="text-xs text-warning">
-									Switch to <span class="font-medium uppercase">{getStellarConfig().network}</span> in Freighter
+									Switch to <span class="font-medium uppercase">{stellarConfig.network}</span> in Freighter
 								</p>
 							</div>
 						{:else}
 							<div class="flex items-center justify-between rounded-xl bg-positive/5 px-4 py-3 ring-1 ring-positive/10">
 								<div class="flex items-center gap-2.5">
 									<span class="h-1.5 w-1.5 rounded-full bg-positive animate-pulse"></span>
-									<p class="text-xs text-positive">{getStellarConfig().network}</p>
+									<p class="text-xs text-positive">{stellarConfig.network}</p>
 								</div>
 								<p class="truncate pl-4 font-mono text-[11px] text-text-dim">{wallet.address?.slice(0, 8)}...{wallet.address?.slice(-6)}</p>
 							</div>
