@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { afterNavigate } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { createSupabase } from '$lib/supabase.js';
@@ -9,39 +10,42 @@
 	let agentCount = $state<number | null>(null);
 	let open = $state(false);
 	let copied = $state(false);
-	let triggerEl = $state<HTMLButtonElement | null>(null);
+	let wrapperEl = $state<HTMLDivElement | null>(null);
 
 	onMount(() => {
 		mounted = true;
 	});
 
-	async function fetchAgentCount(address: string) {
-		try {
-			const { count } = await createSupabase()
-				.from('agents')
-				.select('id', { count: 'exact', head: true })
-				.ilike('owner', address);
-			if (address === wallet.address) {
-				agentCount = count;
-			}
-		} catch {
-			if (address === wallet.address) {
-				agentCount = null;
-			}
-		}
-	}
+	// Close dropdown after any SvelteKit client-side navigation
+	afterNavigate(() => {
+		open = false;
+	});
 
 	$effect(() => {
 		const currentAddress = wallet.address;
 		if (wallet.connected && currentAddress) {
-			fetchAgentCount(currentAddress);
+			createSupabase()
+				.from('agents')
+				.select('id', { count: 'exact', head: true })
+				.ilike('owner', currentAddress)
+				.then(
+					({ count }) => {
+						if (currentAddress === wallet.address) {
+							agentCount = count;
+						}
+					},
+					() => {
+						if (currentAddress === wallet.address) {
+							agentCount = null;
+						}
+					}
+				);
 		} else {
 			agentCount = null;
 		}
 	});
 
-	function toggle(e: MouseEvent) {
-		e.stopPropagation();
+	function toggle() {
 		open = !open;
 	}
 
@@ -49,36 +53,36 @@
 		open = false;
 	}
 
-	function closeFromOutside() {
-		if (open) close();
-	}
-
-	async function copyAddress(e: MouseEvent) {
-		e.stopPropagation();
-		if (!wallet.address) return;
-		await navigator.clipboard.writeText(wallet.address);
-		copied = true;
-		setTimeout(() => (copied = false), 1500);
+	// mousedown fires before click — no DOM removal race
+	function handleMousedown(e: MouseEvent) {
+		if (open && wrapperEl && !wrapperEl.contains(e.target as Node)) {
+			close();
+		}
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape' && open) {
 			close();
-			triggerEl?.focus();
 		}
+	}
+
+	async function copyAddress() {
+		if (!wallet.address) return;
+		await navigator.clipboard.writeText(wallet.address);
+		copied = true;
+		setTimeout(() => (copied = false), 1500);
 	}
 </script>
 
-<svelte:window onclick={closeFromOutside} onkeydown={handleKeydown} />
+<svelte:window onmousedown={handleMousedown} onkeydown={handleKeydown} />
 
 {#if !mounted}
 	<button class="rounded-lg px-4 py-2 text-sm text-text-dim" disabled>
 		Loading...
 	</button>
 {:else if wallet.connected}
-	<div class="relative z-50">
+	<div class="relative z-50" bind:this={wrapperEl}>
 		<button
-			bind:this={triggerEl}
 			onclick={toggle}
 			class="flex items-center gap-2 rounded-xl border border-border bg-surface-raised/50 px-2.5 py-1.5 transition-colors hover:bg-surface-raised hover:border-border-subtle"
 			aria-expanded={open}
@@ -103,8 +107,6 @@
 			<div
 				role="menu"
 				tabindex="-1"
-				onclick={(e: MouseEvent) => e.stopPropagation()}
-				onkeydown={(e: KeyboardEvent) => { if (e.key === 'Escape') { close(); triggerEl?.focus(); } }}
 				class="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-border bg-surface-raised shadow-lg shadow-black/20"
 			>
 				<!-- Header: identicon + address + network -->
@@ -152,7 +154,7 @@
 				<div class="border-b border-border py-1">
 					<a
 						href={resolve('/agents') + `?owner=${wallet.address}`}
-						onclick={close}
+						role="menuitem"
 						class="flex items-center justify-between px-4 py-2.5 text-sm text-text-muted transition-colors hover:bg-surface-overlay hover:text-text"
 					>
 						<span class="flex items-center gap-2.5">
@@ -173,6 +175,7 @@
 				<div class="py-1">
 					<button
 						onclick={() => { wallet.disconnect(); close(); }}
+						role="menuitem"
 						class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-text-dim transition-colors hover:bg-surface-overlay hover:text-negative"
 					>
 						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
