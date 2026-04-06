@@ -77,9 +77,9 @@ agent = requests.get('https://stellar8004.com/api/v1/agents/1').json()`,
 	<meta name="description" content="Public REST API for 8004 Agent Trust Protocol on Stellar" />
 </svelte:head>
 
-<div class="mx-auto max-w-4xl space-y-10">
+<div class="space-y-10">
 	<!-- Claude Code Skills — hero position -->
-	<section class="cta-banner group/cta relative overflow-hidden rounded-2xl border border-accent/8 bg-linear-to-br from-surface-raised via-surface-overlay to-surface-raised p-8 sm:p-10">
+	<section class="cta-banner group/cta relative overflow-hidden rounded-2xl border border-border/50 bg-linear-to-br from-surface-raised via-surface-overlay to-surface-raised p-8 sm:p-10">
 		<div class="pointer-events-none absolute inset-0 cta-noise"></div>
 		<div class="cta-leak cta-leak--warm"></div>
 		<div class="cta-leak cta-leak--cool"></div>
