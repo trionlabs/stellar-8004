@@ -61,6 +61,9 @@ stellar-agentic-skills/
 # Markdown files (docs kept locally, not in git history)
 *.md
 
+# E2E test scripts (generate keypairs, not for production)
+scripts/e2e-*.ts
+
 # OS files
 .DS_Store
 Thumbs.db
