@@ -49,7 +49,7 @@
 				/>
 				<button
 					type="submit"
-					class="rounded-xl bg-accent-soft px-5 py-3 text-sm text-accent transition-all hover:bg-accent-medium"
+					class="rounded-xl bg-accent-fill border border-accent/30 px-5 py-3 text-sm font-medium text-accent transition-all hover:bg-accent-fill-hover hover:border-accent/45"
 				>
 					Search
 				</button>
@@ -75,7 +75,7 @@
 	</section>
 
 	<!-- CTA Banner -->
-	<section class="cta-banner group/cta relative overflow-hidden rounded-2xl border border-border/50 bg-linear-to-br from-surface-raised via-surface-overlay to-surface-raised p-8 sm:p-12 lg:p-16">
+	<section class="cta-banner group/cta relative overflow-hidden rounded-2xl border border-border bg-linear-to-br from-surface-raised via-surface-overlay to-surface-raised p-8 sm:p-12 lg:p-16">
 		<!-- Noise texture -->
 		<div class="pointer-events-none absolute inset-0 cta-noise"></div>
 
@@ -87,7 +87,7 @@
 		<div class="relative z-10 grid gap-10 sm:grid-cols-[1fr_auto] sm:items-center">
 			<div class="space-y-5">
 				<div class="flex items-center gap-3">
-					<span class="inline-flex items-center gap-1.5 rounded-full border border-accent/12 bg-accent/4 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase">
+					<span class="inline-flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/6 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase">
 						<span class="h-1 w-1 rounded-full bg-accent animate-pulse"></span>
 						Agent Trust Protocol
 					</span>
@@ -103,7 +103,7 @@
 				</p>
 
 				<!-- Trust signals -->
-				<div class="flex items-center gap-4 pt-2 text-xs text-text-dim">
+				<div class="flex items-center gap-4 pt-2 text-xs text-text-muted">
 					{#each trustSignals as signal, i (signal.label)}
 						{#if i > 0}<span class="h-3 w-px bg-border"></span>{/if}
 						<span class="flex items-center gap-1.5">
