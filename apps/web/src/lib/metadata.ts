@@ -24,6 +24,37 @@ export function buildMetadataJson(form: AgentFormData): Record<string, unknown> 
 	return metadata;
 }
 
+const KNOWN_FIELDS = ['type', 'name', 'description', 'image', 'services', 'supportedTrust', 'x402', 'endpoints'];
+
+/**
+ * Build metadata JSON for edit mode.
+ * Preserves unknown fields from the original metadata (e.g. custom extensions like
+ * `license`, `category`) so they survive the edit round-trip without data loss.
+ */
+export function buildMetadataJsonForEdit(
+	form: AgentFormData,
+	existing: Record<string, unknown>
+): Record<string, unknown> {
+	// Collect unknown fields for preservation
+	const preserved = Object.fromEntries(
+		Object.entries(existing).filter(([k]) => !KNOWN_FIELDS.includes(k))
+	);
+
+	const metadata: Record<string, unknown> = {
+		type: existing.type ?? 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+		name: form.name
+	};
+
+	if (form.description) metadata.description = form.description;
+	if (form.imageUrl) metadata.image = form.imageUrl;
+	if (form.services.length > 0) metadata.services = form.services;
+	if (form.supportedTrust.length > 0) metadata.supportedTrust = form.supportedTrust;
+	if (form.x402Enabled) metadata.x402 = true;
+
+	// Preserved fields go first, form fields override
+	return { ...preserved, ...metadata };
+}
+
 function bytesToBase64(bytes: Uint8Array): string {
 	const binString = Array.from(bytes, (byte) =>
 		String.fromCodePoint(byte),
