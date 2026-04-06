@@ -455,12 +455,33 @@ services:
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
       CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
 
+  # ── stellar8004: auto-rebuild indexer on every container start ──
+  functions-init:
+    container_name: s8004-edge-init
+    image: alpine:3.20
+    volumes:
+      - ../packages/indexer/src:/src:ro
+      - ../supabase/functions/_shared/indexer:/dest
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        rm -rf /dest/* && cp -R /src/. /dest/
+        find /dest -name '*.ts' | while read f; do
+          sed -i -E "s/(['\"]\.\.?\/[^'\"]*)\\.js(['\"])/\1.ts\2/g" "$$f"
+        done
+        echo "Edge function indexer rebuilt: $$(find /dest -name '*.ts' | wc -l) files"
+    restart: "no"
+
   functions:
     container_name: s8004-edge-functions
     image: supabase/edge-runtime:v1.71.2
     restart: unless-stopped
     cap_drop:
       - ALL
+    depends_on:
+      functions-init:
+        condition: service_completed_successfully
     volumes:
       - ../supabase/functions:/home/deno/functions:ro
       - deno-cache:/root/.cache/deno
