@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const db = createServerSupabase();
 	const agentId = Number(params.id);
 
-	if (!Number.isInteger(agentId) || agentId <= 0) {
+	if (!Number.isInteger(agentId) || agentId < 0) {
 		throw error(400, 'Invalid agent ID');
 	}
 
@@ -94,7 +94,9 @@ export const load: PageServerLoad = async ({ params, url }) => {
 					feedbackCount: number;
 					avgScore: number;
 					lastFeedback: string;
-				}>
+				}>,
+				metadataCompleteness: 0,
+				recentFeedbackCount: 0
 			};
 		}
 		throw error(404, 'Agent not found');
@@ -124,7 +126,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		feedbackResult,
 		validationsResult,
 		leaderboardResult,
-		responsesResult
+		responsesResult,
+		totalAgentsResult
 	] = await Promise.all([
 		db.from('agent_metadata').select('*').eq('agent_id', agentId),
 		feedbackQuery,
@@ -140,7 +143,10 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			.select('*')
 			.eq('agent_id', agentId)
 			.order('created_at', { ascending: false })
-			.limit(200)
+			.limit(200),
+		db
+			.from('agents')
+			.select('id', { count: 'exact', head: true })
 	]);
 
 	const metadataRows = assertSuccess(metadataResult, 'Metadata') ?? [];
@@ -152,6 +158,21 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		'Feedback responses'
 	) as FeedbackResponseRow[];
 
+	assertSuccess(totalAgentsResult, 'Total agents');
+	const totalAgents = totalAgentsResult.count ?? 0;
+
+	// Rank: count agents with higher total_score + 1
+	let rank: number | null = null;
+	if (leaderboard?.total_score != null) {
+		const { count, error: rankError } = await db
+			.from('leaderboard_scores')
+			.select('agent_id', { count: 'exact', head: true })
+			.gt('total_score', leaderboard.total_score);
+		if (!rankError && count != null) {
+			rank = count + 1;
+		}
+	}
+
 	const responsesByFeedback = new Map<string, FeedbackResponseRow[]>();
 
 	for (const response of responseRows) {
@@ -161,6 +182,27 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		entries.push(response);
 		responsesByFeedback.set(key, entries);
 	}
+
+	// QW2: Metadata completeness (0-100)
+	const metadataCompleteness = (() => {
+		const uriData = agent.agent_uri_data;
+		if (!uriData || typeof uriData !== 'object' || Array.isArray(uriData)) return 0;
+		const record = uriData as Record<string, unknown>;
+		let score = 0;
+		if (typeof record.name === 'string' && record.name.length > 0) score += 20;
+		if (typeof record.description === 'string' && record.description.length > 0) score += 20;
+		if (typeof record.image === 'string' && record.image.length > 0) score += 20;
+		if (Array.isArray(record.services) && record.services.length > 0) score += 20;
+		if (Array.isArray(record.supportedTrust) && record.supportedTrust.length > 0) score += 20;
+		return score;
+	})();
+
+	// QW3: Momentum — feedback in last 7 days vs total
+	const now = new Date();
+	const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+	const recentFeedbackCount = feedbackRows.filter(
+		(fb) => !fb.is_revoked && fb.created_at >= sevenDaysAgo
+	).length;
 
 	// Per-client breakdown from feedback rows
 	const clientMap = new Map<string, { count: number; totalScore: number; lastFeedback: string }>();
@@ -246,9 +288,13 @@ export const load: PageServerLoad = async ({ params, url }) => {
 					feedbackCount: leaderboard.feedback_count ?? 0,
 					uniqueClients: leaderboard.unique_clients ?? 0,
 					validationCount: leaderboard.validation_count ?? 0,
-					avgValidationScore: leaderboard.avg_validation_score
+					avgValidationScore: leaderboard.avg_validation_score,
+					rank,
+					totalAgents
 				}
 			: null,
-		clientBreakdown
+		clientBreakdown,
+		metadataCompleteness,
+		recentFeedbackCount
 	};
 };
