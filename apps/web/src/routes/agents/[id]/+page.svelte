@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { createSupabase } from '$lib/supabase.js';
-	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress } from '$lib/formatters.js';
+	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
 	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
 	import ValidationForm from '$lib/components/ValidationForm.svelte';
 	import ScoreBreakdown from '$lib/components/ScoreBreakdown.svelte';
@@ -288,7 +288,7 @@
 				<div class="flex items-center gap-4">
 					<div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/40 bg-surface-raised/50">
 						{#if data.agent.image}
-							<img src={data.agent.image} alt="" class="h-full w-full object-cover" />
+							<img src={sanitizeImageUrl(data.agent.image)} alt="" class="h-full w-full object-cover" />
 						{:else}
 							<StarIdenticon seed={String(data.agent.id)} size={48} />
 						{/if}
@@ -303,20 +303,6 @@
 							<span class="text-accent/60">#{data.agent.id}</span>
 						</div>
 					</div>
-					{#if wallet.connected && isOwner && (data.state === 'ready' || data.state === 'no-uri' || data.state === 'failed')}
-						<a href={resolve(`/agents/${data.agent.id}/edit`)}
-							class="ml-auto shrink-0 flex items-center gap-1.5 rounded-lg
-							       border border-accent/20 bg-accent/5 px-4 py-2
-							       text-xs font-medium text-accent
-							       hover:bg-accent/10 hover:border-accent/30
-							       transition-colors">
-							<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-								<path stroke-linecap="round" stroke-linejoin="round"
-									d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-							</svg>
-							Edit Agent
-						</a>
-					{/if}
 				</div>
 
 				{#if data.agent.description}
@@ -335,7 +321,24 @@
 				{/if}
 
 				{#if wallet.connected && isOwner}
-					<p class="text-[11px] text-positive/60">Connected wallet is the owner</p>
+					<div class="flex items-center gap-3 rounded-xl border border-accent/15 bg-accent-fill px-4 py-3">
+						<span class="h-1.5 w-1.5 rounded-full bg-positive animate-pulse"></span>
+						<p class="flex-1 text-[11px] text-text-muted">You own this agent</p>
+						{#if data.state === 'ready' || data.state === 'no-uri' || data.state === 'failed'}
+							<a href={resolve(`/agents/${data.agent.id}/edit`)}
+								class="flex items-center gap-1.5 rounded-lg bg-accent-fill-hover px-4 py-2
+								       border border-accent/25 text-xs font-medium text-accent
+								       shadow-accent-sm
+								       hover:border-accent/40 hover:shadow-accent-md
+								       transition-all">
+								<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+									<path stroke-linecap="round" stroke-linejoin="round"
+										d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+								</svg>
+								Edit Agent
+							</a>
+						{/if}
+					</div>
 				{/if}
 			</div>
 
