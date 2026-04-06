@@ -28,9 +28,9 @@
 | 022 | 7 | [DONE](./_archive/022_PHASE7_SCORE_EVIDENCE.md) | Agent detail: score breakdown + evidence viewer | `feat/score-evidence` | 019 |
 | 023 | 7 | [DONE](./_archive/023_PHASE7_TAG_FILTER.md) | Agent detail: tag filter + per-client breakdown | `feat/tag-filter` | 017 |
 | 024 | 7 | [DONE](./_archive/024_PHASE7_ADVANCED_SEARCH.md) | Agents list: advanced filtering UI | `feat/advanced-search` | 017 |
-| 025 | 8 | [OUT_OF_SCOPE](./025_PHASE8_CLI_CONTRACTS.md) | CLI: reputation contract wrappers + types | — | — |
-| 026 | 8 | [OUT_OF_SCOPE](./026_PHASE8_CLI_CONFIG.md) | CLI: feedback config + evidence generator | — | — |
-| 027 | 8 | [OUT_OF_SCOPE](./027_PHASE8_CLI_SCRIPTS.md) | CLI: give-feedback, verify, update-metadata | — | — |
+| 025 | 8 | [SUPERSEDED](./025_PHASE8_CLI_CONTRACTS.md) | CLI: contract wrappers → superseded by 034 (SDK Core) | — | — |
+| 026 | 8 | [SUPERSEDED](./026_PHASE8_CLI_CONFIG.md) | CLI: feedback config → superseded by 034 (SDK Core) | — | — |
+| 027 | 8 | [SUPERSEDED](./027_PHASE8_CLI_SCRIPTS.md) | CLI: scripts → superseded by 034 (SDK Core) | — | — |
 | 028 | 9 | [DEFERRED](./028_PHASE9_WALLET_REPUTATION.md) | Wallet reputation — ertelendi, gerçek veri gerekiyor | `feat/wallet-reputation` | 017 |
 | 029 | 9 | [DEFERRED](./029_PHASE9_FEEDBACK_QUALITY.md) | Feedback quality signals — 028'e bağlı, ertelendi | `feat/feedback-quality` | 028 |
 | 030 | 10 | [DONE](./030_PHASE10_AGENT_UPDATE.md) | Agent profile edit & management UI | `feat/agent-update` | — |
