@@ -2,9 +2,9 @@
 	import './layout.css';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import favicon from '$lib/assets/favicon.svg';
+	import favicon from '$lib/assets/favicon-v9-atom.svg';
 	import { wallet } from '$lib/wallet.svelte.js';
-	import WalletButton from '$lib/components/WalletButton.svelte';
+	import ProfileBadge from '$lib/components/ProfileBadge.svelte';
 	import EllipticStars from '$lib/components/EllipticStars.svelte';
 
 	let { children } = $props();
@@ -21,8 +21,9 @@
 	<EllipticStars />
 	<header class="relative z-10 border-b border-border/60">
 		<nav class="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
-			<a href={resolve('/')} class="text-lg font-medium tracking-tight text-text">
-				8004scan <span class="text-text-dim">/</span> <span class="text-accent">Stellar</span>
+			<a href={resolve('/')} class="flex items-center gap-2 text-lg font-medium tracking-tight text-text">
+				<img src={favicon} alt="" class="h-6 w-6" />
+				Stellar<span class="text-accent">8004</span>
 			</a>
 
 			<button
@@ -44,16 +45,21 @@
 				<a href={resolve('/agents')} class="text-sm text-text-muted transition hover:text-text">Agents</a>
 				<a href={resolve('/leaderboard')} class="text-sm text-text-muted transition hover:text-text">Leaderboard</a>
 				<a href={resolve('/register')} class="text-sm text-text-muted transition hover:text-text">Register</a>
-				<WalletButton />
+				<a href={resolve('/developers')} class="text-sm text-text-muted transition hover:text-text">Developers</a>
+				<ProfileBadge />
 			</div>
 
 			<div
 				class={`${menuOpen ? 'flex' : 'hidden'} w-full flex-col gap-4 pt-4 text-sm md:hidden`}
 			>
 				<a href={resolve('/agents')} class="text-text-muted transition hover:text-text">Agents</a>
+				{#if wallet.connected}
+					<a href="{resolve('/agents')}?owner={wallet.address}" class="text-text-muted transition hover:text-text">My Agents</a>
+				{/if}
 				<a href={resolve('/leaderboard')} class="text-text-muted transition hover:text-text">Leaderboard</a>
 				<a href={resolve('/register')} class="text-text-muted transition hover:text-text">Register</a>
-				<WalletButton />
+				<a href={resolve('/developers')} class="text-text-muted transition hover:text-text">Developers</a>
+				<ProfileBadge />
 			</div>
 		</nav>
 	</header>
@@ -72,7 +78,7 @@
 
 	<footer class="relative z-10 mt-auto border-t border-border/40">
 		<div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-6 text-[11px] text-text-dim">
-			<span>8004scan <span class="text-text-dim/40">/</span> <span class="text-accent/60">Stellar</span> <span class="text-text-dim/40">&middot;</span> TrionLabs</span>
+			<span>Stellar<span class="text-accent/60">8004</span> <span class="text-text-dim/40">&middot;</span> TrionLabs</span>
 			<div class="flex items-center gap-4">
 				<a href={resolve('/agents')} class="transition hover:text-text-muted">Agents</a>
 				<a href={resolve('/leaderboard')} class="transition hover:text-text-muted">Leaderboard</a>
