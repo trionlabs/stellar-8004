@@ -122,6 +122,15 @@ export async function updateAgentUri(
 	agentId: number,
 	newUri: string
 ): Promise<{ hash: string }> {
+	if (newUri.length > 8192) {
+		throw new Error('Agent URI too large (max 8KB)');
+	}
+
+	const SAFE_SCHEMES = ['https://', 'http://', 'ipfs://', 'data:application/json'];
+	if (!SAFE_SCHEMES.some((s) => newUri.startsWith(s))) {
+		throw new Error('Agent URI must use https://, http://, ipfs://, or data: scheme');
+	}
+
 	const args = [
 		StellarSdk.nativeToScVal(wallet.address!, { type: 'address' }),
 		StellarSdk.nativeToScVal(agentId, { type: 'u32' }),
