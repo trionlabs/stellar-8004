@@ -462,7 +462,7 @@ services:
     cap_drop:
       - ALL
     volumes:
-      - ../supabase/functions:/home/deno/functions:ro,Z
+      - ../supabase/functions:/home/deno/functions:ro
       - deno-cache:/root/.cache/deno
     depends_on:
       kong:
@@ -684,8 +684,8 @@ services:
     container_name: s8004-migrate
     image: postgres:15-alpine
     volumes:
-      - ..:/project:ro,z
-      - ../supabase/functions:/functions:z
+      - ..:/project:ro
+      - ../supabase/functions:/functions
     environment:
       PGHOST: db
       PGPORT: "5432"
