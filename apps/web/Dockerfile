@@ -7,10 +7,12 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/web/package.json apps/web/
 COPY packages/db/package.json packages/db/
 COPY packages/indexer/package.json packages/indexer/
+COPY packages/sdk/package.json packages/sdk/
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
+RUN pnpm --filter @trionlabs/8004s-sdk build
 RUN pnpm --filter @stellar8004/web build
 # Deploy creates a flat, self-contained node_modules without symlinks
 RUN pnpm --filter @stellar8004/web deploy --prod /prod
