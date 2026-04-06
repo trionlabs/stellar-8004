@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { createSupabase } from '$lib/supabase.js';
@@ -8,6 +9,7 @@
 	import ValidationForm from '$lib/components/ValidationForm.svelte';
 	import ScoreBreakdown from '$lib/components/ScoreBreakdown.svelte';
 	import EvidenceViewer from '$lib/components/EvidenceViewer.svelte';
+	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -125,10 +127,10 @@
 </script>
 
 <svelte:head>
-	<title>{data.agent.name} | 8004scan Stellar</title>
+	<title>{data.agent.name} | Stellar8004</title>
 	<meta
 		name="description"
-		content="Inspect on-chain metadata, feedback, validation requests, and aggregate trust scores for a Stellar ERC-8004 agent."
+		content="Inspect on-chain metadata, feedback, validation requests, and aggregate trust scores for a 8004 for Stellar agent."
 	/>
 </svelte:head>
 
@@ -178,10 +180,38 @@
 					>{data.txHash}</a>
 				</div>
 			{/if}
+
+			<div class="flex flex-wrap justify-center gap-3 pt-2">
+				<a href={resolve('/register')}
+					class="text-xs text-text-muted hover:text-accent transition">
+					Register another agent
+				</a>
+				{#if wallet.connected}
+					<span class="text-text-dim">·</span>
+					<a href={resolve('/agents') + `?owner=${wallet.address}`}
+						class="text-xs text-text-muted hover:text-accent transition">
+						My agents
+					</a>
+				{/if}
+			</div>
 		</div>
 	</div>
 {:else}
 <div class="space-y-10">
+	{#if data.justRegistered && data.state === 'ready'}
+		<div class="flex items-center justify-between rounded-xl border border-positive/12 bg-positive/4 px-4 py-3">
+			<div class="flex items-center gap-2">
+				<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
+				<p class="text-sm text-positive">Agent registered</p>
+			</div>
+			<div class="flex items-center gap-3 text-xs">
+				<a href={resolve('/register')} class="text-text-muted hover:text-text transition">Register another</a>
+				{#if wallet.connected}
+					<a href={resolve('/agents') + `?owner=${wallet.address}`} class="text-accent hover:text-text transition">My agents</a>
+				{/if}
+			</div>
+		</div>
+	{/if}
 	<!-- State banners -->
 	{#if data.state === 'resolving'}
 		<div class="flex items-center gap-3 rounded-xl border border-accent/15 bg-accent/4 px-4 py-3">
@@ -251,80 +281,72 @@
 		</div>
 	{/if}
 
-	<section class="space-y-8">
-		<div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-			<div class="flex flex-col gap-4 sm:flex-row">
-				<div
-					class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-raised text-xl font-light text-accent"
-				>
-					{#if data.agent.image}
-						<img src={data.agent.image} alt="" class="h-full w-full object-cover" />
-					{:else}
-						{data.agent.name.charAt(0)}
-					{/if}
-				</div>
-
-				<div class="space-y-3">
-					<div class="space-y-2">
-						<span class="inline-flex items-center gap-1.5 rounded-full border border-accent/12 bg-accent/4 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase">
-							<span class="h-1 w-1 rounded-full bg-accent"></span>
-							Agent #{data.agent.id}
-						</span>
-						<h1 class="text-2xl font-light tracking-tight text-text sm:text-3xl">{data.agent.name}</h1>
-						{#if data.agent.description}
-							<p class="mt-2 max-w-2xl text-sm leading-relaxed text-text-muted">
-								{data.agent.description}
-							</p>
+	<section class="space-y-6">
+		<!-- Hero: identity + stats -->
+		<div class="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+			<div class="space-y-4">
+				<div class="flex items-center gap-4">
+					<div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/40 bg-surface-raised/50">
+						{#if data.agent.image}
+							<img src={data.agent.image} alt="" class="h-full w-full object-cover" />
+						{:else}
+							<StarIdenticon seed={String(data.agent.id)} size={48} />
 						{/if}
 					</div>
-
-					{#if data.agent.supportedTrust.length > 0 || data.agent.x402Enabled}
-						<div class="flex flex-wrap gap-1.5">
-							{#each data.agent.supportedTrust as trust}
-								<span class="inline-flex items-center gap-1 rounded-full border border-positive/20 bg-positive/5 px-2.5 py-0.5 text-[11px] text-positive">
-									<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-									{trust}
-								</span>
-							{/each}
-							{#if data.agent.x402Enabled}
-								<span class="inline-flex items-center gap-1 rounded-full border border-accent/20 bg-accent/5 px-2.5 py-0.5 text-[11px] text-accent">
-									<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-									x402
-								</span>
-							{/if}
+					<div>
+						<h1 class="text-xl font-light tracking-tight text-text">{data.agent.name}</h1>
+						<div class="mt-1 flex items-center gap-2 text-[11px]">
+							<span class="font-mono text-text-dim/50">{shortAddress(data.agent.owner)}</span>
+							<span class="text-text-dim/25">·</span>
+							<span class="text-text-dim/50">{dateFormatter.format(new Date(data.agent.createdAt))}</span>
+							<span class="text-text-dim/25">·</span>
+							<span class="text-accent/60">#{data.agent.id}</span>
 						</div>
-					{/if}
-
-					<div class="flex flex-wrap gap-2 text-xs text-text-muted">
-						<span class="rounded-md border border-border bg-surface-raised px-2.5 py-1 font-mono">
-							{shortAddress(data.agent.owner)}
-						</span>
-						{#if data.agent.wallet}
-							<span class="rounded-md border border-border bg-surface-raised px-2.5 py-1 font-mono">
-								{shortAddress(data.agent.wallet)}
-							</span>
-						{/if}
-						<span class="rounded-md border border-border bg-surface-raised px-2.5 py-1">
-							{dateFormatter.format(new Date(data.agent.createdAt))}
-						</span>
 					</div>
-
-					{#if wallet.connected && isOwner}
-						<p class="text-xs text-positive">Connected wallet matches this agent owner</p>
+					{#if wallet.connected && isOwner && (data.state === 'ready' || data.state === 'no-uri' || data.state === 'failed')}
+						<a href={resolve(`/agents/${data.agent.id}/edit`)}
+							class="ml-auto shrink-0 rounded-lg border border-border/40 px-3 py-1.5 text-[11px] text-text-dim transition hover:border-accent/20 hover:text-accent">
+							Edit
+						</a>
 					{/if}
 				</div>
+
+				{#if data.agent.description}
+					<p class="max-w-xl text-sm leading-relaxed text-text-muted">{data.agent.description}</p>
+				{/if}
+
+				{#if data.agent.supportedTrust.length > 0 || data.agent.x402Enabled}
+					<div class="flex flex-wrap gap-1.5">
+						{#each data.agent.supportedTrust as trust}
+							<span class="rounded-full border border-positive/15 bg-positive/4 px-2.5 py-0.5 text-[10px] text-positive">{trust}</span>
+						{/each}
+						{#if data.agent.x402Enabled}
+							<span class="rounded-full border border-accent/15 bg-accent/4 px-2.5 py-0.5 text-[10px] text-accent">x402</span>
+						{/if}
+					</div>
+				{/if}
+
+				{#if wallet.connected && isOwner}
+					<p class="text-[11px] text-positive/60">Connected wallet is the owner</p>
+				{/if}
 			</div>
 
-			<div class="grid min-w-full gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3 xl:min-w-[18rem] xl:grid-cols-1">
-				<div class="bg-surface p-4">
-					<p class="text-xs text-text-dim">Total Score</p>
-					<p class="mt-1.5 text-xl font-light text-positive">
+			<!-- Stats: inline row on right -->
+			<div class="flex shrink-0 gap-px overflow-hidden rounded-xl border border-border/30">
+				<div class="bg-surface-raised/30 px-4 py-3.5">
+					<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Score</p>
+					<p class="mt-1 text-lg font-light tabular-nums text-positive">
 						{#if data.scores?.totalScore != null}
 							{scoreFormatter.format(data.scores.totalScore)}
 						{:else}
-							<span class="text-text-dim">Pending</span>
+							<span class="text-text-dim/30">--</span>
 						{/if}
 					</p>
+					{#if data.scores?.rank != null}
+						<p class="mt-0.5 text-[10px] text-text-dim/40">
+							#{data.scores.rank}{data.scores.totalAgents ? ` / ${data.scores.totalAgents}` : ''}
+						</p>
+					{/if}
 					{#if data.scores}
 						<div class="mt-2">
 							<ScoreBreakdown
@@ -336,32 +358,45 @@
 						</div>
 					{/if}
 				</div>
-				<div class="bg-surface p-4">
-					<p class="text-xs text-text-dim">Feedback</p>
-					<p class="mt-1.5 text-xl font-light text-text">{data.scores?.feedbackCount ?? 0}</p>
+				<div class="bg-surface-raised/30 px-4 py-3.5">
+					<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
+					<p class="mt-1 text-lg font-light tabular-nums text-text">{data.scores?.feedbackCount ?? 0}</p>
+					{#if data.scores && data.scores.feedbackCount > 0}
+						<p class="mt-0.5 text-[10px] text-text-dim/40">
+							{data.scores.uniqueClients} client{data.scores.uniqueClients !== 1 ? 's' : ''}
+							· <span class={data.scores.uniqueClients / data.scores.feedbackCount >= 0.5 ? 'text-positive/60' : 'text-warning/60'}>
+								{Math.round(data.scores.uniqueClients / data.scores.feedbackCount * 100)}% diverse
+							</span>
+						</p>
+					{/if}
+					{#if data.recentFeedbackCount > 0}
+						<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>
+					{/if}
 				</div>
-				<div class="bg-surface p-4">
-					<p class="text-xs text-text-dim">Validators</p>
-					<p class="mt-1.5 text-xl font-light text-text">{data.scores?.validationCount ?? 0}</p>
+				<div class="bg-surface-raised/30 px-4 py-3.5">
+					<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Metadata</p>
+					<p class="mt-1 text-lg font-light tabular-nums {data.metadataCompleteness >= 80 ? 'text-positive' : data.metadataCompleteness >= 40 ? 'text-warning' : 'text-negative'}">
+						{data.metadataCompleteness}%
+					</p>
 				</div>
 			</div>
 		</div>
 
-		<div class="flex gap-1">
+		<!-- Tabs — full width -->
+		<nav class="flex gap-1 border-b border-border/30 pb-px">
 			{#each tabs as tab (tab.id)}
 				<button
 					type="button"
 					onclick={() => (activeTab = tab.id)}
-					class={`rounded-md px-3 py-1.5 text-sm transition ${
-						activeTab === tab.id
-							? 'bg-accent-soft text-accent'
-							: 'text-text-muted hover:text-text'
-					}`}
+					class="relative px-3 py-2 text-[13px] transition {activeTab === tab.id ? 'text-accent' : 'text-text-dim hover:text-text-muted'}"
 				>
 					{tab.label}
+					{#if activeTab === tab.id}
+						<span class="absolute inset-x-0 -bottom-px h-px bg-accent/60"></span>
+					{/if}
 				</button>
 			{/each}
-		</div>
+		</nav>
 	</section>
 
 	{#if activeTab === 'metadata'}
@@ -469,25 +504,14 @@
 		</section>
 	{:else if activeTab === 'reputation'}
 		<section class="space-y-8">
-			<div class="grid gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-3">
-				<div class="bg-surface p-4">
-					<p class="text-xs text-text-dim">Average Score</p>
-					<p class="mt-1.5 text-xl font-light text-text">
-						{scoreFormatter.format(data.scores?.avgScore ?? 0)}
-					</p>
-				</div>
-				<div class="bg-surface p-4">
-					<p class="text-xs text-text-dim">Unique Clients</p>
-					<p class="mt-1.5 text-xl font-light text-text">{data.scores?.uniqueClients ?? 0}</p>
-				</div>
-				<div class="bg-surface p-4">
-					<p class="text-xs text-text-dim">Feedback Rows</p>
-					<p class="mt-1.5 text-xl font-light text-text">{data.feedback.length}</p>
-				</div>
-			</div>
-
 			{#if wallet.connected}
-				<FeedbackForm agentId={data.agent.id} />
+				{#if isOwner}
+					<div class="rounded-lg border border-border bg-surface p-5">
+						<p class="text-sm text-text-dim">You cannot give feedback to your own agent.</p>
+					</div>
+				{:else}
+					<FeedbackForm agentId={data.agent.id} />
+				{/if}
 			{/if}
 
 			<div class="flex items-center gap-3">
@@ -520,7 +544,7 @@
 			</div>
 
 			<div class="overflow-hidden rounded-lg border border-border bg-surface">
-				<div class="border-b border-border px-6 py-4">
+				<div class="border-b border-border/40 px-4 py-3">
 					<h2 class="text-sm font-medium text-text">Reputation Feed</h2>
 				</div>
 
@@ -531,25 +555,25 @@
 								class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase"
 							>
 								<tr>
-									<th class="px-6 py-3 font-medium">Client</th>
-									<th class="px-6 py-3 text-right font-medium">Score</th>
-									<th class="px-6 py-3 font-medium">Tag</th>
-									<th class="px-6 py-3 font-medium">Responses</th>
-									<th class="px-6 py-3 font-medium">Status</th>
-									<th class="px-6 py-3 font-medium">Evidence</th>
-									<th class="px-6 py-3 font-medium">Date</th>
+									<th class="px-4 py-2.5 font-medium">Client</th>
+									<th class="px-4 py-2.5 text-right font-medium">Score</th>
+									<th class="px-4 py-2.5 font-medium">Tag</th>
+									<th class="px-4 py-2.5 font-medium">Responses</th>
+									<th class="px-4 py-2.5 font-medium">Status</th>
+									<th class="px-4 py-2.5 font-medium">Evidence</th>
+									<th class="px-4 py-2.5 font-medium">Date</th>
 								</tr>
 							</thead>
 							<tbody>
 								{#each data.feedback as feedback (feedback.id)}
 									<tr class:opacity-40={feedback.isRevoked} class="border-t border-border">
-										<td class="px-6 py-3 font-mono text-xs text-text-muted">
+										<td class="px-4 py-2.5 font-mono text-xs text-text-muted">
 											{shortAddress(feedback.clientAddress)}
 										</td>
-										<td class="px-6 py-3 text-right font-medium text-positive">
+										<td class="px-4 py-2.5 text-right font-medium text-positive">
 											{scoreFormatter.format(feedback.score)}
 										</td>
-										<td class="px-6 py-3 text-text-muted">
+										<td class="px-4 py-2.5 text-text-muted">
 											{#if feedback.tag1}
 												<div class="flex flex-wrap gap-1.5">
 													<span
@@ -569,7 +593,7 @@
 												<span class="text-text-dim">No tags</span>
 											{/if}
 										</td>
-										<td class="px-6 py-3 text-xs text-text-muted">
+										<td class="px-4 py-2.5 text-xs text-text-muted">
 											{#if feedback.responses.length > 0}
 												<div class="flex flex-wrap gap-1.5">
 													{#each feedback.responses.slice(0, 2) as response (response.id)}
@@ -591,7 +615,7 @@
 												<span class="text-text-dim">None</span>
 											{/if}
 										</td>
-										<td class="px-6 py-3 text-xs">
+										<td class="px-4 py-2.5 text-xs">
 											{#if feedback.isRevoked}
 												<span
 													class="rounded-full bg-negative-soft px-2 py-0.5 text-negative"
@@ -606,13 +630,13 @@
 												</span>
 											{/if}
 										</td>
-										<td class="px-6 py-3">
+										<td class="px-4 py-2.5">
 										<EvidenceViewer
 											feedbackUri={feedback.feedbackUri}
 											feedbackHash={feedback.feedbackHash}
 										/>
 									</td>
-									<td class="px-6 py-3 text-xs text-text-dim">
+									<td class="px-4 py-2.5 text-xs text-text-dim">
 										{dateTimeFormatter.format(new Date(feedback.createdAt))}
 									</td>
 									</tr>
@@ -621,7 +645,7 @@
 						</table>
 					</div>
 				{:else}
-					<div class="px-6 py-8 text-center text-sm text-text-dim">
+					<div class="px-4 py-8 text-center text-sm text-text-dim">
 						{#if data.state === 'resolving'}
 							This agent was recently registered. Reputation entries will appear here after clients submit feedback.
 						{:else}
@@ -633,30 +657,30 @@
 
 			{#if data.clientBreakdown.length > 0}
 				<div class="overflow-hidden rounded-lg border border-border bg-surface">
-					<div class="border-b border-border px-6 py-4">
+					<div class="border-b border-border/40 px-4 py-3">
 						<h2 class="text-sm font-medium text-text">By Client</h2>
 					</div>
 					<div class="overflow-x-auto">
 						<table class="min-w-full text-sm">
 							<thead class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase">
 								<tr>
-									<th class="px-6 py-3 font-medium">Client</th>
-									<th class="px-6 py-3 text-right font-medium">Count</th>
-									<th class="px-6 py-3 text-right font-medium">Avg Score</th>
-									<th class="px-6 py-3 font-medium">Last Feedback</th>
+									<th class="px-4 py-2.5 font-medium">Client</th>
+									<th class="px-4 py-2.5 text-right font-medium">Count</th>
+									<th class="px-4 py-2.5 text-right font-medium">Avg Score</th>
+									<th class="px-4 py-2.5 font-medium">Last Feedback</th>
 								</tr>
 							</thead>
 							<tbody>
 								{#each data.clientBreakdown as client (client.clientAddress)}
 									<tr class="border-t border-border">
-										<td class="px-6 py-3 font-mono text-xs text-text-muted">
+										<td class="px-4 py-2.5 font-mono text-xs text-text-muted">
 											{shortAddress(client.clientAddress)}
 										</td>
-										<td class="px-6 py-3 text-right text-text">{client.feedbackCount}</td>
-										<td class="px-6 py-3 text-right font-medium text-positive">
+										<td class="px-4 py-2.5 text-right text-text">{client.feedbackCount}</td>
+										<td class="px-4 py-2.5 text-right font-medium text-positive">
 											{scoreFormatter.format(client.avgScore)}
 										</td>
-										<td class="px-6 py-3 text-xs text-text-dim">
+										<td class="px-4 py-2.5 text-xs text-text-dim">
 											{dateTimeFormatter.format(new Date(client.lastFeedback))}
 										</td>
 									</tr>
@@ -669,25 +693,12 @@
 		</section>
 	{:else}
 		<section class="space-y-8">
-			<div class="grid gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-2">
-				<div class="bg-surface p-4">
-					<p class="text-xs text-text-dim">Validation Requests</p>
-					<p class="mt-1.5 text-xl font-light text-text">{data.validations.length}</p>
-				</div>
-				<div class="bg-surface p-4">
-					<p class="text-xs text-text-dim">Average Validation</p>
-					<p class="mt-1.5 text-xl font-light text-text">
-						{scoreFormatter.format(data.scores?.avgValidationScore ?? 0)}
-					</p>
-				</div>
-			</div>
-
 			{#if wallet.connected && isOwner}
 				<ValidationForm agentId={data.agent.id} />
 			{/if}
 
 			<div class="overflow-hidden rounded-lg border border-border bg-surface">
-				<div class="border-b border-border px-6 py-4">
+				<div class="border-b border-border/40 px-4 py-3">
 					<h2 class="text-sm font-medium text-text">Validation Requests</h2>
 				</div>
 
@@ -698,21 +709,21 @@
 								class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase"
 							>
 								<tr>
-									<th class="px-6 py-3 font-medium">Validator</th>
-									<th class="px-6 py-3 font-medium">Tag</th>
-									<th class="px-6 py-3 text-right font-medium">Score</th>
-									<th class="px-6 py-3 font-medium">Status</th>
-									<th class="px-6 py-3 font-medium">Requested</th>
-									<th class="px-6 py-3 font-medium">Responded</th>
+									<th class="px-4 py-2.5 font-medium">Validator</th>
+									<th class="px-4 py-2.5 font-medium">Tag</th>
+									<th class="px-4 py-2.5 text-right font-medium">Score</th>
+									<th class="px-4 py-2.5 font-medium">Status</th>
+									<th class="px-4 py-2.5 font-medium">Requested</th>
+									<th class="px-4 py-2.5 font-medium">Responded</th>
 								</tr>
 							</thead>
 							<tbody>
 								{#each data.validations as validation (`${validation.validatorAddress}:${validation.createdAt}`)}
 									<tr class="border-t border-border">
-										<td class="px-6 py-3 font-mono text-xs text-text-muted">
+										<td class="px-4 py-2.5 font-mono text-xs text-text-muted">
 											{shortAddress(validation.validatorAddress)}
 										</td>
-										<td class="px-6 py-3 text-text-muted">
+										<td class="px-4 py-2.5 text-text-muted">
 											{#if validation.tag}
 												<span
 													class="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent"
@@ -723,7 +734,7 @@
 												<span class="text-text-dim">No tag</span>
 											{/if}
 										</td>
-										<td class="px-6 py-3 text-right font-medium">
+										<td class="px-4 py-2.5 text-right font-medium">
 											{#if validation.hasResponse && validation.score != null}
 												<span class="text-positive">
 													{scoreFormatter.format(validation.score)} / 100
@@ -732,7 +743,7 @@
 												<span class="text-text-dim">Pending</span>
 											{/if}
 										</td>
-										<td class="px-6 py-3 text-xs">
+										<td class="px-4 py-2.5 text-xs">
 											{#if validation.hasResponse}
 												<span
 													class="rounded-full bg-positive-soft px-2 py-0.5 text-positive"
@@ -747,10 +758,10 @@
 												</span>
 											{/if}
 										</td>
-										<td class="px-6 py-3 text-xs text-text-dim">
+										<td class="px-4 py-2.5 text-xs text-text-dim">
 											{dateTimeFormatter.format(new Date(validation.createdAt))}
 										</td>
-										<td class="px-6 py-3 text-xs text-text-dim">
+										<td class="px-4 py-2.5 text-xs text-text-dim">
 											{#if validation.respondedAt}
 												{dateTimeFormatter.format(new Date(validation.respondedAt))}
 											{:else}
@@ -763,7 +774,7 @@
 						</table>
 					</div>
 				{:else}
-					<div class="px-6 py-8 text-center text-sm text-text-dim">
+					<div class="px-4 py-8 text-center text-sm text-text-dim">
 						{#if data.state === 'resolving'}
 							Validation requests can be submitted after the agent is fully indexed.
 						{:else}
