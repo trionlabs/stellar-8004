@@ -34,6 +34,11 @@
 | 028 | 9 | [DEFERRED](./028_PHASE9_WALLET_REPUTATION.md) | Wallet reputation — ertelendi, gerçek veri gerekiyor | `feat/wallet-reputation` | 017 |
 | 029 | 9 | [DEFERRED](./029_PHASE9_FEEDBACK_QUALITY.md) | Feedback quality signals — 028'e bağlı, ertelendi | `feat/feedback-quality` | 028 |
 | 030 | 10 | [DONE](./030_PHASE10_AGENT_UPDATE.md) | Agent profile edit & management UI | `feat/agent-update` | — |
-| 031 | 9 | [TODO](./031_PHASE9_ENDPOINT_HEALTH.md) | Endpoint health check: service ping + latency | `feat/endpoint-health` | 017 |
+| 031 | 9 | [DEFERRED](./031_PHASE9_ENDPOINT_HEALTH.md) | Endpoint health check — ertelendi, 0 endpoint, SSRF riski | `feat/endpoint-health` | 017 |
 | 032 | 10 | [DONE](./032_PHASE10_MY_AGENTS_UX.md) | My Agents UX: owner filter, badges, WalletButton, CTAs | `feat/my-agents-ux` | 030 |
 | 033 | 9 | [DEFERRED](./033_PHASE9_FILTERED_SCORING.md) | Filtered scoring — 028'e bağlı, ertelendi | `feat/filtered-scoring` | 028 |
+| 034 | 11 | [TODO](./034_PHASE11_SDK_CORE.md) | SDK Core: contract client + metadata builder + signers | `feat/sdk-core` | — |
+| 035 | 11 | [TODO](./035_PHASE11_SDK_API_CLIENT.md) | SDK API Client: read-only explorer wrapper | `feat/sdk-api-client` | 034 |
+| 036 | 11 | [TODO](./036_PHASE11_SDK_DOGFOOD.md) | Dog-food: web app SDK'ya geçiş | `feat/sdk-dogfood` | 034, 035 |
+| 037 | 11 | [TODO](./037_PHASE11_SDK_DOCS.md) | Developer portal: SDK docs + register example | `feat/sdk-docs` | 034 |
+| 038 | 11 | [TODO](./038_PHASE11_SDK_PUBLISH.md) | npm publish: @trionlabs/stellar-erc8004-sdk | `feat/sdk-publish` | 034, 035 |
