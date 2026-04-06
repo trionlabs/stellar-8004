@@ -178,7 +178,23 @@
 								placeholder="https://... or ipfs://..."
 								class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors"
 							/>
-							<p class="text-[10px] text-text-dim">JSON with name, description, image, services</p>
+							<p class="text-[10px] text-text-dim">Your URI should point to a JSON file like this:</p>
+							<pre class="mt-2 overflow-x-auto rounded-lg bg-background/80 px-3 py-2.5 font-mono text-[10px] leading-relaxed text-text-muted ring-1 ring-border/50">{`{
+  "name": "DataBot",
+  "description": "Real-time market data feed",
+  "image": "https://example.com/avatar.png",
+  "services": [
+    { "name": "market-feed",
+      "endpoint": "https://api.example.com/feed" }
+  ]
+}`}</pre>
+							<p class="mt-1.5 text-[10px] text-text-dim">
+								Only <code class="rounded bg-surface-raised px-1 py-0.5 font-mono">name</code> is required. Optional:
+								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">description</code>,
+								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">image</code>,
+								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">services</code>,
+								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">x402</code>
+							</p>
 						</div>
 
 						<CtaButton onclick={() => submitQuick(manualUri)} disabled={status === 'submitting' || wallet.networkMismatch} size="md" full>
