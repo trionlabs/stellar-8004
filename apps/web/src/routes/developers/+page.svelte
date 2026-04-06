@@ -105,11 +105,11 @@ agent = requests.get('https://stellar8004.com/api/v1/agents/1').json()`,
 					<div class="skill-card {i === 0 ? 'sm:col-span-2' : ''}">
 						<div class="flex items-center justify-between">
 							<code class="text-[13px] font-semibold text-accent">{skill.slash}</code>
-							<a href={skill.repo} target="_blank" rel="noopener noreferrer" class="text-text-dim/40 transition hover:text-accent" aria-label="GitHub repo for {skill.name}">
+							<a href={skill.repo} target="_blank" rel="noopener noreferrer" class="text-text-muted/50 transition hover:text-accent" aria-label="GitHub repo for {skill.name}">
 								<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
 							</a>
 						</div>
-						<p class="mt-2 text-[11px] text-text-muted leading-[1.6]">{skill.desc}</p>
+						<p class="mt-2 text-[12px] text-text/70 leading-[1.6]">{skill.desc}</p>
 						<button
 							type="button"
 							onclick={() => copyInstall(i)}
@@ -119,7 +119,7 @@ agent = requests.get('https://stellar8004.com/api/v1/agents/1').json()`,
 							{#if copiedIdx === i}
 								<svg class="h-3.5 w-3.5 shrink-0 text-positive" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
 							{:else}
-								<svg class="h-3.5 w-3.5 shrink-0 text-text-dim/40 transition group-hover/cmd:text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+								<svg class="h-3.5 w-3.5 shrink-0 text-text-dim transition group-hover/cmd:text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
 							{/if}
 						</button>
 					</div>
@@ -273,13 +273,13 @@ agent = requests.get('https://stellar8004.com/api/v1/agents/1').json()`,
 	.skill-card {
 		padding: 16px;
 		border-radius: 10px;
-		border: 0.5px solid color-mix(in oklch, var(--color-border) 50%, transparent);
-		background: color-mix(in oklch, var(--color-surface) 60%, transparent);
+		border: 0.5px solid var(--color-border);
+		background: var(--color-surface-raised);
 		transition: border-color 0.2s, box-shadow 0.2s;
 	}
 	.skill-card:hover {
-		border-color: color-mix(in oklch, var(--color-accent) 15%, transparent);
-		box-shadow: 0 0 20px color-mix(in oklch, var(--color-accent) 4%, transparent);
+		border-color: color-mix(in oklch, var(--color-accent) 30%, transparent);
+		box-shadow: 0 0 20px color-mix(in oklch, var(--color-accent) 6%, transparent);
 	}
 	.install-cmd {
 		display: flex;
@@ -289,17 +289,17 @@ agent = requests.get('https://stellar8004.com/api/v1/agents/1').json()`,
 		margin-top: 12px;
 		padding: 8px 10px;
 		border-radius: 7px;
-		border: 0.5px solid color-mix(in oklch, var(--color-border) 40%, transparent);
-		background: color-mix(in oklch, var(--color-surface) 80%, transparent);
+		border: 0.5px solid var(--color-border);
+		background: var(--color-surface);
 		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 		font-size: 10px;
-		color: var(--color-text-dim);
+		color: var(--color-text-muted);
 		text-align: left;
 		cursor: pointer;
 		transition: border-color 0.15s, color 0.15s;
 	}
 	.install-cmd:hover {
-		border-color: color-mix(in oklch, var(--color-accent) 20%, transparent);
-		color: var(--color-text-muted);
+		border-color: color-mix(in oklch, var(--color-accent) 30%, transparent);
+		color: var(--color-text);
 	}
 </style>
