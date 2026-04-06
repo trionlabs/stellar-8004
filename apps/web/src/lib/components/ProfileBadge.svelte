@@ -79,8 +79,8 @@
 <svelte:window onmousedown={handleMousedown} onkeydown={handleKeydown} />
 
 {#if !mounted}
-	<button class="rounded-lg px-4 py-2 text-sm text-text-dim" disabled>
-		Loading...
+	<button class="rounded-lg bg-accent-soft px-3.5 py-1.5 text-xs text-transparent" disabled>
+		Connect
 	</button>
 {:else if wallet.connected}
 	<div class="relative z-50" bind:this={wrapperEl}>
