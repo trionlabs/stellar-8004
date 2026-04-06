@@ -10,6 +10,13 @@
 
 	const lbPath = resolve('/leaderboard');
 
+	function trustBlocks(score: number | null): { filled: number; level: 'none' | 'low' | 'mid' | 'high' } {
+		if (score == null || score === 0) return { filled: 0, level: 'none' };
+		const filled = Math.min(5, Math.ceil(score / 20));
+		const level = score >= 70 ? 'high' : score >= 40 ? 'mid' : 'low';
+		return { filled, level };
+	}
+
 	function handleRowMouse(e: MouseEvent) {
 		const row = (e.currentTarget as HTMLElement);
 		const rect = row.getBoundingClientRect();
@@ -22,14 +29,14 @@
 	<title>Leaderboard — Stellar8004</title>
 </svelte:head>
 
-<div class="space-y-10">
+<div class="space-y-8">
 	<!-- ── Header ── -->
-	<header class="space-y-1">
-		<div class="flex items-center gap-2.5">
-			<span class="h-1.5 w-1.5 rounded-full bg-accent"></span>
-			<span class="text-[11px] tracking-[0.25em] text-text-muted uppercase">Ranked by score</span>
+	<header class="flex items-center justify-between">
+		<div class="flex items-baseline gap-2">
+			<span class="font-mono text-xl tabular-nums text-accent/60 font-light">{data.leaders.length}</span>
+			<h1 class="text-xl font-light tracking-tight text-text">Leaderboard</h1>
 		</div>
-		<h1 class="text-xl font-light tracking-tight text-text">Leaderboard</h1>
+		<span class="text-[11px] tracking-[0.2em] text-text-dim/40 uppercase">Ranked by score</span>
 	</header>
 
 	{#if data.leaders.length === 0}
@@ -38,22 +45,12 @@
 			<p class="text-[11px] text-text-dim">Register an agent and submit feedback to populate the leaderboard</p>
 		</div>
 	{:else}
-		<!-- ── Column headers ── -->
-		<div class="flex items-center gap-3 px-4 text-[10px] uppercase tracking-wider text-text-dim/50">
-			<span class="w-5 text-right">#</span>
-			<span class="w-8"></span>
-			<span class="flex-1">Agent</span>
-			<span class="w-14 text-right">Score</span>
-			<span class="hidden w-14 text-right lg:block">Avg</span>
-			<span class="hidden w-14 text-right xl:block">Val</span>
-			<span class="w-3"></span>
-		</div>
-
-		<!-- ── Unified list ── -->
+		<!-- ── Table ── -->
 		<div class="grid-wrap">
 			{#each data.leaders as leader, idx (leader.agent_id)}
 				{@const rank = (data.page === 1 ? 1 : data.startRank) + idx}
 				{@const isTop3 = data.page === 1 && idx < 3}
+				{@const trust = trustBlocks(leader.total_score)}
 				<a href={resolve('/agents/[id]', { id: String(leader.agent_id) })}
 					class="row group"
 					class:row--top={isTop3}
@@ -61,16 +58,16 @@
 					onmousemove={handleRowMouse}
 				>
 					<!-- Rank -->
-					<span class="w-5 shrink-0 text-right font-mono text-[11px] tabular-nums {isTop3 ? 'text-accent' : 'text-text-dim/30'}">
+					<span class="rank {isTop3 ? 'rank--top' : ''}">
 						{rank}
 					</span>
 
 					<!-- Avatar -->
-					<div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/40 bg-surface-raised/50">
+					<div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/40 bg-surface-raised/50">
 						{#if leader.agent_image}
 							<img src={sanitizeImageUrl(leader.agent_image)} alt="" class="h-full w-full object-cover" />
 						{:else if leader.owner}
-							<StarIdenticon seed={String(leader.agent_id)} size={32} />
+							<StarIdenticon seed={String(leader.agent_id)} size={36} />
 						{:else}
 							<span class="text-[10px] text-text-dim">?</span>
 						{/if}
@@ -81,26 +78,29 @@
 						<p class="truncate text-[13px] font-medium text-text transition-colors group-hover:text-accent">
 							{leader.agent_name ?? `Agent #${leader.agent_id}`}
 						</p>
-						<div class="flex items-center gap-3 mt-0.5">
-							<span class="font-mono text-[10px] text-text-dim/50">{leader.owner ? shortAddress(leader.owner) : ''}</span>
-							{#if (leader.feedback_count ?? 0) > 0 || (leader.validation_count ?? 0) > 0}
-								<span class="text-[9px] text-text-dim/40">
-									{leader.feedback_count ?? 0} fb · {leader.validation_count ?? 0} val · {leader.unique_clients ?? 0} clients
-								</span>
-							{/if}
-						</div>
+						<p class="font-mono text-[10px] text-text-dim/50">{leader.owner ? shortAddress(leader.owner) : ''}</p>
 					</div>
 
-					<!-- Score -->
-					<span class="w-14 text-right tabular-nums text-sm font-semibold tracking-tight {isTop3 ? 'text-accent' : 'text-accent/70'}">
-						{fmt(leader.total_score)}
-					</span>
+					<!-- Trust bar + Score -->
+					<div class="flex items-center gap-2.5">
+						<div class="hidden w-16 md:flex gap-[2px]">
+							{#each { length: 5 } as _, i}
+								<div class="h-[3px] flex-1 rounded-full {i < trust.filled
+									? trust.level === 'high' ? 'bg-positive' : trust.level === 'mid' ? 'bg-accent' : 'bg-warning'
+									: 'bg-border/20'}"></div>
+							{/each}
+						</div>
+						<span class="w-10 text-right tabular-nums text-sm font-semibold tracking-tight
+							{trust.level === 'high' ? 'text-positive' : trust.level === 'mid' ? 'text-accent' : trust.level === 'low' ? 'text-warning' : 'text-text-dim/25'}">
+							{fmt(leader.total_score)}
+						</span>
+					</div>
 
 					<!-- Avg score -->
 					<div class="hidden w-14 text-right lg:block">
 						{#if (leader.feedback_count ?? 0) > 0}
 							<p class="tabular-nums text-xs text-text-muted">{fmt(leader.avg_score)}</p>
-							<p class="text-[9px] text-text-dim/40">{leader.feedback_count}</p>
+							<p class="text-[9px] text-text-dim/40">{leader.feedback_count} fb</p>
 						{:else}
 							<p class="text-text-dim/20">—</p>
 						{/if}
@@ -110,7 +110,7 @@
 					<div class="hidden w-14 text-right xl:block">
 						{#if (leader.validation_count ?? 0) > 0}
 							<p class="tabular-nums text-xs text-text-muted">{fmt(leader.avg_validation_score)}</p>
-							<p class="text-[9px] text-text-dim/40">{leader.validation_count}</p>
+							<p class="text-[9px] text-text-dim/40">{leader.validation_count} val</p>
 						{:else}
 							<p class="text-text-dim/20">—</p>
 						{/if}
@@ -177,6 +177,29 @@
 		to { opacity:1; transform:none }
 	}
 
+	/* ── Rank ── */
+	.rank {
+		width: 24px;
+		height: 24px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		border-radius: 6px;
+		font-size: 11px;
+		font-weight: 600;
+		font-family: var(--font-mono);
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text-dim);
+		opacity: 0.3;
+	}
+	.rank--top {
+		opacity: 1;
+		color: var(--color-accent);
+		background: color-mix(in oklch, var(--color-accent) 8%, transparent);
+		border: 0.5px solid color-mix(in oklch, var(--color-accent) 15%, transparent);
+	}
+
 	/* ── Pager ── */
 	.pager {
 		display:flex; align-items:center; justify-content:center;
@@ -188,8 +211,8 @@
 		transition: all 0.15s;
 	}
 	.pager:hover {
-		border-color: color-mix(in oklch, var(--color-accent) 20%, transparent);
+		border-color: var(--color-accent);
 		color: var(--color-accent);
-		background: color-mix(in oklch, var(--color-accent) 4%, transparent);
+		background: var(--color-accent-soft);
 	}
 </style>
