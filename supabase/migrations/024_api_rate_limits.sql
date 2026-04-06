@@ -9,6 +9,9 @@
 --   - pg_cron job purges rows older than 10 minutes every 5 minutes
 --   - Window: 60 seconds, limit: 30 requests per IP
 
+-- Schema
+CREATE SCHEMA IF NOT EXISTS private;
+
 -- Table
 CREATE TABLE IF NOT EXISTS private.api_rate_limits (
   ip    inet        NOT NULL,
