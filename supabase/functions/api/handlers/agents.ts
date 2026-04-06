@@ -57,7 +57,8 @@ export async function handleAgentsList(url: URL): Promise<Response> {
   const { data: agents, error } = await dataQuery.range((page - 1) * limit, page * limit - 1);
 
   if (error) {
-    return errorResponse('QUERY_ERROR', error.message, 500);
+    console.error('Query error:', error.message);
+    return errorResponse('QUERY_ERROR', 'Database query failed', 500);
   }
 
   const agentIds = (agents ?? []).map((a) => a.id);
@@ -100,7 +101,8 @@ export async function handleAgentDetail(id: string): Promise<Response> {
   const { data: agent, error } = await db.from('agents').select(AGENTS_SELECT).eq('id', agentId).maybeSingle();
 
   if (error) {
-    return errorResponse('QUERY_ERROR', error.message, 500);
+    console.error('Query error:', error.message);
+    return errorResponse('QUERY_ERROR', 'Database query failed', 500);
   }
   if (!agent) {
     return errorResponse('NOT_FOUND', 'Agent not found', 404);
@@ -147,7 +149,8 @@ export async function handleAgentFeedback(id: string, url: URL): Promise<Respons
   const total = count ?? 0;
 
   if (error) {
-    return errorResponse('QUERY_ERROR', error.message, 500);
+    console.error('Query error:', error.message);
+    return errorResponse('QUERY_ERROR', 'Database query failed', 500);
   }
 
   const feedbackIds = (feedback ?? []).map((f) => ({ agent_id: f.agent_id, client_address: f.client_address, feedback_index: f.feedback_index }));
