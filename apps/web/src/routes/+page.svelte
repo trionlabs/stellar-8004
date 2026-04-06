@@ -9,6 +9,8 @@
 	const skillCmd = 'claude install trionlabs/stellar-8004 --subpath skills/8004s';
 	let copied = $state(false);
 
+	const recentAgentPadding = $derived((3 - (data.recentAgents.length % 3)) % 3);
+
 	async function copySkillCmd() {
 		await navigator.clipboard.writeText(skillCmd);
 		copied = true;
@@ -146,7 +148,7 @@
 			</div>
 
 			{#if data.recentAgents.length > 0}
-				<div class="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 xl:grid-cols-3">
+				<div class="grid gap-px overflow-hidden rounded-xl border border-border-subtle bg-border-subtle sm:grid-cols-2 xl:grid-cols-3">
 					{#each data.recentAgents as agent (agent.id)}
 						<a
 							href={resolve('/agents/[id]', { id: String(agent.id) })}
@@ -160,6 +162,9 @@
 								{dateFormatter.format(new Date(agent.createdAt))}
 							</p>
 						</a>
+					{/each}
+					{#each { length: recentAgentPadding } as _}
+						<div class="bg-surface"></div>
 					{/each}
 				</div>
 			{:else}
