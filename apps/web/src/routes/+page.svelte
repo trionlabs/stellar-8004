@@ -39,7 +39,7 @@
 			</div>
 		</div>
 
-		<form action="/agents" method="get">
+		<form action={resolve('/agents')} method="get">
 			<div class="flex gap-2.5 sm:max-w-md">
 				<input
 					type="text"
