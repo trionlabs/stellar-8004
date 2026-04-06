@@ -246,14 +246,12 @@ async function runIndexerLoop(
       break;
     }
 
-    contractResult.lastLedger =
-      scanCompleted && contractResult.processed > 0
-        ? Math.max(maxLedger, latestLedger)
-        : lastLedger;
-    const nextExpected =
-      scanCompleted && contractResult.processed > 0
-        ? latestLedger + 1
-        : expectedNext ?? undefined;
+    contractResult.lastLedger = scanCompleted
+      ? Math.max(maxLedger, latestLedger)
+      : lastLedger;
+    const nextExpected = scanCompleted
+      ? latestLedger + 1
+      : expectedNext ?? undefined;
     await updateCheckpoint(db, contract.name, contractResult.lastLedger, cursor, nextExpected);
 
     log({
