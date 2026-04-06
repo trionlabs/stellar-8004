@@ -283,7 +283,7 @@
 
 	<section class="space-y-6 reveal">
 		<!-- Hero: identity + stats -->
-		<div class="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+		<div class="space-y-6">
 			<div class="space-y-4">
 				<div class="flex items-center gap-4">
 					<div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/40 bg-surface-raised/50">
@@ -342,54 +342,54 @@
 				{/if}
 			</div>
 
-			<!-- Stats: inline row on right -->
-			<div class="stat-row flex shrink-0 gap-px overflow-hidden rounded-xl border border-border/30 reveal reveal-d2">
-				<div class="stat-cell px-4 py-3.5">
-					<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Score</p>
-					<p class="mt-1 text-lg font-light tabular-nums text-positive">
-						{#if data.scores?.totalScore != null}
-							{scoreFormatter.format(data.scores.totalScore)}
-						{:else}
-							<span class="text-text-dim/30">--</span>
+			<!-- Stats -->
+			<div class="space-y-3 reveal reveal-d2">
+				<div class="stat-row grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border/30">
+					<div class="stat-cell px-4 py-3.5">
+						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Score</p>
+						<p class="mt-1 text-lg font-light tabular-nums text-positive">
+							{#if data.scores?.totalScore != null}
+								{scoreFormatter.format(data.scores.totalScore)}
+							{:else}
+								<span class="text-text-dim/30">--</span>
+							{/if}
+						</p>
+						{#if data.scores?.rank != null}
+							<p class="mt-0.5 text-[10px] text-text-dim/40">
+								#{data.scores.rank}{data.scores.totalAgents ? ` / ${data.scores.totalAgents}` : ''}
+							</p>
 						{/if}
-					</p>
-					{#if data.scores?.rank != null}
-						<p class="mt-0.5 text-[10px] text-text-dim/40">
-							#{data.scores.rank}{data.scores.totalAgents ? ` / ${data.scores.totalAgents}` : ''}
-						</p>
-					{/if}
-					{#if data.scores}
-						<div class="mt-2">
-							<ScoreBreakdown
-								avgScore={data.scores.avgScore ?? 0}
-								feedbackCount={data.scores.feedbackCount ?? 0}
-								avgValidationScore={data.scores.avgValidationScore ?? 0}
-								totalScore={data.scores.totalScore ?? 0}
-							/>
-						</div>
-					{/if}
-				</div>
-				<div class="stat-cell px-4 py-3.5">
-					<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
-					<p class="mt-1 text-lg font-light tabular-nums text-text">{data.scores?.feedbackCount ?? 0}</p>
-					{#if data.scores && data.scores.feedbackCount > 0}
-						<p class="mt-0.5 text-[10px] text-text-dim/40">
-							{data.scores.uniqueClients} client{data.scores.uniqueClients !== 1 ? 's' : ''}
-							· <span class={data.scores.uniqueClients / data.scores.feedbackCount >= 0.5 ? 'text-positive/60' : 'text-warning/60'}>
+					</div>
+					<div class="stat-cell px-4 py-3.5">
+						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
+						<p class="mt-1 text-lg font-light tabular-nums text-text">{data.scores?.feedbackCount ?? 0}</p>
+						{#if data.scores && data.scores.feedbackCount > 0}
+							<p class="mt-0.5 text-[10px] text-text-dim/40">
+								{data.scores.uniqueClients} client{data.scores.uniqueClients !== 1 ? 's' : ''}
+							</p>
+							<p class="text-[10px] {data.scores.uniqueClients / data.scores.feedbackCount >= 0.5 ? 'text-positive/60' : 'text-warning/60'}">
 								{Math.round(data.scores.uniqueClients / data.scores.feedbackCount * 100)}% diverse
-							</span>
+							</p>
+						{/if}
+						{#if data.recentFeedbackCount > 0}
+							<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>
+						{/if}
+					</div>
+					<div class="stat-cell px-4 py-3.5">
+						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Metadata</p>
+						<p class="mt-1 text-lg font-light tabular-nums {data.metadataCompleteness >= 80 ? 'text-positive' : data.metadataCompleteness >= 40 ? 'text-warning' : 'text-negative'}">
+							{data.metadataCompleteness}%
 						</p>
-					{/if}
-					{#if data.recentFeedbackCount > 0}
-						<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>
-					{/if}
+					</div>
 				</div>
-				<div class="stat-cell px-4 py-3.5">
-					<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Metadata</p>
-					<p class="mt-1 text-lg font-light tabular-nums {data.metadataCompleteness >= 80 ? 'text-positive' : data.metadataCompleteness >= 40 ? 'text-warning' : 'text-negative'}">
-						{data.metadataCompleteness}%
-					</p>
-				</div>
+				{#if data.scores}
+					<ScoreBreakdown
+						avgScore={data.scores.avgScore ?? 0}
+						feedbackCount={data.scores.feedbackCount ?? 0}
+						avgValidationScore={data.scores.avgValidationScore ?? 0}
+						totalScore={data.scores.totalScore ?? 0}
+					/>
+				{/if}
 			</div>
 		</div>
 
@@ -801,18 +801,13 @@
 
 <style>
 	.stat-row {
-		background: var(--color-surface-raised);
-		box-shadow: 0 0 40px color-mix(in oklch, var(--color-accent) 4%, transparent);
-		transition: box-shadow 0.3s ease;
-	}
-	.stat-row:hover {
-		box-shadow: 0 0 40px color-mix(in oklch, var(--color-accent) 8%, transparent);
+		background: var(--color-border-subtle);
 	}
 	.stat-cell {
-		background: color-mix(in oklch, var(--color-surface-raised) 50%, transparent);
+		background: var(--color-surface-raised);
 		transition: background 0.2s ease;
 	}
 	.stat-cell:hover {
-		background: color-mix(in oklch, var(--color-surface-overlay) 60%, transparent);
+		background: var(--color-surface-overlay);
 	}
 </style>
