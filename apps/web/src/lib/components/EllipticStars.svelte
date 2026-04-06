@@ -8,12 +8,12 @@
 	let smoothMouse = { x: -1000, y: -1000 };
 	let animId: number;
 
-	const SPACING = 36;
-	const GLOW_RADIUS = 140;
+	const SPACING = 24;
+	const GLOW_RADIUS = 100;
 	const GLOW_RADIUS_SQ = GLOW_RADIUS * GLOW_RADIUS;
-	const BASE_OPACITY = 0.012;
-	const MAX_OPACITY = 0.6;
-	const FOLLOW_LERP = 0.06;
+	const BASE_OPACITY = 0.008;
+	const MAX_OPACITY = 0.3;
+	const FOLLOW_LERP = 0.1;
 
 	const paths = [
 		'M-1.2,0L-0.4,0L0,-1.2L0,-0.4L1.2,0L0.4,0L0,1.2L0,0.4Z',
@@ -147,6 +147,7 @@
 {#if browser}
 	<svg
 		bind:this={container}
-		class="pointer-events-none fixed inset-0 -z-10"
+		class="pointer-events-none fixed inset-0"
+		style="z-index: -1;"
 	></svg>
 {/if}
