@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const db = createServerSupabase();
 	const agentId = Number(params.id);
 
-	if (!Number.isInteger(agentId) || agentId <= 0) {
+	if (!Number.isInteger(agentId) || agentId < 0) {
 		throw error(400, 'Invalid agent ID');
 	}
 
