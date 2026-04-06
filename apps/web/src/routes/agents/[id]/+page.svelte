@@ -2,6 +2,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
+	import { client } from '$lib/sdk-client.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { createSupabase } from '$lib/supabase.js';
 	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
@@ -82,8 +83,7 @@
 		uriUpdateStatus = 'submitting';
 		uriUpdateError = '';
 		try {
-			const { updateAgentUri } = await import('$lib/contracts.js');
-			await updateAgentUri(data.agent.id, newUri.trim());
+			await client.updateAgentUri(data.agent.id, newUri.trim());
 			uriUpdateStatus = 'success';
 			setTimeout(() => {
 				showUriEditor = false;
