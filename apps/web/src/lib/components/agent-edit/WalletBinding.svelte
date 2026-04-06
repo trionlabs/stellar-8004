@@ -153,7 +153,7 @@
 					type="button"
 					onclick={bindWallet}
 					disabled={status === 'submitting' || !walletInput.trim() || !!addressError}
-					class="rounded-lg bg-accent px-4 py-2 text-xs font-medium text-white disabled:opacity-40 hover:bg-accent/90 transition-colors"
+					class="rounded-lg border border-accent/30 bg-accent-fill px-4 py-2 text-xs font-medium text-accent disabled:opacity-40 hover:bg-accent-fill-hover hover:border-accent/45 transition-colors"
 				>
 					{#if status === 'submitting'}
 						Binding...
