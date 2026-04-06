@@ -11,10 +11,10 @@
 | 007 | 2 | [DONE](./_archive/007_PHASE2_WEB_PAGES.md) | Web pages: home, agents, detail | `feat/web-pages` | 003, 005 |
 | 008 | 2 | [DONE](./_archive/008_PHASE2_WEB_ACTIONS.md) | Web pages: leaderboard, register, forms | `feat/web-actions` | 003, 005 |
 | 009 | 3 | [DONE](./009_PHASE3_INTEGRATION.md) | Integration & E2E testing | `feat/integration` | 006, 007, 008 |
-| 010 | 4 | [IN_PROGRESS](./010_PHASE4_LOCAL_DEV.md) | Local dev setup & code quality | `feat/local-dev` | 009 |
+| 010 | 4 | [DONE](./010_PHASE4_LOCAL_DEV.md) | Local dev setup & code quality | `feat/local-dev` | 009 |
 | 011a | 4 | [DONE](./011_PHASE4_SUPABASE_DEPLOY.md) | Supabase compose deploy (s8004 prefix, 15/15 healthy) | `main` | 009 |
-| 011b | 4 | [TODO](./011B_PHASE4_SVELTEKIT_DEPLOY.md) | SvelteKit Docker deploy (Dokploy Application) | `main` | 009, 011a |
-| 011c | 4 | [TODO](./011C_PHASE4_DNS_ROUTING.md) | Cloudflare DNS + Origin Cert (Seçenek C, Kong kapalı) | `main` | 011a, 011b |
+| 011b | 4 | [DONE](./011B_PHASE4_SVELTEKIT_DEPLOY.md) | SvelteKit Docker deploy (Dokploy Application) | `main` | 009, 011a |
+| 011c | 4 | [DONE](./011C_PHASE4_DNS_ROUTING.md) | Cloudflare DNS + Origin Cert (Seçenek C, Kong kapalı) | `main` | 011a, 011b |
 | 012 | 5 | [DONE](./012_PHASE5_RETRY_RESILIENCE.md) | Retry, backoff & RPC resilience | `feat/indexer-retry` | 009 |
 | 013 | 5 | [DONE](./013_PHASE5_CONCURRENCY_INTEGRITY.md) | Concurrency guard & data integrity | `feat/indexer-integrity` | 012 |
 | 014 | 5 | [DONE](./014_PHASE5_OBSERVABILITY.md) | Observability & ledger gap detection | `feat/indexer-observability` | 012 |
@@ -31,3 +31,9 @@
 | 025 | 8 | [OUT_OF_SCOPE](./025_PHASE8_CLI_CONTRACTS.md) | CLI: reputation contract wrappers + types | — | — |
 | 026 | 8 | [OUT_OF_SCOPE](./026_PHASE8_CLI_CONFIG.md) | CLI: feedback config + evidence generator | — | — |
 | 027 | 8 | [OUT_OF_SCOPE](./027_PHASE8_CLI_SCRIPTS.md) | CLI: give-feedback, verify, update-metadata | — | — |
+| 028 | 9 | [DEFERRED](./028_PHASE9_WALLET_REPUTATION.md) | Wallet reputation — ertelendi, gerçek veri gerekiyor | `feat/wallet-reputation` | 017 |
+| 029 | 9 | [DEFERRED](./029_PHASE9_FEEDBACK_QUALITY.md) | Feedback quality signals — 028'e bağlı, ertelendi | `feat/feedback-quality` | 028 |
+| 030 | 10 | [DONE](./030_PHASE10_AGENT_UPDATE.md) | Agent profile edit & management UI | `feat/agent-update` | — |
+| 031 | 9 | [TODO](./031_PHASE9_ENDPOINT_HEALTH.md) | Endpoint health check: service ping + latency | `feat/endpoint-health` | 017 |
+| 032 | 10 | [DONE](./032_PHASE10_MY_AGENTS_UX.md) | My Agents UX: owner filter, badges, WalletButton, CTAs | `feat/my-agents-ux` | 030 |
+| 033 | 9 | [DEFERRED](./033_PHASE9_FILTERED_SCORING.md) | Filtered scoring — 028'e bağlı, ertelendi | `feat/filtered-scoring` | 028 |
