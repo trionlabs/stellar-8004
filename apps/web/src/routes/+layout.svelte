@@ -22,7 +22,7 @@
 <EllipticStars />
 <div class="flex min-h-screen flex-col text-text">
 	<header class="navbar">
-		<div class="mx-auto w-full max-w-5xl px-6">
+		<div class="mx-auto w-full max-w-5xl px-0">
 			<nav class="navbar-inner">
 			<a href={resolve('/')} class="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-text">
 				<img src={favicon} alt="" class="h-5 w-5" />
