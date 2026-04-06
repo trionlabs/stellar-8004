@@ -6,6 +6,7 @@ node_modules/
 .claude/
 .codex/
 .opencode/
+.superpowers/
 
 # Environment files
 .env
