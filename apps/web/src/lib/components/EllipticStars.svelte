@@ -70,7 +70,7 @@
 			if (i < els.length) continue;
 			const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 			p.setAttribute('d', paths[0]);
-			p.setAttribute('fill', 'oklch(0.64 0.012 250)');
+			p.style.fill = 'var(--color-star-fill)';
 			container.appendChild(p);
 			els.push(p);
 		}

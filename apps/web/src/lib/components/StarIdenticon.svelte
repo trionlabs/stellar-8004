@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { theme } from '$lib/theme.svelte.js';
+
 	interface Props {
 		seed: string;
 		size?: number;
@@ -25,9 +27,10 @@
 	const bytes = $derived(hashBytes(seed));
 	const hue = $derived(HUES[bytes[0] % HUES.length]);
 
-	const cta1 = $derived(`oklch(0.35 0.06 ${hue})`);
-	const cta2 = $derived(`oklch(0.60 0.08 ${hue})`);
-	const cta3 = 'oklch(0.92 0.005 250)';
+	const light = $derived(theme.resolved === 'light');
+	const cta1 = $derived(`oklch(${light ? 0.72 : 0.35} 0.06 ${hue})`);
+	const cta2 = $derived(`oklch(${light ? 0.48 : 0.60} 0.08 ${hue})`);
+	const cta3 = $derived(light ? 'oklch(0.18 0.005 250)' : 'oklch(0.92 0.005 250)');
 	const palette = $derived([cta1, cta2, cta3]);
 	const glowColor = $derived(`oklch(0.55 0.08 ${hue} / 0.3)`);
 
