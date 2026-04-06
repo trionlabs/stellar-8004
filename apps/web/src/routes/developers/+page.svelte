@@ -79,7 +79,7 @@ agent = requests.get('https://stellar8004.com/api/v1/agents/1').json()`,
 
 <div class="space-y-10">
 	<!-- Claude Code Skills — hero position -->
-	<section class="cta-banner group/cta relative overflow-hidden rounded-2xl border border-border/50 bg-linear-to-br from-surface-raised via-surface-overlay to-surface-raised p-8 sm:p-10">
+	<section class="cta-banner group/cta relative overflow-hidden rounded-2xl border border-border/50 bg-linear-to-br from-surface-raised via-surface-overlay to-surface-raised p-5 sm:p-10">
 		<div class="pointer-events-none absolute inset-0 cta-noise"></div>
 		<div class="cta-leak cta-leak--warm"></div>
 		<div class="cta-leak cta-leak--cool"></div>
@@ -134,7 +134,7 @@ agent = requests.get('https://stellar8004.com/api/v1/agents/1').json()`,
 			<span class="h-1 w-1 rounded-full bg-accent"></span>
 			REST API v1
 		</span>
-		<h1 class="text-3xl font-light tracking-tight text-text">API Reference</h1>
+		<h1 class="text-2xl sm:text-3xl font-light tracking-tight text-text">API Reference</h1>
 		<p class="text-sm text-text-muted">
 			Public read-only API for all indexed agent data. No authentication required. Base URL: <code class="rounded bg-surface-raised px-1.5 py-0.5 text-[11px] text-text font-mono">https://stellar8004.com</code>
 		</p>
@@ -142,42 +142,57 @@ agent = requests.get('https://stellar8004.com/api/v1/agents/1').json()`,
 
 	<section class="space-y-4">
 		<h2 class="text-lg font-medium text-text">Endpoints</h2>
-		<div class="overflow-hidden rounded-lg border border-border bg-surface">
+
+		<!-- Desktop table -->
+		<div class="hidden sm:block overflow-x-auto rounded-lg border border-border bg-surface">
 			<table class="min-w-full text-sm">
 				<thead class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase">
 					<tr>
-						<th class="px-6 py-3 font-medium">Method</th>
-						<th class="px-6 py-3 font-medium">Path</th>
-						<th class="px-6 py-3 font-medium">Description</th>
+						<th class="px-4 py-3 font-medium">Method</th>
+						<th class="px-4 py-3 font-medium">Path</th>
+						<th class="px-4 py-3 font-medium">Description</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each endpoints as ep (ep.path)}
 						<tr class="border-t border-border">
-							<td class="px-6 py-3">
+							<td class="px-4 py-3">
 								<span class="rounded-full bg-accent/5 px-2 py-0.5 text-[10px] font-medium text-accent">{ep.method}</span>
 							</td>
-							<td class="px-6 py-3 font-mono text-xs text-text">{ep.path}</td>
-							<td class="px-6 py-3 text-text-muted">{ep.desc}</td>
+							<td class="px-4 py-3 font-mono text-xs text-text">{ep.path}</td>
+							<td class="px-4 py-3 text-text-muted">{ep.desc}</td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 		</div>
+
+		<!-- Mobile cards -->
+		<div class="sm:hidden space-y-2">
+			{#each endpoints as ep (ep.path)}
+				<div class="rounded-lg border border-border bg-surface p-3 space-y-1.5">
+					<div class="flex items-center gap-2">
+						<span class="rounded-full bg-accent/5 px-2 py-0.5 text-[10px] font-medium text-accent">{ep.method}</span>
+						<code class="font-mono text-[11px] text-text truncate">{ep.path}</code>
+					</div>
+					<p class="text-[12px] text-text-muted">{ep.desc}</p>
+				</div>
+			{/each}
+		</div>
 	</section>
 
 	<section class="space-y-4">
 		<h2 class="text-lg font-medium text-text">Quick Start</h2>
-		<div class="flex gap-2">
+		<div class="flex flex-wrap gap-2">
 			{#each [
 				{ id: 'curl' as const, label: 'cURL' },
-				{ id: 'js' as const, label: 'JavaScript' },
+				{ id: 'js' as const, label: 'JS' },
 				{ id: 'py' as const, label: 'Python' }
 			] as lang (lang.id)}
 				<button
 					type="button"
 					onclick={() => activeLang = lang.id}
-					class="rounded-lg border px-4 py-2 text-xs font-medium transition-colors
+					class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors
 						{activeLang === lang.id
 							? 'border-accent/20 bg-accent/6 text-accent'
 							: 'border-border/50 text-text-dim hover:text-text-muted hover:border-border'}"
@@ -211,60 +226,69 @@ agent = requests.get('https://stellar8004.com/api/v1/agents/1').json()`,
 
 	<section class="space-y-4">
 		<h2 class="text-lg font-medium text-text">Rate Limits</h2>
-		<div class="overflow-hidden rounded-lg border border-border bg-surface">
-			<table class="min-w-full text-sm">
-				<thead class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase">
-					<tr>
-						<th class="px-6 py-3 font-medium">Access</th>
-						<th class="px-6 py-3 font-medium">Limit</th>
-						<th class="px-6 py-3 font-medium">Notes</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr class="border-t border-border">
-						<td class="px-6 py-3 text-text">Anonymous</td>
-						<td class="px-6 py-3 font-mono text-text">30 req/min</td>
-						<td class="px-6 py-3 text-text-muted">IP-based, best-effort</td>
-					</tr>
-				</tbody>
-			</table>
+		<div class="rounded-lg border border-border bg-surface p-4">
+			<div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+				<span class="text-sm text-text">Anonymous</span>
+				<code class="font-mono text-sm text-accent">30 req/min</code>
+				<span class="text-xs text-text-dim">IP-based, best-effort</span>
+			</div>
 		</div>
 	</section>
 
 	<section class="space-y-4">
 		<h2 class="text-lg font-medium text-text">Error Responses</h2>
-		<div class="overflow-hidden rounded-lg border border-border bg-surface">
+
+		<!-- Desktop table -->
+		<div class="hidden sm:block overflow-x-auto rounded-lg border border-border bg-surface">
 			<table class="min-w-full text-sm">
 				<thead class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase">
 					<tr>
-						<th class="px-6 py-3 font-medium">Code</th>
-						<th class="px-6 py-3 font-medium">HTTP</th>
-						<th class="px-6 py-3 font-medium">Description</th>
+						<th class="px-4 py-3 font-medium">Code</th>
+						<th class="px-4 py-3 font-medium">HTTP</th>
+						<th class="px-4 py-3 font-medium">Description</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr class="border-t border-border">
-						<td class="px-6 py-3 font-mono text-xs">INVALID_PARAMS</td>
-						<td class="px-6 py-3">400</td>
-						<td class="px-6 py-3 text-text-muted">Missing or invalid query parameters</td>
+						<td class="px-4 py-3 font-mono text-xs">INVALID_PARAMS</td>
+						<td class="px-4 py-3">400</td>
+						<td class="px-4 py-3 text-text-muted">Missing or invalid query parameters</td>
 					</tr>
 					<tr class="border-t border-border">
-						<td class="px-6 py-3 font-mono text-xs">NOT_FOUND</td>
-						<td class="px-6 py-3">404</td>
-						<td class="px-6 py-3 text-text-muted">Agent or endpoint not found</td>
+						<td class="px-4 py-3 font-mono text-xs">NOT_FOUND</td>
+						<td class="px-4 py-3">404</td>
+						<td class="px-4 py-3 text-text-muted">Agent or endpoint not found</td>
 					</tr>
 					<tr class="border-t border-border">
-						<td class="px-6 py-3 font-mono text-xs">RATE_LIMITED</td>
-						<td class="px-6 py-3">429</td>
-						<td class="px-6 py-3 text-text-muted">Too many requests — try again later</td>
+						<td class="px-4 py-3 font-mono text-xs">RATE_LIMITED</td>
+						<td class="px-4 py-3">429</td>
+						<td class="px-4 py-3 text-text-muted">Too many requests — try again later</td>
 					</tr>
 					<tr class="border-t border-border">
-						<td class="px-6 py-3 font-mono text-xs">INTERNAL_ERROR</td>
-						<td class="px-6 py-3">500</td>
-						<td class="px-6 py-3 text-text-muted">Server error — retry with backoff</td>
+						<td class="px-4 py-3 font-mono text-xs">INTERNAL_ERROR</td>
+						<td class="px-4 py-3">500</td>
+						<td class="px-4 py-3 text-text-muted">Server error — retry with backoff</td>
 					</tr>
 				</tbody>
 			</table>
+		</div>
+
+		<!-- Mobile cards -->
+		<div class="sm:hidden space-y-2">
+			{#each [
+				{ code: 'INVALID_PARAMS', http: '400', desc: 'Missing or invalid query parameters' },
+				{ code: 'NOT_FOUND', http: '404', desc: 'Agent or endpoint not found' },
+				{ code: 'RATE_LIMITED', http: '429', desc: 'Too many requests — try again later' },
+				{ code: 'INTERNAL_ERROR', http: '500', desc: 'Server error — retry with backoff' }
+			] as err (err.code)}
+				<div class="rounded-lg border border-border bg-surface p-3 space-y-1">
+					<div class="flex items-center gap-2">
+						<span class="rounded bg-negative/6 px-1.5 py-0.5 font-mono text-[10px] text-negative">{err.http}</span>
+						<code class="font-mono text-[11px] text-text">{err.code}</code>
+					</div>
+					<p class="text-[12px] text-text-muted">{err.desc}</p>
+				</div>
+			{/each}
 		</div>
 	</section>
 </div>
