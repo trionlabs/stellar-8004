@@ -287,12 +287,12 @@
 		gap: 10px;
 		padding: 7px 3px 7px 14px;
 		border-radius: 10px;
-		border: 0.5px solid oklch(0.24 0.016 250 / 0.5);
+		border: 0.5px solid color-mix(in oklch, var(--color-border) 50%, transparent);
 		transition: border-color 0.2s, box-shadow 0.3s;
 	}
 	.search-bar:focus-within {
-		border-color: oklch(0.74 0.07 250 / 0.2);
-		box-shadow: 0 0 20px oklch(0.74 0.07 250 / 0.04);
+		border-color: color-mix(in oklch, var(--color-accent) 20%, transparent);
+		box-shadow: 0 0 20px color-mix(in oklch, var(--color-accent) 4%, transparent);
 	}
 	.sort-select {
 		appearance: none;
@@ -300,27 +300,27 @@
 		border: 0;
 		padding: 5px 8px;
 		font-size: 11px;
-		color: oklch(0.44 0.012 250);
+		color: var(--color-text-dim);
 		cursor: pointer;
 		transition: color 0.15s;
 	}
-	.sort-select:hover { color: oklch(0.58 0.012 250); }
-	.sort-select:focus { color: oklch(0.74 0.07 250); outline: none; }
+	.sort-select:hover { color: var(--color-text-muted); }
+	.sort-select:focus { color: var(--color-accent); outline: none; }
 	.search-go {
 		padding: 5px 14px;
 		border-radius: 7px;
-		background: oklch(0.74 0.07 250 / 0.06);
-		border: 0.5px solid oklch(0.74 0.07 250 / 0.15);
+		background: color-mix(in oklch, var(--color-accent) 6%, transparent);
+		border: 0.5px solid color-mix(in oklch, var(--color-accent) 15%, transparent);
 		font-size: 11px;
 		font-weight: 500;
-		color: oklch(0.74 0.07 250 / 0.8);
+		color: color-mix(in oklch, var(--color-accent) 80%, transparent);
 		cursor: pointer;
 		transition: all 0.15s;
 	}
 	.search-go:hover {
-		background: oklch(0.74 0.07 250 / 0.1);
-		border-color: oklch(0.74 0.07 250 / 0.3);
-		color: oklch(0.74 0.07 250);
+		background: color-mix(in oklch, var(--color-accent) 10%, transparent);
+		border-color: color-mix(in oklch, var(--color-accent) 30%, transparent);
+		color: var(--color-accent);
 	}
 
 	/* ── Chips ── */
@@ -330,39 +330,39 @@
 		gap: 4px;
 		padding: 4px 9px;
 		border-radius: 6px;
-		border: 0.5px solid oklch(0.24 0.016 250 / 0.4);
+		border: 0.5px solid color-mix(in oklch, var(--color-border) 40%, transparent);
 		font-size: 11px;
-		color: oklch(0.44 0.012 250);
+		color: var(--color-text-dim);
 		background: transparent;
 		cursor: pointer;
 		user-select: none;
 		transition: all 0.15s ease;
 	}
 	.chip:hover {
-		border-color: oklch(0.24 0.016 250 / 0.7);
-		color: oklch(0.58 0.012 250);
+		border-color: color-mix(in oklch, var(--color-border) 70%, transparent);
+		color: var(--color-text-muted);
 	}
 	.chip:active { transform: scale(0.97); }
 	.chip--on {
-		background: oklch(0.74 0.07 250 / 0.05);
-		border-color: oklch(0.74 0.07 250 / 0.2);
-		color: oklch(0.74 0.07 250);
-		box-shadow: 0 0 10px oklch(0.74 0.07 250 / 0.04);
+		background: color-mix(in oklch, var(--color-accent) 5%, transparent);
+		border-color: color-mix(in oklch, var(--color-accent) 20%, transparent);
+		color: var(--color-accent);
+		box-shadow: 0 0 10px color-mix(in oklch, var(--color-accent) 4%, transparent);
 	}
 	.chip--on-green {
-		background: oklch(0.72 0.10 162 / 0.05);
-		border-color: oklch(0.72 0.10 162 / 0.2);
-		color: oklch(0.72 0.10 162);
-		box-shadow: 0 0 10px oklch(0.72 0.10 162 / 0.04);
+		background: color-mix(in oklch, var(--color-positive) 5%, transparent);
+		border-color: color-mix(in oklch, var(--color-positive) 20%, transparent);
+		color: var(--color-positive);
+		box-shadow: 0 0 10px color-mix(in oklch, var(--color-positive) 4%, transparent);
 	}
 	.dot {
 		width: 3.5px; height: 3.5px; border-radius: 50%;
-		background: oklch(0.74 0.07 250);
+		background: var(--color-accent);
 		animation: blink 2.5s ease-in-out infinite;
 	}
-	.dot--green { background: oklch(0.72 0.10 162); }
+	.dot--green { background: var(--color-positive); }
 	@keyframes blink { 0%,100% { opacity:1 } 50% { opacity:0.3 } }
-	.divider { width:0.5px; height:12px; margin:0 4px; background:oklch(0.24 0.016 250 / 0.25); }
+	.divider { width:0.5px; height:12px; margin:0 4px; background: color-mix(in oklch, var(--color-border) 25%, transparent); }
 
 	/* ── Grid ── */
 	.grid-wrap {
@@ -371,15 +371,15 @@
 		gap: 0.5px;
 		border-radius: 10px;
 		overflow: hidden;
-		border: 0.5px solid oklch(0.24 0.016 250 / 0.4);
-		background: oklch(0.20 0.014 250 / 0.15);
+		border: 0.5px solid color-mix(in oklch, var(--color-border) 40%, transparent);
+		background: color-mix(in oklch, var(--color-surface-overlay) 15%, transparent);
 	}
 	.row {
 		display: flex;
 		align-items: center;
 		gap: 12px;
 		padding: 11px 16px;
-		background: oklch(0.13 0.014 250);
+		background: var(--color-surface);
 		text-decoration: none;
 		transition: background 0.1s, box-shadow 0.15s;
 		animation: fade-up 0.25s ease both;
@@ -387,9 +387,9 @@
 	}
 	.row:hover {
 		background:
-			radial-gradient(300px circle at var(--mx, 50%) var(--my, 50%), oklch(0.74 0.07 250 / 0.04), transparent 70%),
-			oklch(0.145 0.015 250);
-		box-shadow: inset 1.5px 0 0 oklch(0.74 0.07 250 / 0.35);
+			radial-gradient(300px circle at var(--mx, 50%) var(--my, 50%), color-mix(in oklch, var(--color-accent) 4%, transparent), transparent 70%),
+			var(--color-surface-raised);
+		box-shadow: inset 1.5px 0 0 color-mix(in oklch, var(--color-accent) 35%, transparent);
 	}
 	@keyframes fade-up {
 		from { opacity:0; transform:translateY(3px) }
@@ -400,14 +400,14 @@
 	.pager {
 		display:flex; align-items:center; justify-content:center;
 		width:28px; height:28px; border-radius:7px;
-		border: 0.5px solid oklch(0.24 0.016 250 / 0.35);
-		color: oklch(0.44 0.012 250);
+		border: 0.5px solid color-mix(in oklch, var(--color-border) 35%, transparent);
+		color: var(--color-text-dim);
 		background:transparent; cursor:pointer;
 		transition: all 0.15s;
 	}
 	.pager:hover {
-		border-color: oklch(0.74 0.07 250 / 0.2);
-		color: oklch(0.74 0.07 250);
-		background: oklch(0.74 0.07 250 / 0.04);
+		border-color: color-mix(in oklch, var(--color-accent) 20%, transparent);
+		color: var(--color-accent);
+		background: color-mix(in oklch, var(--color-accent) 4%, transparent);
 	}
 </style>
