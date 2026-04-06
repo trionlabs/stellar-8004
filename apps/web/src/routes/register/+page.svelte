@@ -256,7 +256,7 @@ import CodeBlock from '$lib/components/CodeBlock.svelte';
 				{/if}
 
 				<button type="button" onclick={next} disabled={!canProceed}
-					class="rounded-xl bg-accent px-6 py-2.5 text-sm font-medium text-white disabled:opacity-40 hover:bg-accent/90 transition-colors">
+					class="rounded-xl border border-accent/30 bg-accent-fill px-6 py-2.5 text-sm font-medium text-accent disabled:opacity-40 hover:bg-accent-fill-hover hover:border-accent/45 transition-colors">
 					Next: {STEPS[currentStep + 1]?.label} →
 				</button>
 			</div>
