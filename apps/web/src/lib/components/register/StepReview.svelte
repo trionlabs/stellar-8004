@@ -2,7 +2,7 @@
 	import { sanitizeImageUrl } from '$lib/formatters.js';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
 	import { wallet } from '$lib/wallet.svelte.js';
-	import { getStellarConfig } from '$lib/stellar.js';
+	import { stellarConfig } from '$lib/sdk-client.js';
 	import CtaButton from '$lib/components/CtaButton.svelte';
 	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
 
@@ -94,7 +94,7 @@
 		<div class="flex items-center gap-2.5 rounded-xl bg-warning/6 px-4 py-3 ring-1 ring-warning/12">
 			<span class="h-1.5 w-1.5 rounded-full bg-warning"></span>
 			<p class="text-xs text-warning">
-				Switch to <span class="font-medium uppercase">{getStellarConfig().network}</span> in Freighter
+				Switch to <span class="font-medium uppercase">{stellarConfig.network}</span> in Freighter
 			</p>
 		</div>
 	{/if}

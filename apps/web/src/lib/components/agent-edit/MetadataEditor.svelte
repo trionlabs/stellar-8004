@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { AgentFormData, ServiceEntry, UriMode } from '$lib/types.js';
-	import { buildMetadataJsonForEdit, getMetadataSize } from '$lib/metadata.js';
+	import {
+		buildMetadataJsonForEdit,
+		getMetadataSize
+	} from '@trionlabs/8004s-sdk';
 	import StepBasicInfo from '$lib/components/register/StepBasicInfo.svelte';
 	import StepServices from '$lib/components/register/StepServices.svelte';
 	import StepAdvanced from '$lib/components/register/StepAdvanced.svelte';

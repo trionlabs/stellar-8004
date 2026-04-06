@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ServiceEntry } from '$lib/types.js';
-	import { validateUrl } from '$lib/metadata.js';
+	import { validateUrl } from '@trionlabs/8004s-sdk';
 
 	let { services }: { services: ServiceEntry[] } = $props();
 
