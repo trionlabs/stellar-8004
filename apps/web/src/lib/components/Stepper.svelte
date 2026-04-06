@@ -11,7 +11,7 @@
 		<div class="flex flex-1 flex-col items-center">
 			<div
 				class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors
-					{i < currentStep ? 'bg-accent text-white' : ''}
+					{i < currentStep ? 'bg-accent-medium text-accent' : ''}
 					{i === currentStep ? 'border-2 border-accent text-accent' : ''}
 					{i > currentStep ? 'border border-border text-text-dim' : ''}"
 			>

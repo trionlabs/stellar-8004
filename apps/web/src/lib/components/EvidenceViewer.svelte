@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { slide } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+
 	const IPFS_GATEWAYS = [
 		'https://gateway.pinata.cloud/ipfs/',
 		'https://ipfs.io/ipfs/'
@@ -127,7 +130,7 @@
 		</button>
 
 		{#if open}
-			<div class="mt-2 rounded-lg border border-border bg-surface-raised p-3 text-xs">
+			<div in:slide={{ duration: 200, easing: cubicOut }} class="mt-2 rounded-lg border border-border bg-surface-raised p-3 text-xs">
 				{#if errorMsg}
 					<p class="text-negative">{errorMsg}</p>
 				{:else if evidenceJson}

@@ -40,6 +40,9 @@
 			let feedbackHash: Uint8Array;
 
 			if (feedbackUri) {
+				if (!['https://', 'http://', 'ipfs://'].some((s) => feedbackUri.startsWith(s))) {
+					throw new Error('Evidence URI must use https://, http://, or ipfs:// scheme');
+				}
 				feedbackHash = await sha256Hash(feedbackUri);
 			} else {
 				feedbackHash = new Uint8Array(32); // bytes32(0) — no evidence
