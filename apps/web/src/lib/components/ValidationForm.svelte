@@ -93,7 +93,7 @@
 			<button
 				onclick={submit}
 				disabled={!validatorAddress || !hasValidAddress || busy || wallet.networkMismatch}
-				class="w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-surface transition hover:bg-accent/90 disabled:opacity-40"
+				class="w-full rounded-lg border border-accent/30 bg-accent-fill px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent-fill-hover hover:border-accent/45 disabled:opacity-40"
 			>
 				{status === 'submitting' ? 'Submitting...' : 'Request Validation'}
 			</button>
