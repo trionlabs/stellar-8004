@@ -59,6 +59,11 @@
         "minLength": 1,
         "examples": ["reputation", "crypto-economic", "tee-attestation"]
       }
+    },
+    "x402": {
+      "type": "boolean",
+      "description": "Whether this agent supports the HTTP 402 Payment Required standard for paid services",
+      "default": false
     }
   },
   "additionalProperties": true
