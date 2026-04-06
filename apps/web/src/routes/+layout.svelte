@@ -4,14 +4,17 @@
 	import { onMount } from 'svelte';
 	import favicon from '$lib/assets/logo-saturn.svg';
 	import { wallet } from '$lib/wallet.svelte.js';
+	import { theme } from '$lib/theme.svelte.js';
 	import ProfileBadge from '$lib/components/ProfileBadge.svelte';
 	import EllipticStars from '$lib/components/EllipticStars.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
 	let { children } = $props();
 	let menuOpen = $state(false);
 
 	onMount(() => {
 		wallet.restore();
+		theme.init();
 	});
 </script>
 
@@ -58,6 +61,7 @@
 					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
 					Devs
 				</a>
+				<ThemeToggle />
 				<ProfileBadge />
 			</div>
 
@@ -80,6 +84,7 @@
 					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
 					Devs
 				</a>
+				<ThemeToggle />
 				<ProfileBadge />
 			</div>
 		</nav>
