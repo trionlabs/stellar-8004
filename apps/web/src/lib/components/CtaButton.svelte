@@ -58,17 +58,17 @@
 
 	/* ── Primary: gradient bg + fine outer glow ── */
 	.cta-btn--primary {
-		border: 0.5px solid oklch(0.74 0.07 250 / 0.3);
+		border: 0.5px solid color-mix(in oklch, var(--color-accent) 30%, transparent);
 		box-shadow: 0 1px 2px oklch(0 0 0 / 0.2);
 	}
 	.cta-btn--primary:hover {
-		border-color: oklch(0.74 0.07 250 / 0.5);
+		border-color: color-mix(in oklch, var(--color-accent) 50%, transparent);
 		box-shadow:
 			0 1px 2px oklch(0 0 0 / 0.2),
-			0 0 12px oklch(0.74 0.07 250 / 0.12);
+			0 0 12px color-mix(in oklch, var(--color-accent) 12%, transparent);
 	}
 
-	/* Inner shine — fine hairline at top edge */
+	/* Inner shine — fine hairline at top edge, hidden in light mode via shadow variable */
 	.cta-btn--primary::after {
 		content: '';
 		position: absolute;
@@ -79,18 +79,19 @@
 		background: linear-gradient(
 			90deg,
 			transparent,
-			oklch(0.92 0.02 250 / 0.35),
+			color-mix(in oklch, var(--color-text) 35%, transparent),
 			transparent
 		);
 		pointer-events: none;
+		opacity: var(--shine-opacity, 1);
 	}
 
 	/* ── Secondary: hairline border ── */
 	.cta-btn--secondary {
-		border: 0.5px solid oklch(0.74 0.07 250 / 0.18);
+		border: 0.5px solid color-mix(in oklch, var(--color-accent) 18%, transparent);
 	}
 	.cta-btn--secondary:hover {
-		border-color: oklch(0.74 0.07 250 / 0.35);
-		box-shadow: 0 0 10px oklch(0.74 0.07 250 / 0.06);
+		border-color: color-mix(in oklch, var(--color-accent) 35%, transparent);
+		box-shadow: 0 0 10px color-mix(in oklch, var(--color-accent) 6%, transparent);
 	}
 </style>
