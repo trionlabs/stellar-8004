@@ -11,9 +11,9 @@
 	const isHttp = $derived(formData.imageUrl.startsWith('http://'));
 </script>
 
-<div class="space-y-6">
-	<div class="space-y-2">
-		<label class="text-xs font-medium text-text-muted" for="agent-name">
+<div class="space-y-10">
+	<div>
+		<label class="block mb-1.5 ml-1 text-xs font-medium text-text-muted" for="agent-name">
 			Agent Name <span class="text-negative">*</span>
 		</label>
 		<input
@@ -24,14 +24,14 @@
 			maxlength="256"
 			class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors"
 		/>
-		<div class="flex items-center justify-between">
+		<div class="mt-2 flex items-center justify-between">
 			<p class="text-[10px] text-text-dim">Keep it clear, memorable, and descriptive</p>
 			<span class="text-[10px] {nameCount > 240 ? 'text-warning' : 'text-text-dim'}">{nameCount}/256</span>
 		</div>
 	</div>
 
-	<div class="space-y-2">
-		<label class="text-xs font-medium text-text-muted" for="agent-desc">Description</label>
+	<div>
+		<label class="block mb-1.5 ml-1 text-xs font-medium text-text-muted" for="agent-desc">Description</label>
 		<textarea
 			id="agent-desc"
 			bind:value={formData.description}
@@ -40,14 +40,14 @@
 			rows="4"
 			class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors resize-none"
 		></textarea>
-		<div class="flex items-center justify-between">
+		<div class="mt-2 flex items-center justify-between">
 			<p class="text-[10px] text-text-dim">Optional — helps users understand your agent</p>
 			<span class="text-[10px] {descCount > 1900 ? 'text-warning' : 'text-text-dim'}">{descCount}/2048</span>
 		</div>
 	</div>
 
-	<div class="space-y-2">
-		<label class="text-xs font-medium text-text-muted" for="agent-image">Agent Image</label>
+	<div>
+		<label class="block mb-1.5 ml-1 text-xs font-medium text-text-muted" for="agent-image">Agent Image</label>
 		<input
 			id="agent-image"
 			type="text"
@@ -56,11 +56,11 @@
 			class="w-full rounded-xl border {imageError ? 'border-negative' : 'border-border'} bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors"
 		/>
 		{#if imageError}
-			<p class="text-[10px] text-negative">{imageError}</p>
+			<p class="mt-2 text-[10px] text-negative">{imageError}</p>
 		{:else if isHttp}
-			<p class="text-[10px] text-warning">HTTP URLs may not be accessible from the indexer. Use HTTPS or IPFS for production.</p>
+			<p class="mt-2 text-[10px] text-warning">HTTP URLs may not be accessible from the indexer. Use HTTPS or IPFS for production.</p>
 		{:else}
-			<p class="text-[10px] text-text-dim">High-quality image (PNG, SVG, or WebP recommended). Supports HTTP, HTTPS, or IPFS URLs.</p>
+			<p class="mt-2 text-[10px] text-text-dim">High-quality image (PNG, SVG, or WebP recommended). Supports HTTP, HTTPS, or IPFS URLs.</p>
 		{/if}
 	</div>
 </div>
