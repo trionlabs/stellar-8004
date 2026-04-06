@@ -2,6 +2,8 @@
 	import { resolve } from '$app/paths';
 	import { afterNavigate } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { fly, fade } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { createSupabase } from '$lib/supabase.js';
 	import StarIdenticon from './StarIdenticon.svelte';
@@ -84,7 +86,8 @@
 	<div class="relative z-50" bind:this={wrapperEl}>
 		<button
 			onclick={toggle}
-			class="flex items-center gap-2 rounded-xl border border-border bg-surface-raised/50 px-2.5 py-1.5 transition-colors hover:bg-surface-raised hover:border-border-subtle"
+			class="flex items-center gap-2 rounded-xl border border-border bg-surface-raised/50 px-2.5 py-1.5 transition-colors hover:bg-surface-raised hover:border-border-subtle
+			       focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
 			aria-expanded={open}
 			aria-haspopup="true"
 		>
@@ -107,7 +110,9 @@
 			<div
 				role="menu"
 				tabindex="-1"
-				class="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-border bg-surface-raised shadow-lg shadow-black/20"
+				in:fly={{ y: -8, duration: 150, easing: cubicOut }}
+				class="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-border bg-surface-raised shadow-lg"
+				style="box-shadow: var(--shadow-accent-md);"
 			>
 				<!-- Header: identicon + address + network -->
 				<div class="border-b border-border p-4">
@@ -122,7 +127,8 @@
 								</span>
 								<button
 									onclick={copyAddress}
-									class="shrink-0 rounded p-1 text-text-dim transition-colors hover:bg-surface-overlay hover:text-text"
+									class="shrink-0 rounded p-1 text-text-dim transition-colors hover:bg-surface-overlay hover:text-text
+									       focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40"
 									aria-label="Copy address"
 								>
 									{#if copied}
@@ -155,7 +161,8 @@
 					<a
 						href={resolve('/agents') + `?owner=${wallet.address}`}
 						role="menuitem"
-						class="flex items-center justify-between px-4 py-2.5 text-sm text-text-muted transition-colors hover:bg-surface-overlay hover:text-text"
+						class="flex items-center justify-between px-4 py-2.5 text-sm text-text-muted transition-colors hover:bg-surface-overlay hover:text-text
+						       focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 focus-visible:ring-inset"
 					>
 						<span class="flex items-center gap-2.5">
 							<svg class="h-4 w-4 text-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -176,7 +183,8 @@
 					<button
 						onclick={() => { wallet.disconnect(); close(); }}
 						role="menuitem"
-						class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-text-dim transition-colors hover:bg-surface-overlay hover:text-negative"
+						class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-text-dim transition-colors hover:bg-surface-overlay hover:text-negative
+						       focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 focus-visible:ring-inset"
 					>
 						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
