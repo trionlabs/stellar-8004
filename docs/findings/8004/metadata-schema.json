@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://stellar8004.trionlabs.dev/schemas/agent-metadata-v1.json",
+  "$id": "https://stellar8004.com/schemas/agent-metadata-v1.json",
   "title": "ERC-8004 Agent Metadata (Stellar)",
   "description": "Schema for ERC-8004 spec-compliant agent metadata on Stellar",
   "type": "object",
