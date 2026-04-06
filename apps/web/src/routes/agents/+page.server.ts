@@ -142,9 +142,12 @@ export const load: PageServerLoad = async ({ url }) => {
 	const hasServicesParam = url.searchParams.get('services');
 	const hasServices = hasServicesParam === 'true' ? true : null;
 
+	const ownerFilter = url.searchParams.get('owner')?.trim() ?? '';
+
 	const hasFilters = trustFilter.length > 0 || minScore > 0 || hasServices !== null;
 
 	if (hasFilters) {
+		const fetchLimit = ownerFilter ? perPage * 3 : perPage;
 		const advancedRows =
 			assertSuccess(
 				await db.rpc('search_agents_advanced', {
@@ -152,13 +155,20 @@ export const load: PageServerLoad = async ({ url }) => {
 					trust_filter: trustFilter,
 					min_score: minScore,
 					has_services_filter: hasServices ?? undefined,
-					result_limit: perPage,
-					result_offset: offset
+					result_limit: fetchLimit,
+					result_offset: 0
 				}),
 				'Advanced search'
 			) ?? [];
 
-		const agents: AgentListItem[] = advancedRows.map((row) => ({
+		const filteredAdvanced = ownerFilter
+			? advancedRows.filter((r) => r.owner.toUpperCase() === ownerFilter.toUpperCase())
+			: advancedRows;
+
+		const startIndex = offset;
+		const pagedResults = filteredAdvanced.slice(startIndex, startIndex + perPage);
+
+		const agents: AgentListItem[] = pagedResults.map((row) => ({
 			id: row.agent_id,
 			name: row.agent_name ?? `Agent #${row.agent_id}`,
 			image: row.agent_image,
@@ -180,28 +190,37 @@ export const load: PageServerLoad = async ({ url }) => {
 			sort,
 			order,
 			page,
-			hasMore: advancedRows.length === perPage,
-			filters: { trust: trustFilter, minScore, hasServices: hasServices ?? false }
+			hasMore: startIndex + perPage < filteredAdvanced.length,
+			filters: { trust: trustFilter, minScore, hasServices: hasServices ?? false },
+			ownerFilter
 		};
 	}
 
 	if (query.length > 0) {
+		const fetchLimit = ownerFilter ? perPage * 3 : perPage;
 		const searchRows =
 			assertSuccess(
 				await db.rpc('search_agents', {
 					search_query: query,
-					result_limit: perPage,
-					result_offset: offset
+					result_limit: fetchLimit,
+					result_offset: 0
 				}),
 				'Agent search'
 			) ?? [];
 
+		const filteredSearch = ownerFilter
+			? searchRows.filter((r) => r.owner.toUpperCase() === ownerFilter.toUpperCase())
+			: searchRows;
+
+		const startIndex = offset;
+		const pagedResults = filteredSearch.slice(startIndex, startIndex + perPage);
+
 		const scoreMap = await loadScoreMap(
 			db,
-			searchRows.map((agent) => agent.id)
+			pagedResults.map((agent) => agent.id)
 		);
 		const agents = sortAgents(
-			searchRows.map((agent) => normalizeAgentRow(agent, scoreMap.get(agent.id))),
+			pagedResults.map((agent) => normalizeAgentRow(agent, scoreMap.get(agent.id))),
 			sort,
 			order
 		);
@@ -212,23 +231,24 @@ export const load: PageServerLoad = async ({ url }) => {
 			sort,
 			order,
 			page,
-			hasMore: searchRows.length === perPage,
-			filters: { trust: [] as string[], minScore: 0, hasServices: false }
+			hasMore: startIndex + perPage < filteredSearch.length,
+			filters: { trust: [] as string[], minScore: 0, hasServices: false },
+			ownerFilter
 		};
 	}
 
 	if (sort === 'created_at') {
-		const agentRows =
-			assertSuccess(
-				await db
-					.from('agents')
-					.select(
-						'id, owner, agent_uri_data, created_at, supported_trust, services'
-					)
-					.order('created_at', { ascending: order === 'asc' })
-					.range(offset, offset + perPage - 1),
-				'Agent list'
-			) ?? [];
+		let agentQuery = db
+			.from('agents')
+			.select('id, owner, agent_uri_data, created_at, supported_trust, services')
+			.order('created_at', { ascending: order === 'asc' })
+			.range(offset, offset + perPage - 1);
+
+		if (ownerFilter) {
+			agentQuery = agentQuery.ilike('owner', ownerFilter);
+		}
+
+		const agentRows = assertSuccess(await agentQuery, 'Agent list') ?? [];
 
 		const scoreMap = await loadScoreMap(
 			db,
@@ -242,21 +262,25 @@ export const load: PageServerLoad = async ({ url }) => {
 			order,
 			page,
 			hasMore: agentRows.length === perPage,
-			filters: { trust: [] as string[], minScore: 0, hasServices: false }
+			filters: { trust: [] as string[], minScore: 0, hasServices: false },
+			ownerFilter
 		};
 	}
 
 	const scoreColumn = sort === 'score' ? 'total_score' : 'feedback_count';
-	const leaderboardRows =
-		assertSuccess(
-			await db
-				.from('leaderboard_scores')
-				.select('*')
-				.order(scoreColumn, { ascending: order === 'asc' })
-				.order('agent_id', { ascending: true })
-				.range(offset, offset + perPage - 1),
-			'Leaderboard list'
-		) ?? [];
+
+	let lbQuery = db
+		.from('leaderboard_scores')
+		.select('*')
+		.order(scoreColumn, { ascending: order === 'asc' })
+		.order('agent_id', { ascending: true })
+		.range(offset, offset + perPage - 1);
+
+	if (ownerFilter) {
+		lbQuery = lbQuery.ilike('owner', ownerFilter);
+	}
+
+	const leaderboardRows = assertSuccess(await lbQuery, 'Leaderboard list') ?? [];
 
 	return {
 		agents: leaderboardRows
@@ -267,6 +291,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		order,
 		page,
 		hasMore: leaderboardRows.length === perPage,
-		filters: { trust: [] as string[], minScore: 0, hasServices: false }
+		filters: { trust: [] as string[], minScore: 0, hasServices: false },
+		ownerFilter
 	};
 };
