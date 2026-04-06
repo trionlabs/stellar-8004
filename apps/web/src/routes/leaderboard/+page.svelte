@@ -16,9 +16,9 @@
 	const restStartRank = $derived(data.page === 1 ? 4 : data.startRank);
 
 	const medalColors = [
-		{ text: 'text-[oklch(0.85_0.11_85)]', border: 'border-[oklch(0.85_0.11_85/0.25)]', bg: 'bg-[oklch(0.85_0.11_85/0.04)]', glow: '0 0 30px oklch(0.85 0.11 85 / 0.08)' },
+		{ text: 'text-medal-gold', border: 'border-medal-gold/25', bg: 'bg-medal-gold/4', glow: '0 0 30px color-mix(in oklch, var(--color-medal-gold) 8%, transparent)' },
 		{ text: 'text-text-muted', border: 'border-text-dim/15', bg: 'bg-surface-raised/30', glow: 'none' },
-		{ text: 'text-[oklch(0.68_0.07_55)]', border: 'border-[oklch(0.68_0.07_55/0.2)]', bg: 'bg-[oklch(0.68_0.07_55/0.03)]', glow: 'none' },
+		{ text: 'text-medal-bronze', border: 'border-medal-bronze/20', bg: 'bg-medal-bronze/3', glow: 'none' },
 	];
 
 	function handleRowMouse(e: MouseEvent) {
@@ -44,12 +44,12 @@
 		<div class="empty-state">
 			<!-- Decorative podium silhouette -->
 			<svg class="empty-podium" viewBox="0 0 200 120" fill="none">
-				<rect x="10" y="50" width="50" height="70" rx="4" fill="oklch(0.24 0.016 250 / 0.3)" />
-				<rect x="75" y="20" width="50" height="100" rx="4" fill="oklch(0.24 0.016 250 / 0.4)" />
-				<rect x="140" y="65" width="50" height="55" rx="4" fill="oklch(0.24 0.016 250 / 0.25)" />
-				<text x="35" y="42" text-anchor="middle" fill="oklch(0.48 0.012 250 / 0.4)" font-size="14" font-weight="300">2</text>
-				<text x="100" y="14" text-anchor="middle" fill="oklch(0.74 0.07 250 / 0.4)" font-size="14" font-weight="300">1</text>
-				<text x="165" y="58" text-anchor="middle" fill="oklch(0.48 0.012 250 / 0.3)" font-size="14" font-weight="300">3</text>
+				<rect x="10" y="50" width="50" height="70" rx="4" fill="var(--color-border)" opacity="0.3" />
+				<rect x="75" y="20" width="50" height="100" rx="4" fill="var(--color-border)" opacity="0.4" />
+				<rect x="140" y="65" width="50" height="55" rx="4" fill="var(--color-border)" opacity="0.25" />
+				<text x="35" y="42" text-anchor="middle" fill="var(--color-text-dim)" opacity="0.4" font-size="14" font-weight="300">2</text>
+				<text x="100" y="14" text-anchor="middle" fill="var(--color-accent)" opacity="0.4" font-size="14" font-weight="300">1</text>
+				<text x="165" y="58" text-anchor="middle" fill="var(--color-text-dim)" opacity="0.3" font-size="14" font-weight="300">3</text>
 			</svg>
 			<p class="text-[13px] text-text-muted">No agents ranked yet</p>
 			<p class="text-[11px] text-text-dim/50">Register an agent and submit feedback to populate the leaderboard</p>
@@ -212,15 +212,15 @@
 		gap: 0.5px;
 		border-radius: 10px;
 		overflow: hidden;
-		border: 0.5px solid oklch(0.24 0.016 250 / 0.4);
-		background: oklch(0.20 0.014 250 / 0.15);
+		border: 0.5px solid color-mix(in oklch, var(--color-border) 40%, transparent);
+		background: color-mix(in oklch, var(--color-surface-overlay) 15%, transparent);
 	}
 	.row {
 		display: flex;
 		align-items: center;
 		gap: 12px;
 		padding: 11px 16px;
-		background: oklch(0.13 0.014 250);
+		background: var(--color-surface);
 		text-decoration: none;
 		transition: background 0.1s, box-shadow 0.15s;
 		animation: fade-up 0.25s ease both;
@@ -228,9 +228,9 @@
 	}
 	.row:hover {
 		background:
-			radial-gradient(300px circle at var(--mx, 50%) var(--my, 50%), oklch(0.74 0.07 250 / 0.04), transparent 70%),
-			oklch(0.145 0.015 250);
-		box-shadow: inset 1.5px 0 0 oklch(0.74 0.07 250 / 0.35);
+			radial-gradient(300px circle at var(--mx, 50%) var(--my, 50%), color-mix(in oklch, var(--color-accent) 4%, transparent), transparent 70%),
+			var(--color-surface-raised);
+		box-shadow: inset 1.5px 0 0 color-mix(in oklch, var(--color-accent) 35%, transparent);
 	}
 	@keyframes fade-up {
 		from { opacity:0; transform:translateY(3px) }
@@ -241,15 +241,15 @@
 	.pager {
 		display:flex; align-items:center; justify-content:center;
 		width:28px; height:28px; border-radius:7px;
-		border: 0.5px solid oklch(0.24 0.016 250 / 0.35);
-		color: oklch(0.44 0.012 250);
+		border: 0.5px solid color-mix(in oklch, var(--color-border) 35%, transparent);
+		color: var(--color-text-dim);
 		background:transparent; cursor:pointer;
 		text-decoration: none;
 		transition: all 0.15s;
 	}
 	.pager:hover {
-		border-color: oklch(0.74 0.07 250 / 0.2);
-		color: oklch(0.74 0.07 250);
-		background: oklch(0.74 0.07 250 / 0.04);
+		border-color: color-mix(in oklch, var(--color-accent) 20%, transparent);
+		color: var(--color-accent);
+		background: color-mix(in oklch, var(--color-accent) 4%, transparent);
 	}
 </style>
