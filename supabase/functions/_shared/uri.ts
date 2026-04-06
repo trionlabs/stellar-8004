@@ -10,6 +10,10 @@ export async function resolveUri(uri: string): Promise<unknown | null> {
     return null;
   }
 
+  if (uri.startsWith('data:')) {
+    return parseDataUri(uri);
+  }
+
   if (!uri.startsWith('ipfs://')) {
     return fetchJson(uri);
   }
@@ -29,6 +33,28 @@ export async function resolveUri(uri: string): Promise<unknown | null> {
   return null;
 }
 
+function parseDataUri(uri: string): unknown | null {
+  try {
+    const commaIndex = uri.indexOf(',');
+    if (commaIndex === -1) return null;
+
+    const header = uri.slice(5, commaIndex).toLowerCase();
+    const payload = uri.slice(commaIndex + 1);
+
+    if (!header.includes('json')) return null;
+
+    if (header.includes('base64')) {
+      const binaryStr = atob(payload);
+      const bytes = Uint8Array.from(binaryStr, (c) => c.charCodeAt(0));
+      return JSON.parse(new TextDecoder().decode(bytes));
+    }
+
+    return JSON.parse(decodeURIComponent(payload));
+  } catch {
+    return null;
+  }
+}
+
 function normalizeIpfsPath(uri: string): string | null {
   const rawPath = uri
     .slice('ipfs://'.length)
@@ -36,6 +62,11 @@ function normalizeIpfsPath(uri: string): string | null {
     .replace(/^\/+/, '');
 
   return rawPath.length > 0 ? rawPath : null;
+}
+
+export function extractX402(uriData: unknown): boolean {
+  if (!uriData || typeof uriData !== 'object' || Array.isArray(uriData)) return false;
+  return (uriData as Record<string, unknown>).x402 === true;
 }
 
 export function extractSupportedTrust(uriData: unknown): string[] {
