@@ -24,9 +24,9 @@
 
 	const variants: Record<string, string> = {
 		primary:
-			'cta-btn cta-btn--primary bg-linear-to-r from-accent/80 to-accent/60 text-surface-raised hover:from-accent/90 hover:to-accent/70 active:scale-[0.98]',
+			'cta-btn cta-btn--primary text-accent active:scale-[0.98]',
 		secondary:
-			'cta-btn cta-btn--secondary text-accent hover:bg-accent/5 active:scale-[0.98]',
+			'cta-btn cta-btn--secondary text-accent active:scale-[0.98]',
 		ghost:
 			'text-text-muted hover:text-accent hover:bg-accent/4 active:scale-[0.98]'
 	};
@@ -56,42 +56,25 @@
 		overflow: visible;
 	}
 
-	/* ── Primary: gradient bg + fine outer glow ── */
+	/* ── Primary: opaque accent fill + glow ── */
 	.cta-btn--primary {
-		border: 0.5px solid color-mix(in oklch, var(--color-accent) 30%, transparent);
-		box-shadow: 0 1px 2px oklch(0 0 0 / 0.2);
+		background: var(--color-accent-fill);
+		border: 0.5px solid color-mix(in oklch, var(--color-accent) 35%, transparent);
+		box-shadow: var(--shadow-accent-sm);
 	}
 	.cta-btn--primary:hover {
-		border-color: color-mix(in oklch, var(--color-accent) 50%, transparent);
-		box-shadow:
-			0 1px 2px oklch(0 0 0 / 0.2),
-			0 0 12px color-mix(in oklch, var(--color-accent) 12%, transparent);
+		background: var(--color-accent-fill-hover);
+		border-color: color-mix(in oklch, var(--color-accent) 55%, transparent);
+		box-shadow: var(--shadow-accent-md);
 	}
 
-	/* Inner shine — fine hairline at top edge, hidden in light mode via shadow variable */
-	.cta-btn--primary::after {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: 15%;
-		right: 15%;
-		height: 0.5px;
-		background: linear-gradient(
-			90deg,
-			transparent,
-			color-mix(in oklch, var(--color-text) 35%, transparent),
-			transparent
-		);
-		pointer-events: none;
-		opacity: var(--shine-opacity, 1);
-	}
-
-	/* ── Secondary: hairline border ── */
+	/* ── Secondary: border only, no fill ── */
 	.cta-btn--secondary {
-		border: 0.5px solid color-mix(in oklch, var(--color-accent) 18%, transparent);
+		background: var(--color-surface);
+		border: 0.5px solid color-mix(in oklch, var(--color-accent) 22%, transparent);
 	}
 	.cta-btn--secondary:hover {
+		background: var(--color-surface-raised);
 		border-color: color-mix(in oklch, var(--color-accent) 35%, transparent);
-		box-shadow: 0 0 10px color-mix(in oklch, var(--color-accent) 6%, transparent);
 	}
 </style>
