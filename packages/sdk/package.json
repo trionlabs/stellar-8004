@@ -1,0 +1,162 @@
+{
+  "name": "@trionlabs/8004s-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for ERC-8004 agent registration, storage, signing, and explorer reads on Stellar.",
+  "license": "SEE LICENSE IN LICENSE",
+  "author": {
+    "name": "Trion Labs"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "keywords": [
+    "stellar",
+    "soroban",
+    "erc-8004",
+    "agent",
+    "sdk",
+    "freighter",
+    "ipfs"
+  ],
+  "homepage": "https://stellar8004.com/developers",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yamancan/stellar8004.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/yamancan/stellar8004/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./api": {
+      "import": {
+        "types": "./dist/api.d.ts",
+        "default": "./dist/api.js"
+      },
+      "require": {
+        "types": "./dist/api.d.cts",
+        "default": "./dist/api.cjs"
+      }
+    },
+    "./api/explorer": {
+      "import": {
+        "types": "./dist/api/explorer.d.ts",
+        "default": "./dist/api/explorer.js"
+      },
+      "require": {
+        "types": "./dist/api/explorer.d.cts",
+        "default": "./dist/api/explorer.cjs"
+      }
+    },
+    "./signers/freighter": {
+      "import": {
+        "types": "./dist/signers/freighter.d.ts",
+        "default": "./dist/signers/freighter.js"
+      },
+      "require": {
+        "types": "./dist/signers/freighter.d.cts",
+        "default": "./dist/signers/freighter.cjs"
+      }
+    },
+    "./signers/basic": {
+      "import": {
+        "types": "./dist/signers/basic.d.ts",
+        "default": "./dist/signers/basic.js"
+      },
+      "require": {
+        "types": "./dist/signers/basic.d.cts",
+        "default": "./dist/signers/basic.cjs"
+      }
+    },
+    "./storage": {
+      "import": {
+        "types": "./dist/storage/auto.d.ts",
+        "default": "./dist/storage/auto.js"
+      },
+      "require": {
+        "types": "./dist/storage/auto.d.cts",
+        "default": "./dist/storage/auto.cjs"
+      }
+    },
+    "./storage/auto": {
+      "import": {
+        "types": "./dist/storage/auto.d.ts",
+        "default": "./dist/storage/auto.js"
+      },
+      "require": {
+        "types": "./dist/storage/auto.d.cts",
+        "default": "./dist/storage/auto.cjs"
+      }
+    },
+    "./storage/data-uri": {
+      "import": {
+        "types": "./dist/storage/data-uri.d.ts",
+        "default": "./dist/storage/data-uri.js"
+      },
+      "require": {
+        "types": "./dist/storage/data-uri.d.cts",
+        "default": "./dist/storage/data-uri.cjs"
+      }
+    },
+    "./storage/pinata": {
+      "import": {
+        "types": "./dist/storage/pinata.d.ts",
+        "default": "./dist/storage/pinata.js"
+      },
+      "require": {
+        "types": "./dist/storage/pinata.d.cts",
+        "default": "./dist/storage/pinata.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "packageManager": "pnpm@10.23.0",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "build": "tsup --config tsup.config.ts",
+    "dev": "tsup --config tsup.config.ts --watch",
+    "prepack": "pnpm build"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^15.0.0"
+  },
+  "peerDependencies": {
+    "@stellar/freighter-api": ">=6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@stellar/freighter-api": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@stellar/freighter-api": "^6.0.0",
+    "@types/node": "^24.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
+  }
+}
