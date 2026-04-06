@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 @theme {
   --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -13,16 +15,16 @@
   --color-surface-overlay: oklch(0.19 0.016 250);
 
   /* ── Borders ──────────────────────────────────────────────  */
-  --color-border: oklch(0.24 0.016 250);
-  --color-border-subtle: oklch(0.18 0.014 250);
+  --color-border: oklch(0.26 0.018 250);
+  --color-border-subtle: oklch(0.20 0.014 250);
 
   /* ── Text — 3-tier hierarchy ──────────────────────────────
-     dim  → labels, timestamps  (WCAG AA against surface: 4.6:1)
-     muted → secondary copy     (WCAG AA: 6.8:1)
+     dim  → labels, timestamps  (WCAG AA against surface: 5.2:1)
+     muted → secondary copy     (WCAG AA: 7.2:1)
      text  → primary            (WCAG AAA: 16:1)                 */
   --color-text: oklch(0.93 0.006 250);
-  --color-text-muted: oklch(0.64 0.012 250);
-  --color-text-dim: oklch(0.48 0.012 250);
+  --color-text-muted: oklch(0.65 0.014 250);
+  --color-text-dim: oklch(0.52 0.014 250);
 
   /* ── Accent — cool steel-blue, same hue family ────────────  */
   --color-accent: oklch(0.74 0.07 250);
@@ -40,6 +42,48 @@
   /* ── Glow shadows — accent-derived ────────────────────────  */
   --shadow-accent-sm: 0 0 20px oklch(0.74 0.07 250 / 0.12);
   --shadow-accent-md: 0 0 30px oklch(0.74 0.07 250 / 0.20);
+
+  /* ── Component tokens ─────────────────────────────────────  */
+  --color-medal-gold: oklch(0.85 0.11 85);
+  --color-medal-bronze: oklch(0.68 0.07 55);
+  --color-star-fill: oklch(0.64 0.012 250);
+}
+
+/* ── Light theme ──────────────────────────────────────────────
+   Surface: warm-cool white with enough chroma to feel "designed"
+   Text: pushed dark for crisp readability
+   Accent: deeper, more saturated for punch on white
+   Borders: clearly visible, not ghostly
+   Semantic: rich, saturated — readable on white backgrounds      */
+[data-theme="light"] {
+  --color-surface: oklch(0.98 0.004 250);
+  --color-surface-raised: oklch(0.95 0.006 250);
+  --color-surface-overlay: oklch(0.92 0.008 250);
+
+  --color-border: oklch(0.78 0.016 250);
+  --color-border-subtle: oklch(0.85 0.010 250);
+
+  --color-text: oklch(0.16 0.016 250);
+  --color-text-muted: oklch(0.40 0.020 250);
+  --color-text-dim: oklch(0.52 0.018 250);
+
+  --color-accent: oklch(0.44 0.14 250);
+  --color-accent-soft: oklch(0.44 0.14 250 / 0.08);
+  --color-accent-medium: oklch(0.44 0.14 250 / 0.14);
+
+  --color-positive: oklch(0.40 0.14 162);
+  --color-positive-soft: oklch(0.40 0.14 162 / 0.10);
+  --color-warning: oklch(0.48 0.14 80);
+  --color-warning-soft: oklch(0.48 0.14 80 / 0.10);
+  --color-negative: oklch(0.45 0.18 25);
+  --color-negative-soft: oklch(0.45 0.18 25 / 0.10);
+
+  --shadow-accent-sm: 0 2px 8px oklch(0.44 0.08 250 / 0.10);
+  --shadow-accent-md: 0 4px 16px oklch(0.44 0.08 250 / 0.14);
+
+  --color-medal-gold: oklch(0.55 0.16 85);
+  --color-medal-bronze: oklch(0.45 0.12 55);
+  --color-star-fill: oklch(0.40 0.020 250);
 }
 
 * {
@@ -153,3 +197,19 @@ textarea:focus {
 .reveal-d2 { animation-delay: 120ms; }
 .reveal-d3 { animation-delay: 180ms; }
 .reveal-d4 { animation-delay: 240ms; }
+
+/* ── Theme transition ── */
+html.theme-transitioning,
+html.theme-transitioning *:not(svg *):not(path):not(rect):not(circle):not(line),
+html.theme-transitioning *:not(svg *)::before,
+html.theme-transitioning *:not(svg *)::after {
+  transition: background-color 0.2s ease, color 0.2s ease,
+              border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+/* ── Light mode adjustments ── */
+[data-theme="light"] .cta-leak--warm { background: oklch(0.48 0.08 250 / 0.05); }
+[data-theme="light"] .cta-leak--cool { background: oklch(0.50 0.08 162 / 0.04); }
+[data-theme="light"] .cta-leak--edge { background: oklch(0.48 0.06 250 / 0.03); }
+[data-theme="light"] .cta-noise { opacity: 0.02; mix-blend-mode: multiply; }
+[data-theme="light"] { --shine-opacity: 0; }
