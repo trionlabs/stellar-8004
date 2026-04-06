@@ -1,9 +1,25 @@
+/**
+ * Client-only contract interaction functions.
+ * These import the wallet rune store and MUST only be called from
+ * client-side Svelte components, never from +page.server.ts or hooks.
+ */
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { getRpc, getStellarConfig } from './stellar.js';
 import { wallet } from './wallet.svelte.js';
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 60_000;
+const MAX_URI_LENGTH = 8192;
+const SAFE_SCHEMES = ['https://', 'http://', 'ipfs://', 'data:application/json'];
+
+function validateUri(uri: string): void {
+	if (uri.length > MAX_URI_LENGTH) {
+		throw new Error(`Agent URI too large (max ${MAX_URI_LENGTH / 1024}KB)`);
+	}
+	if (!SAFE_SCHEMES.some((s) => uri.startsWith(s))) {
+		throw new Error('Agent URI must use https://, http://, ipfs://, or data: scheme');
+	}
+}
 
 /**
  * Soroban transaction lifecycle:
@@ -35,6 +51,31 @@ async function buildAndSign(
 	const simulation = await getRpc().simulateTransaction(tx);
 	if (StellarSdk.rpc.Api.isSimulationError(simulation)) {
 		throw new Error(`Simulation failed: ${simulation.error}`);
+	}
+
+	// Sign non-invoker auth entries (for dual-auth methods like set_agent_wallet)
+	if (
+		StellarSdk.rpc.Api.isSimulationSuccess(simulation) &&
+		simulation.result?.auth
+	) {
+		for (let i = 0; i < simulation.result.auth.length; i++) {
+			const entry = simulation.result.auth[i];
+			const creds = entry.credentials();
+
+			if (creds.switch().name === 'sorobanCredentialsAddress') {
+				const entryAddress = StellarSdk.Address.fromScAddress(
+					creds.address().address()
+				).toString();
+
+				if (entryAddress !== wallet.address) {
+					// Non-invoker auth — sign via Freighter's signAuthEntry
+					const entryXdr = entry.toXDR('base64');
+					const signedXdr = await wallet.signAuth(entryXdr, entryAddress);
+					simulation.result.auth[i] =
+						StellarSdk.xdr.SorobanAuthorizationEntry.fromXDR(signedXdr, 'base64');
+				}
+			}
+		}
 	}
 
 	tx = StellarSdk.rpc.assembleTransaction(tx, simulation).build();
@@ -89,14 +130,7 @@ async function buildAndSign(
  * Contract method: `register_with_uri(Address, String)` → returns `u32(agent_id)`
  */
 export async function registerAgent(agentUri?: string): Promise<{ agentId: number; hash: string }> {
-	if (agentUri && agentUri.length > 8192) {
-		throw new Error('Agent URI too large (max 8KB)');
-	}
-
-	const SAFE_SCHEMES = ['https://', 'http://', 'ipfs://', 'data:application/json'];
-	if (agentUri && !SAFE_SCHEMES.some((s) => agentUri.startsWith(s))) {
-		throw new Error('Agent URI must use https://, http://, ipfs://, or data: scheme');
-	}
+	if (agentUri) validateUri(agentUri);
 
 	const ownerAddress = StellarSdk.nativeToScVal(wallet.address!, { type: 'address' });
 
@@ -113,23 +147,16 @@ export async function registerAgent(agentUri?: string): Promise<{ agentId: numbe
 /**
  * Update agent URI on the Identity Registry.
  *
- * Contract method: `update_uri(Address, u32, String)` → emits `uri_updated` event
+ * Contract method: `set_agent_uri(Address, u32, String)` → emits `uri_updated` event
+ * Auth: caller only (single require_auth)
  *
- * NOTE: Method name inferred from event name `uri_updated`.
- * Verify against Soroban contract ABI if simulation fails.
+ * Verified against contract source: github.com/trionlabs/stellar-8004
  */
 export async function updateAgentUri(
 	agentId: number,
 	newUri: string
 ): Promise<{ hash: string }> {
-	if (newUri.length > 8192) {
-		throw new Error('Agent URI too large (max 8KB)');
-	}
-
-	const SAFE_SCHEMES = ['https://', 'http://', 'ipfs://', 'data:application/json'];
-	if (!SAFE_SCHEMES.some((s) => newUri.startsWith(s))) {
-		throw new Error('Agent URI must use https://, http://, ipfs://, or data: scheme');
-	}
+	validateUri(newUri);
 
 	const args = [
 		StellarSdk.nativeToScVal(wallet.address!, { type: 'address' }),
@@ -137,7 +164,56 @@ export async function updateAgentUri(
 		StellarSdk.nativeToScVal(newUri, { type: 'string' })
 	];
 
-	const { hash } = await buildAndSign('update_uri', getStellarConfig().contracts.identity, args);
+	const { hash } = await buildAndSign('set_agent_uri', getStellarConfig().contracts.identity, args);
+	return { hash };
+}
+
+/**
+ * Bind a wallet address to an agent.
+ *
+ * Contract method: `set_agent_wallet(Address, u32, Address)` → emits `wallet_set` event
+ *
+ * Dual-auth: contract calls require_auth() on BOTH caller (owner) and newWallet.
+ * - If caller === newWallet: single Freighter signature suffices (invoker auth)
+ * - If caller !== newWallet: buildAndSign auto-detects the non-invoker auth entry
+ *   and prompts a second Freighter signAuthEntry call. The user must control both
+ *   addresses in their Freighter wallet.
+ *
+ * Verified against contract source: github.com/trionlabs/stellar-8004
+ */
+export async function setAgentWallet(
+	agentId: number,
+	newWallet: string
+): Promise<{ hash: string }> {
+	if (!StellarSdk.StrKey.isValidEd25519PublicKey(newWallet)) {
+		throw new Error('Invalid Stellar address');
+	}
+
+	const args = [
+		StellarSdk.nativeToScVal(wallet.address!, { type: 'address' }),
+		StellarSdk.nativeToScVal(agentId, { type: 'u32' }),
+		StellarSdk.nativeToScVal(newWallet, { type: 'address' })
+	];
+	const { hash } = await buildAndSign('set_agent_wallet', getStellarConfig().contracts.identity, args);
+	return { hash };
+}
+
+/**
+ * Remove the wallet binding from an agent.
+ *
+ * Contract method: `unset_agent_wallet(Address, u32)` → emits `wallet_removed` event
+ * Auth: caller only (single require_auth)
+ *
+ * Verified against contract source: github.com/trionlabs/stellar-8004
+ */
+export async function unsetAgentWallet(
+	agentId: number
+): Promise<{ hash: string }> {
+	const args = [
+		StellarSdk.nativeToScVal(wallet.address!, { type: 'address' }),
+		StellarSdk.nativeToScVal(agentId, { type: 'u32' })
+	];
+	const { hash } = await buildAndSign('unset_agent_wallet', getStellarConfig().contracts.identity, args);
 	return { hash };
 }
 
