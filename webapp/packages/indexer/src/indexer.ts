@@ -235,6 +235,20 @@ async function runIndexerLoop(
 
         if (event.ledger > maxLedger) {
           maxLedger = event.ledger;
+        } else if (event.ledger < maxLedger) {
+          // RPC pagination is supposed to be monotonic on ledger. If we
+          // ever see an out-of-order event, log it loudly so the cursor
+          // checkpoint we write at the end of the batch can be reasoned
+          // about - we still process the event, but we don't let it pull
+          // maxLedger backwards.
+          log({
+            level: 'warn',
+            msg: 'Non-monotonic event ledger from RPC',
+            contract: contract.name,
+            eventId: event.id,
+            eventLedger: event.ledger,
+            maxLedger,
+          });
         }
       }
 
