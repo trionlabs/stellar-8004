@@ -1,8 +1,8 @@
 import { env } from '$env/dynamic/public';
 import {
-	SorobanClient,
+	createClients,
 	getConfig,
-	type StellarConfig
+	type StellarConfig,
 } from '@trionlabs/8004s-sdk';
 import { FreighterSigner } from '@trionlabs/8004s-sdk/signers/freighter';
 
@@ -15,9 +15,15 @@ export const stellarConfig: StellarConfig = {
 	contracts: {
 		identity: env.PUBLIC_IDENTITY_REGISTRY || baseConfig.contracts.identity,
 		reputation: env.PUBLIC_REPUTATION_REGISTRY || baseConfig.contracts.reputation,
-		validation: env.PUBLIC_VALIDATION_REGISTRY || baseConfig.contracts.validation
-	}
+		validation: env.PUBLIC_VALIDATION_REGISTRY || baseConfig.contracts.validation,
+	},
 };
 
 export const signer = new FreighterSigner();
-export const client = new SorobanClient(signer, stellarConfig);
+
+export function getClients() {
+	if (!signer.publicKey) {
+		throw new Error('Wallet not connected. Call signer.connect() first.');
+	}
+	return createClients(stellarConfig, signer);
+}
