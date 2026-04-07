@@ -58,6 +58,34 @@ describe('metadata helpers', () => {
 		});
 	});
 
+	it('translates legacy endpoints to services when form services are empty', () => {
+		const emptyServicesForm = { ...formData, services: [] };
+		const metadata = buildMetadataJsonForEdit(emptyServicesForm, {
+			type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+			endpoints: [
+				{ type: 'MCP', url: 'https://agent.example.com/mcp' },
+				{ type: 'A2A', url: 'https://agent.example.com/a2a', version: '1.0' }
+			]
+		});
+
+		expect(metadata.services).toEqual([
+			{ name: 'MCP', endpoint: 'https://agent.example.com/mcp' },
+			{ name: 'A2A', endpoint: 'https://agent.example.com/a2a', version: '1.0' }
+		]);
+		// `endpoints` must NOT survive into the new metadata - the spec
+		// uses `services`.
+		expect('endpoints' in metadata).toBe(false);
+	});
+
+	it('does not translate legacy endpoints when the form has explicit services', () => {
+		const metadata = buildMetadataJsonForEdit(formData, {
+			endpoints: [{ type: 'MCP', url: 'https://legacy.example/mcp' }]
+		});
+		// Form services win.
+		expect(metadata.services).toEqual(formData.services);
+		expect('endpoints' in metadata).toBe(false);
+	});
+
 	it('validates supported url schemes', () => {
 		expect(validateUrl('https://example.com')).toBe('');
 		expect(validateUrl('ipfs://bafy123')).toBe('');
