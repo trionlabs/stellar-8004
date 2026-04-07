@@ -10,4 +10,8 @@ pub enum IdentityError {
     MetadataKeyTooLong = 4,
     MetadataValueTooLong = 5,
     TooManyMetadataKeys = 6,
+    /// ERC-8004 spec: `agentWallet` is a reserved metadata key. It cannot
+    /// be set via `setMetadata()` or during `register()`. Use the dedicated
+    /// `set_agent_wallet` entry point instead.
+    ReservedMetadataKey = 7,
 }

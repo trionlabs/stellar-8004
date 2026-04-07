@@ -447,6 +447,51 @@ fn test_set_metadata_rejects_oversized_value() {
 }
 
 #[test]
+fn test_set_metadata_rejects_reserved_agent_wallet_key() {
+    // ERC-8004 spec: `agentWallet` is a reserved metadata key. It must be
+    // settable only via the dedicated `set_agent_wallet` entry point with
+    // wallet auth, never through `setMetadata`.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let agent_id = client.register(&user);
+
+    let reserved = String::from_str(&env, "agentWallet");
+    let result = client.try_set_metadata(
+        &user,
+        &agent_id,
+        &reserved,
+        &Bytes::from_slice(&env, b"GAFAKE"),
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_register_full_rejects_reserved_agent_wallet_key() {
+    // Same constraint as set_metadata: agentWallet cannot be smuggled in
+    // through the registration metadata array.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let metadata = Vec::from_array(
+        &env,
+        [MetadataEntry {
+            key: String::from_str(&env, "agentWallet"),
+            value: Bytes::from_slice(&env, b"GAFAKE"),
+        }],
+    );
+
+    // register_full uses assert! and panics on the reserved key, so this
+    // call should fail at the host level.
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.register_full(&user, &String::from_str(&env, ""), &metadata)
+    }));
+    assert!(result.is_err());
+}
+
+#[test]
 fn test_set_metadata_accepts_max_size_payload() {
     let env = Env::default();
     env.mock_all_auths();

@@ -303,7 +303,11 @@ fn test_response_to_nonexistent_request_fails() {
 }
 
 #[test]
-fn test_double_response_rejected() {
+fn test_progressive_validation_response() {
+    // ERC-8004 spec: validationResponse() is callable multiple times per
+    // requestHash to enable progressive states. The same validator can
+    // update their assessment as more evidence arrives. This used to
+    // reject the second call which violated the spec.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, agent_owner, validator) = setup(&env);
@@ -317,24 +321,42 @@ fn test_double_response_rejected() {
         &hash,
     );
 
-    // First response succeeds
+    // First response: tentative score 90
     client.validation_response(
         &validator,
         &hash,
         &90,
         &String::from_str(&env, ""),
         &test_hash(&env, 2),
-        &String::from_str(&env, ""),
+        &String::from_str(&env, "tentative"),
     );
+    let status1 = client.get_validation_status(&hash);
+    assert_eq!(status1.response, 90);
+    assert_eq!(status1.tag, String::from_str(&env, "tentative"));
 
-    // Second response fails
-    let result = client.try_validation_response(
+    // Second response from the same validator: revised score 50.
+    // Spec says this MUST succeed (progressive states).
+    client.validation_response(
         &validator,
         &hash,
         &50,
         &String::from_str(&env, ""),
         &test_hash(&env, 3),
+        &String::from_str(&env, "final"),
+    );
+    let status2 = client.get_validation_status(&hash);
+    assert_eq!(status2.response, 50);
+    assert_eq!(status2.tag, String::from_str(&env, "final"));
+
+    // A non-validator still cannot update.
+    let stranger = Address::generate(&env);
+    let result = client.try_validation_response(
+        &stranger,
+        &hash,
+        &10,
         &String::from_str(&env, ""),
+        &test_hash(&env, 4),
+        &String::from_str(&env, "imposter"),
     );
     assert!(result.is_err());
 }
