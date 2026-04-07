@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Buffer } from 'buffer';
 	import { getClients } from '$lib/sdk-client.js';
-	import { generateRequestHash } from '@trionlabs/8004s-sdk';
+	import { generateRequestNonce } from '@trionlabs/8004s-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
@@ -36,7 +36,7 @@
 
 		try {
 			const { validation } = getClients();
-			const requestHash = await generateRequestHash(agentId, validatorAddress);
+			const requestHash = await generateRequestNonce(agentId, validatorAddress);
 			const tx = await validation.validation_request({
 				caller: wallet.address!,
 				validator_address: validatorAddress,
