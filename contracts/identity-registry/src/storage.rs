@@ -9,6 +9,12 @@ pub const TTL_THRESHOLD: u32 = 518_400;
 // ~60 days
 pub const TTL_BUMP: u32 = 1_036_800;
 
+// Per-entry size caps for the metadata API. Enforced at the contract entry
+// point so a registered agent cannot spam unbounded storage. The 4 KB value
+// limit comfortably holds JSON references, signatures, IPFS CIDs, etc.
+pub const MAX_METADATA_KEY_LEN: u32 = 64;
+pub const MAX_METADATA_VALUE_LEN: u32 = 4096;
+
 /// Reads the OZ NonFungibleToken owner entry directly. Returns `None` for
 /// missing or archived tokens; `Base::owner_of` panics in the same case,
 /// which is unsafe in cross-contract callers.
