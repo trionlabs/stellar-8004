@@ -1,5 +1,6 @@
 -- Atomic response_index derivation + insert for ResponseAppended events
--- See: backlog/013_PHASE5_CONCURRENCY_INTEGRITY.md Task 3
+-- NOTE: This migration's FOR UPDATE on an aggregate is invalid Postgres -
+-- see migration 021 for the working pg_advisory_xact_lock fix.
 
 CREATE OR REPLACE FUNCTION insert_feedback_response(
   p_agent_id integer,
