@@ -39,7 +39,7 @@
 					Explore AI agents on Stellar
 				</h1>
 				<p class="max-w-lg text-[15px] leading-relaxed text-text-muted font-light">
-					Browse registered agents, check reputation scores, and track validator endorsements &mdash; all indexed from 8004 for Stellar contracts.
+					Browse registered agents, check reputation scores, and track validator endorsements &mdash; all indexed from <span class="bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent font-medium">8004 for Stellar</span> contracts.
 				</p>
 			</div>
 		</div>
