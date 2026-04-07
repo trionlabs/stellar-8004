@@ -30,7 +30,7 @@
                   "string": "https://validate.example.com"
                 },
                 {
-                  "bytes": "0100000000000000000000000000000000000000000000000000000000000000"
+                  "bytes": "0700000000000000000000000000000000000000000000000000000000000000"
                 }
               ]
             }
@@ -40,45 +40,12 @@
       ]
     ],
     [],
-    [
-      [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
-        {
-          "function": {
-            "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
-              "function_name": "validation_response",
-              "args": [
-                {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                },
-                {
-                  "bytes": "0100000000000000000000000000000000000000000000000000000000000000"
-                },
-                {
-                  "u32": 85
-                },
-                {
-                  "string": "https://proof.example.com"
-                },
-                {
-                  "bytes": "0200000000000000000000000000000000000000000000000000000000000000"
-                },
-                {
-                  "string": "capability"
-                }
-              ]
-            }
-          },
-          "sub_invocations": []
-        }
-      ]
-    ],
+    [],
     []
   ],
   "ledger": {
     "protocol_version": 25,
-    "sequence_number": 0,
+    "sequence_number": 1036700,
     "timestamp": 0,
     "network_id": "0000000000000000000000000000000000000000000000000000000000000000",
     "base_reserve": 0,
@@ -96,26 +63,6 @@
               "key": {
                 "ledger_key_nonce": {
                   "nonce": "801925984706572462"
-                }
-              },
-              "durability": "temporary",
-              "val": "void"
-            }
-          },
-          "ext": "v0"
-        },
-        "live_until": 6311999
-      },
-      {
-        "entry": {
-          "last_modified_ledger_seq": 0,
-          "data": {
-            "contract_data": {
-              "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
-              "key": {
-                "ledger_key_nonce": {
-                  "nonce": "5541220902715666415"
                 }
               },
               "durability": "temporary",
@@ -198,7 +145,7 @@
               },
               "durability": "persistent",
               "val": {
-                "bytes": "0100000000000000000000000000000000000000000000000000000000000000"
+                "bytes": "0700000000000000000000000000000000000000000000000000000000000000"
               }
             }
           },
@@ -246,7 +193,7 @@
                     "symbol": "Validation"
                   },
                   {
-                    "bytes": "0100000000000000000000000000000000000000000000000000000000000000"
+                    "bytes": "0700000000000000000000000000000000000000000000000000000000000000"
                   }
                 ]
               },
@@ -266,7 +213,7 @@
                       "symbol": "has_response"
                     },
                     "val": {
-                      "bool": true
+                      "bool": false
                     }
                   },
                   {
@@ -282,7 +229,7 @@
                       "symbol": "response"
                     },
                     "val": {
-                      "u32": 85
+                      "u32": 0
                     }
                   },
                   {
@@ -290,7 +237,7 @@
                       "symbol": "response_hash"
                     },
                     "val": {
-                      "bytes": "0200000000000000000000000000000000000000000000000000000000000000"
+                      "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
                     }
                   },
                   {
@@ -298,7 +245,7 @@
                       "symbol": "tag"
                     },
                     "val": {
-                      "string": "capability"
+                      "string": ""
                     }
                   },
                   {
@@ -315,7 +262,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 1036800
+        "live_until": 2073500
       },
       {
         "entry": {
@@ -339,7 +286,7 @@
               },
               "durability": "persistent",
               "val": {
-                "bytes": "0100000000000000000000000000000000000000000000000000000000000000"
+                "bytes": "0700000000000000000000000000000000000000000000000000000000000000"
               }
             }
           },
@@ -420,7 +367,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 4095
+        "live_until": 1040795
       },
       {
         "entry": {

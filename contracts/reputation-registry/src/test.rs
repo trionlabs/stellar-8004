@@ -1,9 +1,13 @@
 #![cfg(test)]
 extern crate std;
 
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{
+    testutils::{storage::Persistent as _, Address as _, Ledger as _},
+    Address, BytesN, Env, String, Vec,
+};
 
 use crate::contract::{ReputationRegistryContract, ReputationRegistryContractClient};
+use crate::storage::{DataKey, TTL_BUMP};
 
 // We need a mock identity registry for cross-contract calls
 mod mock_identity {
@@ -519,4 +523,61 @@ fn test_append_response_on_missing_agent_returns_error_not_panic() {
         result.is_err(),
         "append_response against a missing agent must return Err, not panic"
     );
+}
+
+#[test]
+fn test_aggregate_ttl_survives_long_idle_periods_via_reads() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+    let contract_addr = client.address.clone();
+
+    client.give_feedback(
+        &reviewer,
+        &0,
+        &80,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+
+    // Aggregate persistent entry must be at full TTL after a write.
+    env.as_contract(&contract_addr, || {
+        let ttl = env
+            .storage()
+            .persistent()
+            .get_ttl(&DataKey::AgentAggregate(0));
+        assert_eq!(
+            ttl, TTL_BUMP,
+            "set path should extend the aggregate TTL to TTL_BUMP"
+        );
+    });
+
+    // Burn most of the TTL window.
+    let advance: u32 = TTL_BUMP - 100;
+    env.ledger().with_mut(|l| l.sequence_number += advance);
+
+    // get_summary must extend the TTL on read; the aggregate must survive.
+    let summary = client.get_summary(
+        &0,
+        &Vec::<Address>::new(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+    );
+    assert_eq!(summary.count, 1);
+    assert_eq!(summary.summary_value, 80);
+
+    env.as_contract(&contract_addr, || {
+        let ttl = env
+            .storage()
+            .persistent()
+            .get_ttl(&DataKey::AgentAggregate(0));
+        assert_eq!(
+            ttl, TTL_BUMP,
+            "get_summary should re-extend the aggregate TTL to TTL_BUMP"
+        );
+    });
 }
