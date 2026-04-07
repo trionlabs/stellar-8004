@@ -119,14 +119,15 @@ The [stellar8004.com](https://stellar8004.com) explorer, the Soroban event index
 
 ## Differences from the EVM Reference
 
-Soroban is not EVM-compatible. These are the intentional deviations from the Solidity reference:
+Soroban is not EVM-compatible. These are the intentional deviations from the Solidity reference, plus a small number of partials.
 
 **Architecture changes:**
 
-- `setAgentWallet` uses Soroban's native `require_auth()` on both caller and new wallet instead of EIP-712 signatures. Simpler, handles replay protection and domain separation natively.
+- `setAgentWallet` uses Soroban's native `require_auth()` on both caller and new wallet instead of EIP-712 / ERC-1271 signatures. Simpler, handles replay protection and domain separation natively. Smart-wallet contracts must implement `__check_auth` (Stellar's equivalent of ERC-1271).
 - `getClients`, `getAgentValidations`, `getValidatorRequests` are paginated. Soroban has a per-transaction read limit (~100 entries), so unbounded array returns are not possible.
 - `readAllFeedback` moved to TypeScript SDK. Iterating all feedback on-chain would exceed resource limits for any agent with significant history.
-- `validationResponse` restricted to the designated validator address. The EVM reference allows any caller, but this creates an overwrite vulnerability where an attacker can replace a legitimate response.
+- `getSummary` accepts an empty `clientAddresses` array as a shortcut for the agent-wide pre-computed aggregate. The spec requires non-empty; we are more permissive.
+- Three constructor signatures (`register`, `register_with_uri`, `register_full`) instead of Solidity overloading - Soroban does not support overloads.
 
 **Storage optimizations:**
 
@@ -139,6 +140,11 @@ Soroban is not EVM-compatible. These are the intentional deviations from the Sol
 - `u8` fields changed to `u32` - Soroban's `#[contracttype]` does not support `u8`.
 - `uint256` agent IDs changed to `u32` - OZ Stellar NFT uses `u32` token IDs. Supports ~4 billion agents.
 - `address` maps to Soroban `Address` (covers both Stellar accounts and contract accounts).
+- `MetadataEntry` field names are `key` / `value` (Rust convention) instead of the spec's `metadataKey` / `metadataValue`. The XDR encoding differs; cross-chain interop tooling should translate.
+
+**Partial coverage:**
+
+- `getResponseCount` does not accept a `responders[]` filter argument. We track only the response count per `(agent_id, client, feedback_index)`, not per-responder identity. The spec's filtered variant would require new per-responder storage.
 
 **Soroban-specific additions:**
 
@@ -146,7 +152,9 @@ Soroban is not EVM-compatible. These are the intentional deviations from the Sol
 - `upgrade()` with `#[only_owner]` on all contracts - native contract upgrades.
 - `version()` on all contracts - on-chain version query.
 - `contractmeta!` binary metadata for WASM version tracking.
-- Wallet cleared on NFT transfer via `ContractOverrides` trait.
+- `find_owner()` on Identity Registry - non-panicking variant of `owner_of`. Cross-contract callers (Reputation, Validation) use this to surface a clean `AgentNotFound` error instead of crashing on an archived NFT entry.
+- Reserved `agentWallet` metadata key is enforced: `set_metadata` and `register_full` reject this key, matching the spec requirement that wallet bindings flow through `set_agent_wallet` only.
+- Wallet AND all metadata cleared on NFT transfer via `ContractOverrides` trait. The spec only mandates clearing the `agentWallet` reserved key; we go further by clearing the full metadata set, since metadata represents claims authored by the previous owner.
 
 ## Global Agent Identifier
 
