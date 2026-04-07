@@ -50,6 +50,25 @@ export async function generateRequestNonce(
 	return new Uint8Array(hashBuffer);
 }
 
+/** Validates that a string is a valid Stellar ed25519 public key (G...). */
+export function validateStellarAddress(address: string, label = 'Address'): void {
+	if (!StellarSdk.StrKey.isValidEd25519PublicKey(address)) {
+		throw new Error(`${label} is not a valid Stellar address`);
+	}
+}
+
+/** Maps opaque Soroban/wallet errors to user-friendly messages. */
+export function formatSorobanError(err: unknown): string {
+	const msg = err instanceof Error ? err.message : String(err);
+	if (/User declined|rejected|denied/i.test(msg)) return 'Transaction cancelled in wallet.';
+	if (/network.*mismatch/i.test(msg)) return 'Wallet is on a different network than the app.';
+	if (/Budget.*LimitExceeded/i.test(msg)) return 'Transaction resource limit exceeded. Try a simpler operation.';
+	if (/insufficient.*balance/i.test(msg)) return 'Insufficient XLM balance for transaction fees.';
+	if (/expired/i.test(msg)) return 'Transaction expired. Please try again.';
+	if (/timeout|ETIMEDOUT/i.test(msg)) return 'Network timeout. Check your connection and try again.';
+	return msg.length > 200 ? msg.slice(0, 200) + '…' : msg;
+}
+
 export function estimateGas(
 	simulation: StellarSdk.rpc.Api.SimulateTransactionResponse
 ): GasEstimate {
