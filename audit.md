@@ -214,7 +214,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** Anyone running this indexer from the deploy ledger sees gaps in feedback history that don't correspond to any indexer error log they still have access to.
 - **Fix:** Run `scripts/backfill-events.ts` from the deploy ledger and diff the resulting row count against the live DB. Flag any agent_id x feedback_index that exists in events but not in the DB. (Also: widen `feedback.value` to `numeric(78,0)` was already done in 016 - this issue is about the historical gap, not the current schema.)
 
-### C2. HIGH - URI resolver has no JSON size or depth bound
+### C2. HIGH - URI resolver has no JSON size or depth bound [DONE in fe98496]
 - **File:** `webapp/supabase/functions/_shared/uri.ts` (`resolveUri` / `fetchJson`) and `webapp/scripts/backfill-events.ts` (the same logic, duplicated)
 - **What:** `await response.json()` on remote IPFS / HTTPS data. No `Content-Length` check before reading, no `Content-Type` whitelist beyond what `fetch` enforces, no JSON depth limit, no field count limit.
 - **Why it matters:** A malicious agent registers with `agent_uri = ipfs://Qm...` pointing at a 100 MB JSON bomb. Edge Function's `resolve-uris` invocation OOMs and crashes. Cron retries forever (until `MAX_ATTEMPTS = 5` per agent, but a new agent can register every minute and re-fill the queue). The edge function is denial-of-serviced indefinitely.
@@ -405,11 +405,11 @@ These were reported by the parallel agents. I checked and they don't hold up:
 - A7 - `35d9dba` cap metadata key (64) and value (4096) lengths
 - C8+C15 - `96044e2` validations.tag length constraint, index, search_agents grant
 - B7 - `244a51c` add noreferrer to external explorer links
+- C2 - `fe98496` JSON size cap + SSRF guard in resolveUri/parseDataUri
 
 **Open, in priority order:**
 
-1. **C2 (URI resolver SSRF + JSON bomb)** - DoS vector exposed to anyone who can register an agent. Stream + bound + SSRF guard.
-2. **A1 (metadata TTL extension or removal)** - investigate caller graph, then either add a key index or delete the API. Tied to A6.
+1. **A1 (metadata TTL extension or removal)** - investigate caller graph, then either add a key index or delete the API. Tied to A6.
 3. **A6 (transfer doesn't clear metadata)** - tied to A1.
 4. **C5 (backfill / indexer concurrent races)** - operationally important.
 5. **C6 (Kong auth header logging)** - verify access log format first.
