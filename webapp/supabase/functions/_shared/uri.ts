@@ -1,8 +1,15 @@
 const FETCH_TIMEOUT_MS = 10_000;
+// 1 MB cap on remote JSON responses. Resolved metadata is small by design
+// (a couple of KB at most). The cap prevents JSON-bomb DoS via a malicious
+// IPFS gateway returning a multi-MB payload that OOMs the Edge Function.
+const MAX_RESPONSE_BYTES = 1_048_576;
+
+// cloudflare-ipfs.com was retired in 2024 and now serves 410, so it was
+// dropped from this list. dweb.link is Protocol Labs' rotating gateway.
 const IPFS_GATEWAYS = [
   'https://ipfs.io/ipfs/',
-  'https://cloudflare-ipfs.com/ipfs/',
   'https://gateway.pinata.cloud/ipfs/',
+  'https://dweb.link/ipfs/',
 ];
 
 export async function resolveUri(uri: string): Promise<unknown | null> {
@@ -34,6 +41,13 @@ export async function resolveUri(uri: string): Promise<unknown | null> {
 }
 
 function parseDataUri(uri: string): unknown | null {
+  // Same MAX_RESPONSE_BYTES cap as remote fetches: a registered agent must
+  // not be able to bypass the JSON-bomb cap by inlining the payload as a
+  // data URI. The check is on the raw URI length, which is an upper bound
+  // for the decoded payload (base64 encodes 3 bytes per 4 chars, so the
+  // decoded payload is always <= the raw length).
+  if (uri.length > MAX_RESPONSE_BYTES) return null;
+
   try {
     const commaIndex = uri.indexOf(',');
     if (commaIndex === -1) return null;
@@ -46,10 +60,13 @@ function parseDataUri(uri: string): unknown | null {
     if (header.includes('base64')) {
       const binaryStr = atob(payload);
       const bytes = Uint8Array.from(binaryStr, (c) => c.charCodeAt(0));
+      if (bytes.length > MAX_RESPONSE_BYTES) return null;
       return JSON.parse(new TextDecoder().decode(bytes));
     }
 
-    return JSON.parse(decodeURIComponent(payload));
+    const decoded = decodeURIComponent(payload);
+    if (decoded.length > MAX_RESPONSE_BYTES) return null;
+    return JSON.parse(decoded);
   } catch {
     return null;
   }
@@ -106,17 +123,147 @@ export function extractServices(uriData: unknown): unknown[] {
   return [];
 }
 
+/**
+ * Returns true for hostnames that resolve to or directly name a private,
+ * loopback, link-local, multicast, or otherwise non-public network. This is
+ * a best-effort SSRF guard against agent metadata URIs that point at
+ * internal infrastructure.
+ *
+ * Note: this only inspects the URL string. A DNS-rebinding attacker who
+ * controls a public hostname can still aim at private space at fetch time.
+ * Closing that gap requires DNS-then-connect-by-IP, which Deno's fetch
+ * doesn't expose.
+ */
+export function isPrivateOrLoopbackHost(hostname: string): boolean {
+  if (!hostname) return true;
+  const lower = hostname.toLowerCase();
+
+  // Bare hostnames that point at the host machine.
+  if (lower === 'localhost' || lower.endsWith('.localhost')) return true;
+  if (lower.endsWith('.local') || lower.endsWith('.internal')) return true;
+
+  // IPv6 literals: strip surrounding brackets if present.
+  const stripped = lower.startsWith('[') && lower.endsWith(']')
+    ? lower.slice(1, -1)
+    : lower;
+
+  if (stripped === '::1' || stripped === '::') return true;
+  if (
+    stripped.startsWith('fe8') ||
+    stripped.startsWith('fe9') ||
+    stripped.startsWith('fea') ||
+    stripped.startsWith('feb') // fe80::/10 link-local
+  ) {
+    return true;
+  }
+  if (stripped.startsWith('fc') || stripped.startsWith('fd')) return true; // fc00::/7 unique-local
+  if (stripped.startsWith('ff')) return true; // multicast
+
+  // IPv4 dotted quad.
+  const ipv4Match = stripped.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4Match) {
+    const [a, b, c, d] = ipv4Match.slice(1).map(Number);
+    if ([a, b, c, d].some((n) => Number.isNaN(n) || n < 0 || n > 255)) return true;
+    if (a === 0) return true; // 0.0.0.0/8
+    if (a === 10) return true; // 10.0.0.0/8 private
+    if (a === 127) return true; // loopback
+    if (a === 169 && b === 254) return true; // link-local
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 private
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16 private
+    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT 100.64.0.0/10
+    if (a >= 224) return true; // multicast/reserved
+  }
+
+  return false;
+}
+
+/**
+ * Streams a fetch response into memory but aborts if it exceeds maxBytes.
+ * Returns null on cap-exceeded or any read failure. Used by fetchJson to
+ * bound JSON parse memory.
+ */
+async function readBodyWithLimit(
+  response: Response,
+  maxBytes: number,
+): Promise<Uint8Array | null> {
+  const declared = response.headers.get('content-length');
+  if (declared != null) {
+    const size = Number(declared);
+    if (Number.isFinite(size) && size > maxBytes) return null;
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) return null;
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.length;
+    if (total > maxBytes) {
+      try {
+        await reader.cancel();
+      } catch {
+        // best-effort cancel
+      }
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  const buf = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    buf.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return buf;
+}
+
 async function fetchJson(url: string): Promise<unknown | null> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+
+  // Only http/https. Block file://, data: (handled separately), gopher://, ftp://, etc.
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return null;
+  }
+
+  if (isPrivateOrLoopbackHost(parsed.hostname)) {
+    return null;
+  }
+
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      redirect: 'follow',
     });
 
     if (!response.ok) {
       return null;
     }
 
-    return await response.json();
+    // After redirect, recheck the final destination's hostname so a 302 to a
+    // private host is rejected.
+    try {
+      const finalUrl = new URL(response.url);
+      if (isPrivateOrLoopbackHost(finalUrl.hostname)) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+
+    const body = await readBodyWithLimit(response, MAX_RESPONSE_BYTES);
+    if (body == null) return null;
+
+    return JSON.parse(new TextDecoder().decode(body));
   } catch {
     return null;
   }
