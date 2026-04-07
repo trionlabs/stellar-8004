@@ -14,4 +14,7 @@ pub enum IdentityError {
     /// be set via `setMetadata()` or during `register()`. Use the dedicated
     /// `set_agent_wallet` entry point instead.
     ReservedMetadataKey = 7,
+    /// ERC-8004 spec: `setMetadata`, `setAgentURI`, and `register*` reject
+    /// empty keys / URIs. Match the reference implementation.
+    EmptyValue = 8,
 }

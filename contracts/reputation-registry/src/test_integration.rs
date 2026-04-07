@@ -78,8 +78,9 @@ fn test_full_lifecycle_with_real_identity() {
     assert_eq!(summary.count, 1);
     assert_eq!(summary.summary_value, 90);
 
-    // Agent owner cannot self-review
-    let result = rep_client.try_give_feedback(
+    // ERC-8004 Jan 2026 update: agent owner CAN self-review on chain.
+    // Off-chain consumers must filter self-feedback in their scoring.
+    rep_client.give_feedback(
         &agent_owner,
         &agent_id,
         &100,
@@ -90,7 +91,16 @@ fn test_full_lifecycle_with_real_identity() {
         &empty_str(&env),
         &zero_hash(&env),
     );
-    assert!(result.is_err());
+
+    // After self-review the aggregate should reflect both feedback entries.
+    let summary = rep_client.get_summary(
+        &agent_id,
+        &Vec::<Address>::new(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+    );
+    assert_eq!(summary.count, 2);
+    assert_eq!(summary.summary_value, 190);
 
     // Agent owner responds to feedback
     rep_client.append_response(
@@ -103,8 +113,9 @@ fn test_full_lifecycle_with_real_identity() {
     );
     assert_eq!(rep_client.get_response_count(&agent_id, &reviewer, &1), 1);
 
-    // Revoke feedback updates aggregate
+    // Revoke both feedback entries to verify aggregate updates correctly.
     rep_client.revoke_feedback(&reviewer, &agent_id, &1);
+    rep_client.revoke_feedback(&agent_owner, &agent_id, &1);
     let summary = rep_client.get_summary(
         &agent_id,
         &Vec::<Address>::new(&env),
