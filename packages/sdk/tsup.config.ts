@@ -3,6 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
 	entry: {
 		index: 'src/index.ts',
+		bindings: 'src/bindings/index.ts',
 		api: 'src/api/index.ts',
 		'api/explorer': 'src/api/explorer.ts',
 		'signers/freighter': 'src/signers/freighter.ts',
