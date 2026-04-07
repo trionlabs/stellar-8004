@@ -3,7 +3,7 @@
 .env.*
 !.env.example
 
-# Runtime data — never commit
+# Runtime data - never commit
 volumes/db/data/
 volumes/storage/
 volumes/snippets/

@@ -1,5 +1,5 @@
 /**
- * Seed Testnet — Register 10 agents + give feedback to test indexer & scoring.
+ * Seed Testnet - Register 10 agents + give feedback to test indexer & scoring.
  *
  * Usage: pnpm seed:testnet
  *
@@ -18,7 +18,7 @@ const POLL_TIMEOUT_MS = 120_000;
 
 const rpc = new StellarSdk.rpc.Server(RPC_URL);
 
-// ─── Test Data ──────────────────────────────────────────────────────
+// --- Test Data ------------------------------------------------------
 
 interface AgentDef {
 	name: string;
@@ -41,7 +41,7 @@ const AGENTS: AgentDef[] = [
 	{ name: 'Ember', description: 'Log aggregation service', scoreA: 0, scoreB: 5, tag: 'responseTime' },
 ];
 
-// ─── Helpers ────────────────────────────────────────────────────────
+// --- Helpers --------------------------------------------------------
 
 function buildMetadata(name: string, description: string) {
 	return {
@@ -78,7 +78,7 @@ async function sleep(ms: number) {
 	return new Promise((r) => setTimeout(r, ms));
 }
 
-// ─── Transaction Builder ────────────────────────────────────────────
+// --- Transaction Builder --------------------------------------------
 
 async function buildAndSubmit(
 	keypair: StellarSdk.Keypair,
@@ -111,7 +111,7 @@ async function buildAndSubmit(
 		throw new Error(`Send failed: ${JSON.stringify(response.errorResult)}`);
 	}
 	if (response.status === 'TRY_AGAIN_LATER') {
-		throw new Error('Network busy — try again later');
+		throw new Error('Network busy - try again later');
 	}
 
 	// Poll for confirmation
@@ -134,7 +134,7 @@ async function buildAndSubmit(
 	throw new Error(`Unexpected status: ${(result as any).status}`);
 }
 
-// ─── Contract Operations ────────────────────────────────────────────
+// --- Contract Operations --------------------------------------------
 
 async function registerAgent(
 	ownerKeypair: StellarSdk.Keypair,
@@ -177,7 +177,7 @@ async function giveFeedback(
 	await buildAndSubmit(clientKeypair, 'give_feedback', REPUTATION_CONTRACT, args);
 }
 
-// ─── Main ───────────────────────────────────────────────────────────
+// --- Main -----------------------------------------------------------
 
 async function main() {
 	console.log('=== Stellar 8004 Testnet Seed ===\n');
@@ -209,7 +209,7 @@ async function main() {
 		const uri = toDataUri(metadata);
 		const agentId = await registerAgent(owner, uri);
 		agentIds.push(agentId);
-		console.log(`  ${agent.name} → agent_id=${agentId}`);
+		console.log(`  ${agent.name} -> agent_id=${agentId}`);
 	}
 	console.log();
 

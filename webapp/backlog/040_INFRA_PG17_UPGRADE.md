@@ -1,4 +1,4 @@
-# 040 — Postgres 15 → 17 Upgrade
+# 040 - Postgres 15 -> 17 Upgrade
 
 **Status:** DONE
 **Owner:** claude/yaman
@@ -10,7 +10,7 @@ Local dev (`supabase start`) ran PG17, VPS ran PG15. Version drift risks incompa
 
 ## Upgrade Path
 
-pg_dump/restore (not pg_upgrade — Supabase custom image incompatible).
+pg_dump/restore (not pg_upgrade - Supabase custom image incompatible).
 
 1. DROP pgjwt (unused, deprecated in PG17)
 2. pg_dump public + private schemas from PG15
@@ -23,24 +23,24 @@ pg_dump/restore (not pg_upgrade — Supabase custom image incompatible).
 
 | File | Change |
 |------|--------|
-| `docker-compose.supabase.yml` | Image `supabase/postgres:15.8.1.085` → `17.4.1.029` |
+| `docker-compose.supabase.yml` | Image `supabase/postgres:15.8.1.085` -> `17.4.1.029` |
 | `024_api_rate_limits.sql` | Added missing `CREATE SCHEMA IF NOT EXISTS private` |
 
 ## PG17 Gains
 
-- JSON_TABLE() — JSONB to relational rows in FROM clause
+- JSON_TABLE() - JSONB to relational rows in FROM clause
 - Incremental backup (pg_basebackup block-level)
 - Better vacuum, query parallelism, I/O
-- pg_stat_statements 1.10 → 1.11
+- pg_stat_statements 1.10 -> 1.11
 
 ## PG17 Losses
 
-- `pgjwt` — deprecated, was unused in our codebase
-- `plv8`, `plcoffee`, `timescaledb` — not relevant (never used)
+- `pgjwt` - deprecated, was unused in our codebase
+- `plv8`, `plcoffee`, `timescaledb` - not relevant (never used)
 
 ## Commits
 
-- `d12f03f` feat(docker): upgrade Postgres 15 → 17, fix migration 024
+- `d12f03f` feat(docker): upgrade Postgres 15 -> 17, fix migration 024
 
 ## Verification
 

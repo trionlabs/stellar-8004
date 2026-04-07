@@ -1,30 +1,30 @@
-# 016 — Schema & Validation Hardening
+# 016 - Schema & Validation Hardening
 
 **Status:** DONE
 **Owner:** Codex
-**Phase:** 5 — Indexer Hardening
+**Phase:** 5 - Indexer Hardening
 **Branch:** `feat/indexer-validation`
 **Depends On:** 012
 
 ## Context
 
-Indexer'ın parser katmanı on-chain verinin formatını doğrulamıyor:
-- Stellar adresleri (G..., 56 char) validate edilmiyor
-- `numeric(39,18)` i128 tam aralığını karşılamıyor (i128 max ~1.7e38 > numeric(39,18) max ~9.2e21)
-- `value_decimals` negatif/büyük olabilir, kontrol yok
-- validation `response` 0-100 kontrolü sadece DB constraint'inde
+The indexer parser layer does not validate the format of on-chain data:
+- Stellar addresses (G..., 56 char) are not validated
+- `numeric(39,18)` does not cover the full i128 range (i128 max ~1.7e38 > numeric(39,18) max ~9.2e21)
+- `value_decimals` could be negative or huge with no check
+- validation `response` 0-100 check exists only as a DB constraint
 
-**8004 protokolü açısından:** Feedback `value` i128 tipi — Soroban kontratı negatif değer kabul eder (ör. -50 skor). DB bunu tutabilmeli. Agent adresi geçersizse trust verisi anlamsızlaşır.
+**From the 8004 protocol perspective:** Feedback `value` is i128 - the Soroban contract accepts negative values (e.g. -50 score). The DB must hold these. If the agent address is invalid, the trust data becomes meaningless.
 
-### Critic Bulguları (BLOCK çözümleri)
+### Critic findings (BLOCK resolutions)
 
-- **CRITIC-§3 (StrKey Deno uyumluluk sorunu):** `@stellar/stellar-sdk` Deno'da import edilemiyor (`denoland/deno#26132`). `StrKey.isValidEd25519PublicKey` kullanılamaz. **Pure JS alternative yazılmalı.**
-- **CRITIC-§6 (FORCE RLS gereksiz):** `service_role` `BYPASSRLS` attribute'üne sahip. `FORCE ROW LEVEL SECURITY` sadece table owner'ı etkiler, `BYPASSRLS` role'leri etkilemez. **Task kaldırıldı.**
-- **CRITIC-§2 (POWER iddiası yanlış):** PostgreSQL'de `POWER(numeric, integer)` zaten `numeric` döner, float DEĞİL. Ama `10::numeric ^ x` daha explicit ve okunabilir. **İddia düzeltildi, değişiklik korundu.**
+- **CRITIC-section 3 (StrKey Deno compatibility issue):** `@stellar/stellar-sdk` cannot be imported in Deno (`denoland/deno#26132`). `StrKey.isValidEd25519PublicKey` is unusable. **Pure JS alternative required.**
+- **CRITIC-section 6 (FORCE RLS unnecessary):** `service_role` has the `BYPASSRLS` attribute. `FORCE ROW LEVEL SECURITY` only affects the table owner, not `BYPASSRLS` roles. **Task removed.**
+- **CRITIC-section 2 (POWER claim wrong):** In PostgreSQL `POWER(numeric, integer)` already returns `numeric`, NOT float. But `10::numeric ^ x` is more explicit and readable. **Claim corrected, change kept.**
 
 ## File Scope
 
-- `packages/indexer/src/helpers.ts` (yeni: `isValidStellarAddress` — pure JS)
+- `packages/indexer/src/helpers.ts` (new: `isValidStellarAddress` - pure JS)
 - `packages/indexer/src/parsers/identity.ts`
 - `packages/indexer/src/parsers/reputation.ts`
 - `packages/indexer/src/parsers/validation.ts`
@@ -32,28 +32,28 @@ Indexer'ın parser katmanı on-chain verinin formatını doğrulamıyor:
 
 ## Requirements
 
-- [ ] Stellar adres format doğrulaması — **pure JS** (StrKey Deno'da çalışmaz)
-- [ ] `numeric(39,18)` → `numeric(78,0)` — i128 tam aralık desteği
-- [ ] `value_decimals` bounds check: 0 ≤ x ≤ 18
-- [ ] `response` 0-100 range check parser seviyesinde
-- [ ] `toHex()` — null/undefined input'ta TypeError yerine empty string
-- [ ] Leaderboard view `POWER(10, x)` → `(10::numeric ^ x)` — daha explicit numeric semantik (not: POWER zaten numeric döner, bu okunabilirlik için)
-- [ ] CHECK constraint'ler: `validations.response` range, `feedback.feedback_index` positive, `agents.id` positive
-- [ ] `search_agents()` limit bound (max 100) ve `statement_timeout = '5s'`
-- [ ] `refresh_leaderboard()` fonksiyonuna `statement_timeout = '30s'`
-- [ ] Realtime publication kolon filtresi (sadece gerekli kolonlar)
-- [ ] ~~`FORCE ROW LEVEL SECURITY`~~ **KALDIRILDI** — CRITIC-§6: service_role BYPASSRLS, FORCE etkisiz
+- [ ] Stellar address format validation - **pure JS** (StrKey does not work in Deno)
+- [ ] `numeric(39,18)` -> `numeric(78,0)` - full i128 range support
+- [ ] `value_decimals` bounds check: 0 <= x <= 18
+- [ ] `response` 0-100 range check at parser level
+- [ ] `toHex()` - return empty string instead of TypeError on null/undefined input
+- [ ] Leaderboard view `POWER(10, x)` -> `(10::numeric ^ x)` - more explicit numeric semantics (note: POWER already returns numeric, this is for readability)
+- [ ] CHECK constraints: `validations.response` range, `feedback.feedback_index` positive, `agents.id` positive
+- [ ] `search_agents()` limit bound (max 100) and `statement_timeout = '5s'`
+- [ ] `refresh_leaderboard()` function gets `statement_timeout = '30s'`
+- [ ] Realtime publication column filter (only the columns that are needed)
+- [ ] ~~`FORCE ROW LEVEL SECURITY`~~ **REMOVED** - CRITIC-section 6: service_role BYPASSRLS, FORCE has no effect
 
 ## Implementation Plan
 
-### Task 1: Stellar adres validasyonu — Pure JS (CRITIC-§3 FIX)
+### Task 1: Stellar address validation - Pure JS (CRITIC-section 3 FIX)
 
-`@stellar/stellar-sdk` Deno'da import edilemiyor. Pure JS implementasyon:
+`@stellar/stellar-sdk` cannot be imported in Deno. Pure JS implementation:
 
 ```typescript
-// helpers.ts — pure JS Stellar address validation
+// helpers.ts - pure JS Stellar address validation
 // G-address: version byte (6 << 3 = 48) + 32 bytes ed25519 key + 2 bytes CRC16-XMODEM
-// Base32-encoded → 56 characters, starts with 'G'
+// Base32-encoded -> 56 characters, starts with 'G'
 
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
@@ -110,7 +110,7 @@ export function isValidStellarAddress(address: string): boolean {
 }
 ```
 
-Parser'larda kullanım:
+Usage in parsers:
 ```typescript
 const owner = String(scValToNative(event.topic[2]));
 if (!isValidStellarAddress(owner)) {
@@ -119,7 +119,7 @@ if (!isValidStellarAddress(owner)) {
 }
 ```
 
-**Test vektörleri:**
+**Test vectors:**
 ```typescript
 // Valid: Stellar Friendbot address
 isValidStellarAddress('GAIH3ULLFQ4DGSECF2AR555KZ4KNDGEKN4AFI4SU2M7B43MGK3QJZNSR') // true
@@ -145,14 +145,14 @@ ALTER TABLE feedback
 ### Task 3: Parser-level bounds checking
 
 ```typescript
-// reputation.ts — NewFeedback:
+// reputation.ts - NewFeedback:
 const valueDecimals = Number(data.value_decimals ?? 0);
 if (valueDecimals < 0 || valueDecimals > 18) {
   log({ level: 'warn', msg: 'Invalid value_decimals', value: valueDecimals });
   return null;
 }
 
-// validation.ts — ValidationResponded:
+// validation.ts - ValidationResponded:
 const response = Number(data.response);
 if (response < 0 || response > 100 || !Number.isFinite(response)) {
   log({ level: 'warn', msg: 'Invalid response score', value: response });
@@ -164,7 +164,7 @@ if (response < 0 || response > 100 || !Number.isFinite(response)) {
 
 ```typescript
 export function toHex(buf: unknown): string {
-  if (buf == null) return '';  // null/undefined → empty string (optional fields)
+  if (buf == null) return '';  // null/undefined -> empty string (optional fields)
 
   if (buf instanceof Uint8Array) {
     return Array.from(buf, (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -179,19 +179,19 @@ export function toHex(buf: unknown): string {
 }
 ```
 
-### Task 5: Leaderboard view — explicit numeric exponent (CRITIC-§2 REVISED)
+### Task 5: Leaderboard view - explicit numeric exponent (CRITIC-section 2 REVISED)
 
-**Not:** `POWER(numeric, integer)` zaten `numeric` döner — float precision kaybı yok. Ama `10::numeric ^ x` daha explicit ve okunabilir.
+**Note:** `POWER(numeric, integer)` already returns `numeric` - no float precision loss. But `10::numeric ^ x` is more explicit and readable.
 
 ```sql
--- Mevcut (fonksiyonel olarak doğru):
+-- Current (functionally correct):
 AVG(value / POWER(10, value_decimals)) FILTER (WHERE NOT is_revoked) AS avg_score
 
--- Daha explicit (okunabilirlik):
+-- More explicit (readability):
 AVG(value / (10::numeric ^ value_decimals)) FILTER (WHERE NOT is_revoked) AS avg_score
 ```
 
-Leaderboard materialized view DROP + CREATE ile yeniden oluşturulacak.
+Leaderboard materialized view will be recreated via DROP + CREATE.
 
 ### Task 6: CHECK constraints
 
@@ -269,11 +269,11 @@ $$;
 ALTER FUNCTION refresh_leaderboard SET statement_timeout = '30s';
 ```
 
-### Task 9: Realtime publication kolon filtresi
+### Task 9: Realtime publication column filter
 
 ```sql
 -- supabase/migrations/XXX_realtime_column_filter.sql
--- PK kolonları dahil edilmeli (replica identity)
+-- PK columns must be included (replica identity)
 ALTER PUBLICATION supabase_realtime DROP TABLE agents;
 ALTER PUBLICATION supabase_realtime DROP TABLE feedback;
 ALTER PUBLICATION supabase_realtime DROP TABLE validations;
@@ -283,20 +283,20 @@ ALTER PUBLICATION supabase_realtime ADD TABLE feedback (id, agent_id, client_add
 ALTER PUBLICATION supabase_realtime ADD TABLE validations (request_hash, agent_id, validator_address, response, has_response, created_at, responded_at);
 ```
 
-**Not (CRITIC-§5):** PG docs uyarısı: "Do not rely on this feature for security: a malicious subscriber is able to obtain data from columns that are not specifically published." Bu projede internal güvenlik için kullanılıyor, kabul edilebilir.
+**Note (CRITIC-section 5):** PG docs warning: "Do not rely on this feature for security: a malicious subscriber is able to obtain data from columns that are not specifically published." This project uses it for internal security only, which is acceptable.
 
 ## Verification
 
-- [ ] Geçersiz Stellar adresi olan event → loglanır ve atlanır (null return)
-- [ ] Valid Stellar adresi (G..., 56 char, checksum doğru) kabul edilir
-- [ ] `isValidStellarAddress` pure JS — `@stellar/stellar-sdk` import ETMEZ
-- [ ] `i128` max değeri feedback value olarak yazılabilir (overflow yok)
-- [ ] `value_decimals = 19` → event reject edilir
-- [ ] `response = 150` → event reject edilir
-- [ ] Migration mevcut veriyi bozmaz
-- [ ] `pnpm --filter @8004scan/indexer test` başarılı
-- [ ] Leaderboard view numeric(78,0) ile doğru çalışır
-- [ ] `search_agents('', 999999)` → max 100 sonuç döner
-- [ ] `refresh_leaderboard()` 30s'den uzun sürerse timeout alır
-- [ ] Realtime subscription'da `tx_hash`, `feedback_hash` gibi internal alanlar görünmez
-- [ ] ~~FORCE RLS~~ **KALDIRILDI** — CRITIC-§6
+- [ ] Event with invalid Stellar address -> logged and skipped (null return)
+- [ ] Valid Stellar address (G..., 56 char, checksum correct) is accepted
+- [ ] `isValidStellarAddress` pure JS - does NOT import `@stellar/stellar-sdk`
+- [ ] `i128` max value can be written as a feedback value (no overflow)
+- [ ] `value_decimals = 19` -> event rejected
+- [ ] `response = 150` -> event rejected
+- [ ] Migration does not corrupt existing data
+- [ ] `pnpm --filter @8004scan/indexer test` passes
+- [ ] Leaderboard view works correctly with numeric(78,0)
+- [ ] `search_agents('', 999999)` -> returns at most 100 results
+- [ ] `refresh_leaderboard()` times out if it runs longer than 30s
+- [ ] Realtime subscription does not expose internal fields like `tx_hash`, `feedback_hash`
+- [ ] ~~FORCE RLS~~ **REMOVED** - CRITIC-section 6

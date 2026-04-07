@@ -55,7 +55,7 @@
 		open = false;
 	}
 
-	// mousedown fires before click — no DOM removal race
+	// mousedown fires before click - no DOM removal race
 	function handleMousedown(e: MouseEvent) {
 		if (open && wrapperEl && !wrapperEl.contains(e.target as Node)) {
 			close();

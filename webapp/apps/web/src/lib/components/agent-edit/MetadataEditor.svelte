@@ -3,7 +3,7 @@
 	import {
 		buildMetadataJsonForEdit,
 		getMetadataSize
-	} from '@trionlabs/8004s-sdk';
+	} from '@trionlabs/8004-sdk';
 	import StepBasicInfo from '$lib/components/register/StepBasicInfo.svelte';
 	import StepServices from '$lib/components/register/StepServices.svelte';
 	import StepAdvanced from '$lib/components/register/StepAdvanced.svelte';
@@ -115,7 +115,7 @@
 		{/if}
 	</div>
 
-	<!-- Section: URI Settings — default CLOSED -->
+	<!-- Section: URI Settings - default CLOSED -->
 	<div class="rounded-xl border border-border/60 overflow-hidden">
 		<button type="button" onclick={() => toggleSection('uri')}
 			class="flex w-full items-center justify-between px-5 py-3.5

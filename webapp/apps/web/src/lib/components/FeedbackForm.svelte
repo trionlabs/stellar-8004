@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Buffer } from 'buffer';
 	import { getClients } from '$lib/sdk-client.js';
-	import { validateTag, formatSorobanError } from '@trionlabs/8004s-sdk';
+	import { validateTag, formatSorobanError } from '@trionlabs/8004-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
@@ -50,7 +50,7 @@
 				}
 				feedbackHash = await sha256Hash(feedbackUri);
 			} else {
-				feedbackHash = new Uint8Array(32); // bytes32(0) — no evidence
+				feedbackHash = new Uint8Array(32); // bytes32(0) - no evidence
 			}
 
 			const { reputation } = getClients();
@@ -128,7 +128,7 @@
 				type="text"
 				bind:value={evidenceUri}
 				aria-label="Evidence URI"
-				placeholder="Evidence URI (optional) — ipfs:// or https://"
+				placeholder="Evidence URI (optional) - ipfs:// or https://"
 				maxlength="256"
 				class="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text-muted placeholder:text-text-dim"
 			/>

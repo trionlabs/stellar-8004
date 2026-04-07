@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { AgentFormData } from '$lib/types.js';
-	import { validateUrl } from '@trionlabs/8004s-sdk';
+	import { validateUrl } from '@trionlabs/8004-sdk';
 
 	let { formData }: { formData: AgentFormData } = $props();
 
@@ -41,7 +41,7 @@
 			class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors resize-none"
 		></textarea>
 		<div class="mt-2 flex items-center justify-between">
-			<p class="text-[10px] text-text-dim">Optional — helps users understand your agent</p>
+			<p class="text-[10px] text-text-dim">Optional - helps users understand your agent</p>
 			<span class="text-[10px] {descCount > 1900 ? 'text-warning' : 'text-text-dim'}">{descCount}/2048</span>
 		</div>
 	</div>

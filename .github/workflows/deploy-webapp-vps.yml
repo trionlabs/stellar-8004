@@ -1,13 +1,13 @@
-name: Deploy VPS (Supabase + Indexer)
+name: Deploy Webapp VPS (Supabase + Indexer)
 
 on:
   push:
     branches: [main]
     paths:
-      - 'packages/indexer/**'
-      - 'supabase/migrations/**'
-      - 'supabase/functions/**'
-      - 'docker/docker-compose.supabase.yml'
+      - 'webapp/packages/indexer/**'
+      - 'webapp/supabase/migrations/**'
+      - 'webapp/supabase/functions/**'
+      - 'webapp/docker/docker-compose.supabase.yml'
 
 jobs:
   deploy:
@@ -28,6 +28,7 @@ jobs:
             echo "=== Pulling latest code ==="
             cd "$REPO"
             git pull origin main
+            cd webapp
 
             echo "=== Rebuilding edge functions ==="
             bash scripts/build-edge-function.sh
@@ -41,9 +42,9 @@ jobs:
               ALREADY=$(docker exec s8004-db psql -U postgres -tAc \
                 "SELECT 1 FROM schema_migrations WHERE filename='$NAME'" 2>/dev/null || true)
               if [ "$ALREADY" = "1" ]; then
-                echo "  $NAME — already applied"
+                echo "  $NAME - already applied"
               else
-                echo "  $NAME — applying..."
+                echo "  $NAME - applying..."
                 docker exec -i s8004-db psql -U postgres -v ON_ERROR_STOP=1 < "$f"
                 docker exec s8004-db psql -U postgres -c \
                   "INSERT INTO schema_migrations (filename) VALUES ('$NAME');"

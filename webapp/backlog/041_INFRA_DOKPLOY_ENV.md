@@ -1,4 +1,4 @@
-# 041 — Dokploy Env Management
+# 041 - Dokploy Env Management
 
 **Status:** DONE
 **Owner:** claude/yaman
@@ -21,7 +21,7 @@ Dokploy stores env vars in its own Postgres DB (`compose.env` column). On every 
 
 ## Lesson
 
-All env changes for Dokploy-managed compose services MUST go through Dokploy UI or Dokploy DB — never edit `.env` on VPS directly.
+All env changes for Dokploy-managed compose services MUST go through Dokploy UI or Dokploy DB - never edit `.env` on VPS directly.
 
 ## Commits
 

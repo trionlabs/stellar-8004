@@ -10,7 +10,7 @@
 
 DO $vault$
 BEGIN
-  -- project_url: internal Kong endpoint for pg_cron → edge function calls
+  -- project_url: internal Kong endpoint for pg_cron -> edge function calls
   IF NOT EXISTS (SELECT 1 FROM vault.secrets WHERE name = 'project_url') THEN
     PERFORM vault.create_secret('http://kong:8000', 'project_url');
     RAISE NOTICE 'vault: created project_url';

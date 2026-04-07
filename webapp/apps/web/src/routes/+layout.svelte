@@ -55,7 +55,7 @@
 
 	{#if wallet.networkMismatch}
 		<div class="relative z-10 border-b border-warning-soft bg-warning-soft px-4 py-3 text-center text-sm text-warning">
-			Freighter is on <span class="font-medium">{wallet.network}</span> — this app requires
+			Freighter is on <span class="font-medium">{wallet.network}</span> - this app requires
 			<span class="font-medium uppercase">{wallet.network === 'TESTNET' ? 'Mainnet' : 'Testnet'}</span>.
 			Switch network in Freighter settings.
 		</div>

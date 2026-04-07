@@ -45,3 +45,26 @@ jobs:
 
       - name: Check formatting
         run: cargo fmt --all -- --check
+
+  webapp:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webapp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: webapp/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @trionlabs/8004-sdk build
+      - run: pnpm --filter @trionlabs/8004-sdk test
+      - run: pnpm --filter @trionlabs/8004-sdk check
+      - run: pnpm --filter @stellar8004/indexer test
+      - run: pnpm --filter @stellar8004/indexer check
+      - run: pnpm --filter @stellar8004/web check

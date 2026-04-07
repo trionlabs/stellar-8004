@@ -41,7 +41,7 @@ export class PinataStorage implements StorageUploader {
 
 		if (!response.ok) {
 			const detail = await response.text().catch(() => '');
-			const suffix = detail ? ` — ${detail}` : '';
+			const suffix = detail ? ` - ${detail}` : '';
 			throw new Error(`Pinata upload failed: ${response.status}${suffix}`);
 		}
 

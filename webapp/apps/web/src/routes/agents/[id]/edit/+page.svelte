@@ -5,9 +5,9 @@
 		buildMetadataJsonForEdit,
 		getMetadataSize,
 		toDataUri
-	} from '@trionlabs/8004s-sdk';
+	} from '@trionlabs/8004-sdk';
 	import { getClients } from '$lib/sdk-client.js';
-	import { validateAgentUri, formatSorobanError } from '@trionlabs/8004s-sdk';
+	import { validateAgentUri, formatSorobanError } from '@trionlabs/8004-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
 	import type { PageProps } from './$types';
@@ -124,7 +124,7 @@
 </script>
 
 <svelte:head>
-	<title>Edit Agent #{data.agent.id} — Stellar8004</title>
+	<title>Edit Agent #{data.agent.id} - Stellar8004</title>
 </svelte:head>
 
 {#if saveStatus === 'success'}
@@ -162,7 +162,7 @@
 <div class="mx-auto max-w-3xl space-y-6">
 	<div class="flex items-center gap-4">
 		<a href={resolve(`/agents/${data.agent.id}`)} class="text-sm text-text-muted hover:text-text transition-colors">
-			← Back to Agent #{data.agent.id}
+			Back to Agent #{data.agent.id}
 		</a>
 	</div>
 
@@ -196,7 +196,7 @@
 	<!-- Metadata accordion sections -->
 	<MetadataEditor {formData} bind:uriMode bind:manualUri rawUriData={data.agent.rawUriData} />
 
-	<!-- Wallet Binding — separate contract call -->
+	<!-- Wallet Binding - separate contract call -->
 	<div class="rounded-xl border border-positive/15 overflow-hidden">
 		<button type="button" onclick={() => walletSectionOpen = !walletSectionOpen}
 			class="flex w-full items-center justify-between px-5 py-3.5
@@ -225,7 +225,7 @@
 	            flex items-center justify-between gap-3">
 		<a href={resolve(`/agents/${data.agent.id}`)}
 			class="rounded-xl border border-border px-5 py-2.5 text-sm text-text-muted hover:bg-surface-raised transition-colors">
-			← Cancel
+			Cancel
 		</a>
 		<div class="flex items-center gap-3">
 			{#if unsavedChanges}

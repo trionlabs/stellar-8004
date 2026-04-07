@@ -19,7 +19,7 @@
 		"@stellar/stellar-sdk": "^15.0.0",
 		"@stellar8004/db": "workspace:*",
 		"@supabase/supabase-js": "^2.49.0",
-		"@trionlabs/8004s-sdk": "workspace:*",
+		"@trionlabs/8004-sdk": "workspace:*",
 		"buffer": "^6.0.3",
 		"shiki": "^4.0.2"
 	},

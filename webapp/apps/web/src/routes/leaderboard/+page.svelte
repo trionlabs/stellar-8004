@@ -26,11 +26,11 @@
 </script>
 
 <svelte:head>
-	<title>Leaderboard — Stellar8004</title>
+	<title>Leaderboard - Stellar8004</title>
 </svelte:head>
 
 <div class="space-y-8">
-	<!-- ── Header ── -->
+	<!-- -- Header -- -->
 	<header class="flex items-center justify-between">
 		<div class="flex items-baseline gap-2">
 			<span class="font-mono text-xl tabular-nums text-accent/60 font-light">{data.leaders.length}</span>
@@ -45,7 +45,7 @@
 			<p class="text-[11px] text-text-dim">Register an agent and submit feedback to populate the leaderboard</p>
 		</div>
 	{:else}
-		<!-- ── Table ── -->
+		<!-- -- Table -- -->
 		<div class="grid-wrap">
 			{#each data.leaders as leader, idx (leader.agent_id)}
 				{@const rank = (data.page === 1 ? 1 : data.startRank) + idx}
@@ -102,7 +102,7 @@
 							<p class="tabular-nums text-xs text-text-muted">{fmt(leader.avg_score)}</p>
 							<p class="text-[9px] text-text-dim/40">{leader.feedback_count}</p>
 						{:else}
-							<p class="text-text-dim/20">—</p>
+							<p class="text-text-dim/20">-</p>
 						{/if}
 					</div>
 
@@ -112,7 +112,7 @@
 							<p class="tabular-nums text-xs text-text-muted">{fmt(leader.avg_validation_score)}</p>
 							<p class="text-[9px] text-text-dim/40">{leader.validation_count}</p>
 						{:else}
-							<p class="text-text-dim/20">—</p>
+							<p class="text-text-dim/20">-</p>
 						{/if}
 					</div>
 
@@ -122,7 +122,7 @@
 		</div>
 	{/if}
 
-	<!-- ── Pagination ── -->
+	<!-- -- Pagination -- -->
 	{#if data.page > 1 || data.hasMore}
 		<nav class="flex items-center justify-center gap-1">
 			{#if data.page > 1}
@@ -141,7 +141,7 @@
 </div>
 
 <style>
-	/* ── Grid ── */
+	/* -- Grid -- */
 	.grid-wrap {
 		display: flex;
 		flex-direction: column;
@@ -177,7 +177,7 @@
 		to { opacity:1; transform:none }
 	}
 
-	/* ── Rank ── */
+	/* -- Rank -- */
 	.rank {
 		width: 24px;
 		height: 24px;
@@ -200,7 +200,7 @@
 		border: 0.5px solid color-mix(in oklch, var(--color-accent) 15%, transparent);
 	}
 
-	/* ── Pager ── */
+	/* -- Pager -- */
 	.pager {
 		display:flex; align-items:center; justify-content:center;
 		width:28px; height:28px; border-radius:7px;
