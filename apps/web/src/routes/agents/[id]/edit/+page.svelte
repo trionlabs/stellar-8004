@@ -6,7 +6,8 @@
 		getMetadataSize,
 		toDataUri
 	} from '@trionlabs/8004s-sdk';
-	import { client } from '$lib/sdk-client.js';
+	import { getClients } from '$lib/sdk-client.js';
+	import { validateAgentUri } from '@trionlabs/8004s-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
 	import type { PageProps } from './$types';
@@ -99,8 +100,15 @@
 				? toDataUri(buildMetadataJsonForEdit(formData, data.agent.rawUriData))
 				: manualUri.trim();
 
-			const result = await client.updateAgentUri(data.agent.id, uri);
-			saveTxHash = result.hash;
+			validateAgentUri(uri);
+			const { identity } = getClients();
+			const tx = await identity.set_agent_uri({
+				caller: wallet.address!,
+				agent_id: data.agent.id,
+				new_uri: uri,
+			});
+			const sent = await tx.signAndSend();
+			saveTxHash = sent.sendTransactionResponse?.hash ?? null;
 			saveStatus = 'success';
 			unsavedChanges = false;
 			invalidateAll();
