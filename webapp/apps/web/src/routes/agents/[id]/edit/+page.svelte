@@ -20,6 +20,13 @@
 		wallet.address?.toUpperCase() === data.agent.owner.toUpperCase()
 	);
 
+	// Editable form state is intentionally a snapshot of `data.agent` at
+	// mount time - subsequent updates to `data` (e.g. from invalidateAll
+	// after a successful save) must NOT clobber the user's in-progress
+	// edits. The svelte-ignore directives below acknowledge that we are
+	// deliberately reading reactive props outside a $derived for this
+	// initialization.
+	// svelte-ignore state_referenced_locally
 	const initialFormData: AgentFormData = {
 		name: data.agent.name,
 		description: data.agent.description ?? '',
@@ -32,12 +39,14 @@
 
 	let formData = $state<AgentFormData>({ ...initialFormData });
 
+	// svelte-ignore state_referenced_locally
 	let uriMode = $state<UriMode>(
 		data.agent.agentUri?.startsWith('data:') ? 'auto' :
 		data.agent.agentUri?.startsWith('ipfs://') ? 'manual' :
 		'auto'
 	);
 
+	// svelte-ignore state_referenced_locally
 	let manualUri = $state(
 		uriMode === 'manual' ? (data.agent.agentUri ?? '') : ''
 	);
