@@ -14,18 +14,29 @@
  *   docker exec s8004-db psql -U postgres -c "..." to verify results
  */
 import * as StellarSdk from '@stellar/stellar-sdk';
+import { MAINNET_CONFIG, TESTNET_CONFIG } from '@trionlabs/8004-sdk';
 
 // --- Config ---------------------------------------------------------
 
-const RPC_URL = process.env.STELLAR_RPC_URL || 'https://soroban-testnet.stellar.org';
+// Single source of truth for contract addresses lives in
+// `@trionlabs/8004-sdk/src/core/config.ts`. Env vars override per-deployment.
+const NETWORK = process.env.STELLAR_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
+const SDK_CONFIG = NETWORK === 'mainnet' ? MAINNET_CONFIG : TESTNET_CONFIG;
+
+const RPC_URL = process.env.STELLAR_RPC_URL || SDK_CONFIG.rpcUrl;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'http://localhost:54321';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
-const DEPLOY_LEDGER = parseInt(process.env.DEPLOY_LEDGER || '1819978', 10);
+const DEPLOY_LEDGER = parseInt(
+	process.env.DEPLOY_LEDGER || String(SDK_CONFIG.deployLedger ?? 0),
+	10,
+);
 const BATCH_SIZE = 200; // max transactions per RPC call
 
-const IDENTITY_CONTRACT = process.env.IDENTITY_REGISTRY || 'CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ';
-const REPUTATION_CONTRACT = process.env.REPUTATION_REGISTRY || 'CAOSF6L4UPTJSZD6KOJMGOOKUKXZNYRNPA2QBPZPTLGGK6XLGCW72YM4';
-const VALIDATION_CONTRACT = process.env.VALIDATION_REGISTRY || 'CA6GIV7QB4B3O5SBZZRL3E3XMFFECGRETSN4JXAYTFKF5HUTD4JY2SJQ';
+const IDENTITY_CONTRACT = process.env.IDENTITY_REGISTRY || SDK_CONFIG.contracts.identity;
+const REPUTATION_CONTRACT =
+	process.env.REPUTATION_REGISTRY || SDK_CONFIG.contracts.reputation;
+const VALIDATION_CONTRACT =
+	process.env.VALIDATION_REGISTRY || SDK_CONFIG.contracts.validation;
 
 const CONTRACTS: Record<string, string> = {
 	[IDENTITY_CONTRACT]: 'identity',
