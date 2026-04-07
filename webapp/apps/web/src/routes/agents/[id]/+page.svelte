@@ -183,7 +183,7 @@
 					<a
 						href="https://stellar.expert/explorer/testnet/tx/{data.txHash}"
 						target="_blank"
-						rel="noopener"
+						rel="noopener noreferrer"
 						class="mt-1 block font-mono text-xs text-accent hover:underline break-all"
 					>{data.txHash}</a>
 				</div>
