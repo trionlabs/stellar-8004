@@ -96,6 +96,13 @@
 		saveError = '';
 
 		try {
+			const caller = wallet.address;
+			if (!caller) {
+				saveError = 'Wallet disconnected. Reconnect and try again.';
+				saveStatus = 'error';
+				return;
+			}
+
 			const uri = uriMode === 'auto'
 				? toDataUri(buildMetadataJsonForEdit(formData, data.agent.rawUriData))
 				: manualUri.trim();
@@ -103,7 +110,7 @@
 			validateAgentUri(uri);
 			const { identity } = getClients();
 			const tx = await identity.set_agent_uri({
-				caller: wallet.address!,
+				caller,
 				agent_id: data.agent.id,
 				new_uri: uri,
 			});
