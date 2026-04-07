@@ -50,9 +50,16 @@ export async function generateRequestNonce(
 	return new Uint8Array(hashBuffer);
 }
 
-/** Validates that a string is a valid Stellar ed25519 public key (G...). */
+/**
+ * Validates that a string is a valid Stellar address.
+ * Accepts both ed25519 public keys (G...) and contract addresses (C...) so that
+ * smart-contract / passkey wallets can be used as agent owners or wallets.
+ */
 export function validateStellarAddress(address: string, label = 'Address'): void {
-	if (!StellarSdk.StrKey.isValidEd25519PublicKey(address)) {
+	if (
+		!StellarSdk.StrKey.isValidEd25519PublicKey(address) &&
+		!StellarSdk.StrKey.isValidContract(address)
+	) {
 		throw new Error(`${label} is not a valid Stellar address`);
 	}
 }
