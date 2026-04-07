@@ -74,8 +74,8 @@ impl ValidationRegistryContract {
             has_response: false,
         };
         storage::set_validation(e, &request_hash, &status);
-        storage::add_agent_validation(e, agent_id, &request_hash);
-        storage::add_validator_request(e, &validator_address, &request_hash);
+        storage::add_agent_validation(e, agent_id, &request_hash)?;
+        storage::add_validator_request(e, &validator_address, &request_hash)?;
 
         events::validation_requested(e, &validator_address, agent_id, &request_hash, &request_uri);
 

@@ -11,4 +11,5 @@ pub enum ValidationError {
     NotDesignatedValidator = 5,
     AlreadyResponded = 6,
     AgentNotFound = 7,
+    CounterOverflow = 8,
 }

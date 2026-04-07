@@ -94,8 +94,12 @@ pub fn client_exists(e: &Env, agent_id: u32, client: &Address) -> bool {
     }
 }
 
-pub fn add_client(e: &Env, agent_id: u32, client: &Address) {
+pub fn add_client(e: &Env, agent_id: u32, client: &Address) -> Result<(), ReputationError> {
     let count = get_client_count(e, agent_id);
+    let next = count
+        .checked_add(1)
+        .ok_or(ReputationError::AggregateOverflow)?;
+
     let at_key = DataKey::ClientAtIndex(agent_id, count);
     e.storage().persistent().set(&at_key, client);
     e.storage()
@@ -109,10 +113,11 @@ pub fn add_client(e: &Env, agent_id: u32, client: &Address) {
         .extend_ttl(&exists_key, TTL_THRESHOLD, TTL_BUMP);
 
     let count_key = DataKey::ClientCount(agent_id);
-    e.storage().persistent().set(&count_key, &(count + 1));
+    e.storage().persistent().set(&count_key, &next);
     e.storage()
         .persistent()
         .extend_ttl(&count_key, TTL_THRESHOLD, TTL_BUMP);
+    Ok(())
 }
 
 fn get_client_count(e: &Env, agent_id: u32) -> u32 {
@@ -157,13 +162,22 @@ pub fn get_response_count(e: &Env, agent_id: u32, client: &Address, feedback_ind
     }
 }
 
-pub fn increment_response_count(e: &Env, agent_id: u32, client: &Address, feedback_index: u64) {
+pub fn increment_response_count(
+    e: &Env,
+    agent_id: u32,
+    client: &Address,
+    feedback_index: u64,
+) -> Result<(), ReputationError> {
     let count = get_response_count(e, agent_id, client, feedback_index);
+    let next = count
+        .checked_add(1)
+        .ok_or(ReputationError::AggregateOverflow)?;
     let key = DataKey::ResponseCount(agent_id, client.clone(), feedback_index);
-    e.storage().persistent().set(&key, &(count + 1));
+    e.storage().persistent().set(&key, &next);
     e.storage()
         .persistent()
         .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
+    Ok(())
 }
 
 // --- Aggregates ---
