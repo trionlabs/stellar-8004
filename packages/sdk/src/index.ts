@@ -1,32 +1,50 @@
+// Contract bindings (from trionlabs8004)
 export {
-	SorobanClient,
-	SAFE_URI_SCHEMES,
-	validateAgentUri
-} from './core/client.js';
+	IdentityClient,
+	ReputationClient,
+	ValidationClient,
+} from './bindings/index.js';
+export type {
+	MetadataEntry,
+	FeedbackData,
+	SummaryResult,
+	ValidationStatus,
+	ValidationSummary,
+} from './bindings/index.js';
+
+// Client factory
+export { createClients } from './core/clients.js';
+export type { ClientSet, SignerOptions } from './core/clients.js';
+
+// Config
 export { TESTNET_CONFIG, MAINNET_CONFIG, getConfig } from './core/config.js';
 export type { StellarConfig } from './core/config.js';
+
+// Metadata & URI validation
 export {
 	buildMetadataJson,
 	buildMetadataJsonForEdit,
 	downloadMetadataJson,
 	getMetadataSize,
 	toDataUri,
-	validateUrl
+	validateUrl,
+	validateAgentUri,
+	SAFE_URI_SCHEMES,
 } from './core/metadata.js';
-export { estimateGas, fundTestnet } from './core/helpers.js';
-export type {
-	AgentFormData,
-	FeedbackParams,
-	RegisterResult,
-	ServiceEntry,
-	ValidationParams
-} from './core/types.js';
+
+// Helpers
+export { estimateGas, fundTestnet, generateRequestHash } from './core/helpers.js';
+
+// Types
+export type { AgentFormData, ServiceEntry } from './core/types.js';
+
+// API
 export {
 	ApiError,
 	ExplorerClient,
 	NotFoundError,
 	RateLimitError,
-	ValidationError
+	ValidationError,
 } from './api/explorer.js';
 export type {
 	AgentResponse,
@@ -36,16 +54,20 @@ export type {
 	FeedbackResponse,
 	HealthResponse,
 	PaginationMeta,
-	StatsResponse
+	StatsResponse,
 } from './api/explorer.js';
+
+// Signers
 export { wrapBasicSigner } from './signers/basic.js';
 export { FreighterSigner, withTimeout } from './signers/freighter.js';
 export type {
 	SignAuthEntry,
 	SignTransaction,
 	WalletError,
-	WalletSigner
+	WalletSigner,
 } from './signers/interface.js';
+
+// Storage
 export { AutoStorage } from './storage/auto.js';
 export { DataUriStorage } from './storage/data-uri.js';
 export type { StorageUploader } from './storage/interface.js';

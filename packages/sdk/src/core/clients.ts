@@ -1,4 +1,4 @@
-import type { ContractClientOptions } from '@stellar/stellar-sdk/contract';
+import type { ClientOptions } from '@stellar/stellar-sdk/contract';
 import { Client as IdentityClient } from '../bindings/identity.js';
 import { Client as ReputationClient } from '../bindings/reputation.js';
 import { Client as ValidationClient } from '../bindings/validation.js';
@@ -12,8 +12,8 @@ export interface ClientSet {
 
 export interface SignerOptions {
 	publicKey: string;
-	signTransaction: ContractClientOptions['signTransaction'];
-	signAuthEntry?: ContractClientOptions['signAuthEntry'];
+	signTransaction: ClientOptions['signTransaction'];
+	signAuthEntry?: ClientOptions['signAuthEntry'];
 }
 
 export function createClients(
