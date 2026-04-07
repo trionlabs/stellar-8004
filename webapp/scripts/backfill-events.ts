@@ -476,9 +476,50 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 
 // --- Main -----------------------------------------------------------
 
+async function callRpc(name: string, body: unknown = {}): Promise<unknown> {
+	const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			apikey: SUPABASE_SERVICE_KEY,
+			Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+		},
+		body: JSON.stringify(body),
+	});
+	if (!res.ok) {
+		const detail = await res.text().catch(() => '');
+		throw new Error(`RPC ${name} failed: ${res.status} ${detail}`);
+	}
+	return res.json().catch(() => null);
+}
+
+async function acquireIndexerLock(): Promise<boolean> {
+	const result = await callRpc('acquire_indexer_lock');
+	return result === true;
+}
+
+async function releaseIndexerLock(): Promise<void> {
+	await callRpc('release_indexer_lock').catch((err) => {
+		console.error(`Warning: release_indexer_lock failed: ${err}`);
+	});
+}
+
 async function main() {
 	if (!SUPABASE_SERVICE_KEY) {
 		console.error('SUPABASE_SERVICE_KEY is required');
+		process.exit(1);
+	}
+
+	// Take the indexer lock so the live cron-driven indexer cannot run
+	// concurrently with this backfill. Without this, both processes upsert
+	// the same agents row and the backfill (older event with older
+	// agent_uri) silently overwrites the indexer's fresher write.
+	const locked = await acquireIndexerLock();
+	if (!locked) {
+		console.error(
+			'Indexer lock is held - another indexer or backfill is running. Aborting.\n' +
+				'Wait for it to finish or stop the indexer cron, then re-run.',
+		);
 		process.exit(1);
 	}
 
@@ -579,7 +620,12 @@ async function main() {
 	console.log(`Time:                 ${elapsed}s`);
 }
 
-main().catch((err) => {
-	console.error('FATAL:', err);
-	process.exit(1);
-});
+main()
+	.then(async () => {
+		await releaseIndexerLock();
+	})
+	.catch(async (err) => {
+		console.error('FATAL:', err);
+		await releaseIndexerLock();
+		process.exit(1);
+	});
