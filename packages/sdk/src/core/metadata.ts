@@ -1,5 +1,19 @@
 import type { AgentFormData } from './types.js';
 
+const MAX_URI_LENGTH = 8192;
+
+export const SAFE_URI_SCHEMES = ['https://', 'http://', 'ipfs://', 'data:application/json'];
+
+export function validateAgentUri(uri: string): void {
+	if (uri.length > MAX_URI_LENGTH) {
+		throw new Error(`Agent URI too large (max ${MAX_URI_LENGTH / 1024}KB)`);
+	}
+
+	if (!SAFE_URI_SCHEMES.some((scheme) => uri.startsWith(scheme))) {
+		throw new Error('Agent URI must use https://, http://, ipfs://, or data: scheme');
+	}
+}
+
 const ALLOWED_URL_SCHEMES = ['https://', 'http://', 'ipfs://'];
 
 /** Validates that a URL uses a safe scheme (https, http, ipfs). Returns error message or empty string. */
