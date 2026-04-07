@@ -46,3 +46,4 @@
 | 040 | — | [DONE](./040_INFRA_PG17_UPGRADE.md) | Postgres 15 → 17 upgrade | `main` | 039 |
 | 041 | — | [DONE](./041_INFRA_DOKPLOY_ENV.md) | Dokploy env management: enc key fix, documented flow | `main` | 039 |
 | 042 | — | [IN_PROGRESS](./042_INFRA_EDGE_FUNCTION_INIT.md) | Edge function init container (decouple from migrate) | `main` | 039 |
+| 043 | 11 | [REVIEW](./043_SDK_TRIONLABS8004_BINDINGS.md) | SDK: trionlabs8004 contract bindings migration | `refactor/trionlabs8004-bindings` | 034, 036 |
