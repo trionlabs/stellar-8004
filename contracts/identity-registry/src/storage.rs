@@ -4,9 +4,19 @@ use stellar_tokens::non_fungible::{
     OWNER_TTL_THRESHOLD,
 };
 
-// ~30 days at 5s/ledger
+// TTL_THRESHOLD: when a persistent entry's remaining live-until ledger drops
+// below this many ledgers, the next read will bump it back up to TTL_BUMP.
+// 518_400 ledgers * 5 seconds / ledger = 2_592_000 seconds = 30 days.
+//
+// TTL_BUMP: how far ahead to push the live-until ledger when extending.
+// 1_036_800 ledgers * 5 seconds / ledger = 60 days.
+//
+// These constants are duplicated in reputation-registry/src/storage.rs and
+// validation-registry/src/storage.rs. If Soroban's nominal block time ever
+// changes from 5s/ledger, all three copies must be updated together. The
+// architecture-plan-era erc8004-common shared crate that previously held
+// these constants was inlined and removed in commit 0e7ef9f.
 pub const TTL_THRESHOLD: u32 = 518_400;
-// ~60 days
 pub const TTL_BUMP: u32 = 1_036_800;
 
 // Per-entry size caps for the metadata API. Enforced at the contract entry
