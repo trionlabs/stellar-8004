@@ -56,6 +56,18 @@ export type ReputationEvent =
 export function parseReputationEvent(
   event: rpc.Api.GetEventsResponse['events'][number],
 ): ReputationEvent | null {
+  // scValToNative throws on malformed ScVal payloads. Wrap the parser body
+  // so a single bad event from the RPC doesn't propagate up.
+  try {
+    return parseReputationEventInner(event);
+  } catch {
+    return null;
+  }
+}
+
+function parseReputationEventInner(
+  event: rpc.Api.GetEventsResponse['events'][number],
+): ReputationEvent | null {
   if (!event.topic || event.topic.length < 3) return null;
 
   const eventName = scValToNative(event.topic[0]) as string;
