@@ -2,6 +2,9 @@
 node_modules/
 .pnpm-store/
 
+# Mainnet seed script (contains no secrets but not for production)
+scripts/seed-mainnet.ts
+
 # Local agent and tooling state
 .claude/
 .codex/

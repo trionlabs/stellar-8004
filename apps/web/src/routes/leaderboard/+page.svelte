@@ -97,20 +97,20 @@
 					</div>
 
 					<!-- Avg score -->
-					<div class="hidden w-14 text-right lg:block">
+					<div class="hidden w-14 text-right lg:block" title="Avg feedback score ({leader.feedback_count ?? 0} feedback)">
 						{#if (leader.feedback_count ?? 0) > 0}
 							<p class="tabular-nums text-xs text-text-muted">{fmt(leader.avg_score)}</p>
-							<p class="text-[9px] text-text-dim/40">{leader.feedback_count} fb</p>
+							<p class="text-[9px] text-text-dim/40">{leader.feedback_count}</p>
 						{:else}
 							<p class="text-text-dim/20">—</p>
 						{/if}
 					</div>
 
 					<!-- Validation score -->
-					<div class="hidden w-14 text-right xl:block">
+					<div class="hidden w-14 text-right xl:block" title="Avg validation score ({leader.validation_count ?? 0} validations)">
 						{#if (leader.validation_count ?? 0) > 0}
 							<p class="tabular-nums text-xs text-text-muted">{fmt(leader.avg_validation_score)}</p>
-							<p class="text-[9px] text-text-dim/40">{leader.validation_count} val</p>
+							<p class="text-[9px] text-text-dim/40">{leader.validation_count}</p>
 						{:else}
 							<p class="text-text-dim/20">—</p>
 						{/if}
