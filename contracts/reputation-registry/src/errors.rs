@@ -8,4 +8,5 @@ pub enum ReputationError {
     FeedbackNotFound = 2,
     InvalidValueDecimals = 3,
     NotOwnerOrApproved = 4,
+    AggregateOverflow = 5,
 }
