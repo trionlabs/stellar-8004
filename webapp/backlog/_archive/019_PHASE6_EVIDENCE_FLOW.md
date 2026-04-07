@@ -1,8 +1,8 @@
-# 019 — FeedbackForm: Evidence Chain (SHA-256 + IPFS)
+# 019 - FeedbackForm: Evidence Chain (SHA-256 + IPFS)
 
 **Status:** DONE
 **Owner:** Codex
-**Phase:** 6 — Protocol Compliance
+**Phase:** 6 - Protocol Compliance
 **Branch:** `feat/evidence-flow`
 **Depends On:** 017
 **Plan:** [docs/plans/2026-04-05-protocol-compliance-and-discovery.md](../docs/plans/2026-04-05-protocol-compliance-and-discovery.md)
@@ -10,42 +10,42 @@
 
 ## Context
 
-FeedbackForm şu anda `crypto.getRandomValues(new Uint8Array(32))` ile random hash üretiyor ve `feedbackUri` boş string geçiyor. Bu, ERC-8004'ün temel güven mekanizması olan evidence chain'i kırıyor. Spec: "feedbackURI: a file URI pointing to an off-chain JSON", "We suggest using IPFS or equivalent services."
+FeedbackForm currently generates a random hash via `crypto.getRandomValues(new Uint8Array(32))` and passes an empty string as `feedbackUri`. This breaks ERC-8004's core trust mechanism, the evidence chain. Spec: "feedbackURI: a file URI pointing to an off-chain JSON", "We suggest using IPFS or equivalent services."
 
-**Hash algoritması notu:** SHA-256, trionlabs Stellar kontratlarının tasarım kararıdır — ERC-8004 spec'i EVM için keccak-256 belirtir. Stellar implementasyonumuzda SHA-256 kullanıyoruz. IPFS URI kullanıldığında spec'e göre feedbackHash opsiyoneldir, ancak biz yine de ekliyoruz (best practice).
+**Hash algorithm note:** SHA-256 is a design choice of the trionlabs Stellar contracts - ERC-8004 spec specifies keccak-256 for EVM. Our Stellar implementation uses SHA-256. When an IPFS URI is used the spec makes feedbackHash optional, but we still include it (best practice).
 
-**Mevcut sorun:** Random hash + boş URI = doğrulanamaz feedback = protokolün amacına aykırı.
+**Current problem:** Random hash + empty URI = unverifiable feedback = contradicts the protocol's purpose.
 
 ## File Scope
 
 - Create: `apps/web/src/lib/evidence.ts`
-- Create: `apps/web/src/lib/server/ipfs.ts` (SERVER-SIDE ONLY — JWT browser'a gitmez)
+- Create: `apps/web/src/lib/server/ipfs.ts` (SERVER-SIDE ONLY - JWT must not reach the browser)
 - Create: `apps/web/src/routes/api/ipfs-upload/+server.ts` (server endpoint)
 - Modify: `apps/web/src/lib/components/FeedbackForm.svelte`
 - Modify: `.env.example`
 
 ## Requirements
 
-- [ ] `evidence.ts`: `buildFeedbackEvidence(params)` — spec-aligned evidence JSON oluştur
-- [ ] `evidence.ts`: `sha256Hash(content)` — `crypto.subtle.digest('SHA-256', ...)` ile hash hesapla
-- [ ] `server/ipfs.ts`: `uploadEvidence(name, data)` — Pinata API ile IPFS'e yükle, `ipfs://{CID}` döndür (**SERVER-SIDE ONLY**)
-- [ ] `routes/api/ipfs-upload/+server.ts`: POST endpoint — client evidence JSON gönderir, server Pinata'ya yükler, CID döndürür
-- [ ] FeedbackForm'da: evidence oluştur → SHA-256 hash → `/api/ipfs-upload` endpoint'ine POST → `feedbackUri` + `feedbackHash` olarak contract'a gönder
-- [ ] `crypto.getRandomValues` kullanımını kaldır
-- [ ] IPFS upload opsiyonel (başarısız olursa boş URI ile devam, ama hash yine gerçek evidence'dan)
-- [ ] **GÜVENLİK:** `PINATA_JWT` PRIVATE env variable (`$env/static/private` veya `$env/dynamic/private`) — `PUBLIC_` prefix KULLANMA
-- [ ] Alternatif pattern: Pinata V3 presigned URL (server signed URL üretir → client direkt Pinata'ya upload eder — daha performanslı)
+- [ ] `evidence.ts`: `buildFeedbackEvidence(params)` - build a spec-aligned evidence JSON
+- [ ] `evidence.ts`: `sha256Hash(content)` - compute hash via `crypto.subtle.digest('SHA-256', ...)`
+- [ ] `server/ipfs.ts`: `uploadEvidence(name, data)` - upload to IPFS via the Pinata API, return `ipfs://{CID}` (**SERVER-SIDE ONLY**)
+- [ ] `routes/api/ipfs-upload/+server.ts`: POST endpoint - client posts evidence JSON, server uploads to Pinata and returns the CID
+- [ ] In FeedbackForm: build evidence -> SHA-256 hash -> POST to `/api/ipfs-upload` -> send to the contract as `feedbackUri` + `feedbackHash`
+- [ ] Remove all `crypto.getRandomValues` usage
+- [ ] IPFS upload is optional (on failure continue with an empty URI, but the hash is still derived from real evidence)
+- [ ] **SECURITY:** `PINATA_JWT` is a PRIVATE env variable (`$env/static/private` or `$env/dynamic/private`) - DO NOT use a `PUBLIC_` prefix
+- [ ] Alternative pattern: Pinata V3 presigned URL (server generates a signed URL, client uploads to Pinata directly - more efficient)
 
 ## Implementation Plan
 
-Plan'daki Task 019 (Detailed Tasks bölümü) birebir takip edilecek. Kod `docs/plans/2026-04-05-protocol-compliance-and-discovery.md` Step 1-5'te mevcut.
+Follow Task 019 in the plan (Detailed Tasks section) verbatim. The code lives in steps 1-5 of `docs/plans/2026-04-05-protocol-compliance-and-discovery.md`.
 
-### Adımlar:
-1. `evidence.ts` oluştur (builder + hash utility)
-2. `server/ipfs.ts` oluştur (Pinata upload helper — SERVER-SIDE ONLY)
-3. `routes/api/ipfs-upload/+server.ts` oluştur (POST endpoint — client'ın IPFS upload'ı buradan geçer)
-4. FeedbackForm'u güncelle (evidence flow — IPFS upload `/api/ipfs-upload` üzerinden)
-5. `.env.example`'a `PINATA_JWT` ekle (**PUBLIC_ prefix YOK**)
+### Steps:
+1. Create `evidence.ts` (builder + hash utility)
+2. Create `server/ipfs.ts` (Pinata upload helper - SERVER-SIDE ONLY)
+3. Create `routes/api/ipfs-upload/+server.ts` (POST endpoint - the client's IPFS upload routes through here)
+4. Update FeedbackForm (evidence flow - IPFS upload via `/api/ipfs-upload`)
+5. Add `PINATA_JWT` to `.env.example` (**NO `PUBLIC_` prefix**)
 6. Commit
 
 ### Commit:
@@ -56,10 +56,10 @@ git commit -m "feat(web): real evidence chain in FeedbackForm (SHA-256 + IPFS up
 
 ## Verification
 
-- [ ] FeedbackForm submit'te evidence JSON oluşturuluyor (console.log ile doğrula)
-- [ ] SHA-256 hash hesaplanıyor (random hash yok)
-- [ ] IPFS upload başarılı → `ipfs://Qm...` URI döndürülüyor
-- [ ] IPFS upload başarısız → graceful fallback (boş URI, ama gerçek hash)
-- [ ] On-chain feedback'te `feedbackUri` ve `feedbackHash` doğru değerlerle kaydediliyor
-- [ ] `PINATA_JWT` olmadan uygulama çökmüyor (upload atlanıyor)
-- [ ] Pinata JWT browser'da expose olmuyor (Network tab'da header'larda görünmüyor)
+- [ ] FeedbackForm submit builds an evidence JSON (verify via console.log)
+- [ ] SHA-256 hash is computed (no random hash)
+- [ ] Successful IPFS upload -> returns an `ipfs://Qm...` URI
+- [ ] Failed IPFS upload -> graceful fallback (empty URI but real hash)
+- [ ] On-chain feedback stores `feedbackUri` and `feedbackHash` with the correct values
+- [ ] App does not crash without `PINATA_JWT` (upload is skipped)
+- [ ] Pinata JWT is not exposed in the browser (not visible in Network tab headers)

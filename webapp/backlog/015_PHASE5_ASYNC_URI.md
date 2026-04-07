@@ -1,38 +1,38 @@
-# 015 — Async URI Resolution
+# 015 - Async URI Resolution
 
 **Status:** DONE
 **Owner:** Codex
-**Phase:** 5 — Indexer Hardening
+**Phase:** 5 - Indexer Hardening
 **Branch:** `feat/indexer-async-uri`
 **Depends On:** 012
 
 ## Context
 
-Şu an `Registered` ve `UriUpdated` eventlerinde URI resolution (IPFS/HTTPS fetch) ana döngüde senkron yapılıyor. 3 IPFS gateway x 10s timeout = tek bir event için max 30s blokaj. Bu:
+Currently URI resolution (IPFS/HTTPS fetch) for `Registered` and `UriUpdated` events runs synchronously in the main loop. 3 IPFS gateways x 10s timeout = up to 30s blocking per event. This:
 
-1. Edge Function wall clock süresini gereksiz harcıyor (free plan: 150s, paid: 400s) (CRITIC-E1: 30s limit yanlış)
-2. Diğer eventlerin işlenmesini geciktirir
-3. Aynı run'da reputation/validation eventleri bekler
+1. Wastes Edge Function wall clock time (free plan: 150s, paid: 400s) (CRITIC-E1: 30s limit was wrong)
+2. Delays processing of other events
+3. Forces reputation/validation events in the same run to wait
 
-**8004 açısından:** Agent metadata (`agent_uri_data`) önemli ama **kritik değil** — agent kaydı ve trust verisi önce DB'ye girmeli, metadata sonra resolve edilebilir.
+**From an 8004 perspective:** Agent metadata (`agent_uri_data`) is important but **not critical** - the agent record and trust data must hit the DB first, metadata can be resolved later.
 
 ## File Scope
 
-- `packages/indexer/src/db.ts` (writeIdentityEvent değişiklik — URI fetch kaldır)
-- `supabase/functions/_shared/uri.ts` (yeni — shared URI resolution, CRITIC-E3: `_shared/` altına)
-- `supabase/functions/resolve-uris/index.ts` (yeni Edge Function)
-- `supabase/migrations/` (agents tablosuna `uri_resolve_attempts` kolon)
+- `packages/indexer/src/db.ts` (modify writeIdentityEvent - remove URI fetch)
+- `supabase/functions/_shared/uri.ts` (new - shared URI resolution, CRITIC-E3: place under `_shared/`)
+- `supabase/functions/resolve-uris/index.ts` (new Edge Function)
+- `supabase/migrations/` (add `uri_resolve_attempts` column to agents table)
 
 ## Requirements
 
-- [ ] `Registered`/`UriUpdated` eventlerinde URI hemen fetch edilmeyecek — agent kaydı `agent_uri_data = NULL` ile yazılacak
-- [ ] Ayrı `resolve-uris` Edge Function: `agent_uri_data IS NULL AND agent_uri IS NOT NULL` olan agent'ları bulup URI resolve edecek
-- [ ] Cron ile çalışacak (her 1 dakika veya indexer'dan sonra)
-- [ ] Başarısız resolve'lar retry counter ile takip edilecek (max 5 deneme)
+- [ ] URIs in `Registered`/`UriUpdated` events will not be fetched immediately - agent record will be written with `agent_uri_data = NULL`
+- [ ] Separate `resolve-uris` Edge Function: finds agents where `agent_uri_data IS NULL AND agent_uri IS NOT NULL` and resolves the URI
+- [ ] Triggered by cron (every 1 minute or after the indexer)
+- [ ] Failed resolves tracked via retry counter (max 5 attempts)
 
 ## Implementation Plan
 
-### Task 1: `db.ts` — URI fetch'i kaldır
+### Task 1: `db.ts` - remove the URI fetch
 
 ```typescript
 case 'Registered': {
@@ -109,9 +109,9 @@ Deno.serve(async (request: Request) => {
 });
 ```
 
-### Task 4: resolveUri fonksiyonu paylaşımlı hale getir (CRITIC-E3)
+### Task 4: Make `resolveUri` a shared function (CRITIC-E3)
 
-`supabase/functions/_shared/uri.ts` olarak ayır — mevcut pattern ile uyumlu (`supabase/functions/indexer/index.ts` zaten `../_shared/indexer/indexer.ts` import ediyor).
+Extract to `supabase/functions/_shared/uri.ts` - matches the existing pattern (`supabase/functions/indexer/index.ts` already imports `../_shared/indexer/indexer.ts`).
 
 ```typescript
 // supabase/functions/_shared/uri.ts
@@ -125,29 +125,29 @@ export async function resolveUri(uri: string): Promise<unknown | null> { /* ... 
 async function fetchJson(url: string): Promise<unknown | null> { /* ... */ }
 ```
 
-Hem `_shared/indexer/db.ts` hem `resolve-uris/index.ts` bu modülü import eder.
+Both `_shared/indexer/db.ts` and `resolve-uris/index.ts` import this module.
 
-### Task 5: Cron setup — `pg_net` extension gerekli (CRITIC-§4)
+### Task 5: Cron setup - `pg_net` extension required (CRITIC-section 4)
 
-`resolve-uris` Edge Function'ı cron ile tetiklemek için `pg_net` extension'ı enable olmalı:
+To trigger the `resolve-uris` Edge Function via cron the `pg_net` extension must be enabled:
 
 ```sql
--- supabase/migrations/XXX_enable_pg_net.sql (config.toml'da da enable edilmeli)
+-- supabase/migrations/XXX_enable_pg_net.sql (must also be enabled in config.toml)
 CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 ```
 
 ### Task 6: Batch size review (CRITIC-E8)
 
-Edge Function CPU time limiti 2s. URI fetch async I/O olduğu için CPU time'ı aşmaz ama JSON parse CPU kullanır. Batch size 5 olarak başla, monitoring verisiyle artır.
+Edge Function CPU time limit is 2s. URI fetch is async I/O so it does not consume CPU, but JSON parse does. Start with batch size 5 and increase based on monitoring data.
 
 ```typescript
-const BATCH_SIZE = 5; // Conservative: 5 × 10s timeout = max 50s wall clock, CPU < 2s
+const BATCH_SIZE = 5; // Conservative: 5 x 10s timeout = max 50s wall clock, CPU < 2s
 ```
 
 ## Verification
 
-- [ ] `Registered` event → agent DB'ye anında yazılır (`agent_uri_data = NULL`)
-- [ ] `resolve-uris` çağrısı → `agent_uri_data` dolar
-- [ ] 5 başarısız denemeden sonra agent atlanır (sonsuz retry yok)
-- [ ] Ana indexer run süresi URI fetch olmadan belirgin şekilde düşer
-- [ ] Mevcut parser testleri geçer
+- [ ] `Registered` event -> agent written to DB immediately (`agent_uri_data = NULL`)
+- [ ] `resolve-uris` invocation -> `agent_uri_data` populated
+- [ ] After 5 failed attempts the agent is skipped (no infinite retry)
+- [ ] Main indexer run time drops noticeably without URI fetch
+- [ ] Existing parser tests pass

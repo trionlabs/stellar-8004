@@ -1,12 +1,12 @@
 -- 017_performance_and_integrity_fixes.sql
 -- Comprehensive DB hardening: indexes, concurrency fix, RLS, monitoring, constraints.
--- See: DB schema review (2026-04-05) — 10 findings, all resolved here.
+-- See: DB schema review (2026-04-05) - 10 findings, all resolved here.
 
 -- =============================================================================
 -- #1 [CRITICAL] Restore FOR UPDATE in insert_feedback_response
 -- Migration 016 recreated this function without the FOR UPDATE lock from 013.
 -- Without it, concurrent indexer runs can read the same MAX(response_index),
--- derive the same next index, and one insert silently gets DO NOTHING → data loss.
+-- derive the same next index, and one insert silently gets DO NOTHING -> data loss.
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION public.insert_feedback_response(
@@ -73,7 +73,7 @@ CREATE INDEX IF NOT EXISTS idx_feedback_responses_agent_created
   ON public.feedback_responses (agent_id, created_at DESC);
 
 -- =============================================================================
--- #5 [MEDIUM] Lock stale threshold 60s → 180s
+-- #5 [MEDIUM] Lock stale threshold 60s -> 180s
 -- Indexer timeout is 120s. If a run takes >60s but <120s, the lock could be
 -- falsely cleaned by a concurrent call. Threshold must exceed the timeout.
 -- =============================================================================

@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { getClients, stellarConfig } from '$lib/sdk-client.js';
-	import { buildMetadataJson, toDataUri, validateAgentUri, formatSorobanError } from '@trionlabs/8004s-sdk';
+	import { buildMetadataJson, toDataUri, validateAgentUri, formatSorobanError } from '@trionlabs/8004-sdk';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
 	import CtaButton from '$lib/components/CtaButton.svelte';
 	import Stepper from '$lib/components/Stepper.svelte';
@@ -127,7 +127,7 @@
 </script>
 
 <svelte:head>
-	<title>Register Agent — Stellar8004</title>
+	<title>Register Agent - Stellar8004</title>
 </svelte:head>
 
 <div class="mx-auto max-w-2xl space-y-8">
@@ -152,7 +152,7 @@
 
 	{#if !wallet.connected && currentStep > 0 && !showQuickMode}
 		<div class="rounded-xl bg-warning/6 px-4 py-2 text-xs text-warning">
-			Wallet not connected — you'll need it to submit.
+			Wallet not connected - you'll need it to submit.
 			<button type="button" onclick={() => wallet.connect()} class="underline">Connect now</button>
 		</div>
 	{/if}
@@ -231,7 +231,7 @@
 				</div>
 				<div class="h-px bg-linear-to-r from-transparent via-accent/20 to-transparent"></div>
 			</div>
-			<a href={resolve('/')} class="inline-flex items-center gap-2 text-xs text-text-muted hover:text-text">← Cancel and go home</a>
+			<a href={resolve('/')} class="inline-flex items-center gap-2 text-xs text-text-muted hover:text-text">Cancel and go home</a>
 		</div>
 	{:else}
 		<Stepper steps={STEPS} {currentStep} />
@@ -261,7 +261,7 @@
 				{#if currentStep > 0}
 					<button type="button" onclick={back}
 						class="flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm text-text-muted hover:bg-surface-raised transition-colors">
-						← Back
+						Back
 					</button>
 				{:else}
 					<a href={resolve('/')} class="flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm text-text-muted hover:bg-surface-raised transition-colors">
@@ -271,7 +271,7 @@
 
 				<button type="button" onclick={next} disabled={!canProceed}
 					class="rounded-xl border border-accent/30 bg-accent-fill px-6 py-2.5 text-sm font-medium text-accent disabled:opacity-40 hover:bg-accent-fill-hover hover:border-accent/45 transition-colors">
-					Next: {STEPS[currentStep + 1]?.label} →
+					Next: {STEPS[currentStep + 1]?.label} ->
 				</button>
 			</div>
 		{/if}

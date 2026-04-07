@@ -75,7 +75,7 @@
 		try {
 			const result = await fetchFromGateways(cid);
 			if (!result) {
-				errorMsg = 'Evidence unavailable — all IPFS gateways failed';
+				errorMsg = 'Evidence unavailable - all IPFS gateways failed';
 				return;
 			}
 

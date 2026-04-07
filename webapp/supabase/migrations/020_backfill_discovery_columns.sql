@@ -1,6 +1,6 @@
 -- 020_backfill_discovery_columns.sql
 -- One-time backfill: extract supported_trust and services from existing agent_uri_data.
--- Handles both spec format (services) and legacy format (endpoints → services normalization).
+-- Handles both spec format (services) and legacy format (endpoints -> services normalization).
 
 UPDATE public.agents
 SET
@@ -15,7 +15,7 @@ SET
       -- Spec format: "services" array
       WHEN agent_uri_data ? 'services' AND jsonb_typeof(agent_uri_data->'services') = 'array'
         THEN agent_uri_data->'services'
-      -- Legacy format: "endpoints" → normalize to services format
+      -- Legacy format: "endpoints" -> normalize to services format
       WHEN agent_uri_data ? 'endpoints' AND jsonb_typeof(agent_uri_data->'endpoints') = 'array'
         THEN (
           SELECT jsonb_agg(jsonb_build_object(

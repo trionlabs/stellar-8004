@@ -12,7 +12,7 @@
 		{
 			name: 'x402s',
 			slash: '/x402s',
-			desc: 'x402 HTTP-native micropayments on Stellar. Implements HTTP 402 Payment Required flows with USDC on Soroban — pay-per-call API monetization, Soroban authorization entries, facilitator configuration, and @trionlabs/x402-stellar client/server SDK.',
+			desc: 'x402 HTTP-native micropayments on Stellar. Implements HTTP 402 Payment Required flows with USDC on Soroban - pay-per-call API monetization, Soroban authorization entries, facilitator configuration, and @trionlabs/x402-stellar client/server SDK.',
 			install: 'claude install trionlabs/stellar-8004 --subpath skills/x402s',
 			repo: 'https://github.com/trionlabs/stellar-8004'
 		},
@@ -66,7 +66,7 @@ agent = requests.get('https://stellar8004.com/api/v1/agents/1').json()`
 		py: 'python'
 	} as const;
 
-	const sdkInstallCommand = `pnpm add @trionlabs/8004s-sdk @stellar/stellar-sdk
+	const sdkInstallCommand = `pnpm add @trionlabs/8004-sdk @stellar/stellar-sdk
 pnpm add -D tsx
 
 # Optional: browser signer support
@@ -81,7 +81,7 @@ import {
   fundTestnet,
   getMetadataSize,
   wrapBasicSigner
-} from '@trionlabs/8004s-sdk';
+} from '@trionlabs/8004-sdk';
 
 const secret = process.env.STELLAR_SECRET_KEY;
 if (!secret) {
@@ -168,7 +168,7 @@ import {
   fundTestnet,
   getMetadataSize,
   wrapBasicSigner
-} from '@trionlabs/8004s-sdk';
+} from '@trionlabs/8004-sdk';
 
 const secret = process.env.STELLAR_SECRET_KEY;
 if (!secret) {
@@ -231,7 +231,7 @@ for (let attempt = 1; attempt <= 12; attempt += 1) {
   }
 }`;
 
-	const apiClientExample = `import { ExplorerClient } from '@trionlabs/8004s-sdk';
+	const apiClientExample = `import { ExplorerClient } from '@trionlabs/8004-sdk';
 
 const explorer = new ExplorerClient('https://stellar8004.com');
 
@@ -332,7 +332,7 @@ console.log('Indexer status:', health.data.status);`;
 </script>
 
 <svelte:head>
-	<title>Developer Portal — Stellar8004</title>
+	<title>Developer Portal - Stellar8004</title>
 	<meta
 		name="description"
 		content="Public REST API and TypeScript SDK docs for the 8004 Agent Trust Protocol on Stellar."
@@ -357,7 +357,7 @@ console.log('Indexer status:', health.data.status);`;
 					Build on <span class="text-accent">Stellar8004</span> from your terminal
 				</h2>
 				<p class="max-w-2xl text-[13px] leading-relaxed text-text-muted">
-					Open-source skills that give Claude Code full context on 8004 smart contracts, Stellar SDK patterns, and x402 payment flows. One command to install — then use slash commands like <code class="rounded bg-accent/8 px-1.5 py-0.5 text-[11px] text-accent">/8004s</code> directly in Claude Code.
+					Open-source skills that give Claude Code full context on 8004 smart contracts, Stellar SDK patterns, and x402 payment flows. One command to install - then use slash commands like <code class="rounded bg-accent/8 px-1.5 py-0.5 text-[11px] text-accent">/8004s</code> directly in Claude Code.
 				</p>
 			</div>
 
@@ -479,7 +479,7 @@ console.log('Indexer status:', health.data.status);`;
 			</span>
 			<h2 class="text-2xl font-light tracking-tight text-text">SDK Quick Start</h2>
 			<p class="max-w-3xl text-sm leading-relaxed text-text-muted">
-				The SDK gives you one surface for testnet funding, metadata building, automatic storage selection, Soroban contract writes, and read-only explorer queries. The fastest onboarding path is: fund → signer → client → metadata → storage → register.
+				The SDK gives you one surface for testnet funding, metadata building, automatic storage selection, Soroban contract writes, and read-only explorer queries. The fastest onboarding path is: fund -> signer -> client -> metadata -> storage -> register.
 			</p>
 		</div>
 
@@ -643,12 +643,12 @@ console.log('Indexer status:', health.data.status);`;
 					<tr class="border-t border-border">
 						<td class="px-4 py-3 font-mono text-xs">RATE_LIMITED</td>
 						<td class="px-4 py-3">429</td>
-						<td class="px-4 py-3 text-text-muted">Too many requests — try again later</td>
+						<td class="px-4 py-3 text-text-muted">Too many requests - try again later</td>
 					</tr>
 					<tr class="border-t border-border">
 						<td class="px-4 py-3 font-mono text-xs">INTERNAL_ERROR</td>
 						<td class="px-4 py-3">500</td>
-						<td class="px-4 py-3 text-text-muted">Server error — retry with backoff</td>
+						<td class="px-4 py-3 text-text-muted">Server error - retry with backoff</td>
 					</tr>
 				</tbody>
 			</table>
@@ -658,8 +658,8 @@ console.log('Indexer status:', health.data.status);`;
 			{#each [
 				{ code: 'INVALID_PARAMS', http: '400', desc: 'Missing or invalid query parameters' },
 				{ code: 'NOT_FOUND', http: '404', desc: 'Agent or endpoint not found' },
-				{ code: 'RATE_LIMITED', http: '429', desc: 'Too many requests — try again later' },
-				{ code: 'INTERNAL_ERROR', http: '500', desc: 'Server error — retry with backoff' }
+				{ code: 'RATE_LIMITED', http: '429', desc: 'Too many requests - try again later' },
+				{ code: 'INTERNAL_ERROR', http: '500', desc: 'Server error - retry with backoff' }
 			] as err (err.code)}
 				<div class="rounded-lg border border-border bg-surface p-3 space-y-1">
 					<div class="flex items-center gap-2">

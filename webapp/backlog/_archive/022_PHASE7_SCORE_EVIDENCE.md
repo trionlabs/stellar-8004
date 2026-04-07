@@ -1,8 +1,8 @@
-# 022 — Agent Detail: Score Breakdown + Evidence Viewer
+# 022 - Agent Detail: Score Breakdown + Evidence Viewer
 
 **Status:** DONE
 **Owner:** Codex
-**Phase:** 7 — Discovery UX
+**Phase:** 7 - Discovery UX
 **Branch:** `feat/score-evidence`
 **Depends On:** 019
 **Plan:** [docs/plans/2026-04-05-protocol-compliance-and-discovery.md](../../docs/plans/2026-04-05-protocol-compliance-and-discovery.md)
@@ -10,7 +10,7 @@
 
 ## Context
 
-Trust kararı verirken opak bir sayı yetmez. Kullanıcı formülü ve kanıtı görebilmeli. Şu anda Total Score tek bir sayı olarak gösteriliyor — formül breakdown'ı yok. Ayrıca `feedbackUri` DB'de var ama UI'da erişilemiyor — kullanıcı feedback'in kanıtını doğrulayamıyor.
+When making a trust decision an opaque number is not enough. The user must see the formula and the evidence. Right now Total Score is shown as a single number with no formula breakdown. Also `feedbackUri` exists in the DB but is unreachable from the UI - the user cannot verify the feedback's evidence.
 
 ## File Scope
 
@@ -21,24 +21,24 @@ Trust kararı verirken opak bir sayı yetmez. Kullanıcı formülü ve kanıtı 
 
 ## Requirements
 
-- [ ] **ScoreBreakdown component:** Total Score'un yanında collapsible breakdown: "Avg Feedback: X (×0.6) + Volume Factor: Y (×0.2) + Avg Validation: Z (×0.2) = Total". Formül açıklaması tooltip
-- [ ] **EvidenceViewer component:** Feedback satırında `feedbackUri` varsa "Evidence" badge/link → tıklayınca IPFS'den fetch → JSON pretty-print → hash doğrulama durumu (✓ verified / ✗ mismatch / ⚠ no hash)
+- [ ] **ScoreBreakdown component:** Collapsible breakdown next to Total Score: "Avg Feedback: X (x0.6) + Volume Factor: Y (x0.2) + Avg Validation: Z (x0.2) = Total". Formula explanation in a tooltip
+- [ ] **EvidenceViewer component:** When a feedback row has `feedbackUri`, show "Evidence" badge/link -> click fetches from IPFS -> pretty-print JSON -> hash verification status (v verified / x mismatch / no hash)
 - [ ] IPFS gateway timeout handling (10s timeout + graceful fallback: "Evidence unavailable")
-- [ ] IPFS gateway: Pinata önce, ipfs.io fallback. Her iki gateway de başarısız → "Evidence unavailable"
-- [ ] Leaderboard formülü **DEĞİŞMEYECEK** (60/20/20)
+- [ ] IPFS gateway: try Pinata first, ipfs.io as fallback. If both gateways fail -> "Evidence unavailable"
+- [ ] The leaderboard formula **MUST NOT CHANGE** (60/20/20)
 
-## Critic Fixes (Zorunlu)
+## Critic Fixes (Required)
 
-### BLOCK-1: `feedback_uri` server load'da eksik
-Mevcut `+page.server.ts` satır 90-108'deki feedback map'inde `feedback_uri` ve `feedback_hash` return objesine dahil edilmemiş. **EvidenceViewer bu verilere erişemez.**
+### BLOCK-1: `feedback_uri` missing from server load
+The current feedback map in `+page.server.ts` lines 90-108 does not include `feedback_uri` or `feedback_hash` in the return object. **EvidenceViewer cannot reach this data.**
 
 ```typescript
-// Feedback map'ine ekle:
-feedbackUri: feedback.feedback_uri,    // YENİ
-feedbackHash: feedback.feedback_hash,  // YENİ
+// Add to the feedback map:
+feedbackUri: feedback.feedback_uri,    // NEW
+feedbackHash: feedback.feedback_hash,  // NEW
 ```
 
-### WARN-1: IPFS fetch timeout zorunlu — AbortController pattern
+### WARN-1: IPFS fetch must have a timeout - AbortController pattern
 ```typescript
 const controller = new AbortController();
 const timeout = setTimeout(() => controller.abort(), 10000);
@@ -49,11 +49,11 @@ try {
 }
 ```
 
-### WARN-2: IPFS gateway fallback stratejisi
-Sıralama: (1) `gateway.pinata.cloud` → (2) `ipfs.io` → (3) "Evidence unavailable"
+### WARN-2: IPFS gateway fallback strategy
+Order: (1) `gateway.pinata.cloud` -> (2) `ipfs.io` -> (3) "Evidence unavailable"
 
-### WARN-3: Hash doğrulama hex normalization
-`feedback_hash` DB'de text (hex string). `crypto.subtle.digest` Uint8Array döndürür. Her iki tarafı hex string'e normalize et:
+### WARN-3: Hash verification hex normalization
+`feedback_hash` is stored as text (hex string) in the DB. `crypto.subtle.digest` returns a Uint8Array. Normalize both sides to a hex string:
 ```typescript
 async function verifyHash(content: string, expectedHash: string): Promise<boolean> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content));
@@ -63,18 +63,18 @@ async function verifyHash(content: string, expectedHash: string): Promise<boolea
 }
 ```
 
-### WARN-4: Volume factor tooltip açıklaması
-"Volume Factor: logaritmik ölçekleme. 100 feedback'de maksimum (100) puana ulaşır. Formül: ln(feedback_count) / ln(100) × 100"
+### WARN-4: Volume factor tooltip explanation
+"Volume Factor: logarithmic scaling. Reaches the maximum (100) at 100 feedback items. Formula: ln(feedback_count) / ln(100) x 100"
 
 ## Implementation Plan
 
-Feature Checklist B3 ve B4 item'ları.
+Feature Checklist items B3 and B4.
 
-### Adımlar:
-1. **`+page.server.ts`** — feedback map'ine `feedbackUri` ve `feedbackHash` ekle (BLOCK fix)
-2. `ScoreBreakdown.svelte` component'ı oluştur (volume factor tooltip dahil)
-3. `EvidenceViewer.svelte` component'ı oluştur (IPFS fetch + AbortController timeout + gateway fallback + hex hash verify)
-4. Agent detail sayfasına entegre et
+### Steps:
+1. **`+page.server.ts`** - add `feedbackUri` and `feedbackHash` to the feedback map (BLOCK fix)
+2. Create the `ScoreBreakdown.svelte` component (including the volume factor tooltip)
+3. Create the `EvidenceViewer.svelte` component (IPFS fetch + AbortController timeout + gateway fallback + hex hash verify)
+4. Integrate into the agent detail page
 5. Commit
 
 ### Commit:
@@ -85,11 +85,11 @@ git commit -m "feat(web): score breakdown and evidence viewer on agent detail pa
 
 ## Verification
 
-- [ ] `feedbackUri` ve `feedbackHash` server load'dan client'a geçiyor
-- [ ] Score breakdown doğru formülü gösteriyor (60/20/20) + volume factor tooltip
-- [ ] Evidence viewer IPFS'den başarılı fetch yapıyor (Pinata → ipfs.io fallback)
-- [ ] IPFS fetch 10s AbortController timeout'u ile çalışıyor
-- [ ] Hash doğrulama: ✓ verified (hex normalized), ✗ mismatch, ⚠ no hash
-- [ ] IPFS'den fetch edilen JSON `JSON.stringify` ile render ediliyor (innerHTML değil — XSS koruması)
-- [ ] IPFS timeout/hata'da graceful fallback mesajı
-- [ ] feedbackUri olmayan feedback'lerde evidence butonu gösterilmiyor
+- [ ] `feedbackUri` and `feedbackHash` flow from server load to the client
+- [ ] Score breakdown shows the correct formula (60/20/20) + volume factor tooltip
+- [ ] Evidence viewer fetches from IPFS successfully (Pinata -> ipfs.io fallback)
+- [ ] IPFS fetch runs with a 10s AbortController timeout
+- [ ] Hash verification: v verified (hex normalized), x mismatch, no hash
+- [ ] JSON fetched from IPFS rendered via `JSON.stringify` (not innerHTML - XSS protection)
+- [ ] Graceful fallback message on IPFS timeout/error
+- [ ] Evidence button hidden for feedback items without `feedbackUri`

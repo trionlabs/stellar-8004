@@ -146,7 +146,7 @@
 						<path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
 					</svg>
 					<p class="text-xs text-text-muted">
-						Binding a different address requires two signatures — one as the agent owner, one as the wallet holder. Both addresses must be available in your Freighter wallet.
+						Binding a different address requires two signatures - one as the agent owner, one as the wallet holder. Both addresses must be available in your Freighter wallet.
 					</p>
 				</div>
 			{/if}
@@ -178,7 +178,7 @@
 	{#if status === 'success'}
 		<div class="flex items-center gap-2.5 rounded-xl bg-positive/5 px-4 py-3 ring-1 ring-positive/10">
 			<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
-			<p class="text-xs text-positive">Transaction submitted — waiting for indexer...</p>
+			<p class="text-xs text-positive">Transaction submitted - waiting for indexer...</p>
 		</div>
 	{/if}
 

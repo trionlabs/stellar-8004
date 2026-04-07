@@ -3,8 +3,8 @@ import {
 	createClients,
 	getConfig,
 	type StellarConfig,
-} from '@trionlabs/8004s-sdk';
-import { FreighterSigner } from '@trionlabs/8004s-sdk/signers/freighter';
+} from '@trionlabs/8004-sdk';
+import { FreighterSigner } from '@trionlabs/8004-sdk/signers/freighter';
 
 const network = env.PUBLIC_STELLAR_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
 const baseConfig = getConfig(network);

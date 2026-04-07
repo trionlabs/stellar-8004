@@ -78,7 +78,7 @@ For our Phase 2 agents, the correct value is `["reputation"]` since they partici
 ## Hash Algorithm Note
 
 - ERC-8004 spec specifies **keccak-256** for EVM implementations
-- Stellar implementation (trionlabs) uses **SHA-256** — this is a design decision by the contract authors, not a spec violation
+- Stellar implementation (trionlabs) uses **SHA-256** - this is a design decision by the contract authors, not a spec violation
 - When using IPFS URIs, `feedbackHash` is optional per spec, but we include it as best practice
 
 ## Complete Spec-Compliant Metadata Example
@@ -118,5 +118,5 @@ A JSON Schema for metadata validation is available at [`metadata-schema.json`](.
 
 ## Related Tasks
 
-- **Task 018** — URI resolver extracts `services` and `supportedTrust` from metadata
-- **Task 027** — CLI `update-metadata` script updates all 10 agents' metadata on-chain
+- **Task 018** - URI resolver extracts `services` and `supportedTrust` from metadata
+- **Task 027** - CLI `update-metadata` script updates all 10 agents' metadata on-chain

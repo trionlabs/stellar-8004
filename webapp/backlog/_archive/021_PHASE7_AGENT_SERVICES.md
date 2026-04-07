@@ -1,8 +1,8 @@
-# 021 — Agent Detail: Services Cards + Trust Badges
+# 021 - Agent Detail: Services Cards + Trust Badges
 
 **Status:** DONE
 **Owner:** Codex
-**Phase:** 7 — Discovery UX
+**Phase:** 7 - Discovery UX
 **Branch:** `feat/agent-services`
 **Depends On:** 017, 018
 **Plan:** [docs/plans/2026-04-05-protocol-compliance-and-discovery.md](../../docs/plans/2026-04-05-protocol-compliance-and-discovery.md)
@@ -10,7 +10,7 @@
 
 ## Context
 
-8004'ün asıl amacı keşif. "Bu agent'ın MCP endpoint'i ne?" sorusu bir tıkla cevaplanabilmeli. Şu anda `services` ve `supportedTrust` verileri raw JSON blob'unda gömülü — kullanıcı JSON parse etmek zorunda kalıyor. Bu kabul edilemez bir UX.
+8004's main purpose is discovery. "What is this agent's MCP endpoint?" must be answerable in one click. Right now `services` and `supportedTrust` data is buried in the raw JSON blob - the user has to parse JSON. This is unacceptable UX.
 
 ## File Scope
 
@@ -19,17 +19,17 @@
 
 ## Requirements
 
-- [ ] **Services kartları:** Her service için kart — protocol icon (MCP, A2A, Web), endpoint URL (kopyala butonu), version badge
-- [ ] **SupportedTrust badge'leri:** Agent header'ında belirgin badge'ler: `reputation ✓`, `validation ✓` vb.
-- [ ] Server-side: `supported_trust` ve `services` kolonlarından veri oku (agent_uri_data'dan değil)
-- [ ] Boş services/trust durumunda graceful empty state ("No services registered" / "No trust mechanisms supported")
-- [ ] Protocol icon mapping: `MCP` → ilgili icon, `A2A` → ilgili icon, `Web` / default → globe icon. Ayrı utility map oluştur (`$lib/icons/protocol-icons.ts`), inline `{#if}` zinciri yerine
-- [ ] Endpoint URL kopyalama: clipboard API ile tek tıkla kopyala
+- [ ] **Service cards:** A card per service - protocol icon (MCP, A2A, Web), endpoint URL (copy button), version badge
+- [ ] **SupportedTrust badges:** Visible badges in the agent header: `reputation v`, `validation v`, etc.
+- [ ] Server-side: read data from `supported_trust` and `services` columns (not from agent_uri_data)
+- [ ] Graceful empty state when services/trust are missing ("No services registered" / "No trust mechanisms supported")
+- [ ] Protocol icon mapping: `MCP` -> matching icon, `A2A` -> matching icon, `Web` / default -> globe icon. Build a separate utility map (`$lib/icons/protocol-icons.ts`) instead of an inline `{#if}` chain
+- [ ] Endpoint URL copy: one-click copy via the clipboard API
 
-## Critic Fixes (Zorunlu)
+## Critic Fixes (Required)
 
 ### WARN-1: Services JSONB type safety
-`services` kolonu `jsonb` → TypeScript'te `unknown`. `+page.server.ts`'de normalize et:
+`services` column is `jsonb` -> `unknown` in TypeScript. Normalize in `+page.server.ts`:
 
 ```typescript
 function normalizeServices(raw: unknown): Array<{ name: string; endpoint: string; version?: string }> {
@@ -46,7 +46,7 @@ function normalizeServices(raw: unknown): Array<{ name: string; endpoint: string
 ```
 
 ### WARN-2: Clipboard API SSR guard
-`navigator.clipboard` browser-only. SSR-safe yapılmalı:
+`navigator.clipboard` is browser-only. Make it SSR-safe:
 
 ```svelte
 <script>
@@ -61,13 +61,13 @@ function normalizeServices(raw: unknown): Array<{ name: string; endpoint: string
 
 ## Implementation Plan
 
-Feature Checklist B1 ve B2 item'ları. Agent detail sayfasının mevcut yapısına uygun component'lar eklenecek.
+Feature Checklist items B1 and B2. Components fit into the existing structure of the agent detail page.
 
-### Adımlar:
-1. `+page.server.ts`'de `supported_trust` ve `services` kolonlarını query'e ekle + `normalizeServices` helper
-2. `+page.svelte`'de Services section ekle (kartlar) + SSR-safe clipboard
-3. `+page.svelte`'de SupportedTrust badge'lerini agent header'ına ekle
-4. Responsive tasarım (mobile-first), mevcut token'ları kullan (`border-border`, `bg-surface`, `text-accent`)
+### Steps:
+1. Add `supported_trust` and `services` columns to the query in `+page.server.ts` and add the `normalizeServices` helper
+2. Add a Services section to `+page.svelte` (cards) with SSR-safe clipboard
+3. Add SupportedTrust badges to the agent header in `+page.svelte`
+4. Responsive design (mobile-first), use existing tokens (`border-border`, `bg-surface`, `text-accent`)
 5. Commit
 
 ### Commit:
@@ -78,9 +78,9 @@ git commit -m "feat(web): services cards and trust badges on agent detail page"
 
 ## Verification
 
-- [ ] Services kartları doğru render ediliyor (icon, URL, version)
-- [ ] Trust badge'leri header'da görünüyor
-- [ ] Endpoint URL kopyalama çalışıyor (SSR'de crash yok)
-- [ ] Services/trust boş olan agent'larda boş state gösteriliyor
-- [ ] Services JSONB type-safe normalize ediliyor (geçersiz entry'ler filtreleniyor)
+- [ ] Service cards render correctly (icon, URL, version)
+- [ ] Trust badges visible in the header
+- [ ] Endpoint URL copy works (no SSR crash)
+- [ ] Empty state shown for agents without services/trust
+- [ ] Services JSONB normalized type-safely (invalid entries filtered out)
 - [ ] Mobile responsive

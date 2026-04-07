@@ -23,7 +23,7 @@ const NETWORK_PASSPHRASE = process.env.STELLAR_NETWORK === 'mainnet'
 
 const server = new StellarSdk.rpc.Server(RPC_URL);
 
-// ─── Contract Read Helpers ──────────────────────────────────────────
+// --- Contract Read Helpers ------------------------------------------
 
 async function simulateRead(
 	method: string,
@@ -92,7 +92,7 @@ async function getAgentWallet(agentId: number): Promise<string | null> {
 	}
 }
 
-// ─── DB Writer ──────────────────────────────────────────────────────
+// --- DB Writer ------------------------------------------------------
 
 async function upsertAgent(agent: {
 	id: number;
@@ -127,7 +127,7 @@ async function upsertAgent(agent: {
 	return true;
 }
 
-// ─── Main ───────────────────────────────────────────────────────────
+// --- Main -----------------------------------------------------------
 
 async function main() {
 	const startId = parseInt(process.argv[2] || '1', 10);
@@ -169,7 +169,7 @@ async function main() {
 		const ok = await upsertAgent({ id, owner, agentUri: uri, wallet });
 		if (ok) {
 			inserted++;
-			console.log(`  #${id} → owner=${owner.slice(0, 8)}... uri=${uri ? 'yes' : 'no'} wallet=${wallet ? wallet.slice(0, 8) + '...' : 'none'}`);
+			console.log(`  #${id} -> owner=${owner.slice(0, 8)}... uri=${uri ? 'yes' : 'no'} wallet=${wallet ? wallet.slice(0, 8) + '...' : 'none'}`);
 		}
 	}
 

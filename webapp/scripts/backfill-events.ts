@@ -15,7 +15,7 @@
  */
 import * as StellarSdk from '@stellar/stellar-sdk';
 
-// ─── Config ─────────────────────────────────────────────────────────
+// --- Config ---------------------------------------------------------
 
 const RPC_URL = process.env.STELLAR_RPC_URL || 'https://soroban-testnet.stellar.org';
 const SUPABASE_URL = process.env.SUPABASE_URL || 'http://localhost:54321';
@@ -35,7 +35,7 @@ const CONTRACTS: Record<string, string> = {
 
 const rpcServer = new StellarSdk.rpc.Server(RPC_URL);
 
-// ─── Helpers ────────────────────────────────────���───────────────────
+// --- Helpers -------------------------------------------------------
 
 function sleep(ms: number) {
 	return new Promise((r) => setTimeout(r, ms));
@@ -122,7 +122,7 @@ function extractContractEvents(
 	return events;
 }
 
-// ─── Event Parsers (simplified, matching indexer format) ────────────
+// --- Event Parsers (simplified, matching indexer format) ------------
 
 interface ParsedEvent {
 	type: string;
@@ -322,7 +322,7 @@ function parseValidationEvent(
 	}
 }
 
-// ─── Database Writers ───────────────────────────────────────────────
+// --- Database Writers -----------------------------------------------
 
 async function supabasePost(table: string, data: Record<string, any>, upsertOn?: string): Promise<void> {
 	const headers: Record<string, string> = {
@@ -463,7 +463,7 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 	}
 }
 
-// ─── Main ───────────────────────────────────────────────────────────
+// --- Main -----------------------------------------------------------
 
 async function main() {
 	if (!SUPABASE_SERVICE_KEY) {
