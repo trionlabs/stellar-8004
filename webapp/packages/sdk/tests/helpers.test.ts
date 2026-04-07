@@ -64,10 +64,13 @@ describe('validateStellarAddress', () => {
 		expect(() => validateStellarAddress('not-an-address')).toThrow('Address is not a valid Stellar address');
 	});
 
-	it('rejects a contract address (C...)', () => {
-		expect(() => validateStellarAddress('CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ')).toThrow(
-			'is not a valid Stellar address'
-		);
+	it('accepts a contract address (C...)', () => {
+		// Smart-contract wallets (passkey kits, custom MPC, Lobstr smart accounts) use
+		// C-addresses. Audit finding B1: we used to reject these, blocking smart-wallet
+		// agents at the SDK boundary.
+		expect(() =>
+			validateStellarAddress('CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ')
+		).not.toThrow();
 	});
 
 	it('rejects empty string', () => {
