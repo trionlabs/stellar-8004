@@ -1,23 +1,30 @@
 use soroban_sdk::{contractevent, Address, BytesN, Env, String};
 
+/// ERC-8004 spec event names are `ValidationRequest` and `ValidationResponse`
+/// (no past-tense suffix). The previous `ValidationRequested` /
+/// `ValidationResponded` names did not match the spec.
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ValidationRequested {
+pub struct ValidationRequest {
     #[topic]
     pub validator_address: Address,
     #[topic]
     pub agent_id: u32,
+    /// ERC-8004 spec lists `requestHash` as the third indexed topic.
+    #[topic]
     pub request_hash: BytesN<32>,
     pub request_uri: String,
 }
 
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ValidationResponded {
+pub struct ValidationResponse {
     #[topic]
     pub validator_address: Address,
     #[topic]
     pub agent_id: u32,
+    /// ERC-8004 spec lists `requestHash` as the third indexed topic.
+    #[topic]
     pub request_hash: BytesN<32>,
     pub response: u32,
     pub response_uri: String,
@@ -32,7 +39,7 @@ pub fn validation_requested(
     request_hash: &BytesN<32>,
     request_uri: &String,
 ) {
-    ValidationRequested {
+    ValidationRequest {
         validator_address: validator_address.clone(),
         agent_id,
         request_hash: request_hash.clone(),
@@ -51,7 +58,7 @@ pub fn validation_responded(
     response_hash: &BytesN<32>,
     tag: &String,
 ) {
-    ValidationResponded {
+    ValidationResponse {
         validator_address: validator_address.clone(),
         agent_id,
         request_hash: request_hash.clone(),

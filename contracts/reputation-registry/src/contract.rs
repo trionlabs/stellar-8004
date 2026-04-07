@@ -171,26 +171,20 @@ impl ReputationRegistryContract {
     ) -> Result<(), ReputationError> {
         caller.require_auth();
 
-        // Only agent owner, approved, or approved-for-all can respond.
+        // ERC-8004 spec: `appendResponse` is callable by anyone. The off-chain
+        // layer is responsible for filtering responses by responder identity
+        // (e.g. only the agent owner's responses are treated as authoritative).
+        // The previous owner-only restriction was a spec violation that locked
+        // out third-party response flows.
+        //
+        // Verify the agent actually exists so we don't track responses against
+        // a non-existent or archived agent and so cross-contract callers
+        // surface a clean AgentNotFound rather than panicking.
         let identity_addr = storage::get_identity_registry(e);
         let identity = IdentityRegistryClient::new(e, &identity_addr);
-        let owner = identity
+        identity
             .find_owner(&agent_id)
             .ok_or(ReputationError::AgentNotFound)?;
-        if caller != owner {
-            let mut authorized = false;
-            if let Some(approved) = identity.get_approved(&agent_id) {
-                if caller == approved {
-                    authorized = true;
-                }
-            }
-            if !authorized && identity.is_approved_for_all(&owner, &caller) {
-                authorized = true;
-            }
-            if !authorized {
-                return Err(ReputationError::NotOwnerOrApproved);
-            }
-        }
 
         // Verify feedback exists
         storage::get_feedback(e, agent_id, &client_address, feedback_index)
