@@ -1,5 +1,6 @@
 use soroban_sdk::{contracttype, Address, BytesN, Env, Vec};
 
+use crate::errors::ValidationError;
 use crate::types::ValidationStatus;
 
 pub const TTL_THRESHOLD: u32 = 518_400;
@@ -80,8 +81,16 @@ pub fn get_agent_validation_count(e: &Env, agent_id: u32) -> u32 {
     }
 }
 
-pub fn add_agent_validation(e: &Env, agent_id: u32, request_hash: &BytesN<32>) {
+pub fn add_agent_validation(
+    e: &Env,
+    agent_id: u32,
+    request_hash: &BytesN<32>,
+) -> Result<(), ValidationError> {
     let count = get_agent_validation_count(e, agent_id);
+    let next = count
+        .checked_add(1)
+        .ok_or(ValidationError::CounterOverflow)?;
+
     let at_key = DataKey::AgentValidationAt(agent_id, count);
     e.storage().persistent().set(&at_key, request_hash);
     e.storage()
@@ -89,10 +98,11 @@ pub fn add_agent_validation(e: &Env, agent_id: u32, request_hash: &BytesN<32>) {
         .extend_ttl(&at_key, TTL_THRESHOLD, TTL_BUMP);
 
     let count_key = DataKey::AgentValidationCount(agent_id);
-    e.storage().persistent().set(&count_key, &(count + 1));
+    e.storage().persistent().set(&count_key, &next);
     e.storage()
         .persistent()
         .extend_ttl(&count_key, TTL_THRESHOLD, TTL_BUMP);
+    Ok(())
 }
 
 pub fn get_agent_validation_at(e: &Env, agent_id: u32, index: u32) -> Option<BytesN<32>> {
@@ -137,8 +147,16 @@ fn get_validator_request_count(e: &Env, validator: &Address) -> u32 {
     }
 }
 
-pub fn add_validator_request(e: &Env, validator: &Address, request_hash: &BytesN<32>) {
+pub fn add_validator_request(
+    e: &Env,
+    validator: &Address,
+    request_hash: &BytesN<32>,
+) -> Result<(), ValidationError> {
     let count = get_validator_request_count(e, validator);
+    let next = count
+        .checked_add(1)
+        .ok_or(ValidationError::CounterOverflow)?;
+
     let at_key = DataKey::ValidatorRequestAt(validator.clone(), count);
     e.storage().persistent().set(&at_key, request_hash);
     e.storage()
@@ -146,10 +164,11 @@ pub fn add_validator_request(e: &Env, validator: &Address, request_hash: &BytesN
         .extend_ttl(&at_key, TTL_THRESHOLD, TTL_BUMP);
 
     let count_key = DataKey::ValidatorRequestCount(validator.clone());
-    e.storage().persistent().set(&count_key, &(count + 1));
+    e.storage().persistent().set(&count_key, &next);
     e.storage()
         .persistent()
         .extend_ttl(&count_key, TTL_THRESHOLD, TTL_BUMP);
+    Ok(())
 }
 
 pub fn get_validator_requests_paginated(
