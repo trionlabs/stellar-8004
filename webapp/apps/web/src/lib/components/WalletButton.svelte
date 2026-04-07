@@ -57,7 +57,7 @@
 		{/if}
 		<span class="font-mono text-sm text-text-muted">{wallet.truncatedAddress}</span>
 		{#if agentCount != null && agentCount > 0}
-			<span class="text-text-dim">·</span>
+			<span class="text-text-dim">-</span>
 			<a
 				href={resolve('/agents') + `?owner=${wallet.address}`}
 				class="font-mono text-[11px] text-accent transition hover:text-text"

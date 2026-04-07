@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { getClients } from '$lib/sdk-client.js';
-	import { validateAgentUri } from '@trionlabs/8004s-sdk';
+	import { validateAgentUri } from '@trionlabs/8004-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { createSupabase } from '$lib/supabase.js';
 	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
@@ -20,7 +20,7 @@
 	let channel: ReturnType<ReturnType<typeof createSupabase>['channel']> | null = null;
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let pollCount = $state(0);
-	const MAX_POLLS = 18; // 18 × 10s = 3 minutes
+	const MAX_POLLS = 18; // 18 x 10s = 3 minutes
 	const pollTimedOut = $derived(data.state === 'indexing' && pollCount >= MAX_POLLS);
 
 	onMount(() => {
@@ -195,7 +195,7 @@
 					Register another agent
 				</a>
 				{#if wallet.connected}
-					<span class="text-text-dim">·</span>
+					<span class="text-text-dim">-</span>
 					<a href={resolve('/agents') + `?owner=${wallet.address}`}
 						class="text-xs text-text-muted hover:text-accent transition">
 						My agents
@@ -280,7 +280,7 @@
 					Cancel
 				</button>
 				{#if uriUpdateStatus === 'success'}
-					<span class="text-xs text-positive">URI updated — waiting for indexer to re-resolve...</span>
+					<span class="text-xs text-positive">URI updated - waiting for indexer to re-resolve...</span>
 				{/if}
 			</div>
 			{#if uriUpdateStatus === 'error'}
@@ -305,9 +305,9 @@
 						<h1 class="text-xl font-light tracking-tight text-text">{data.agent.name}</h1>
 						<div class="mt-1 flex items-center gap-2 text-[11px]">
 							<span class="font-mono text-text-dim/50">{shortAddress(data.agent.owner)}</span>
-							<span class="text-text-dim/25">·</span>
+							<span class="text-text-dim/25">-</span>
 							<span class="text-text-dim/50">{dateFormatter.format(new Date(data.agent.createdAt))}</span>
-							<span class="text-text-dim/25">·</span>
+							<span class="text-text-dim/25">-</span>
 							<span class="text-accent/60">#{data.agent.id}</span>
 						</div>
 					</div>
@@ -401,7 +401,7 @@
 			</div>
 		</div>
 
-		<!-- Tabs — full width -->
+		<!-- Tabs - full width -->
 		<nav class="flex gap-1 border-b border-border/30 pb-px">
 			{#each tabs as tab (tab.id)}
 				<button
@@ -784,7 +784,7 @@
 											{#if validation.respondedAt}
 												{dateTimeFormatter.format(new Date(validation.respondedAt))}
 											{:else}
-												—
+												-
 											{/if}
 										</td>
 									</tr>
