@@ -65,7 +65,7 @@ impl ReputationRegistryContract {
 
         // Track client
         if !storage::client_exists(e, agent_id, &caller) {
-            storage::add_client(e, agent_id, &caller);
+            storage::add_client(e, agent_id, &caller)?;
         }
 
         // Increment feedback index
@@ -175,7 +175,7 @@ impl ReputationRegistryContract {
             .ok_or(ReputationError::FeedbackNotFound)?;
 
         // Track response
-        storage::increment_response_count(e, agent_id, &client_address, feedback_index);
+        storage::increment_response_count(e, agent_id, &client_address, feedback_index)?;
 
         events::response_appended(
             e,
