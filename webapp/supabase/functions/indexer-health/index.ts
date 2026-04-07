@@ -1,7 +1,12 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { checkRateLimit } from '../_shared/rate-limit.ts';
+
 const EXPECTED_CONTRACTS = ['identity', 'reputation', 'validation'] as const;
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+// Health monitoring should be ~1 poll per 30 seconds. Allow a small burst
+// (10/min) so a leaked HEALTH_SECRET cannot turn into amplified DB load.
+const HEALTH_RATE_LIMIT_PER_MINUTE = 10;
 
 function json(body: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(body), {
@@ -34,6 +39,29 @@ Deno.serve(async (request: Request) => {
 
   try {
     const db = createSupabaseAdmin();
+
+    // Per-IP rate limit. Even with a valid bearer token, a single client
+    // shouldn't be able to hammer the DB. Health checks are cheap but reads
+    // still consume connection budget.
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
+    const rate = await checkRateLimit(db, ip, HEALTH_RATE_LIMIT_PER_MINUTE);
+    if (!rate.allowed) {
+      return json(
+        {
+          ok: false,
+          error: 'Rate limit exceeded',
+          retryAfter: Math.ceil((rate.resetAt.getTime() - Date.now()) / 1000),
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil((rate.resetAt.getTime() - Date.now()) / 1000)) },
+        },
+      );
+    }
+
     const { data, error } = await db.from('indexer_state').select('*');
 
     if (error) {
