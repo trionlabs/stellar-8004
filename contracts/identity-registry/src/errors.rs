@@ -9,4 +9,5 @@ pub enum IdentityError {
     AgentNotFound = 3,
     MetadataKeyTooLong = 4,
     MetadataValueTooLong = 5,
+    TooManyMetadataKeys = 6,
 }
