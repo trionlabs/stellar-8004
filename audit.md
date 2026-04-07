@@ -58,7 +58,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** Off-chain systems trust an agent's metadata as "what the current owner asserted". An attacker can set authoritative-looking metadata (e.g. `"verified": true`, `"domain": "anthropic.com"`), then transfer the NFT to a victim. The victim now appears to have asserted those claims.
 - **Fix:** Either clear all metadata in the transfer overrides (requires a metadata-key index - see A1), or document explicitly that metadata is non-transferable claims attached to the NFT and the off-chain layer must verify the claim was made by the current owner.
 
-### A7. MEDIUM - `set_metadata` accepts unbounded key length and value size
+### A7. MEDIUM - `set_metadata` accepts unbounded key length and value size [DONE in 35d9dba]
 - **File:** `contracts/identity-registry/src/contract.rs` (the `set_metadata` entry point)
 - **What:** No length validation on the `String` key or the `Bytes` value.
 - **Why it matters:** A registered agent (anyone with 1 friendbot funding) can call `set_metadata` with a 64 KB key and a 100 KB value, paying minimal storage rent for storage that lives until TTL archive (~30 days). At scale this is a cheap storage spam vector.
@@ -152,7 +152,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** Cross-chain interoperability (the entire reason ERC-8004 exists) breaks. A validator that expects `request_hash == sha256(work)` will always reject our requests.
 - **Fix:** Add an optional `requestHash?: Uint8Array` parameter; default to nonce mode; if a hash is provided, use it as-is. Update `requestValidation` callers to pass a real hash when content is available.
 
-### B7. MEDIUM - Two `target="_blank"` links lack `rel="noopener noreferrer"`
+### B7. MEDIUM - Two `target="_blank"` links lack `rel="noopener noreferrer"` [DONE in 244a51c]
 - **File:** `webapp/apps/web/src/routes/agents/[id]/edit/+page.svelte:143` and `webapp/apps/web/src/routes/agents/[id]/+page.svelte:186`
 - **What:** Both have `rel="noopener"` but not `rel="noopener noreferrer"`. The destination is `stellar.expert/explorer/...`.
 - **Why it matters:** `noopener` blocks `window.opener` reference. The missing `noreferrer` leaks the source URL (which contains `agent_id` and possibly the `tx` query param) to the destination via the Referer header. stellar.expert isn't malicious so the practical risk is bounded, but the pattern should be fixed everywhere because the next link added might point at a user-controlled URI from agent metadata.
@@ -247,13 +247,13 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** If true, the service role key is in plaintext in Docker logs, which on Dokploy means it's in the host filesystem and any operator with SSH access can grep it out.
 - **Fix:** First verify by inspecting the actual `kong.yml` and the running container logs in dev. If confirmed: configure Kong to mask the `apikey` and `Authorization` headers in the access log format string. Better long-term fix: use mTLS between Edge Functions and Kong instead of bearer tokens.
 
-### C7. HIGH - `pg_advisory_xact_lock` for response_index has no timeout
+### C7. HIGH - `pg_advisory_xact_lock` for response_index has no timeout [DONE in 610d2e7]
 - **File:** `webapp/supabase/migrations/021_fix_response_index_concurrency.sql:30-34`
 - **What:** Advisory lock acquired with no `lock_timeout`. If the holding transaction stalls (slow query, statement timeout that doesn't fire because there's no statement running), the next requester waits indefinitely.
 - **Why it matters:** A single slow `insert_feedback_response` can wedge the indexer. The indexer's outer cursor advance never fires, and from outside it just looks "stuck".
 - **Fix:** `SET LOCAL lock_timeout = '5s'; PERFORM pg_advisory_xact_lock(...);` and let the outer indexer retry on timeout.
 
-### C8. MEDIUM - `validations.tag` has no length constraint and no index
+### C8. MEDIUM - `validations.tag` has no length constraint and no index [DONE in 96044e2]
 - **Files:** `webapp/supabase/migrations/005_validations.sql:12,20-23`
 - **What:** `tag text` with no `CHECK (length(...) <= ...)` and no index. Migration 016 added length and index for `feedback.tag1` and `feedback.tag2` but missed `validations.tag` entirely.
 - **Why it matters:** A validator can submit a 10 MB tag and bloat the table. Queries filtering by tag full-table-scan.
@@ -294,7 +294,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** Information disclosure - an attacker subscribing to realtime updates sees IPFS URIs as soon as feedback is submitted, before any UI displays them. Combined with C2 (no SSRF guard on resolve), they can race the resolver to fetch and possibly tamper with the gateway response.
 - **Fix:** Remove `feedback_uri` and `feedback_hash` from the realtime publication column list. Surface them only via the API endpoint where the operator can apply rate limits and access checks.
 
-### C15. MEDIUM - `search_agents` function lacks explicit GRANT
+### C15. MEDIUM - `search_agents` function lacks explicit GRANT [DONE in 96044e2]
 - **File:** `webapp/supabase/migrations/016_schema_validation_hardening.sql` (the `CREATE OR REPLACE FUNCTION search_agents` block)
 - **What:** Function created with `STABLE` and `SET search_path = ''`, but no explicit `GRANT EXECUTE TO anon, authenticated`. It works today because of default-PUBLIC GRANTs on functions, but a future Postgres `REVOKE EXECUTE ON ALL FUNCTIONS FROM PUBLIC` (which is a recommended hardening step) would silently break it.
 - **Fix:** Append `GRANT EXECUTE ON FUNCTION public.search_agents(text, integer, integer) TO anon, authenticated;` to the migration.
@@ -401,33 +401,35 @@ These were reported by the parallel agents. I checked and they don't hold up:
 - A14 - `d7775d3` find_owner panic guard (with cross-contract propagation in reputation+validation)
 - A2 - `ba7e953` extend OZ NFT base storage TTL (Owner+Balance)
 - A3+A4 - `e7dfd7c` extend reputation+validation persistent TTL on every read and write
+- C7 - `610d2e7` add lock_timeout to insert_feedback_response
+- A7 - `35d9dba` cap metadata key (64) and value (4096) lengths
+- C8+C15 - `96044e2` validations.tag length constraint, index, search_agents grant
+- B7 - `244a51c` add noreferrer to external explorer links
 
 **Open, in priority order:**
 
-1. **A1 (metadata TTL extension or removal)** - investigate metadata caller graph first, then either add a key index or delete the API.
-2. **A6 (transfer doesn't clear metadata)** - tied to A1; same investigation.
-3. **C2 (URI resolver SSRF + JSON bomb)** - DoS vector exposed to anyone who can register an agent (free on testnet, ~5 XLM on mainnet).
-4. **C7 (advisory lock timeout)** - tiny migration: `SET LOCAL lock_timeout = '5s'` before `pg_advisory_xact_lock`.
-5. **C5 (backfill / indexer concurrent races)** - operationally important; the next time someone needs to backfill.
-6. **C6 (Kong auth header logging)** - verify Kong access log format first, may already be safe.
-7. **A8 (`get_summary` with explicit clients is O(n*m))** - either pre-compute per-client aggregates or hard-cap the input list.
-8. **A9 (unchecked u32 increments)** - cheap, low-impact.
-9. **C1 (feedback historical data audit)** - one-shot backfill diff to find the gap.
-10. **B3 (audit every form for address validation)** - enumerate forms, route through `<AddressInput>`.
-11. **B4 (legacy endpoints field drop)** - depends on whether any legacy agents still exist.
-12. **A7 (set_metadata unbounded length)** - cheap input validation.
-13. **A10 (cross-contract trust documentation)** - rustdoc and decide on identity-registry upgrade timelock.
-14. **A15 (architecture plan vs code divergence)** - rewrite or delete the stale plan.
-15. **C-series MEDIUM/LOW backlog** - C8, C9, C10, C11, C12, C13, C14, C15.
-16. **D-series infrastructure** - D1, D2, D3, D4, D5.
-17. **E-series cross-cutting** - E1, E2, E3, E4, E5.
-18. **B-series LOW** - B5 through B15.
+1. **C2 (URI resolver SSRF + JSON bomb)** - DoS vector exposed to anyone who can register an agent. Stream + bound + SSRF guard.
+2. **A1 (metadata TTL extension or removal)** - investigate caller graph, then either add a key index or delete the API. Tied to A6.
+3. **A6 (transfer doesn't clear metadata)** - tied to A1.
+4. **C5 (backfill / indexer concurrent races)** - operationally important.
+5. **C6 (Kong auth header logging)** - verify access log format first.
+6. **A8 (`get_summary` with explicit clients is O(n*m))** - cap the input list.
+7. **A9 (unchecked u32 increments)** - cheap, low-impact.
+8. **C1 (feedback historical data audit)** - one-shot backfill diff.
+9. **B3 (form-level address validation audit)** - enumerate forms.
+10. **B4 (legacy endpoints field drop)** - depends on whether any legacy agents still exist.
+11. **A10 (cross-contract trust documentation)** - rustdoc + upgrade-timelock decision.
+12. **A15 (architecture plan vs code divergence)** - rewrite or delete the stale plan.
+13. **C-series MEDIUM/LOW backlog** - C9, C10, C11, C12, C13, C14, C16-C19.
+14. **D-series infrastructure** - D1-D5.
+15. **E-series cross-cutting** - E1-E5.
+16. **B-series LOW** - B5, B6, B8 through B15.
 
-**Quick wins (under 30 min each):** A7, A9, C7, C8, C15, B7.
+**Quick wins still open (under 30 min each):** A9, B11, B12, B14, C16, C17, C18, C19.
 
-**Medium effort (under a day):** B4, B8, B9, B10, C2, C9, C10, C13, C14, D2.
+**Medium effort still open (under a day):** B4, B5, B6, B8, B9, B10, B13, C2, C9, C10, C11, C12, C13, C14, D2, D3, D4, D5.
 
-**Bigger projects (multi-day):** A1+A6 (metadata), A8 (per-client aggregates), B3 (form audit), C1 (historical data audit), C5 (backfill concurrency), E1 (e2e CI test).
+**Bigger projects (multi-day):** A1+A6 (metadata), A8 (per-client aggregates), B3 (form audit), C1 (historical data audit), C5 (backfill concurrency), D1 (mainnet WASM verify), E1 (e2e CI test), E2 (upgrade docs).
 
 ## H. Verification approach per finding
 
