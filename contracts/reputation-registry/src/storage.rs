@@ -1,5 +1,6 @@
 use soroban_sdk::{contracttype, Address, Env, Vec};
 
+use crate::errors::ReputationError;
 use crate::types::{FeedbackData, SummaryResult};
 
 pub const TTL_THRESHOLD: u32 = 518_400;
@@ -143,27 +144,48 @@ pub fn get_aggregate(e: &Env, agent_id: u32) -> SummaryResult {
         })
 }
 
-pub fn update_aggregate_add(e: &Env, agent_id: u32, value: i128, decimals: u32) {
+pub fn update_aggregate_add(
+    e: &Env,
+    agent_id: u32,
+    value: i128,
+    decimals: u32,
+) -> Result<(), ReputationError> {
     let mut agg = get_aggregate(e, agent_id);
-    agg.count += 1;
-    agg.summary_value += value;
+    agg.count = agg
+        .count
+        .checked_add(1)
+        .ok_or(ReputationError::AggregateOverflow)?;
+    agg.summary_value = agg
+        .summary_value
+        .checked_add(value)
+        .ok_or(ReputationError::AggregateOverflow)?;
     if decimals > agg.summary_value_decimals {
         agg.summary_value_decimals = decimals;
     }
     e.storage()
         .persistent()
         .set(&DataKey::AgentAggregate(agent_id), &agg);
+    Ok(())
 }
 
-pub fn update_aggregate_sub(e: &Env, agent_id: u32, value: i128, _decimals: u32) {
+pub fn update_aggregate_sub(
+    e: &Env,
+    agent_id: u32,
+    value: i128,
+    _decimals: u32,
+) -> Result<(), ReputationError> {
     let mut agg = get_aggregate(e, agent_id);
     if agg.count > 0 {
         agg.count -= 1;
-        agg.summary_value -= value;
+        agg.summary_value = agg
+            .summary_value
+            .checked_sub(value)
+            .ok_or(ReputationError::AggregateOverflow)?;
     }
     e.storage()
         .persistent()
         .set(&DataKey::AgentAggregate(agent_id), &agg);
+    Ok(())
 }
 
 pub fn get_tag_aggregate(
@@ -193,10 +215,16 @@ pub fn update_tag_aggregate_add(
     tag2: &soroban_sdk::String,
     value: i128,
     decimals: u32,
-) {
+) -> Result<(), ReputationError> {
     let mut agg = get_tag_aggregate(e, agent_id, tag1, tag2);
-    agg.count += 1;
-    agg.summary_value += value;
+    agg.count = agg
+        .count
+        .checked_add(1)
+        .ok_or(ReputationError::AggregateOverflow)?;
+    agg.summary_value = agg
+        .summary_value
+        .checked_add(value)
+        .ok_or(ReputationError::AggregateOverflow)?;
     if decimals > agg.summary_value_decimals {
         agg.summary_value_decimals = decimals;
     }
@@ -204,6 +232,7 @@ pub fn update_tag_aggregate_add(
         &DataKey::AgentTagAggregate(agent_id, tag1.clone(), tag2.clone()),
         &agg,
     );
+    Ok(())
 }
 
 pub fn update_tag_aggregate_sub(
@@ -213,14 +242,18 @@ pub fn update_tag_aggregate_sub(
     tag2: &soroban_sdk::String,
     value: i128,
     _decimals: u32,
-) {
+) -> Result<(), ReputationError> {
     let mut agg = get_tag_aggregate(e, agent_id, tag1, tag2);
     if agg.count > 0 {
         agg.count -= 1;
-        agg.summary_value -= value;
+        agg.summary_value = agg
+            .summary_value
+            .checked_sub(value)
+            .ok_or(ReputationError::AggregateOverflow)?;
     }
     e.storage().persistent().set(
         &DataKey::AgentTagAggregate(agent_id, tag1.clone(), tag2.clone()),
         &agg,
     );
+    Ok(())
 }

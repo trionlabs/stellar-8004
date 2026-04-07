@@ -79,8 +79,8 @@ impl ReputationRegistryContract {
         storage::set_feedback(e, agent_id, &caller, feedback_index, &data);
 
         // Update running aggregate
-        storage::update_aggregate_add(e, agent_id, value, value_decimals);
-        storage::update_tag_aggregate_add(e, agent_id, &tag1, &tag2, value, value_decimals);
+        storage::update_aggregate_add(e, agent_id, value, value_decimals)?;
+        storage::update_tag_aggregate_add(e, agent_id, &tag1, &tag2, value, value_decimals)?;
 
         // Emit event with full data (including off-chain fields)
         events::new_feedback(
@@ -116,7 +116,7 @@ impl ReputationRegistryContract {
         }
 
         // Subtract from aggregate before revoking
-        storage::update_aggregate_sub(e, agent_id, data.value, data.value_decimals);
+        storage::update_aggregate_sub(e, agent_id, data.value, data.value_decimals)?;
         storage::update_tag_aggregate_sub(
             e,
             agent_id,
@@ -124,7 +124,7 @@ impl ReputationRegistryContract {
             &data.tag2,
             data.value,
             data.value_decimals,
-        );
+        )?;
 
         data.is_revoked = true;
         storage::set_feedback(e, agent_id, &caller, feedback_index, &data);
@@ -227,8 +227,11 @@ impl ReputationRegistryContract {
                         let tag_match = (tag1.len() == 0 || fb.tag1 == tag1)
                             && (tag2.len() == 0 || fb.tag2 == tag2);
                         if tag_match {
-                            count += 1;
-                            sum += fb.value;
+                            count = count.saturating_add(1);
+                            // Saturating: this path returns SummaryResult directly (no Result),
+                            // so we clamp instead of erroring. Persistent aggregates above use
+                            // checked arithmetic and surface AggregateOverflow.
+                            sum = sum.saturating_add(fb.value);
                             if fb.value_decimals > max_dec {
                                 max_dec = fb.value_decimals;
                             }
