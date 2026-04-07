@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Sync packages/indexer/src/ → supabase/functions/_shared/indexer/
+ * Sync packages/indexer/src/ -> supabase/functions/_shared/indexer/
  * 
  * Copies all source files and transforms .js import extensions to .ts
  * for Deno compatibility. Test files are excluded.
@@ -49,11 +49,11 @@ function syncDir(srcDir, destDir) {
     writeFileSync(destPath, transformed);
 
     const relPath = relative(join(ROOT, 'packages', 'indexer', 'src'), srcPath);
-    console.log(`  ✓ ${relPath}`);
+    console.log(`  v ${relPath}`);
   }
 }
 
-console.log('Syncing packages/indexer/src/ → supabase/functions/_shared/indexer/');
+console.log('Syncing packages/indexer/src/ -> supabase/functions/_shared/indexer/');
 mkdirSync(DEST, { recursive: true });
 syncDir(SRC, DEST);
 console.log('Done.');

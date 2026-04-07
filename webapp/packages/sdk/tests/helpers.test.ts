@@ -30,7 +30,7 @@ describe('fundTestnet', () => {
 		vi.stubGlobal('fetch', fetchMock);
 
 		await expect(fundTestnet('GABC123')).rejects.toThrow(
-			'Friendbot failed: 429 — rate limited'
+			'Friendbot failed: 429 - rate limited'
 		);
 	});
 });
@@ -103,8 +103,8 @@ describe('formatSorobanError', () => {
 	it('truncates long unknown errors to 200 chars', () => {
 		const longMsg = 'x'.repeat(300);
 		const result = formatSorobanError(new Error(longMsg));
-		expect(result.length).toBeLessThanOrEqual(201);
-		expect(result.endsWith('…')).toBe(true);
+		expect(result.length).toBeLessThanOrEqual(203);
+		expect(result.endsWith('...')).toBe(true);
 	});
 
 	it('passes through short unknown errors as-is', () => {

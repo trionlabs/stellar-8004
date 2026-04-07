@@ -6,7 +6,11 @@ The 8004 standard enables agent discovery, portable identity, and verifiable rep
 
 Note: The Identity and Reputation registries are stable and deployed across EVM chains. The Validation Registry is still under active community discussion and not yet deployed in the ecosystem. Our implementation follows the current draft spec and may need updates when the design is finalized.
 
-## Deployed Contracts (Testnet)
+## Deployed Contracts
+
+The canonical source of truth for these addresses is `webapp/packages/sdk/src/core/config.ts` (`TESTNET_CONFIG`, `MAINNET_CONFIG`). Every other consumer (indexer, frontend env, scripts) imports from there.
+
+### Testnet
 
 | Contract | Address |
 |----------|---------|
@@ -14,17 +18,29 @@ Note: The Identity and Reputation registries are stable and deployed across EVM 
 | Reputation Registry | [`CAOSF6L4UPTJSZD6KOJMGOOKUKXZNYRNPA2QBPZPTLGGK6XLGCW72YM4`](https://stellar.expert/explorer/testnet/contract/CAOSF6L4UPTJSZD6KOJMGOOKUKXZNYRNPA2QBPZPTLGGK6XLGCW72YM4) |
 | Validation Registry | [`CA6GIV7QB4B3O5SBZZRL3E3XMFFECGRETSN4JXAYTFKF5HUTD4JY2SJQ`](https://stellar.expert/explorer/testnet/contract/CA6GIV7QB4B3O5SBZZRL3E3XMFFECGRETSN4JXAYTFKF5HUTD4JY2SJQ) |
 
+### Mainnet
+
+| Contract | Address |
+|----------|---------|
+| Identity Registry | [`CCSMX3YEKU7IZCZSLORUCX6MQEOV6WXWAGTOJZG5YITEBAEH2Q5JY4XE`](https://stellar.expert/explorer/public/contract/CCSMX3YEKU7IZCZSLORUCX6MQEOV6WXWAGTOJZG5YITEBAEH2Q5JY4XE) |
+| Reputation Registry | [`CCIZJXEVL2DJXH772F7SX262M5SF7JNOIAROW2M7I6VTPOVCJ7KKM5HT`](https://stellar.expert/explorer/public/contract/CCIZJXEVL2DJXH772F7SX262M5SF7JNOIAROW2M7I6VTPOVCJ7KKM5HT) |
+| Validation Registry | [`CAI3ZKBNXC52F2DCEX2XQLXUTRAQKCPWUUXDELW5SPAF4GAW4HCQ4JT3`](https://stellar.expert/explorer/public/contract/CAI3ZKBNXC52F2DCEX2XQLXUTRAQKCPWUUXDELW5SPAF4GAW4HCQ4JT3) |
+
 ## Architecture
 
-Three independent Soroban contracts in a Cargo workspace:
+Three independent Soroban contracts in a Cargo workspace, plus the webapp monorepo:
 
 ```
 contracts/
   identity-registry/    - Agent registration as NFTs (OZ NonFungibleToken)
   reputation-registry/  - Feedback storage with running aggregates
   validation-registry/  - Third-party attestation requests/responses
-sdk/
-  typescript/           - Auto-generated bindings + high-level wrapper
+webapp/
+  apps/web/             - SvelteKit frontend for stellar8004.com
+  packages/sdk/         - @trionlabs/8004-sdk (TS SDK, canonical)
+  packages/indexer/     - Soroban event indexer (Supabase Edge Function)
+  packages/db/          - Supabase generated types
+  supabase/             - Migrations, functions, schema
 ```
 
 **Identity Registry** - Agents are registered as NFTs with sequential IDs. Supports metadata key-value storage, agent URI, and operational wallet management. Wallet is cleared on transfer to prevent persistence to new owners.
@@ -87,28 +103,34 @@ stellar contract deploy \
   -- --owner $DEPLOYER --identity_registry <IDENTITY_CONTRACT_ID>
 ```
 
-Run the full E2E test against testnet: `bash scripts/e2e-testnet.sh`
+## Webapp and SDK
 
-## TypeScript SDK
-
-Auto-generated typed bindings for each contract, plus a high-level wrapper.
+`webapp/` contains the SvelteKit frontend, Soroban event indexer, Supabase schema, and the `@trionlabs/8004-sdk` TypeScript SDK that powers the [stellar8004.com](https://stellar8004.com) explorer.
 
 ```bash
-cd sdk/typescript
-npm install && npm run build
+cd webapp
+pnpm install
+pnpm dev   # http://localhost:5173
 ```
 
-The SDK includes `readAllFeedback()` which reconstructs feedback history from on-chain events via Soroban RPC, since bulk queries exceed Soroban's per-transaction read limits.
+See `webapp/packages/sdk/README.md` for full SDK usage. Auto-generated contract bindings are exposed via the `@trionlabs/8004-sdk/bindings` entry point and instantiated through the `createClients(config, signer)` factory.
 
 ```typescript
-import { TESTNET, readAllFeedback, agentIdentifier } from "@trionlabs/stellar-erc8004-sdk";
+import {
+  TESTNET_CONFIG,
+  createClients,
+  FreighterSigner,
+} from '@trionlabs/8004-sdk';
 
-// Get the global agent identifier
-const id = agentIdentifier(TESTNET, 0);
-// "stellar:testnet:CAYPUQB3...#0"
+const signer = new FreighterSigner();
+await signer.connect();
+const { identity, reputation, validation } = createClients(TESTNET_CONFIG, signer);
 
-// Read all feedback for an agent via event indexing
-const feedback = await readAllFeedback(TESTNET, 0);
+const tx = await identity.register_with_uri({
+  caller: signer.publicKey,
+  agent_uri: 'https://myagent.example/.well-known/agent-registration.json',
+});
+const { result: agentId } = await tx.signAndSend();
 ```
 
 ## Spec Coverage
