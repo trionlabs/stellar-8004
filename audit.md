@@ -18,13 +18,13 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 
 ## A. Soroban Smart Contracts (`contracts/`)
 
-### A1. CRITICAL - `extend_agent_ttl` does not extend `Metadata` entries [VERIFIED]
+### A1. CRITICAL - `extend_agent_ttl` does not extend `Metadata` entries [VERIFIED] [STILL OPEN]
 - **File:** `contracts/identity-registry/src/storage.rs:20-33`
 - **What:** `extend_agent_ttl(e, agent_id)` only bumps `AgentUri(id)` and `AgentWallet(id)`. The third persistent storage variant - `Metadata(id, key)` - is never extended. There is also no helper that enumerates an agent's metadata keys, so even an explicit caller cannot extend them.
 - **Why it matters:** All metadata entries archive after `TTL_THRESHOLD` ledgers (~30 days). Metadata is actively used by `register_full` (`contract.rs:53-67`) and `set_metadata` (`contract.rs:90-102`), so this is real production data getting silently archived. The off-chain indexer doesn't read metadata, so the breakage is invisible until something on-chain calls `get_metadata` and gets `None`.
 - **Fix:** Store a `MetadataKeys(agent_id) -> Vec<String>` index alongside writes so `extend_agent_ttl` can iterate and bump every key. Alternative if metadata is unused in practice: grep the SDK / indexer / frontend for any actual caller of `get_metadata` / `set_metadata` / `register_full` - if zero, delete the metadata API entirely.
 
-### A2. CRITICAL - `extend_agent_ttl` does not extend OZ NFT base storage [VERIFIED PARTIAL]
+### A2. CRITICAL - `extend_agent_ttl` does not extend OZ NFT base storage [DONE in ba7e953]
 - **File:** `contracts/identity-registry/src/storage.rs:20-33` and `contracts/identity-registry/src/contract.rs:142-145`
 - **What:** OZ `NonFungibleToken::Base` keeps owner / balance / approval entries in its own persistent storage slots (`NFTStorageKey::*`). `extend_agent_ttl` only touches `AgentUri` and `AgentWallet` ([VERIFIED] `storage.rs:20-33`). No code path in `contract.rs` explicitly bumps the OZ NFT entries.
 - **Why it matters worse than I first thought:** `Base::owner_of` (called from `require_owner_or_approved` at `contract.rs:165`) panics if the owner entry is missing - it does NOT return `Option<Address>`. Once the NFT storage archives, **every** privileged identity-registry call (`set_agent_uri`, `set_metadata`, `set_agent_wallet`, `unset_agent_wallet`) panics. The `give_feedback` cross-contract call in reputation-registry also panics, since it calls `identity.owner_of(agent_id)` (the contractimport! generated client just propagates the panic). The agent becomes uncontrollable AND every reputation/validation interaction with that agent crashes the calling tx.
@@ -32,20 +32,20 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Fix:** Have `extend_agent_ttl` also call the OZ `Base` TTL helpers for the agent's NFT entries. Need to read the pinned `stellar-tokens` source at commit `9dd85c30` to find the public TTL helper.
 - **Verification:** Add a test that fast-forwards `e.ledger().sequence()` past `TTL_THRESHOLD` without calling extend_ttl, then asserts `owner_of` still returns the owner. Repeat with the proposed fix. The current test suite has nothing like this.
 
-### A3. HIGH - Reputation feedback persistent entries never get TTL extension [VERIFIED]
+### A3. HIGH - Reputation feedback persistent entries never get TTL extension [DONE in e7dfd7c]
 - **File:** `contracts/reputation-registry/src/storage.rs` (`Feedback`, `LastIndex`, `ClientCount`, `ClientAtIndex`, `ClientExists`, `ResponseCount`, `AgentAggregate`, `AgentTagAggregate` entries - the full DataKey enum at lines 14-24)
 - **What:** The reputation-registry only has `extend_instance_ttl` (`storage.rs:8-10`). There is no `extend_feedback_ttl` or `extend_aggregate_ttl`. Every persistent entry just sits there until it archives. The read paths (`get_feedback`, `get_aggregate`, `get_clients_paginated`, etc.) don't bump TTL either.
 - **Why it matters:** After ~30 days the running aggregates archive. `get_summary` starts returning the default-constructed `SummaryResult { count: 0, summary_value: 0, ...}` (line 139-143 - the `unwrap_or` masks the archival as "no data"). Revoking old feedback fails silently because `revoke_feedback` reads the now-archived `Feedback` entry, and the contract returns `FeedbackNotFound`. The protocol's reputation history evaporates without any error.
 - **Fix:** Add explicit TTL extension on every read path that touches a persistent entry (cheap and idempotent in Soroban), and add an `extend_feedback_ttl(agent_id, client, index)` helper that owners can call to keep individual entries alive. Same shape as `identity-registry::extend_agent_ttl`, but for reputation.
 - **Counter-argument worth weighing:** The user may intend feedback to be "use it or lose it" - reputation that nobody touches for a month is dead by design. If so, this is intentional and just needs a doc comment plus making the archived state visible (return an error, not zero) instead of a silent default. Ask the user.
 
-### A4. HIGH - Validation registry persistent entries never get TTL extension [UNVERIFIED]
+### A4. HIGH - Validation registry persistent entries never get TTL extension [DONE in e7dfd7c]
 - **File:** `contracts/validation-registry/src/storage.rs` (`Validation`, `AgentValidationCount`, `AgentValidationAt`, `ValidatorRequestCount`, `ValidatorRequestAt` entries)
 - **What:** Same shape as A3 per agent report - only `extend_instance_ttl`, no per-entry extension. I have not personally read the validation-registry storage file yet.
 - **Why it matters:** Validation responses archive ~30 days after the request. Pagination over agent validations breaks because the `*Count` is preserved (instance TTL) but the `*At(idx)` entries are gone.
 - **Fix:** Same as A3.
 
-### A5. HIGH - Aggregate updates use unchecked i128 arithmetic [VERIFIED]
+### A5. HIGH - Aggregate updates use unchecked i128 arithmetic [DONE in 77c1ac7]
 - **File:** `contracts/reputation-registry/src/storage.rs:149,162,199,220` (`update_aggregate_add` / `update_aggregate_sub` and the per-tag variants)
 - **What:** All four aggregate update sites use `agg.summary_value += value` (lines 149, 199) and `agg.summary_value -= value` (lines 162, 220) on `i128` with no `checked_add` / `checked_sub`. In release mode Rust wraps on overflow without panicking.
 - **Why it matters:** A client gives feedback with `value = i128::MAX`, then a second client gives `value = 1`. The aggregate wraps to `i128::MIN`. Revoking the first feedback doesn't restore the aggregate, because revoke uses the same wrapping subtraction in reverse (the inverse of a wrap is another wrap, not the original value). The summary becomes permanently poisoned. There is no entry-level cap on `value`, so this is exploitable by anyone who can call `give_feedback`.
@@ -100,7 +100,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **What:** `TTL_THRESHOLD = 518_400` is in **ledgers**, and at 5s/ledger that's 30 days. The comment says so. **Agent 1 claimed this comment is wrong; my recheck confirms it is correct.** The fragility is that the constant is duplicated across all three contracts and hand-maintained. If Soroban ever changes ledger timing, all three must be updated together. The architecture plan called for an `erc8004-common` crate; recent commit `0e7ef9f refactor: inline constants, remove erc8004-common crate` shows we already had this and threw it away.
 - **Fix:** Either reintroduce the shared crate (the inline-and-delete refactor was probably wrong), or accept the duplication and add a comment in each constant pointing at the others as siblings.
 
-### A14. CRITICAL - `Base::owner_of` panics instead of returning Option [VERIFIED]
+### A14. CRITICAL - `Base::owner_of` panics instead of returning Option [DONE in d7775d3]
 - **File:** `contracts/identity-registry/src/contract.rs:165` (`require_owner_or_approved`) and any caller of `Base::owner_of`
 - **What:** `let owner = Base::owner_of(e, agent_id);` is unwrapped at line 165. The OZ NFT `Base::owner_of` returns `Address` directly, not `Option<Address>` - if no owner is set (NFT entry archived or never minted), it panics inside the OZ helper.
 - **Why it matters:** This compounds A2: not only does an archived NFT make `set_agent_uri`/`set_metadata`/`set_agent_wallet`/`unset_agent_wallet` panic, the panic propagates to `give_feedback` in reputation-registry too (which calls `identity.owner_of(agent_id)` for the self-feedback check). And to `validation_request` in validation-registry (same cross-contract pattern). One archived agent crashes any cross-contract call into it. Failure mode is "the explorer tries to read this agent's data and the request is `transaction failed: HostError(Storage, MissingValue)`".
@@ -116,13 +116,13 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 
 ## B. SDK and Webapp (`webapp/packages/sdk/`, `webapp/apps/web/`)
 
-### B1. HIGH - `validateStellarAddress` rejects all C-addresses (smart wallet contracts)
+### B1. HIGH - `validateStellarAddress` rejects all C-addresses (smart wallet contracts) [DONE in 08e32c7]
 - **File:** `webapp/packages/sdk/src/core/helpers.ts:54-58`
 - **What:** Hardcoded to `StellarSdk.StrKey.isValidEd25519PublicKey`. C-addresses (smart contract / passkey wallets) fail validation.
 - **Why it matters:** The whole point of an "agent identity" registry is to support contract-controlled agents. Right now, any user trying to set a Soroban smart wallet (Lobstr, Soroban-passkey-kit, custom MPC) as the agent owner or wallet is bounced at the SDK boundary. The contract code itself is fine with C-addresses (they're just `Address` to Soroban) - only the SDK is wrong.
 - **Fix:** `if (!StrKey.isValidEd25519PublicKey(addr) && !StrKey.isValidContract(addr)) throw ...`. Same fix is needed in B2 below.
 
-### B2. HIGH - Indexer parsers also reject C-addresses, silently dropping events
+### B2. HIGH - Indexer parsers also reject C-addresses, silently dropping events [DONE in 08e32c7]
 - **File:** `webapp/packages/indexer/src/helpers.ts` (`isValidStellarAddress`)
 - **What:** Same G-only check as B1, but used by event parsers. When a contract address appears as `owner`, `wallet`, `client_address`, or `validator_address` in an emitted event, the parser returns `null` and the indexer logs a warning and moves on.
 - **Why it matters:** Smart-wallet agents are invisible in the explorer. They can register on-chain but never appear on stellar8004.com. Worse, this is a silent data loss with only a log line.
@@ -395,29 +395,39 @@ These were reported by the parallel agents. I checked and they don't hold up:
 
 ## G. Triage recommendation
 
-Priority order (top of list = highest impact, lowest cost):
+**Done so far (in commit order, most recent last):**
+- A5 - `77c1ac7` checked arithmetic in aggregate updates
+- B1+B2 - `08e32c7` accept contract addresses
+- A14 - `d7775d3` find_owner panic guard (with cross-contract propagation in reputation+validation)
+- A2 - `ba7e953` extend OZ NFT base storage TTL (Owner+Balance)
+- A3+A4 - `e7dfd7c` extend reputation+validation persistent TTL on every read and write
 
-1. **A14 (`Base::owner_of` panics)** - one extra check in `require_owner_or_approved`. Blocks denial-of-service amplification through cross-contract calls.
-2. **A2 (OZ NFT TTL extension)** - one missing call inside `extend_agent_ttl`. The agent-bricking bug. Without this, fixing A14 only converts panic into "agent gone".
-3. **A5 (aggregate overflow, unchecked i128 arithmetic)** - 4 lines to swap `+=`/`-=` for `checked_add`/`checked_sub`. Verified real, exploitable from a single `give_feedback` call.
-4. **A3 (reputation TTL extension)** - same shape as A2, applied to reputation-registry. Adds an `extend_feedback_ttl` helper. Needed before reputation history evaporates.
-5. **B1 / B2 (validateStellarAddress accepts contract addresses)** - blocks an entire user category (smart wallet agents) silently. Two-line fix in two files. Cheap and high value.
-6. **A4 (validation TTL extension)** - same shape as A3 for the validation registry. Should batch with A3.
-7. **A1 / A6 (metadata TTL + transfer-clear)** - tied together; either build the metadata-key index or remove the metadata API entirely. Investigate caller graph first.
-8. **C2 (URI resolver SSRF + JSON bomb)** - DoS vector exposed to anyone who can register an agent (free on testnet, ~5 XLM on mainnet).
-9. **C5 (backfill / indexer concurrent races)** - operationally important; the next time someone needs to backfill.
-10. **C6 (Kong auth header logging)** - verify first, may already be safe depending on Kong build.
-11. **C7 (advisory lock timeout)** - small migration.
-12. **C1 (feedback historical data audit)** - one-shot backfill diff to find the gap.
-13. **B4 (legacy endpoints field drop)** - depends on whether any legacy agents still exist; if yes, urgent; if no, demoted.
-14. **A15 (architecture plan vs code divergence on Ed25519)** - rewrite the plan or carve out a doc note. Cheap.
-15. **Everything else** - backlog.
+**Open, in priority order:**
 
-**Quick wins (under 30 min each, can ship as standalone fix-commits):** A14, A5, A9, B1, B2, B7, C7, C8, C15.
+1. **A1 (metadata TTL extension or removal)** - investigate metadata caller graph first, then either add a key index or delete the API.
+2. **A6 (transfer doesn't clear metadata)** - tied to A1; same investigation.
+3. **C2 (URI resolver SSRF + JSON bomb)** - DoS vector exposed to anyone who can register an agent (free on testnet, ~5 XLM on mainnet).
+4. **C7 (advisory lock timeout)** - tiny migration: `SET LOCAL lock_timeout = '5s'` before `pg_advisory_xact_lock`.
+5. **C5 (backfill / indexer concurrent races)** - operationally important; the next time someone needs to backfill.
+6. **C6 (Kong auth header logging)** - verify Kong access log format first, may already be safe.
+7. **A8 (`get_summary` with explicit clients is O(n*m))** - either pre-compute per-client aggregates or hard-cap the input list.
+8. **A9 (unchecked u32 increments)** - cheap, low-impact.
+9. **C1 (feedback historical data audit)** - one-shot backfill diff to find the gap.
+10. **B3 (audit every form for address validation)** - enumerate forms, route through `<AddressInput>`.
+11. **B4 (legacy endpoints field drop)** - depends on whether any legacy agents still exist.
+12. **A7 (set_metadata unbounded length)** - cheap input validation.
+13. **A10 (cross-contract trust documentation)** - rustdoc and decide on identity-registry upgrade timelock.
+14. **A15 (architecture plan vs code divergence)** - rewrite or delete the stale plan.
+15. **C-series MEDIUM/LOW backlog** - C8, C9, C10, C11, C12, C13, C14, C15.
+16. **D-series infrastructure** - D1, D2, D3, D4, D5.
+17. **E-series cross-cutting** - E1, E2, E3, E4, E5.
+18. **B-series LOW** - B5 through B15.
 
-**Medium effort (under a day):** A2, A3, A4, B4, B8, B9, C2, C9, C10, C13, C14, D2.
+**Quick wins (under 30 min each):** A7, A9, C7, C8, C15, B7.
 
-**Bigger projects (multi-day):** A1, A6, A8, A10, B3, C1, C5, E1, E2.
+**Medium effort (under a day):** B4, B8, B9, B10, C2, C9, C10, C13, C14, D2.
+
+**Bigger projects (multi-day):** A1+A6 (metadata), A8 (per-client aggregates), B3 (form audit), C1 (historical data audit), C5 (backfill concurrency), E1 (e2e CI test).
 
 ## H. Verification approach per finding
 
