@@ -48,6 +48,7 @@ supabase/functions/_shared/indexer/
 # Caches
 *.tsbuildinfo
 .eslintcache
+supabase/functions/**/deno.lock
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
