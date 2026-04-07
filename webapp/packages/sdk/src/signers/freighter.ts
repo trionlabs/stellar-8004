@@ -106,6 +106,19 @@ export class FreighterSigner implements WalletSigner {
 		return address;
 	}
 
+	/**
+	 * Signs a transaction with the connected Freighter account.
+	 *
+	 * The optional `opts.address` field exists because the Freighter API
+	 * supports signing on behalf of a different account than the currently
+	 * connected one (multi-account UX). If a caller passes a different
+	 * address, Freighter's UI still shows the user which address is being
+	 * signed for - so the worst-case "page is buggy and passes the wrong
+	 * address" reduces to "user sees the wrong address in the popup and
+	 * cancels". Apps that bypass Freighter's UI confirmation (presigned
+	 * tx, batch signing) cannot rely on this safety net and must validate
+	 * `opts.address` against their own state before calling.
+	 */
 	async signTransaction(
 		xdr: string,
 		opts?: { networkPassphrase?: string; address?: string }

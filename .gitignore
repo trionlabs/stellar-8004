@@ -1,3 +1,8 @@
+# NOTE: gitignore is layered. This root file applies repo-wide; the
+# subtree-merged webapp/ has its own webapp/.gitignore with additional
+# rules (notably `*.md` to keep agent role docs out of git). When in doubt
+# run `git check-ignore -v <path>` to see which file matched.
+
 target
 .soroban
 .stellar
