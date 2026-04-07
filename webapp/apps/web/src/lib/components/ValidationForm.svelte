@@ -19,7 +19,8 @@
 	});
 
 	async function submit() {
-		if (!wallet.connected) {
+		const caller = wallet.address;
+		if (!wallet.connected || !caller) {
 			errorMsg = 'Connect your wallet to request validation.';
 			status = 'error';
 			return;
@@ -40,7 +41,7 @@
 			const { validation } = getClients();
 			const requestHash = await generateRequestNonce(agentId, validatorAddress);
 			const tx = await validation.validation_request({
-				caller: wallet.address!,
+				caller,
 				validator_address: validatorAddress,
 				agent_id: agentId,
 				request_uri: requestUri,

@@ -33,13 +33,19 @@
 
 	async function bindWallet() {
 		if (!walletInput.trim() || addressError) return;
+		const caller = wallet.address;
+		if (!caller) {
+			errorMsg = 'Wallet disconnected. Reconnect and try again.';
+			status = 'error';
+			return;
+		}
 		status = 'submitting';
 		errorMsg = '';
 
 		try {
 			const { identity } = getClients();
 			const tx = await identity.set_agent_wallet({
-				caller: wallet.address!,
+				caller,
 				agent_id: agentId,
 				new_wallet: walletInput.trim(),
 			});
@@ -53,6 +59,12 @@
 	}
 
 	async function unbindWallet() {
+		const caller = wallet.address;
+		if (!caller) {
+			errorMsg = 'Wallet disconnected. Reconnect and try again.';
+			status = 'error';
+			return;
+		}
 		status = 'submitting';
 		errorMsg = '';
 		showUnbindConfirm = false;
@@ -60,7 +72,7 @@
 		try {
 			const { identity } = getClients();
 			const tx = await identity.unset_agent_wallet({
-				caller: wallet.address!,
+				caller,
 				agent_id: agentId,
 			});
 			await tx.signAndSend();
