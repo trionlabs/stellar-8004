@@ -22,6 +22,12 @@
 		{ label: 'Review' }
 	];
 
+	// Single sessionStorage key per origin. If a user opens the registration
+	// form in two tabs, both tabs share this key and the second one to write
+	// wins. This is a known UX limitation, not a data-loss bug - sessionStorage
+	// is per-tab in modern browsers, so each tab actually has its own storage
+	// scope, and the only failure mode is that draft state from one tab is
+	// not visible in another. Accept and document.
 	const STORAGE_KEY = 'registration-form';
 
 	let currentStep = $state(0);
