@@ -9,7 +9,30 @@ type AgentRow = {
   id: number;
   agent_uri: string;
   uri_resolve_attempts: number | null;
+  last_resolve_attempt_at: string | null;
 };
+
+/**
+ * Exponential backoff: wait pow(2, attempts) minutes between retries.
+ * - attempt 0 (never tried): eligible immediately
+ * - attempt 1: wait 2 minutes
+ * - attempt 2: wait 4 minutes
+ * - attempt 3: wait 8 minutes
+ * - attempt 4: wait 16 minutes
+ * - attempt 5 (last): wait 32 minutes
+ *
+ * Without this, a transient gateway outage burns through MAX_ATTEMPTS in
+ * a few seconds and the agent is permanently marked as failed.
+ */
+function isEligibleForRetry(row: AgentRow): boolean {
+  const attempts = row.uri_resolve_attempts ?? 0;
+  if (attempts === 0) return true;
+  if (!row.last_resolve_attempt_at) return true;
+  const lastMs = Date.parse(row.last_resolve_attempt_at);
+  if (!Number.isFinite(lastMs)) return true;
+  const waitMs = Math.pow(2, attempts) * 60_000;
+  return Date.now() - lastMs >= waitMs;
+}
 
 function createSupabaseAdmin(): SupabaseClient {
   return createClient(
@@ -51,22 +74,32 @@ Deno.serve(async (request: Request) => {
 
   try {
     const db = createSupabaseAdmin();
+    // Pull a slightly larger candidate set than BATCH_SIZE so the in-memory
+    // backoff filter still has BATCH_SIZE worth of work to do most of the
+    // time. Sort by oldest-attempt-first so agents that have been waiting
+    // longest get the next slot.
     const { data, error } = await db
       .from('agents')
-      .select('id, agent_uri, uri_resolve_attempts')
+      .select('id, agent_uri, uri_resolve_attempts, last_resolve_attempt_at')
       .eq('resolve_uri_pending', true)
       .is('agent_uri_data', null)
       .not('agent_uri', 'is', null)
       .neq('agent_uri', '')
       .lt('uri_resolve_attempts', MAX_ATTEMPTS)
+      .order('last_resolve_attempt_at', { ascending: true, nullsFirst: true })
       .order('created_at', { ascending: true })
-      .limit(BATCH_SIZE);
+      .limit(BATCH_SIZE * 4);
 
     if (error) {
       throw new Error(`Failed to load pending agents: ${error.message}`);
     }
 
-    const agents = (data ?? []) as AgentRow[];
+    // Filter out agents whose backoff window hasn't elapsed yet, then take
+    // the first BATCH_SIZE eligible candidates.
+    const eligible = ((data ?? []) as AgentRow[])
+      .filter(isEligibleForRetry)
+      .slice(0, BATCH_SIZE);
+    const agents = eligible;
     const results = await Promise.all(
       agents.map(async (agent) => ({
         agent,
@@ -112,6 +145,7 @@ Deno.serve(async (request: Request) => {
         .update({
           uri_resolve_attempts: nextAttempts,
           resolve_uri_pending: stillPending,
+          last_resolve_attempt_at: new Date().toISOString(),
         })
         .eq('id', agent.id)
         .eq('agent_uri', agent.agent_uri);
