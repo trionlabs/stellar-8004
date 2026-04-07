@@ -51,6 +51,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./bindings": {
+      "import": {
+        "types": "./dist/bindings.d.ts",
+        "default": "./dist/bindings.js"
+      },
+      "require": {
+        "types": "./dist/bindings.d.cts",
+        "default": "./dist/bindings.cjs"
+      }
+    },
     "./api": {
       "import": {
         "types": "./dist/api.d.ts",
