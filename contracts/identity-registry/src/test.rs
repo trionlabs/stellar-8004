@@ -288,6 +288,65 @@ fn test_set_wallet_on_missing_agent_returns_error_not_panic() {
 }
 
 #[test]
+fn test_set_metadata_rejects_oversized_key() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let agent_id = client.register(&user);
+
+    // Build a 65-byte key (one over the cap of 64).
+    let oversized_key = String::from_str(
+        &env,
+        "0123456789012345678901234567890123456789012345678901234567890123_",
+    );
+    let result = client.try_set_metadata(
+        &user,
+        &agent_id,
+        &oversized_key,
+        &Bytes::from_slice(&env, b"v"),
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_set_metadata_rejects_oversized_value() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let agent_id = client.register(&user);
+
+    // 4097 bytes - one over the cap of 4096.
+    let oversized_value = Bytes::from_slice(&env, &[0u8; 4097]);
+    let result = client.try_set_metadata(
+        &user,
+        &agent_id,
+        &String::from_str(&env, "k"),
+        &oversized_value,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_set_metadata_accepts_max_size_payload() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let agent_id = client.register(&user);
+
+    // Exactly at the cap - must be accepted.
+    let key_64 = String::from_str(
+        &env,
+        "0123456789012345678901234567890123456789012345678901234567890123",
+    );
+    let value_4096 = Bytes::from_slice(&env, &[0u8; 4096]);
+    client.set_metadata(&user, &agent_id, &key_64, &value_4096);
+    assert_eq!(client.get_metadata(&agent_id, &key_64), Some(value_4096));
+}
+
+#[test]
 fn test_extend_ttl_bumps_oz_owner_and_balance() {
     use stellar_tokens::non_fungible::{NFTStorageKey, BALANCE_EXTEND_AMOUNT, OWNER_EXTEND_AMOUNT};
 

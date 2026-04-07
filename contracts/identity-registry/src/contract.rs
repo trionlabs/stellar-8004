@@ -5,7 +5,7 @@ use stellar_tokens::non_fungible::{Base, ContractOverrides, NonFungibleToken};
 
 use crate::errors::IdentityError;
 use crate::events;
-use crate::storage;
+use crate::storage::{self, MAX_METADATA_KEY_LEN, MAX_METADATA_VALUE_LEN};
 use crate::types::MetadataEntry;
 
 // Custom ContractOverrides that clears agent wallet on transfer
@@ -57,6 +57,20 @@ impl IdentityRegistryContract {
         metadata: Vec<MetadataEntry>,
     ) -> u32 {
         caller.require_auth();
+        // Length validation matches `set_metadata`. Out-of-bounds entries
+        // panic here because the public signature returns u32, not Result.
+        // Callers must enforce the limits client-side or use `set_metadata`
+        // for incremental writes that surface errors cleanly.
+        for entry in metadata.iter() {
+            assert!(
+                entry.key.len() <= MAX_METADATA_KEY_LEN,
+                "metadata key too long"
+            );
+            assert!(
+                entry.value.len() <= MAX_METADATA_VALUE_LEN,
+                "metadata value too long"
+            );
+        }
         let agent_id = Base::sequential_mint(e, &caller);
         storage::set_agent_uri(e, agent_id, &agent_uri);
         for entry in metadata.iter() {
@@ -95,6 +109,12 @@ impl IdentityRegistryContract {
         value: Bytes,
     ) -> Result<(), IdentityError> {
         caller.require_auth();
+        if key.len() > MAX_METADATA_KEY_LEN {
+            return Err(IdentityError::MetadataKeyTooLong);
+        }
+        if value.len() > MAX_METADATA_VALUE_LEN {
+            return Err(IdentityError::MetadataValueTooLong);
+        }
         Self::require_owner_or_approved(e, &caller, agent_id)?;
         storage::set_metadata(e, agent_id, &key, &value);
         events::metadata_set(e, agent_id, &key, &value);
