@@ -69,6 +69,32 @@ export function buildMetadataJsonForEdit(
 	return { ...preserved, ...metadata };
 }
 
+/**
+ * Validates that a metadata JSON object conforms to the 8004 metadata spec.
+ * Checks required fields (type, name) and field types.
+ * Throws on invalid metadata.
+ */
+export function validateMetadataJson(json: Record<string, unknown>): void {
+	if (!json || typeof json !== 'object' || Array.isArray(json)) {
+		throw new Error('Metadata must be a JSON object');
+	}
+	if (typeof json.type !== 'string' || !json.type) {
+		throw new Error('Metadata must have a non-empty "type" string field');
+	}
+	if (typeof json.name !== 'string' || !json.name) {
+		throw new Error('Metadata must have a non-empty "name" string field');
+	}
+	if (json.description !== undefined && typeof json.description !== 'string') {
+		throw new Error('Metadata "description" must be a string');
+	}
+	if (json.image !== undefined && typeof json.image !== 'string') {
+		throw new Error('Metadata "image" must be a string');
+	}
+	if (json.services !== undefined && !Array.isArray(json.services)) {
+		throw new Error('Metadata "services" must be an array');
+	}
+}
+
 function bytesToBase64(bytes: Uint8Array): string {
 	const binString = Array.from(bytes, (byte) =>
 		String.fromCodePoint(byte),
