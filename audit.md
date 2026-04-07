@@ -70,7 +70,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** This function will simply revert with `ExceededLimit` for any popular agent. It is effectively unusable for its stated purpose. The "all clients" path uses the running aggregate and is fine.
 - **Fix:** Either pre-compute per-client aggregates (mirror the `AgentAggregate` pattern keyed by client address) and read those, or document that `client_addresses` must be <= 5 entries and refuse longer lists with `TooManyClients`.
 
-### A9. MEDIUM - Sequential client / response counters are unchecked u32 increments [VERIFIED]
+### A9. MEDIUM - Sequential client / response counters are unchecked u32 increments [DONE in 72d2159]
 - **File:** `contracts/reputation-registry/src/storage.rs:86` (`add_client`) and `contracts/reputation-registry/src/storage.rs:129` (`increment_response_count`). There is **no** `add_responder` function - I had this wrong in the agent report. There is no responder tracking at all, only a count.
 - **What:** Both increments are `&(count + 1)` with no overflow check. `ClientCount` and `ResponseCount` are both `u32`.
 - **Why it matters:** Practically unreachable (4 billion clients per agent, 4 billion responses per feedback) but if it ever wraps, pagination silently restarts at index 0 and corrupts the indexed-storage invariant.
@@ -288,7 +288,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** Visible only on race conditions but produces a half-applied migration state if any DDL commits before the duplicate-key check.
 - **Fix:** Wrap each migration application in `BEGIN; INSERT INTO schema_migrations ... ON CONFLICT DO NOTHING RETURNING 1; ... apply only if returning row exists; COMMIT;`.
 
-### C14. MEDIUM - Realtime publication exposes `feedback_uri` and `feedback_hash`
+### C14. MEDIUM - Realtime publication exposes `feedback_uri` and `feedback_hash` [DONE in 1b5f83b]
 - **File:** `webapp/supabase/migrations/016_schema_validation_hardening.sql:174-183`
 - **What:** The realtime publication ALTER includes `feedback_uri` and `feedback_hash` columns. Any subscriber to the `feedback` channel sees these as they're written.
 - **Why it matters:** Information disclosure - an attacker subscribing to realtime updates sees IPFS URIs as soon as feedback is submitted, before any UI displays them. Combined with C2 (no SSRF guard on resolve), they can race the resolver to fetch and possibly tamper with the gateway response.
@@ -407,26 +407,27 @@ These were reported by the parallel agents. I checked and they don't hold up:
 - B7 - `244a51c` add noreferrer to external explorer links
 - C2 - `fe98496` JSON size cap + SSRF guard in resolveUri/parseDataUri
 - A1+A6 - `accfb26` metadata key index, extend on read, clear on transfer
+- A9 - `72d2159` checked_add on counter increments (reputation+validation)
+- C14 - `1b5f83b` drop URI/hash columns from realtime publication
 
 **Open, in priority order:**
 
 1. **C5 (backfill / indexer concurrent races)** - operationally important.
 2. **C6 (Kong auth header logging)** - verify access log format first.
 3. **A8 (`get_summary` with explicit clients is O(n*m))** - cap the input list.
-4. **A9 (unchecked u32 increments)** - cheap, low-impact.
-5. **C1 (feedback historical data audit)** - one-shot backfill diff.
-6. **B3 (form-level address validation audit)** - enumerate forms.
-7. **B4 (legacy endpoints field drop)** - depends on whether any legacy agents still exist.
-8. **A10 (cross-contract trust documentation)** - rustdoc + upgrade-timelock decision.
-9. **A15 (architecture plan vs code divergence)** - rewrite or delete the stale plan.
-10. **C-series MEDIUM/LOW backlog** - C9, C10, C11, C12, C13, C14, C16-C19.
-11. **D-series infrastructure** - D1-D5.
-12. **E-series cross-cutting** - E1-E5.
-13. **B-series LOW** - B5, B6, B8 through B15.
+4. **C1 (feedback historical data audit)** - one-shot backfill diff.
+5. **B3 (form-level address validation audit)** - enumerate forms.
+6. **B4 (legacy endpoints field drop)** - depends on whether any legacy agents still exist.
+7. **A10 (cross-contract trust documentation)** - rustdoc + upgrade-timelock decision.
+8. **A15 (architecture plan vs code divergence)** - rewrite or delete the stale plan.
+9. **C-series MEDIUM/LOW backlog** - C9, C10, C11, C12, C13, C16-C19.
+10. **D-series infrastructure** - D1-D5.
+11. **E-series cross-cutting** - E1-E5.
+12. **B-series LOW** - B5, B6, B8 through B15.
 
-**Quick wins still open (under 30 min each):** A9, B11, B12, B14, C16, C17, C18, C19.
+**Quick wins still open (under 30 min each):** B11, B12, B14, C16, C17, C18, C19.
 
-**Medium effort still open (under a day):** B4, B5, B6, B8, B9, B10, B13, C9, C10, C11, C12, C13, C14, D2, D3, D4, D5.
+**Medium effort still open (under a day):** B4, B5, B6, B8, B9, B10, B13, C9, C10, C11, C12, C13, D2, D3, D4, D5.
 
 **Bigger projects (multi-day):** A8 (per-client aggregates), B3 (form audit), C1 (historical data audit), C5 (backfill concurrency), D1 (mainnet WASM verify), E1 (e2e CI test), E2 (upgrade docs).
 
