@@ -81,6 +81,13 @@
 		errorMsg = '';
 
 		try {
+			const caller = wallet.address;
+			if (!caller) {
+				errorMsg = 'Wallet disconnected. Reconnect and try again.';
+				status = 'error';
+				return;
+			}
+
 			const uri = uriMode === 'auto'
 				? toDataUri(buildMetadataJson(formData))
 				: manualUri.trim();
@@ -89,8 +96,8 @@
 			if (agentUri) validateAgentUri(agentUri);
 			const { identity } = getClients();
 			const tx = agentUri
-				? await identity.register_with_uri({ caller: wallet.address!, agent_uri: agentUri })
-				: await identity.register({ caller: wallet.address! });
+				? await identity.register_with_uri({ caller, agent_uri: agentUri })
+				: await identity.register({ caller });
 			const sent = await tx.signAndSend();
 			const agentId = sent.result;
 			const txHash = sent.sendTransactionResponse?.hash ?? '';
@@ -108,12 +115,19 @@
 		errorMsg = '';
 
 		try {
+			const caller = wallet.address;
+			if (!caller) {
+				errorMsg = 'Wallet disconnected. Reconnect and try again.';
+				status = 'error';
+				return;
+			}
+
 			const trimmedUri = agentUri.trim() || undefined;
 			if (trimmedUri) validateAgentUri(trimmedUri);
 			const { identity } = getClients();
 			const tx = trimmedUri
-				? await identity.register_with_uri({ caller: wallet.address!, agent_uri: trimmedUri })
-				: await identity.register({ caller: wallet.address! });
+				? await identity.register_with_uri({ caller, agent_uri: trimmedUri })
+				: await identity.register({ caller });
 			const sent = await tx.signAndSend();
 			const resultAgentId = sent.result;
 			const txHash = sent.sendTransactionResponse?.hash ?? '';

@@ -81,13 +81,19 @@
 
 	async function submitUriUpdate() {
 		if (!newUri.trim()) return;
+		const caller = wallet.address;
+		if (!caller) {
+			uriUpdateError = 'Wallet disconnected. Reconnect and try again.';
+			uriUpdateStatus = 'error';
+			return;
+		}
 		uriUpdateStatus = 'submitting';
 		uriUpdateError = '';
 		try {
 			validateAgentUri(newUri.trim());
 			const { identity } = getClients();
 			const tx = await identity.set_agent_uri({
-				caller: wallet.address!,
+				caller,
 				agent_id: data.agent.id,
 				new_uri: newUri.trim(),
 			});
