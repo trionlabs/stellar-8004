@@ -3,7 +3,6 @@
 -- allowed with aggregate functions). This has been silently broken since
 -- migration 013. Replace with pg_advisory_xact_lock to serialize concurrent
 -- calls for the same (agent_id, feedback_index) tuple.
--- See: docs/issues/001_for_update_aggregate_concurrency.md
 
 CREATE OR REPLACE FUNCTION public.insert_feedback_response(
   p_agent_id integer,
