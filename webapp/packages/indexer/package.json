@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^15.0.0",
-    "@supabase/supabase-js": "^2.49.0"
+    "@supabase/supabase-js": "^2.49.0",
+    "@trionlabs/8004-sdk": "workspace:*"
   },
   "devDependencies": {
     "@stellar8004/db": "workspace:*",
