@@ -1,10 +1,10 @@
-# ERC-8004 Metadata Format Alignment Guide
+# ERC-8004 Metadata Format
 
-Reference: [EIP-8004](https://eips.ethereum.org/EIPS/eip-8004) | Stellar contracts: [trionlabs/stellar-8004](https://github.com/trionlabs/stellar-8004)
+Reference: [EIP-8004](https://eips.ethereum.org/EIPS/eip-8004) | Stellar contracts: [trionlabs/stellar-trustless-agents](https://github.com/trionlabs/stellar-trustless-agents)
 
 ## Overview
 
-This document maps the differences between the current (legacy) metadata format used by 8004scan Stellar agents and the ERC-8004 spec-compliant format. The actual metadata update will be performed via CLI in Task 027 (`update-metadata`).
+This document defines the ERC-8004 spec-compliant metadata format for Stellar agents and how to migrate from the older `endpoints`-based format some early agents shipped with.
 
 ## Field Mapping
 
@@ -73,7 +73,7 @@ Spec examples (not a closed enum, but spec terminology should be followed):
 - ~~`"validation"`~~ -> use `"crypto-economic"`
 - ~~`"tee"`~~ -> use `"tee-attestation"`
 
-For our Phase 2 agents, the correct value is `["reputation"]` since they participate in the reputation registry.
+An agent that participates in the reputation registry should declare `["reputation"]` at minimum.
 
 ## Hash Algorithm Note
 
@@ -114,9 +114,4 @@ For our Phase 2 agents, the correct value is `["reputation"]` since they partici
 
 ## Validation
 
-A JSON Schema for metadata validation is available at [`metadata-schema.json`](./metadata-schema.json). This can be used by the indexer, CLI tools, or external validators.
-
-## Related Tasks
-
-- **Task 018** - URI resolver extracts `services` and `supportedTrust` from metadata
-- **Task 027** - CLI `update-metadata` script updates all 10 agents' metadata on-chain
+A JSON Schema for metadata validation lives alongside this guide at [`schema.json`](./schema.json). It can be used by the indexer, CLI tools, or external validators.
