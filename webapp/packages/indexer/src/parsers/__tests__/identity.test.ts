@@ -127,4 +127,19 @@ describe('parseIdentityEvent', () => {
 
     expect(parseIdentityEvent(event)).toBeNull();
   });
+
+  it('returns null without throwing when topic[0] is not a symbol', () => {
+    // Manually craft an event with a malformed first topic that
+    // scValToNative will choke on. The parser must catch and return null
+    // rather than crash the indexer's batch processing.
+    const event = mockEvent({ topics: ['registered', 1, MOCK_OWNER] });
+    // Replace the first topic with a structurally invalid ScVal that
+    // scValToNative cannot interpret as a symbol. We use an ScVal with
+    // an unrecognized type tag by reaching into the SDK.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (event.topic as unknown[])[0] = { switch: () => ({ value: -1 }) } as any;
+
+    expect(() => parseIdentityEvent(event)).not.toThrow();
+    expect(parseIdentityEvent(event)).toBeNull();
+  });
 });

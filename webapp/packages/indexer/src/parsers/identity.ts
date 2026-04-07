@@ -60,6 +60,19 @@ export type IdentityEvent =
 export function parseIdentityEvent(
   event: rpc.Api.GetEventsResponse['events'][number],
 ): IdentityEvent | null {
+  // scValToNative throws on malformed ScVal payloads. Wrap the whole parser
+  // body so a single bad event from the RPC doesn't propagate up and force
+  // the indexer's outer catch to mark the entire batch as failed.
+  try {
+    return parseIdentityEventInner(event);
+  } catch {
+    return null;
+  }
+}
+
+function parseIdentityEventInner(
+  event: rpc.Api.GetEventsResponse['events'][number],
+): IdentityEvent | null {
   if (!event.topic || event.topic.length < 2) return null;
 
   const eventName = scValToNative(event.topic[0]) as string;
