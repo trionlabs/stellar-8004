@@ -155,6 +155,13 @@ impl IdentityRegistryContract {
         String::from_str(e, "0.1.0")
     }
 
+    /// Returns the owner of an agent, or `None` if the agent does not exist
+    /// (or its NFT entry has been archived). Cross-contract callers must use
+    /// this instead of `owner_of`, which panics on missing tokens.
+    pub fn find_owner(e: &Env, agent_id: u32) -> Option<Address> {
+        storage::find_owner(e, agent_id)
+    }
+
     // --- Internal ---
 
     fn require_owner_or_approved(
@@ -162,7 +169,7 @@ impl IdentityRegistryContract {
         caller: &Address,
         agent_id: u32,
     ) -> Result<(), IdentityError> {
-        let owner = Base::owner_of(e, agent_id);
+        let owner = storage::find_owner(e, agent_id).ok_or(IdentityError::AgentNotFound)?;
         if *caller == owner {
             return Ok(());
         }

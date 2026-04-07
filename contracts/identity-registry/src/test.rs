@@ -226,3 +226,60 @@ fn test_upgrade_requires_auth() {
     let result = client.try_upgrade(&fake_hash);
     assert!(result.is_err());
 }
+
+#[test]
+fn test_find_owner_returns_none_for_missing_agent() {
+    let env = Env::default();
+    let (client, _) = create_client(&env);
+    // No agent has been registered yet.
+    assert_eq!(client.find_owner(&0), None);
+    assert_eq!(client.find_owner(&999), None);
+}
+
+#[test]
+fn test_find_owner_returns_owner_for_registered_agent() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+
+    let agent_id = client.register(&user);
+    assert_eq!(client.find_owner(&agent_id), Some(user));
+}
+
+#[test]
+fn test_set_uri_on_missing_agent_returns_error_not_panic() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let stranger = Address::generate(&env);
+    // try_set_agent_uri must return Err(AgentNotFound), not panic.
+    let result = client.try_set_agent_uri(&stranger, &999, &String::from_str(&env, "ipfs://nope"));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_set_metadata_on_missing_agent_returns_error_not_panic() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let stranger = Address::generate(&env);
+    let result = client.try_set_metadata(
+        &stranger,
+        &999,
+        &String::from_str(&env, "k"),
+        &Bytes::from_slice(&env, b"v"),
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_set_wallet_on_missing_agent_returns_error_not_panic() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let stranger = Address::generate(&env);
+    let new_wallet = Address::generate(&env);
+    let result = client.try_set_agent_wallet(&stranger, &999, &new_wallet);
+    assert!(result.is_err());
+}
