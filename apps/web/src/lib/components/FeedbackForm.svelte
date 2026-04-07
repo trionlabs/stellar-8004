@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { client } from '$lib/sdk-client.js';
+	import { getClients } from '$lib/sdk-client.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
@@ -48,18 +48,20 @@
 				feedbackHash = new Uint8Array(32); // bytes32(0) — no evidence
 			}
 
-			const result = await client.giveFeedback({
-				agentId,
-				value,
-				valueDecimals: 0,
+			const { reputation } = getClients();
+			const tx = await reputation.give_feedback({
+				caller: wallet.address!,
+				agent_id: agentId,
+				value: BigInt(value),
+				value_decimals: 0,
 				tag1,
 				tag2,
 				endpoint,
-				feedbackUri,
-				feedbackHash
+				feedback_uri: feedbackUri,
+				feedback_hash: Buffer.from(feedbackHash),
 			});
-
-			txHash = result.hash;
+			const sent = await tx.signAndSend();
+			txHash = sent.sendTransactionResponse?.hash ?? '';
 			status = 'success';
 		} catch (err) {
 			errorMsg = err instanceof Error ? err.message : 'Failed to submit feedback';
