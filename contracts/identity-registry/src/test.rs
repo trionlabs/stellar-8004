@@ -1,7 +1,10 @@
 #![cfg(test)]
 extern crate std;
 
-use soroban_sdk::{testutils::Address as _, Address, Bytes, Env, String, Vec};
+use soroban_sdk::{
+    testutils::{storage::Persistent as _, Address as _, Ledger as _},
+    Address, Bytes, Env, String, Vec,
+};
 
 use crate::contract::{IdentityRegistryContract, IdentityRegistryContractClient};
 use crate::types::MetadataEntry;
@@ -282,4 +285,55 @@ fn test_set_wallet_on_missing_agent_returns_error_not_panic() {
     let new_wallet = Address::generate(&env);
     let result = client.try_set_agent_wallet(&stranger, &999, &new_wallet);
     assert!(result.is_err());
+}
+
+#[test]
+fn test_extend_ttl_bumps_oz_owner_and_balance() {
+    use stellar_tokens::non_fungible::{NFTStorageKey, BALANCE_EXTEND_AMOUNT, OWNER_EXTEND_AMOUNT};
+
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let agent_id = client.register(&user);
+    let contract_addr = client.address.clone();
+
+    // Advance the ledger so the OZ Owner / Balance TTLs are no longer at
+    // their initial high-water mark - this is the realistic scenario where
+    // an idle agent is at risk of archival.
+    let advance: u32 = OWNER_EXTEND_AMOUNT - 100;
+    env.ledger().with_mut(|l| l.sequence_number += advance);
+
+    // Sanity: the Owner entry has been depleted by `advance` ledgers.
+    env.as_contract(&contract_addr, || {
+        let owner_ttl = env
+            .storage()
+            .persistent()
+            .get_ttl(&NFTStorageKey::Owner(agent_id));
+        assert!(owner_ttl < OWNER_EXTEND_AMOUNT);
+    });
+
+    // Now bump TTL via the public extend_ttl endpoint.
+    client.extend_ttl(&agent_id);
+
+    // The OZ Owner and Balance entries must now be at full extension.
+    env.as_contract(&contract_addr, || {
+        let owner_ttl = env
+            .storage()
+            .persistent()
+            .get_ttl(&NFTStorageKey::Owner(agent_id));
+        assert_eq!(
+            owner_ttl, OWNER_EXTEND_AMOUNT,
+            "OZ Owner entry should be extended by extend_ttl"
+        );
+
+        let balance_ttl = env
+            .storage()
+            .persistent()
+            .get_ttl(&NFTStorageKey::Balance(user.clone()));
+        assert_eq!(
+            balance_ttl, BALANCE_EXTEND_AMOUNT,
+            "OZ Balance entry should be extended by extend_ttl"
+        );
+    });
 }
