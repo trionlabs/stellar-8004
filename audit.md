@@ -64,7 +64,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** A registered agent (anyone with 1 friendbot funding) can call `set_metadata` with a 64 KB key and a 100 KB value, paying minimal storage rent for storage that lives until TTL archive (~30 days). At scale this is a cheap storage spam vector.
 - **Fix:** Cap key at e.g. 64 bytes and value at 4 KB. Errors should be `MetadataKeyTooLong` / `MetadataValueTooLong`.
 
-### A8. MEDIUM - `get_summary` with explicit `client_addresses` is O(clients x max_index)
+### A8. MEDIUM - `get_summary` with explicit `client_addresses` is O(clients x max_index) [DONE in 87d2373]
 - **File:** `contracts/reputation-registry/src/contract.rs` (the `get_summary` body)
 - **What:** When `client_addresses` is non-empty, the contract loops each address x every index 1..=last_index, doing one storage read per cell. With 1000 clients x 1000 feedback rows that's 1 million persistent reads - well over Soroban's 100-entry per-tx read limit.
 - **Why it matters:** This function will simply revert with `ExceededLimit` for any popular agent. It is effectively unusable for its stated purpose. The "all clients" path uses the running aggregate and is fine.
@@ -77,7 +77,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Fix:** `count.checked_add(1).ok_or(Err::CountOverflow)?`. Same fix in validation-registry for `AgentValidationCount` / `ValidatorRequestCount`.
 - **Adjacent finding:** The lack of any responder identity tracking means that the same address can `append_response` multiple times to the same feedback and the contract just bumps the counter. The on-chain record has no way to enumerate responders - the explorer must reconstruct from `ResponseAppended` events. This is by design (per the architecture plan) but worth documenting.
 
-### A10. MEDIUM - `revoke_feedback` / `give_feedback` cross-contract trust
+### A10. MEDIUM - `revoke_feedback` / `give_feedback` cross-contract trust [DONE in efd5cf0]
 - **File:** `contracts/reputation-registry/src/contract.rs` (`give_feedback`)
 - **What:** The self-feedback prevention is `caller != owner_of(agent_id) && caller != get_approved(agent_id) && !is_approved_for_all(owner, caller)`. All three calls go to the identity registry, which is upgradeable. A compromised identity-registry admin can replace its WASM with one that returns `None` from `owner_of` for arbitrary agents, breaking self-feedback prevention.
 - **Why it matters:** This is the standard upgradeable-contract trust model, but it's worth documenting. The reputation registry's security depends on the identity registry's admin key staying honest.
@@ -259,7 +259,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** A validator can submit a 10 MB tag and bloat the table. Queries filtering by tag full-table-scan.
 - **Fix:** New migration: `ALTER TABLE validations ADD CONSTRAINT validations_tag_length CHECK (length(tag) <= 64); CREATE INDEX idx_validations_tag ON validations(tag) WHERE tag IS NOT NULL AND tag <> '';`
 
-### C9. MEDIUM - `vault-setup.sql` placeholder substitution has no failure mode
+### C9. MEDIUM - `vault-setup.sql` placeholder substitution has no failure mode [DONE in a1e7bee]
 - **Files:** `webapp/supabase/vault-setup.sql:14-27` and `webapp/docker/docker-compose.supabase.yml:733-736` (the sed-on-startup pattern)
 - **What:** The migrate container `sed`s `__INDEXER_SECRET__` and `__SERVICE_ROLE_KEY__` in `vault-setup.sql` from environment variables. If the env vars are unset, sed substitutes empty strings. The vault stores the empty string as the secret. Cron jobs then try to authenticate with `Bearer ` (empty) and get 401 from Kong. There is no loud failure, just silent 401s that look like any other auth misconfig.
 - **Fix:** Add an explicit check at the top of `vault-setup.sql`: `DO $$ BEGIN IF '__INDEXER_SECRET__' = '__INDEXER_SECRET__' THEN RAISE EXCEPTION 'INDEXER_SECRET placeholder not substituted'; END IF; END $$;`. Also add a healthcheck that exercises the cron auth path on first deploy.
@@ -299,12 +299,12 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **What:** Function created with `STABLE` and `SET search_path = ''`, but no explicit `GRANT EXECUTE TO anon, authenticated`. It works today because of default-PUBLIC GRANTs on functions, but a future Postgres `REVOKE EXECUTE ON ALL FUNCTIONS FROM PUBLIC` (which is a recommended hardening step) would silently break it.
 - **Fix:** Append `GRANT EXECUTE ON FUNCTION public.search_agents(text, integer, integer) TO anon, authenticated;` to the migration.
 
-### C16. LOW - Backfill / recover scripts hardcode contract addresses
+### C16. LOW - Backfill / recover scripts hardcode contract addresses [DONE in b98315e]
 - **Files:** `webapp/scripts/backfill-events.ts:26-28`, `webapp/scripts/recover-agents.ts:19`
 - **What:** Contract addresses repeated. Single-source-of-truth principle says they should import from `@trionlabs/8004-sdk` (`TESTNET_CONFIG.contracts`) like the indexer config does (or should - see C17 below).
 - **Fix:** Refactor to import from the SDK. Same fix for `webapp/packages/indexer/src/config.ts`.
 
-### C17. LOW - `webapp/packages/indexer/src/config.ts` has its own copy of contract addresses
+### C17. LOW - `webapp/packages/indexer/src/config.ts` has its own copy of contract addresses [DONE in b98315e]
 - **File:** `webapp/packages/indexer/src/config.ts:17-33`
 - **What:** Contains `TESTNET` and `MAINNET` blocks with the same addresses that live in `webapp/packages/sdk/src/core/config.ts`. The indexer is a separate package and currently imports the SDK only for types - it could just as easily import the config object.
 - **Fix:** Have the indexer import `TESTNET_CONFIG` / `MAINNET_CONFIG` from the SDK.
@@ -409,27 +409,29 @@ These were reported by the parallel agents. I checked and they don't hold up:
 - A1+A6 - `accfb26` metadata key index, extend on read, clear on transfer
 - A9 - `72d2159` checked_add on counter increments (reputation+validation)
 - C14 - `1b5f83b` drop URI/hash columns from realtime publication
+- A8 - `87d2373` cap get_summary explicit client list at 5
+- A10 - `efd5cf0` document identity-registry cross-contract trust assumption
+- C9 - `a1e7bee` fail loudly if vault placeholders are not substituted
+- C16+C17 - `b98315e` import contract addresses from SDK in indexer + scripts
 
 **Open, in priority order:**
 
 1. **C5 (backfill / indexer concurrent races)** - operationally important.
 2. **C6 (Kong auth header logging)** - verify access log format first.
-3. **A8 (`get_summary` with explicit clients is O(n*m))** - cap the input list.
-4. **C1 (feedback historical data audit)** - one-shot backfill diff.
-5. **B3 (form-level address validation audit)** - enumerate forms.
-6. **B4 (legacy endpoints field drop)** - depends on whether any legacy agents still exist.
-7. **A10 (cross-contract trust documentation)** - rustdoc + upgrade-timelock decision.
-8. **A15 (architecture plan vs code divergence)** - rewrite or delete the stale plan.
-9. **C-series MEDIUM/LOW backlog** - C9, C10, C11, C12, C13, C16-C19.
-10. **D-series infrastructure** - D1-D5.
-11. **E-series cross-cutting** - E1-E5.
-12. **B-series LOW** - B5, B6, B8 through B15.
+3. **C1 (feedback historical data audit)** - one-shot backfill diff.
+4. **B3 (form-level address validation audit)** - enumerate forms.
+5. **B4 (legacy endpoints field drop)** - depends on whether any legacy agents still exist.
+6. **A15 (architecture plan vs code divergence)** - rewrite or delete the stale plan.
+7. **C-series MEDIUM/LOW backlog** - C10, C11, C12, C13, C18, C19.
+8. **D-series infrastructure** - D1-D5.
+9. **E-series cross-cutting** - E1-E5.
+10. **B-series LOW** - B5, B6, B8 through B15.
 
-**Quick wins still open (under 30 min each):** B11, B12, B14, C16, C17, C18, C19.
+**Quick wins still open (under 30 min each):** B11, B12, B14, C18, C19.
 
-**Medium effort still open (under a day):** B4, B5, B6, B8, B9, B10, B13, C9, C10, C11, C12, C13, D2, D3, D4, D5.
+**Medium effort still open (under a day):** B4, B5, B6, B8, B9, B10, B13, C10, C11, C12, C13, D2, D3, D4, D5.
 
-**Bigger projects (multi-day):** A8 (per-client aggregates), B3 (form audit), C1 (historical data audit), C5 (backfill concurrency), D1 (mainnet WASM verify), E1 (e2e CI test), E2 (upgrade docs).
+**Bigger projects (multi-day):** B3 (form audit), C1 (historical data audit), C5 (backfill concurrency), D1 (mainnet WASM verify), E1 (e2e CI test), E2 (upgrade docs).
 
 ## H. Verification approach per finding
 
