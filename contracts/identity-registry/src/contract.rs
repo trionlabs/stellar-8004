@@ -5,20 +5,24 @@ use stellar_tokens::non_fungible::{Base, ContractOverrides, NonFungibleToken};
 
 use crate::errors::IdentityError;
 use crate::events;
-use crate::storage::{self, MAX_METADATA_KEY_LEN, MAX_METADATA_VALUE_LEN};
+use crate::storage::{self, MAX_METADATA_KEYS, MAX_METADATA_KEY_LEN, MAX_METADATA_VALUE_LEN};
 use crate::types::MetadataEntry;
 
-// Custom ContractOverrides that clears agent wallet on transfer
+// Custom ContractOverrides that clears agent wallet and metadata on transfer.
+// Metadata is non-transferable: a previous owner could otherwise hand a victim
+// an NFT pre-loaded with claims like `verified=true` or `domain=anthropic.com`.
 pub struct IdentityBase;
 
 impl ContractOverrides for IdentityBase {
     fn transfer(e: &Env, from: &Address, to: &Address, token_id: u32) {
         storage::remove_agent_wallet(e, token_id);
+        storage::clear_all_metadata(e, token_id);
         Base::transfer(e, from, to, token_id);
     }
 
     fn transfer_from(e: &Env, spender: &Address, from: &Address, to: &Address, token_id: u32) {
         storage::remove_agent_wallet(e, token_id);
+        storage::clear_all_metadata(e, token_id);
         Base::transfer_from(e, spender, from, to, token_id);
     }
 }
@@ -116,6 +120,13 @@ impl IdentityRegistryContract {
             return Err(IdentityError::MetadataValueTooLong);
         }
         Self::require_owner_or_approved(e, &caller, agent_id)?;
+        // Reject the write if it would create a new key beyond the per-agent
+        // cap. Updates to existing keys are always allowed.
+        let existing_value = storage::get_metadata(e, agent_id, &key);
+        if existing_value.is_none() && storage::metadata_key_count(e, agent_id) >= MAX_METADATA_KEYS
+        {
+            return Err(IdentityError::TooManyMetadataKeys);
+        }
         storage::set_metadata(e, agent_id, &key, &value);
         events::metadata_set(e, agent_id, &key, &value);
         Ok(())
