@@ -24,7 +24,8 @@
 	}
 
 	async function submit() {
-		if (!wallet.connected) {
+		const caller = wallet.address;
+		if (!wallet.connected || !caller) {
 			errorMsg = 'Connect your wallet to submit feedback.';
 			status = 'error';
 			return;
@@ -55,7 +56,7 @@
 
 			const { reputation } = getClients();
 			const tx = await reputation.give_feedback({
-				caller: wallet.address!,
+				caller,
 				agent_id: agentId,
 				value: BigInt(value),
 				value_decimals: 0,
