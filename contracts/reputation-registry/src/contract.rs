@@ -7,6 +7,13 @@ use crate::events;
 use crate::storage;
 use crate::types::{FeedbackData, SummaryResult};
 
+/// Maximum number of clients accepted in `get_summary`'s explicit-list path.
+/// Each client costs `last_index` storage reads. Soroban's per-tx read budget
+/// is small (~100 entries), so we silently truncate larger inputs to keep the
+/// call from running out of gas. Callers needing breadth should use the
+/// pre-computed aggregate path (empty client list).
+const MAX_SUMMARY_CLIENTS: u32 = 5;
+
 // `find_owner` returns Option<Address> instead of panicking when the agent
 // is missing, which avoids crashing this contract on cross-contract calls
 // into a non-existent or archived agent.
@@ -218,12 +225,18 @@ impl ReputationRegistryContract {
                 storage::get_aggregate(e, agent_id)
             }
         } else {
-            // Compute on-the-fly for specific clients
+            // Compute on-the-fly for specific clients. Capped at MAX_SUMMARY_CLIENTS
+            // because each client costs `last_index` storage reads, and Soroban's
+            // per-tx read budget is small (~100 entries). Callers needing more
+            // breadth should use the empty-list path (pre-computed aggregate) or
+            // paginate over multiple calls.
+            let limit = core::cmp::min(client_addresses.len(), MAX_SUMMARY_CLIENTS);
             let mut count = 0u64;
             let mut sum = 0i128;
             let mut max_dec = 0u32;
 
-            for client in client_addresses.iter() {
+            for idx in 0..limit {
+                let client = client_addresses.get(idx).unwrap();
                 let last = storage::get_last_index(e, agent_id, &client);
                 for i in 1..=last {
                     if let Some(fb) = storage::get_feedback(e, agent_id, &client, i) {
