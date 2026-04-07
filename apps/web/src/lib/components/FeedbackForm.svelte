@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Buffer } from 'buffer';
 	import { getClients } from '$lib/sdk-client.js';
-	import { validateTag } from '@trionlabs/8004s-sdk';
+	import { validateTag, formatSorobanError } from '@trionlabs/8004s-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
@@ -69,7 +69,7 @@
 			txHash = sent.sendTransactionResponse?.hash ?? '';
 			status = 'success';
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Failed to submit feedback';
+			errorMsg = formatSorobanError(err);
 			status = 'error';
 		}
 	}
