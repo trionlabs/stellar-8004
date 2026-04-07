@@ -1,6 +1,10 @@
 const utf8Decoder = new TextDecoder('utf-8', { fatal: false });
 const STELLAR_BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+// Version bytes from SEP-23 / StrKey:
+// - Account ID (G...): 6 << 3 = 48
+// - Contract  (C...): 2 << 3 = 16
 const STELLAR_PUBLIC_KEY_VERSION_BYTE = 6 << 3;
+const STELLAR_CONTRACT_VERSION_BYTE = 2 << 3;
 const STELLAR_ADDRESS_DECODED_LENGTH = 35;
 
 /**
@@ -62,14 +66,25 @@ export function toBigInt(val: unknown, fieldName: string): bigint {
   );
 }
 
+/**
+ * Validates that a string is a Stellar address - either an Ed25519 account ID
+ * (G...) or a contract address (C...).
+ *
+ * Audit finding B2: this function used to reject contract addresses outright,
+ * which silently dropped events from smart-wallet agents (passkey kits, MPC,
+ * etc.). The contract code itself accepts any Address, so the parser must too.
+ */
 export function isValidStellarAddress(address: string): boolean {
   if (typeof address !== 'string' || address.length !== 56) return false;
-  if (address[0] !== 'G') return false;
+  const first = address[0];
+  if (first !== 'G' && first !== 'C') return false;
 
   try {
     const decoded = base32Decode(address);
     if (decoded.length !== STELLAR_ADDRESS_DECODED_LENGTH) return false;
-    if (decoded[0] !== STELLAR_PUBLIC_KEY_VERSION_BYTE) return false;
+    const expectedVersionByte =
+      first === 'G' ? STELLAR_PUBLIC_KEY_VERSION_BYTE : STELLAR_CONTRACT_VERSION_BYTE;
+    if (decoded[0] !== expectedVersionByte) return false;
 
     const payload = decoded.slice(0, 33);
     const checksum = decoded.slice(33);
