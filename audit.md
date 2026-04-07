@@ -83,19 +83,19 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** This is the standard upgradeable-contract trust model, but it's worth documenting. The reputation registry's security depends on the identity registry's admin key staying honest.
 - **Fix:** Document the trust assumption in `contracts/reputation-registry/src/contract.rs` rustdoc, and consider whether the identity-registry upgrade path should be timelocked or multi-sig.
 
-### A11. LOW - Pagination is silent on `None` slots
+### A11. LOW - Pagination is silent on `None` slots [DONE in c6781d3]
 - **File:** `contracts/reputation-registry/src/storage.rs` (`get_clients_paginated`)
 - **What:** The loop reads `ClientAtIndex(agent_id, i)` and pushes whatever it gets. If a slot was deleted (currently no code path deletes, but future revoke-cleanup could), the function returns fewer entries than `limit` without indication.
 - **Why it matters:** Callers can't distinguish "end of list" from "tombstoned slot mid-range".
 - **Fix:** Either guarantee no tombstones (current behavior) and add a comment, or return `Vec<Option<Address>>` so callers can tell.
 
-### A12. LOW - Validation `average_response` truncates
+### A12. LOW - Validation `average_response` truncates [DONE in c6781d3]
 - **File:** `contracts/validation-registry/src/contract.rs` (the `get_summary` body)
 - **What:** `(total_response / match_count) as u32` is integer division.
 - **Why it matters:** A summary of `[51, 50]` returns `50`, not `50.5`. Display layer can multiply by 100 and lose 1% precision.
 - **Fix:** Either return `(total_response, match_count)` and let the caller compute, or return a fixed-point integer with documented scale.
 
-### A13. LOW - TTL constants are correct but the comment is fragile [VERIFIED]
+### A13. LOW - TTL constants are correct but the comment is fragile [DONE in c6781d3]
 - **File:** `contracts/identity-registry/src/storage.rs:3-6`
 - **What:** `TTL_THRESHOLD = 518_400` is in **ledgers**, and at 5s/ledger that's 30 days. The comment says so. **Agent 1 claimed this comment is wrong; my recheck confirms it is correct.** The fragility is that the constant is duplicated across all three contracts and hand-maintained. If Soroban ever changes ledger timing, all three must be updated together. The architecture plan called for an `erc8004-common` crate; recent commit `0e7ef9f refactor: inline constants, remove erc8004-common crate` shows we already had this and threw it away.
 - **Fix:** Either reintroduce the shared crate (the inline-and-delete refactor was probably wrong), or accept the duplication and add a comment in each constant pointing at the others as siblings.
@@ -106,7 +106,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** This compounds A2: not only does an archived NFT make `set_agent_uri`/`set_metadata`/`set_agent_wallet`/`unset_agent_wallet` panic, the panic propagates to `give_feedback` in reputation-registry too (which calls `identity.owner_of(agent_id)` for the self-feedback check). And to `validation_request` in validation-registry (same cross-contract pattern). One archived agent crashes any cross-contract call into it. Failure mode is "the explorer tries to read this agent's data and the request is `transaction failed: HostError(Storage, MissingValue)`".
 - **Fix:** Wrap `Base::owner_of` in a check using `Base::balance_of(owner) > 0` first (or `Base::token_exists` if OZ provides it at the pinned commit). Return a proper `IdentityError::AgentNotFound` instead of panicking. This is necessary regardless of whether A2 is fixed - the panic-on-missing path should never be reachable from a hostile caller.
 
-### A15. MEDIUM - Architecture plan describes Ed25519 wallet auth; code uses `require_auth` [VERIFIED]
+### A15. MEDIUM - Architecture plan describes Ed25519 wallet auth; code uses `require_auth` [MOOT - plan was overwritten earlier in session, no longer references Ed25519]
 - **File:** `contracts/identity-registry/src/contract.rs:110-122` (`set_agent_wallet`)
 - **What:** The architecture plan in `.claude/plans/rippling-singing-tower.md` describes Ed25519 signature verification: "set_agent_wallet(... deadline: u64, signature: BytesN<64>, public_key: BytesN<32>) ... verifies via `e.crypto().ed25519_verify(public_key, message, signature)`". The actual implementation has neither `deadline` nor `signature` nor `public_key` parameters - it just calls `new_wallet.require_auth()` (line 117) and trusts Soroban's native auth system.
 - **Why it matters:** The simpler code is probably correct (Soroban's `require_auth` already handles nonce-based replay protection and binds to the contract instance), but it has different semantics than the plan documented. Specifically: the plan supported designating a wallet that wasn't online at the moment - the user provides a pre-signed Ed25519 sig, the contract verifies it offline. The code requires the new wallet to actively sign right now, which means a smart contract wallet that doesn't implement `__check_auth` cannot be set as an agent_wallet. This is the contract-side analogue of B1.
@@ -128,25 +128,25 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** Smart-wallet agents are invisible in the explorer. They can register on-chain but never appear on stellar8004.com. Worse, this is a silent data loss with only a log line.
 - **Fix:** Mirror B1 - accept both Ed25519 and contract addresses. Verify the database schema actually allows storing C-addresses (no `LIKE 'G%'` constraint anywhere).
 
-### B3. HIGH - `validateStellarAddress` is the gate at every privileged action, but is bypassed in some forms
+### B3. HIGH - `validateStellarAddress` is the gate at every privileged action, but is bypassed in some forms [DONE in 17b1aeb]
 - **File:** `webapp/apps/web/src/lib/components/agent-edit/WalletBinding.svelte` (and any other component that takes an address input)
 - **What:** Need to verify that every form input accepting an address routes through `validateStellarAddress` before reaching the contract call. Right now I have not enumerated every form. The risk: a form path that skips validation lets a malformed address into `set_agent_wallet`, which then fails on-chain after the user has paid gas.
 - **Fix:** Audit every `<input>` that accepts an address. Centralize via an `<AddressInput>` component that validates on blur and refuses to enable submit until valid.
 
-### B4. MEDIUM - `buildMetadataJsonForEdit` silently drops legacy `endpoints` field
+### B4. MEDIUM - `buildMetadataJsonForEdit` silently drops legacy `endpoints` field [DONE in 73b1ec2]
 - **File:** `webapp/packages/sdk/src/core/metadata.ts:41` (the `KNOWN_FIELDS` array) and `:48-70` (the function body)
 - **What:** `KNOWN_FIELDS` includes `'endpoints'`, so existing-metadata `endpoints` is filtered out of `preserved`. But the function only writes `services`, not `endpoints`. Result: when an agent originally registered with the legacy `endpoints` schema is edited, the edit drops `endpoints` and writes only `services`. The user sees "save successful" but legacy `endpoints` is gone.
 - **Why it matters:** Pre-spec-migration agents (the original 10 mentioned in `_archive/018_PHASE6_URI_EXTRACT.md`) silently lose their endpoint data on first edit. The data is on-chain and reconstructible from event history, but the live state is wrong. Combined with B1/B2 if the indexer dropped the original event, the data is unrecoverable.
 - **Fix:** Either translate `endpoints -> services` automatically when reading existing metadata (the same migration that the backfill SQL does on the DB side), or add `endpoints` to the preserved list AND surface a warning in the edit UI. Test by editing one of the legacy agents.
 - **Note:** Agent 2 reported this file with a wrong CRITICAL diagnosis (claimed unsafe field shadowing of `name`/`description`). My re-read shows the shadowing risk is gone because `KNOWN_FIELDS` filters them out. The actual bug at this site is the silent legacy-field drop above.
 
-### B5. MEDIUM - `formatSorobanError` truncates at 200 chars without a console fallback
+### B5. MEDIUM - `formatSorobanError` truncates at 200 chars without a console fallback [DONE in 23e3aca]
 - **File:** `webapp/packages/sdk/src/core/helpers.ts` (the truncation branch)
 - **What:** Long error messages get sliced to 200 chars + `...`. The full message is not logged to console and not preserved anywhere.
 - **Why it matters:** Soroban error messages from the RPC are routinely 500-2000 chars (XDR-encoded contract error context). The `...` swallows the actual error code, making bug reports useless. Users say "it failed with `Transaction failed...`" and have no diagnostic.
 - **Fix:** Always `console.error` the full original error before truncating, and add a "Copy full error" button next to the displayed truncation in the UI components that surface errors.
 
-### B6. MEDIUM - `generateRequestNonce` deviates from spec but only documents it in a comment
+### B6. MEDIUM - `generateRequestNonce` deviates from spec but only documents it in a comment [DONE in 23e3aca]
 - **File:** `webapp/packages/sdk/src/core/helpers.ts` (`generateRequestNonce`)
 - **What:** ERC-8004 spec defines `request_hash` as a content commitment over the validation work. The SDK treats it as a random nonce ("not a content hash, only a unique lookup key") and only flags this in a doc comment. No callers can opt into the spec-compliant behavior.
 - **Why it matters:** Cross-chain interoperability (the entire reason ERC-8004 exists) breaks. A validator that expects `request_hash == sha256(work)` will always reject our requests.
@@ -158,31 +158,31 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** `noopener` blocks `window.opener` reference. The missing `noreferrer` leaks the source URL (which contains `agent_id` and possibly the `tx` query param) to the destination via the Referer header. stellar.expert isn't malicious so the practical risk is bounded, but the pattern should be fixed everywhere because the next link added might point at a user-controlled URI from agent metadata.
 - **Fix:** Add `noreferrer` to both, and grep for any other `target="_blank"` to fix consistently.
 
-### B8. MEDIUM - Ranged dependencies without an enforced lockfile policy
+### B8. MEDIUM - Ranged dependencies without an enforced lockfile policy [DONE in 7f22041]
 - **File:** `webapp/apps/web/package.json`, `webapp/packages/sdk/package.json`, `webapp/packages/indexer/package.json`
 - **What:** Most deps use `^x.y.z`. The repo has `pnpm-lock.yaml` so installs are deterministic, but the CI command (`pnpm install --frozen-lockfile`) is the only enforcement and is easily skipped in local dev.
 - **Why it matters:** A regenerated lockfile from a developer machine can pull a new minor version of `@stellar/freighter-api`, `@supabase/supabase-js`, or `@stellar/stellar-sdk` and ship a regression. None of these libraries are stable enough for blanket caret ranges.
 - **Fix:** Pin the four most critical deps to exact versions: `@stellar/freighter-api`, `@stellar/stellar-sdk`, `@supabase/supabase-js`, `@trionlabs/8004-sdk` (when published). Document the policy in the repo root readme.
 
-### B9. MEDIUM - `wallet.address!` non-null assertions in submit handlers
+### B9. MEDIUM - `wallet.address!` non-null assertions in submit handlers [DONE in 44d7471]
 - **File:** `webapp/apps/web/src/routes/register/+page.svelte:92,93,115,116`, `webapp/apps/web/src/routes/agents/[id]/edit/+page.svelte:106`
 - **What:** Submit handlers assume the wallet is connected and use `wallet.address!`. Wallet state is reactive ($state); a disconnect race between the click and the transaction build will produce `signAndSend` against `undefined` and a confusing runtime error.
 - **Why it matters:** Most users won't hit this, but anyone with a wallet auto-disconnect timer (Freighter's lock screen, Lobstr session expiry) will.
 - **Fix:** Replace each `!` with an explicit `if (!wallet.address) { errorMsg = 'Wallet disconnected'; status = 'error'; return; }` at the top of the handler.
 
-### B10. LOW - `sessionStorage` for registration form state has no per-tab namespacing
+### B10. LOW - `sessionStorage` for registration form state has no per-tab namespacing [DONE in 7f22041]
 - **File:** `webapp/apps/web/src/routes/register/+page.svelte:25` (the `STORAGE_KEY` constant)
 - **What:** Two browser tabs editing the registration form will overwrite each other's draft.
 - **Why it matters:** Quality-of-life issue for power users. Not a bug, but the kind of thing that bites at demo time.
 - **Fix:** Either use `crypto.randomUUID()` per tab (won't survive refresh) or accept this and document it. Probably accept.
 
-### B11. LOW - Freighter signer accepts an `address` opt that overrides `this.publicKey`
+### B11. LOW - Freighter signer accepts an `address` opt that overrides `this.publicKey` [DONE in 7f22041]
 - **File:** `webapp/packages/sdk/src/signers/freighter.ts:109-126,128-172`
 - **What:** Both `signTransaction` and `signAuthEntry` accept an optional `address` opt that, if passed, takes precedence over the connected `publicKey`. A buggy caller could pass the wrong address.
 - **Why it matters:** Mitigated because Freighter's UI displays the address being signed for, so the user sees the discrepancy. But if the app routes around Freighter's UI (presigned tx flow, batch signing), the safety net disappears.
 - **Fix:** Either remove the `address` opt entirely or, if it's needed for multi-account UX, add an explicit warning when `opts.address !== this.publicKey`.
 
-### B12. LOW - `as unknown as X` casts in the signer hot path
+### B12. LOW - `as unknown as X` casts in the signer hot path [DONE in 23e3aca]
 - **File:** `webapp/packages/sdk/src/signers/freighter.ts:52,166`
 - **What:** Two `as unknown as` casts. Line 52 force-casts the dynamic import. Line 166 casts `signedAuthEntry` to a synthetic interface to call `.toString('base64')`.
 - **Why it matters:** Runtime type assumptions are buried. If Freighter changes the return type, TypeScript is happy and the runtime explodes.
@@ -198,7 +198,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **File:** `webapp/apps/web/src/lib/components/register/StepBasicInfo.svelte:24` (`maxlength="256"`), and the same `256` repeated in `webapp/apps/web/src/routes/agents/[id]/edit/+page.svelte:80` and `webapp/packages/sdk/src/core/helpers.ts` (validateTag has its own `MAX_TAG_LENGTH = 64`).
 - **Fix:** Centralize in `webapp/packages/sdk/src/core/constants.ts` and import everywhere. Same for IPFS gateway list, fetch timeouts, batch sizes.
 
-### B15. LOW - Pre-existing Svelte 5 `state_referenced_locally` warnings
+### B15. LOW - Pre-existing Svelte 5 `state_referenced_locally` warnings [DONE in 7a18755]
 - **File:** `webapp/apps/web/src/routes/agents/[id]/edit/+page.svelte:25-29,36-37,42`
 - **What:** The `pnpm check` output during the merge verification reported 17 warnings, all in this one file, all about `data` being captured at component-init time instead of read inside a `$derived` / closure.
 - **Why it matters:** Each one is a real reactivity bug - if `data` updates (which it does on `invalidateAll()` after save), the captured local copy stays stale. The save flow currently works because it triggers a `goto`, so the stale state is hidden. Any future flow that mutates `data` in place will hit it.
@@ -220,13 +220,13 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** A malicious agent registers with `agent_uri = ipfs://Qm...` pointing at a 100 MB JSON bomb. Edge Function's `resolve-uris` invocation OOMs and crashes. Cron retries forever (until `MAX_ATTEMPTS = 5` per agent, but a new agent can register every minute and re-fill the queue). The edge function is denial-of-serviced indefinitely.
 - **Fix:** Read the response as a stream, abort if `Content-Length > 1 MB` (or if no `Content-Length`, abort the stream once 1 MB is consumed), then `JSON.parse` the bounded buffer. Reject with retry-counter increment on any abort. SSRF guard the URL too: reject `127.0.0.1`, `169.254.0.0/16`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` before fetching.
 
-### C3. HIGH - `scValToNative` calls in parsers can throw, and the catch is at the top of the run
+### C3. HIGH - `scValToNative` calls in parsers can throw, and the catch is at the top of the run [DONE in 13da9c3]
 - **File:** `webapp/packages/indexer/src/parsers/identity.ts`, `parsers/reputation.ts`, `parsers/validation.ts` (anywhere `scValToNative(event.topic[i])` or `scValToNative(event.data)` appears without a try/catch)
 - **What:** A malformed event from the RPC (or from a malicious contract upgrade emitting non-conforming events) makes `scValToNative` throw. The thrown error bubbles up to the indexer's outer try in `webapp/packages/indexer/src/indexer.ts` (around line 225-233 per Agent 3's read), increments the error counter, and continues. Continue is OK, but the granularity is wrong: a single bad event marks the entire batch as failed, advancing the cursor past valid events.
 - **Why it matters:** Either silently lose valid events (if the cursor advances past them) or get stuck retrying the same bad batch forever (if the cursor doesn't advance). Both are real failure modes.
 - **Fix:** Wrap each `scValToNative` call site in try/catch, return `null` from the parser on failure, log a structured warning with the raw event topic bytes and tx hash so the operator can inspect.
 
-### C4. HIGH - `api/lib/rate-limit.ts` is concurrency-racy, but NOT in the way Agent 3 claimed
+### C4. HIGH - `api/lib/rate-limit.ts` is concurrency-racy, but NOT in the way Agent 3 claimed [DONE in f21a100]
 - **File:** `webapp/supabase/functions/api/lib/rate-limit.ts:14-29`
 - **What:** Reading my spot-check above: the count and the insert run in `Promise.all`, which means the count snapshot may or may not include the row that was just inserted (depends on which finishes first at the DB level under READ COMMITTED). Worse, two concurrent requests from the same IP can both see `count = N` (without the other's insert) and both pass the `count <= 30` check, blowing past the limit. **Agent 3's "off-by-one" diagnosis was wrong** - `count <= LIMIT_PER_MINUTE` correctly allows exactly 30 - but the bigger concurrency bug is real.
 - **Why it matters:** Real-world rate limit is closer to `30 x concurrent_workers` than `30`. With 5 Edge Function instances under load, an attacker gets ~150 req/min before being throttled.
@@ -235,7 +235,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
   - (b) Use a Postgres advisory lock keyed by `hashtext(ip)` for the duration of the insert, OR
   - (c) Accept the race and document that the limit is "30 per IP per minute, plus burst proportional to concurrent function instances".
 
-### C5. HIGH - Indexer + backfill script can run concurrently and produce stale upserts
+### C5. HIGH - Indexer + backfill script can run concurrently and produce stale upserts [DONE in 3e80e5d]
 - **File:** `webapp/scripts/backfill-events.ts:327-346` (the agents upsert) and `webapp/supabase/functions/indexer/index.ts` (the cron-triggered run)
 - **What:** Both processes upsert to the `agents` table on `id`. Backfill walks ledgers from the deploy ledger forward; the live indexer is at the head. If they overlap on a `Registered` event, the backfill (older event with older `agent_uri`) overwrites the indexer's fresher write (newer `agent_uri` from a later `URIUpdated` event in the same range).
 - **Why it matters:** Running backfill while the indexer is running silently rolls back agent URIs to their first-registered value. The fix in 015 (async URI resolution) makes this worse, because `agent_uri_data` gets re-NULLed for re-resolution.
@@ -264,25 +264,25 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **What:** The migrate container `sed`s `__INDEXER_SECRET__` and `__SERVICE_ROLE_KEY__` in `vault-setup.sql` from environment variables. If the env vars are unset, sed substitutes empty strings. The vault stores the empty string as the secret. Cron jobs then try to authenticate with `Bearer ` (empty) and get 401 from Kong. There is no loud failure, just silent 401s that look like any other auth misconfig.
 - **Fix:** Add an explicit check at the top of `vault-setup.sql`: `DO $$ BEGIN IF '__INDEXER_SECRET__' = '__INDEXER_SECRET__' THEN RAISE EXCEPTION 'INDEXER_SECRET placeholder not substituted'; END IF; END $$;`. Also add a healthcheck that exercises the cron auth path on first deploy.
 
-### C10. MEDIUM - `resolve-uris` retry counter has no backoff and no terminal-state cleanup
+### C10. MEDIUM - `resolve-uris` retry counter has no backoff and no terminal-state cleanup [DONE in 2be87be]
 - **File:** `webapp/supabase/functions/resolve-uris/index.ts` (and the `MAX_ATTEMPTS = 5` constant)
 - **What:** Each failed resolve increments `uri_resolve_attempts` by 1. After 5 attempts the agent is skipped forever. There is no exponential backoff, no terminal "permanently failed" state, and no operator surface to retry manually after a known IPFS gateway recovers.
 - **Why it matters:** A transient gateway outage (e.g. ipfs.io down for an hour) burns through all 5 attempts inside that hour. Once the gateway recovers, those agents stay broken until somebody manually `UPDATE agents SET uri_resolve_attempts = 0 WHERE uri_resolve_attempts >= 5`.
 - **Fix:** Add a `last_resolve_attempt_at` timestamp; only retry if `now() - last_resolve_attempt_at > pow(2, attempts) * '1 minute'::interval`. Add an admin endpoint (or just an SQL helper) to bulk-reset failed resolves.
 
-### C11. MEDIUM - `feedback_responses.response_index` race fix doesn't cover backfill writes
+### C11. MEDIUM - `feedback_responses.response_index` race fix doesn't cover backfill writes [DONE in daac21f]
 - **File:** `webapp/supabase/migrations/021_fix_response_index_concurrency.sql` and `webapp/scripts/backfill-events.ts`
 - **What:** The advisory lock fix is in the SQL function `insert_feedback_response`, which the indexer calls. The backfill script may or may not call the same function - if it does direct INSERTs into `feedback_responses`, the lock is bypassed.
 - **Verification needed:** read `backfill-events.ts` and confirm which path it uses.
 - **Fix:** Force the backfill through `insert_feedback_response`. If it can't (e.g. for performance reasons), document that backfill must run with the indexer stopped.
 
-### C12. MEDIUM - `indexer-health` endpoint protected by static bearer, no rate limit
+### C12. MEDIUM - `indexer-health` endpoint protected by static bearer, no rate limit [DONE in c68e4b9]
 - **File:** `webapp/supabase/functions/indexer-health/index.ts:16-78`
 - **What:** Static bearer token from env. If a monitoring agent leaks the token (CI logs, error reports, browser DevTools, accidentally git committed), an attacker can spam the endpoint at will. Each call hits the DB.
 - **Why it matters:** Cheap DoS amplification - a leaked token lets one attacker cost the operator real DB CPU.
 - **Fix:** Either rotate the token regularly via the same vault pattern, or add per-IP rate limiting reusing the `api_rate_limits` table (with a smaller window for monitoring traffic patterns).
 
-### C13. MEDIUM - Migrations are not idempotent; concurrent deploys break
+### C13. MEDIUM - Migrations are not idempotent; concurrent deploys break [DONE in 7dff90a]
 - **File:** `.github/workflows/deploy-webapp-vps.yml` (the migration application loop) and the migrations themselves
 - **What:** Migrations apply via `psql -v ON_ERROR_STOP=1` against a running DB. If two CI runs trigger simultaneously (not impossible with manual `workflow_dispatch` on a slow main branch), both see the same `schema_migrations` snapshot, both try to apply the same file, the second fails with duplicate-key on the `schema_migrations` insert and aborts.
 - **Why it matters:** Visible only on race conditions but produces a half-applied migration state if any DDL commits before the duplicate-key check.
@@ -309,13 +309,13 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **What:** Contains `TESTNET` and `MAINNET` blocks with the same addresses that live in `webapp/packages/sdk/src/core/config.ts`. The indexer is a separate package and currently imports the SDK only for types - it could just as easily import the config object.
 - **Fix:** Have the indexer import `TESTNET_CONFIG` / `MAINNET_CONFIG` from the SDK.
 
-### C18. LOW - `deployLedger` constants in indexer config are stale
+### C18. LOW - `deployLedger` constants in indexer config are stale [DONE in 1307901]
 - **File:** `webapp/packages/indexer/src/config.ts:22`
 - **What:** Hardcoded `1819978`. The actual current testnet deploy of `CDGNYED4...` was at a later ledger (per `01d588b chore: redeploy contracts...`).
 - **Why it matters:** Cold-start indexer rescans a wrong starting range. Live indexer is unaffected because `indexer_state` cursor wins, but a reindex from scratch would over-scan.
 - **Fix:** Update to the actual deploy ledger of the latest deploy, or remove the constant entirely and require the env var.
 
-### C19. LOW - Cursor monotonicity not enforced
+### C19. LOW - Cursor monotonicity not enforced [DONE in f3b329f]
 - **File:** `webapp/packages/indexer/src/indexer.ts:159-246` (the per-batch ledger advance)
 - **What:** Code assumes `event.ledger >= maxLedger` always. RPC failure / partial pagination could return events out of order.
 - **Why it matters:** Edge case, unlikely in practice with Stellar RPC.
@@ -331,23 +331,23 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** "Same function shapes" is necessary but not sufficient. A subtle compiler-version-induced behavior change (e.g., different overflow semantics in a const-fn evaluated at compile time) could ship to mainnet without us noticing. The user has been told the contracts match, so any divergence becomes a credibility issue.
 - **Fix:** Either rebuild on the exact Rust version that produced the deployed WASM (extract it from the `_metadata` section if `contractmeta!` records it), or redeploy from our build and rotate the addresses in the SDK config.
 
-### D2. MEDIUM - Docker compose mounts the docker socket into vector
+### D2. MEDIUM - Docker compose mounts the docker socket into vector [DONE in 188dd33]
 - **File:** `webapp/docker/docker-compose.supabase.yml` (the `vector` service block)
 - **What:** Read-only mount of `/var/run/docker.sock` for log collection. The compose file itself acknowledges this is a security risk in a comment.
 - **Why it matters:** A vector-container compromise becomes a host compromise via Docker API enumeration.
 - **Fix:** Use `tecnativa/docker-socket-proxy` between vector and the docker socket, allowlisting only the read endpoints vector actually needs (`/containers/json`, `/containers/{id}/logs`).
 
-### D3. MEDIUM - Deploy workflow uses paths-based trigger that is fragile after the merge
+### D3. MEDIUM - Deploy workflow uses paths-based trigger that is fragile after the merge [DROPPED - the existing path list is intentional, only triggers on backend changes; broadening to webapp/** would over-trigger]
 - **File:** `.github/workflows/deploy-webapp-vps.yml`
 - **What:** The workflow has `paths:` triggers prefixed with `webapp/...`. This is correct after the subtree merge, but the prefixing is silently brittle: any new top-level path added under `webapp/` (e.g. a new package) needs to be added to the trigger list manually or the deploy won't fire.
 - **Fix:** Either use a single broad trigger `paths: ['webapp/**']` or document the requirement that new paths must be added to the trigger.
 
-### D4. LOW - `.env.example` shows defaults that survive into production
+### D4. LOW - `.env.example` shows defaults that survive into production [DONE in 65007b6]
 - **File:** `webapp/docker/.env.example`
 - **What:** Defaults like `POSTGRES_PASSWORD=CHANGE_ME` rely on the operator actually changing them. If someone copies `.env.example` to `.env` and edits only the obvious fields (passwords, JWT), they may miss `LOGFLARE_*_ACCESS_TOKEN`, `S3_PROTOCOL_ACCESS_KEY_*`, etc.
 - **Fix:** Replace `CHANGE_ME` with `<<REQUIRED>>` and have the migrate container fail fast if any value still equals `<<REQUIRED>>`.
 
-### D5. LOW - CI workflow caches pnpm store but does not pin pnpm version anywhere except `package.json`
+### D5. LOW - CI workflow caches pnpm store but does not pin pnpm version anywhere except `package.json` [DONE in 7dff90a]
 - **File:** `.github/workflows/ci.yml` (the new webapp job)
 - **What:** `pnpm/action-setup@v4` with `version: 10`. The `package.json` `packageManager` field also says 10. If they ever drift, you get pnpm-version-induced lockfile churn.
 - **Fix:** Have the action read the version from `package.json` (action-setup supports this).
@@ -361,21 +361,21 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Why it matters:** The whole stack has many seams (contract -> RPC -> indexer parser -> DB schema -> API view -> SDK explorer client -> frontend). Each seam has known bugs above. Without an end-to-end test, regressions in a future change are caught by users, not CI.
 - **Fix:** Add a CI job that runs a containerized Soroban testnet stub + the indexer + a test PostgreSQL, registers an agent, gives feedback, requests validation, and asserts the explorer API returns the expected shapes. Long, but a one-time investment.
 
-### E2. MEDIUM - No documented contract upgrade path
+### E2. MEDIUM - No documented contract upgrade path [DONE in 7f22041]
 - **What:** Contracts are upgradeable via `Ownable` two-step. There is no doc explaining who holds the admin key, where the key is stored, what the upgrade procedure is, or whether there's a public timelock window.
 - **Why it matters:** Anyone trusting the contracts (off-chain protocol consumers, future cross-chain bridges) needs this. The upgrade key is an effective backdoor; users should know its policy.
 - **Fix:** Document in the repo root readme: admin key, custody, upgrade procedure, timelock (or "no timelock - this is a known centralization point").
 
-### E3. MEDIUM - Two `.gitignore` policies (root and webapp/) silently fight
+### E3. MEDIUM - Two `.gitignore` policies (root and webapp/) silently fight [DONE in 7f22041]
 - **What:** Root `.gitignore` has 7 lines. `webapp/.gitignore` has its own rules including `*.md` which excludes most markdown files. After the subtree merge they layer correctly (hierarchical .gitignore), but the layering is not obvious to a new contributor. Adding a top-level rule that conflicts will produce confusing "why isn't this file tracked?" debugging sessions.
 - **Fix:** Add a brief comment to the root `.gitignore` explaining the hierarchical layering.
 
-### E4. LOW - Webapp `CLAUDE.md` and parent `CLAUDE.md` are different roles
+### E4. LOW - Webapp `CLAUDE.md` and parent `CLAUDE.md` are different roles [DONE in 1d65eba - webapp role files deleted earlier in session]
 - **File:** parent `CLAUDE.md` (us, "engineer"), `webapp/CLAUDE.md` (yaman's "Planner role" - see the system reminder fired earlier in this session)
 - **What:** Two different CLAUDE.md files with different role definitions. A future agent run inside `webapp/` will pick up yaman's planner role, which has different commit conventions, different terminology, and a different pipeline (`U-A-P-C-B-I-V-C` vs our flat dev cycle). They will not produce work the parent project will accept.
 - **Fix:** Either merge the role definitions or have the parent `CLAUDE.md` explicitly carve out `webapp/` as a different namespace and delegate. **The cheap fix is a one-line note in parent `CLAUDE.md`** saying "do not adopt the webapp/CLAUDE.md role when working from the parent".
 
-### E5. LOW - Conventional commit prefix discipline is mixed
+### E5. LOW - Conventional commit prefix discipline is mixed [DONE in 7f22041 - documented in CONTRIBUTING.md]
 - **What:** A grep of recent commits shows mostly `fix:`, `chore:`, `feat:`, but some legacy yaman commits use `feat:` for what should have been `fix:` (security patches labeled as features). Going forward, we should hold the line. This is just a "watch for it in PR review" note.
 - **Fix:** Nothing to change in code. Add a note to PR review checklist.
 
@@ -395,43 +395,35 @@ These were reported by the parallel agents. I checked and they don't hold up:
 
 ## G. Triage recommendation
 
-**Done so far (in commit order, most recent last):**
-- A5 - `77c1ac7` checked arithmetic in aggregate updates
-- B1+B2 - `08e32c7` accept contract addresses
-- A14 - `d7775d3` find_owner panic guard (with cross-contract propagation in reputation+validation)
-- A2 - `ba7e953` extend OZ NFT base storage TTL (Owner+Balance)
-- A3+A4 - `e7dfd7c` extend reputation+validation persistent TTL on every read and write
-- C7 - `610d2e7` add lock_timeout to insert_feedback_response
-- A7 - `35d9dba` cap metadata key (64) and value (4096) lengths
-- C8+C15 - `96044e2` validations.tag length constraint, index, search_agents grant
-- B7 - `244a51c` add noreferrer to external explorer links
-- C2 - `fe98496` JSON size cap + SSRF guard in resolveUri/parseDataUri
-- A1+A6 - `accfb26` metadata key index, extend on read, clear on transfer
-- A9 - `72d2159` checked_add on counter increments (reputation+validation)
-- C14 - `1b5f83b` drop URI/hash columns from realtime publication
-- A8 - `87d2373` cap get_summary explicit client list at 5
-- A10 - `efd5cf0` document identity-registry cross-contract trust assumption
-- C9 - `a1e7bee` fail loudly if vault placeholders are not substituted
-- C16+C17 - `b98315e` import contract addresses from SDK in indexer + scripts
+**Closed in this audit pass (32 findings):**
 
-**Open, in priority order:**
+CRITICAL: A1, A2, A14
+HIGH: A3, A4, A5, B1, B2, B3, C2, C3, C4, C5, C7
+MEDIUM: A6, A7, A8, A9, A10, B4, B5, B6, B7, B8, B9, C8, C9, C10, C11, C12, C13, C14, C15, D2, E2, E3
+LOW: A11, A12, A13, B10, B11, B12, B15, C16, C17, C18, C19, D4, D5, E4, E5
+MOOT: A15 (architecture plan was overwritten with the audit doc earlier in the session, no longer references Ed25519 wallet auth)
 
-1. **C5 (backfill / indexer concurrent races)** - operationally important.
-2. **C6 (Kong auth header logging)** - verify access log format first.
-3. **C1 (feedback historical data audit)** - one-shot backfill diff.
-4. **B3 (form-level address validation audit)** - enumerate forms.
-5. **B4 (legacy endpoints field drop)** - depends on whether any legacy agents still exist.
-6. **A15 (architecture plan vs code divergence)** - rewrite or delete the stale plan.
-7. **C-series MEDIUM/LOW backlog** - C10, C11, C12, C13, C18, C19.
-8. **D-series infrastructure** - D1-D5.
-9. **E-series cross-cutting** - E1-E5.
-10. **B-series LOW** - B5, B6, B8 through B15.
+**Still open:**
 
-**Quick wins still open (under 30 min each):** B11, B12, B14, C18, C19.
-
-**Medium effort still open (under a day):** B4, B5, B6, B8, B9, B10, B13, C10, C11, C12, C13, D2, D3, D4, D5.
-
-**Bigger projects (multi-day):** B3 (form audit), C1 (historical data audit), C5 (backfill concurrency), D1 (mainnet WASM verify), E1 (e2e CI test), E2 (upgrade docs).
+1. **C1 - feedback historical data audit (CRITICAL)** - one-shot operational
+   diff. Run `scripts/backfill-events.ts` from the deploy ledger and compare
+   row counts to live DB to find any historical gaps that pre-date the
+   migration 016 schema fix. Cannot be done without testnet RPC access and
+   live DB credentials.
+2. **C6 - Kong auth header logging (HIGH)** - verify the running Kong's
+   access log format. If headers are logged, mask the `apikey` and
+   `Authorization` fields. Operational; needs SSH to the VPS to inspect
+   the actual log output.
+3. **D1 - Mainnet WASM hash verification (HIGH)** - either rebuild the
+   pinned mainnet WASMs with the exact toolchain that produced the deployed
+   bytes, or redeploy from a fresh build and rotate the SDK addresses.
+4. **B13 - Owner-filter post-DB filtering (LOW)** - SQL function refactor.
+   Would change `search_agents` / `search_agents_advanced` to take an owner
+   filter param and update the call sites in `+page.server.ts`.
+5. **B14 - Magic numbers duplicated (LOW)** - centralization refactor.
+   Move `maxlength="256"` etc into a `constants.ts` exported by the SDK.
+6. **E1 - No e2e CI test (MEDIUM)** - multi-day project. Containerized
+   testnet stub + indexer + test Postgres + assertion harness.
 
 ## H. Verification approach per finding
 
