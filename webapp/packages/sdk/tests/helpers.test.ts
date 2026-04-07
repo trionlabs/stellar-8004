@@ -65,9 +65,8 @@ describe('validateStellarAddress', () => {
 	});
 
 	it('accepts a contract address (C...)', () => {
-		// Smart-contract wallets (passkey kits, custom MPC, Lobstr smart accounts) use
-		// C-addresses. Audit finding B1: we used to reject these, blocking smart-wallet
-		// agents at the SDK boundary.
+		// Smart-contract wallets (passkey kits, custom MPC, Lobstr smart accounts)
+		// use C-addresses and must be accepted as valid agent owners or wallets.
 		expect(() =>
 			validateStellarAddress('CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ')
 		).not.toThrow();
