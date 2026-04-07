@@ -44,7 +44,7 @@ class WalletState {
 			this.connected = true;
 			await this.syncNetwork();
 		} catch {
-			// Silent — auto-reconnect is best-effort
+			// Silent - auto-reconnect is best-effort
 		}
 	}
 
@@ -86,7 +86,7 @@ class WalletState {
 			this.network = netResult.network;
 			this.networkMismatch = netResult.networkPassphrase !== stellarConfig.networkPassphrase;
 		} catch {
-			// Non-fatal — we'll catch mismatch at sign time
+			// Non-fatal - we'll catch mismatch at sign time
 		}
 	}
 }

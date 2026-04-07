@@ -81,7 +81,7 @@
 </svelte:head>
 
 <div class="space-y-8">
-	<!-- ── Header ── -->
+	<!-- -- Header -- -->
 	<header class="flex items-center justify-between">
 		<div class="flex items-baseline gap-2">
 			<span class="font-mono text-xl tabular-nums text-accent/60 font-light">{data.agents.length}</span>
@@ -98,7 +98,7 @@
 		</div>
 	</header>
 
-	<!-- ── Search: unified command bar ── -->
+	<!-- -- Search: unified command bar -- -->
 	<form action={baseAgentsPath} method="get" class="group">
 		<input type="hidden" name="order" value={data.order} />
 		{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
@@ -122,7 +122,7 @@
 		</div>
 	</form>
 
-	<!-- ── Filter strip ── -->
+	<!-- -- Filter strip -- -->
 	<nav class="flex flex-wrap items-center gap-1.5">
 		<form action={baseAgentsPath} method="get" class="contents">
 			<input type="hidden" name="sort" value={data.sort} />
@@ -155,7 +155,7 @@
 
 		<div class="chip focus-within:border-accent/25">
 			<span class="text-text-dim/50">&ge;</span>
-			<input type="number" min="0" max="100" bind:value={minScoreValue} onchange={applyFilters} placeholder="—"
+			<input type="number" min="0" max="100" bind:value={minScoreValue} onchange={applyFilters} placeholder="-"
 				class="w-7 border-0 bg-transparent p-0 text-center text-[11px] tabular-nums text-text-muted focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
 		</div>
 
@@ -166,7 +166,7 @@
 		{/if}
 	</nav>
 
-	<!-- ── Agent list ── -->
+	<!-- -- Agent list -- -->
 	{#if data.agents.length > 0}
 		<div class="grid-wrap">
 			{#each data.agents as agent, idx (agent.id)}
@@ -200,7 +200,7 @@
 						</div>
 						<span class="w-10 text-right tabular-nums text-sm font-semibold tracking-tight
 							{trust.level === 'high' ? 'text-positive' : trust.level === 'mid' ? 'text-accent' : trust.level === 'low' ? 'text-warning' : 'text-text-dim/25'}">
-							{agent.totalScore != null ? scoreFormatter.format(agent.totalScore) : '—'}
+							{agent.totalScore != null ? scoreFormatter.format(agent.totalScore) : '-'}
 						</span>
 					</div>
 
@@ -209,7 +209,7 @@
 							<p class="tabular-nums text-xs text-text-muted">{scoreFormatter.format(agent.avgScore ?? 0)}</p>
 							<p class="text-[9px] text-text-dim/40">{agent.feedbackCount}</p>
 						{:else}
-							<p class="text-text-dim/20">—</p>
+							<p class="text-text-dim/20">-</p>
 						{/if}
 					</div>
 
@@ -218,7 +218,7 @@
 							<p class="tabular-nums text-xs text-text-muted">{scoreFormatter.format(agent.avgValidationScore ?? 0)}</p>
 							<p class="text-[9px] text-text-dim/40">{agent.validationCount}</p>
 						{:else}
-							<p class="text-text-dim/20">—</p>
+							<p class="text-text-dim/20">-</p>
 						{/if}
 					</div>
 
@@ -259,7 +259,7 @@
 		</div>
 	{/if}
 
-	<!-- ── Pagination ── -->
+	<!-- -- Pagination -- -->
 	{#if data.page > 1 || data.hasMore}
 		<nav class="flex items-center justify-center gap-1">
 			{#if data.page > 1}
@@ -298,7 +298,7 @@
 </div>
 
 <style>
-	/* ── Search bar ── */
+	/* -- Search bar -- */
 	.search-bar {
 		display: flex;
 		align-items: center;
@@ -340,7 +340,7 @@
 		border-color: color-mix(in oklch, var(--color-accent) 45%, transparent);
 	}
 
-	/* ── Chips ── */
+	/* -- Chips -- */
 	.chip {
 		display: inline-flex;
 		align-items: center;
@@ -381,7 +381,7 @@
 	@keyframes blink { 0%,100% { opacity:1 } 50% { opacity:0.3 } }
 	.divider { width:0.5px; height:12px; margin:0 4px; background: color-mix(in oklch, var(--color-border) 25%, transparent); }
 
-	/* ── Grid ── */
+	/* -- Grid -- */
 	.grid-wrap {
 		display: flex;
 		flex-direction: column;
@@ -413,7 +413,7 @@
 		to { opacity:1; transform:none }
 	}
 
-	/* ── Pager ── */
+	/* -- Pager -- */
 	.pager {
 		display:flex; align-items:center; justify-content:center;
 		width:28px; height:28px; border-radius:7px;

@@ -4,13 +4,13 @@
 #   Dev mode:           docker compose -f docker-compose.yml -f ./dev/docker-compose.dev.yml up -d
 #   Reset everything:  ./reset.sh
 #
-# ── stellar8004 modifications ────────────────────────────────
+# -- stellar8004 modifications --------------------------------
 # - Functions volume: ../supabase/functions (project edge functions)
 # - Kong: no exposed ports (Dokploy Traefik handles routing)
 # - functions service: added INDEXER_SECRET, STELLAR_NETWORK env
 # - migrate service: auto-applies DB migrations on startup
 # - dokploy-network: shared with SvelteKit app container
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
 
 name: supabase
 
@@ -98,7 +98,7 @@ services:
         condition: service_healthy
       studio:
         condition: service_healthy
-    # Ports removed — internal only, SvelteKit reaches kong via Docker network
+    # Ports removed - internal only, SvelteKit reaches kong via Docker network
     # ports:
     #   - ${KONG_HTTP_PORT}:8000/tcp
     #   - ${KONG_HTTPS_PORT}:8443/tcp
@@ -455,7 +455,7 @@ services:
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
       CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
 
-  # ── stellar8004: auto-rebuild indexer on every container start ──
+  # -- stellar8004: auto-rebuild indexer on every container start --
   functions-init:
     container_name: s8004-edge-init
     image: alpine:3.20
@@ -648,7 +648,7 @@ services:
     container_name: s8004-pooler
     image: supabase/supavisor:2.7.4
     restart: unless-stopped
-    # Ports removed — internal only, no direct DB access from host
+    # Ports removed - internal only, no direct DB access from host
     # ports:
     #   - ${POSTGRES_PORT}:5432
     #   - ${POOLER_PROXY_PORT_TRANSACTION}:6543
@@ -699,7 +699,7 @@ services:
         "/app/bin/migrate && /app/bin/supavisor eval \"$$(cat /etc/pooler/pooler.exs)\" && /app/bin/server"
       ]
 
-  # ── stellar8004: DB migrations on startup ──────────────────
+  # -- stellar8004: DB migrations on startup ------------------
   migrate:
     container_name: s8004-migrate
     image: postgres:15-alpine
@@ -723,7 +723,7 @@ services:
           NAME=$$(basename $$f)
           ALREADY=$$(psql -tAc "SELECT 1 FROM schema_migrations WHERE filename='$$NAME'" 2>/dev/null || true)
           if [ "$$ALREADY" = "1" ]; then
-            echo "  $$NAME — already applied, skipping"
+            echo "  $$NAME - already applied, skipping"
           else
             echo "  $$NAME..."
             { echo "BEGIN;"; cat "$$f"; echo "INSERT INTO schema_migrations (filename) VALUES ('$$NAME');"; echo "COMMIT;"; } | psql -v ON_ERROR_STOP=1 2>&1 || { echo "FAILED: $$f"; exit 1; }

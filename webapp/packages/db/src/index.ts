@@ -16,7 +16,7 @@ export type IndexerState = Tables["indexer_state"]["Row"];
 // JS Number.MAX_SAFE_INTEGER range. Override with string for safe handling.
 // The indexer should read these as strings and parse with BigInt where needed.
 export type Feedback = Omit<Tables["feedback"]["Row"], "value"> & {
-  value: string; // numeric(39,18) — too large for JS number
+  value: string; // numeric(39,18) - too large for JS number
 };
 export type FeedbackInsert = Omit<Tables["feedback"]["Insert"], "value"> & {
   value: string;

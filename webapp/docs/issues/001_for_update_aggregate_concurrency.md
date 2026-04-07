@@ -1,7 +1,7 @@
-# ISSUE-001: FOR UPDATE + Aggregate Function — Silent Concurrency Bug
+# ISSUE-001: FOR UPDATE + Aggregate Function - Silent Concurrency Bug
 
 **Severity:** HIGH
-**Status:** RESOLVED — migration 021
+**Status:** RESOLVED - migration 021
 **Affected:** `insert_feedback_response()` function
 **Migrations:** 013, 017, 019
 **Component:** `supabase/functions/resolve-uris/`, indexer event processing
@@ -31,24 +31,24 @@ PostgreSQL docs: "FOR UPDATE/SHARE cannot be used with aggregate functions becau
 
 | Migration | What happened | Outcome |
 |-----------|--------------|---------|
-| 013 (`013_atomic_response_index.sql`) | Added `FOR UPDATE` to prevent concurrent indexer race | **Silent failure** — function was CREATE'd but never tested with concurrent calls at migration time |
+| 013 (`013_atomic_response_index.sql`) | Added `FOR UPDATE` to prevent concurrent indexer race | **Silent failure** - function was CREATE'd but never tested with concurrent calls at migration time |
 | 016 (`016_schema_validation_hardening.sql`) | Recreated function without `FOR UPDATE` | Accidentally "fixed" the syntax error by removing `FOR UPDATE` |
 | 017 (`017_performance_and_integrity_fixes.sql`) | "Restored" `FOR UPDATE` because 016 "dropped" it | **Re-introduced the same silent bug** |
-| 019 (`019_discovery_columns.sql`) | Recreated function — linter removed `FOR UPDATE` with explanatory comment | Correct removal, but root concurrency problem remains |
+| 019 (`019_discovery_columns.sql`) | Recreated function - linter removed `FOR UPDATE` with explanatory comment | Correct removal, but root concurrency problem remains |
 
 ## The Actual Concurrency Problem
 
-The race condition is real — it's just that `FOR UPDATE` was never a valid solution:
+The race condition is real - it's just that `FOR UPDATE` was never a valid solution:
 
 ```
 Time    Indexer-A                          Indexer-B
-────    ─────────                          ─────────
-T1      SELECT MAX(response_index) → 2
-T2                                         SELECT MAX(response_index) → 2
+----    ---------                          ---------
+T1      SELECT MAX(response_index) -> 2
+T2                                         SELECT MAX(response_index) -> 2
 T3      v_next_index = 3
 T4                                         v_next_index = 3  (SAME!)
-T5      INSERT (response_index=3) → OK
-T6                                         INSERT (response_index=3) → DO NOTHING
+T5      INSERT (response_index=3) -> OK
+T6                                         INSERT (response_index=3) -> DO NOTHING
                                            ^^^ DATA LOSS: response silently dropped
 ```
 
@@ -67,7 +67,7 @@ However, if any of these assumptions change (parallel indexing, multi-instance d
 
 ## Proposed Solutions
 
-### Option A: Advisory Lock (Recommended — minimal change)
+### Option A: Advisory Lock (Recommended - minimal change)
 
 Use a PostgreSQL advisory lock scoped to the `(agent_id, feedback_index)` tuple to serialize access:
 
@@ -143,7 +143,7 @@ END IF;
 ```
 
 **Pros:** Standard row-level locking, no advisory lock overhead.
-**Cons:** `FOR UPDATE` + `ORDER BY` + `LIMIT` is valid in PostgreSQL but locks the single row selected. If no rows exist yet (first response), there's nothing to lock — the race window remains for the very first insert.
+**Cons:** `FOR UPDATE` + `ORDER BY` + `LIMIT` is valid in PostgreSQL but locks the single row selected. If no rows exist yet (first response), there's nothing to lock - the race window remains for the very first insert.
 
 ### Option C: INSERT ... ON CONFLICT DO UPDATE with retry
 
@@ -182,15 +182,15 @@ END LOOP;
 
 ## Impact Assessment
 
-- **Current risk: LOW** — single indexer instance + advisory lock at ledger level already serializes processing
-- **Future risk: HIGH** — if parallel indexing or multi-instance deployment is introduced without fixing this
-- **Data loss potential:** Silent — `ON CONFLICT DO NOTHING` means no error, no log, just a missing response record
+- **Current risk: LOW** - single indexer instance + advisory lock at ledger level already serializes processing
+- **Future risk: HIGH** - if parallel indexing or multi-instance deployment is introduced without fixing this
+- **Data loss potential:** Silent - `ON CONFLICT DO NOTHING` means no error, no log, just a missing response record
 
 ## Resolution
 
-**Chosen: Option A (advisory lock)** — implemented in `supabase/migrations/021_fix_response_index_concurrency.sql`.
+**Chosen: Option A (advisory lock)** - implemented in `supabase/migrations/021_fix_response_index_concurrency.sql`.
 
-- [x] Choose solution (A, B, or C) — Option A
+- [x] Choose solution (A, B, or C) - Option A
 - [x] Write migration `021_fix_response_index_concurrency.sql`
 - [ ] Add regression test: concurrent `insert_feedback_response` calls with same tuple
 - [x] Update migration 019 comment to reference this issue

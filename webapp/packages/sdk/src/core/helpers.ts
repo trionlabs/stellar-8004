@@ -18,7 +18,7 @@ export async function fundTestnet(address: string): Promise<void> {
 
 	if (!response.ok) {
 		const detail = await response.text().catch(() => '');
-		const suffix = detail ? ` — ${detail}` : '';
+		const suffix = detail ? ` - ${detail}` : '';
 		throw new Error(`Friendbot failed: ${response.status}${suffix}`);
 	}
 }
@@ -35,7 +35,7 @@ export function validateTag(tag: string, label = 'Tag'): void {
 
 /**
  * Generate a unique nonce for a validation request.
- * This is NOT a content hash — it is a random unique identifier
+ * This is NOT a content hash - it is a random unique identifier
  * used as a lookup key on-chain for `get_validation_status`.
  */
 export async function generateRequestNonce(
@@ -66,7 +66,7 @@ export function formatSorobanError(err: unknown): string {
 	if (/insufficient.*balance/i.test(msg)) return 'Insufficient XLM balance for transaction fees.';
 	if (/expired/i.test(msg)) return 'Transaction expired. Please try again.';
 	if (/timeout|ETIMEDOUT/i.test(msg)) return 'Network timeout. Check your connection and try again.';
-	return msg.length > 200 ? msg.slice(0, 200) + '…' : msg;
+	return msg.length > 200 ? msg.slice(0, 200) + '...' : msg;
 }
 
 export function estimateGas(

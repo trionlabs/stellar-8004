@@ -13,10 +13,10 @@ export const load: PageServerLoad = async () => {
 		recentAgentsResult,
 		recentFeedbackResult
 	] = await Promise.all([
-		db.from('agents').select('id', { count: 'exact', head: true }),
-		db.from('feedback').select('id', { count: 'exact', head: true }).eq('is_revoked', false),
+		db.from('agents').select('*', { count: 'exact', head: true }),
+		db.from('feedback').select('*', { count: 'exact', head: true }).eq('is_revoked', false),
 		db.from('leaderboard_scores').select('unique_clients'),
-		db.from('leaderboard_scores').select('agent_id', { count: 'exact', head: true }).gt('validation_count', 0),
+		db.from('leaderboard_scores').select('*', { count: 'exact', head: true }).gt('validation_count', 0),
 		db
 			.from('agents')
 			.select('id, agent_uri_data, created_at')

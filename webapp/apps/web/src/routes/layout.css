@@ -6,34 +6,34 @@
   --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* ── Surfaces ─────────────────────────────────────────────
+  /* -- Surfaces ---------------------------------------------
      Hue 250 throughout = true lacivert undertone.
-     Chroma 0.014–0.018 at low L = just enough to read as cool,
+     Chroma 0.014-0.018 at low L = just enough to read as cool,
      not so much it looks tinted on calibrated displays.          */
   --color-surface: oklch(0.13 0.014 250);
   --color-surface-raised: oklch(0.16 0.016 250);
   --color-surface-overlay: oklch(0.19 0.016 250);
 
-  /* ── Borders ──────────────────────────────────────────────  */
+  /* -- Borders ----------------------------------------------  */
   --color-border: oklch(0.26 0.018 250);
   --color-border-subtle: oklch(0.20 0.014 250);
 
-  /* ── Text — 3-tier hierarchy ──────────────────────────────
-     dim  → labels, timestamps  (WCAG AA against surface: 5.2:1)
-     muted → secondary copy     (WCAG AA: 7.2:1)
-     text  → primary            (WCAG AAA: 16:1)                 */
+  /* -- Text - 3-tier hierarchy ------------------------------
+     dim  -> labels, timestamps  (WCAG AA against surface: 5.2:1)
+     muted -> secondary copy     (WCAG AA: 7.2:1)
+     text  -> primary            (WCAG AAA: 16:1)                 */
   --color-text: oklch(0.93 0.006 250);
   --color-text-muted: oklch(0.65 0.014 250);
   --color-text-dim: oklch(0.52 0.014 250);
 
-  /* ── Accent — steel-blue with presence ─────────────────────  */
+  /* -- Accent - steel-blue with presence ---------------------  */
   --color-accent: oklch(0.74 0.09 250);
   --color-accent-soft: oklch(0.74 0.09 250 / 0.08);
   --color-accent-medium: oklch(0.74 0.09 250 / 0.14);
-  --color-accent-fill: oklch(0.22 0.04 250);        /* opaque CTA bg — visible blue tint */
+  --color-accent-fill: oklch(0.22 0.04 250);        /* opaque CTA bg - visible blue tint */
   --color-accent-fill-hover: oklch(0.26 0.05 250);  /* brighter on hover */
 
-  /* ── Semantic — distinct hues, matched lightness ──────────  */
+  /* -- Semantic - distinct hues, matched lightness ----------  */
   --color-positive: oklch(0.72 0.10 162);
   --color-positive-soft: oklch(0.72 0.10 162 / 0.12);
   --color-warning: oklch(0.74 0.11 80);
@@ -41,43 +41,43 @@
   --color-negative: oklch(0.68 0.14 25);
   --color-negative-soft: oklch(0.68 0.14 25 / 0.12);
 
-  /* ── Glow shadows — accent-derived ────────────────────────  */
+  /* -- Glow shadows - accent-derived ------------------------  */
   --shadow-accent-sm: 0 0 20px oklch(0.74 0.09 250 / 0.12);
   --shadow-accent-md: 0 0 30px oklch(0.74 0.09 250 / 0.20);
 
-  /* ── Component tokens ─────────────────────────────────────  */
+  /* -- Component tokens -------------------------------------  */
   --color-medal-gold: oklch(0.85 0.11 85);
   --color-medal-bronze: oklch(0.68 0.07 55);
   --color-star-fill: oklch(0.64 0.012 250);
 }
 
-/* ── Light theme ──────────────────────────────────────────────
-   True monochromatic — near-zero chroma everywhere.
+/* -- Light theme ----------------------------------------------
+   True monochromatic - near-zero chroma everywhere.
    Accent = dark gray text, CTA fill = light gray.
    No color tint. Pure ink-on-paper.                               */
 [data-theme="light"] {
-  /* Surface — pure neutral, no hue */
+  /* Surface - pure neutral, no hue */
   --color-surface: oklch(0.98 0 0);
   --color-surface-raised: oklch(0.955 0 0);
   --color-surface-overlay: oklch(0.93 0 0);
 
-  /* Borders — neutral gray */
+  /* Borders - neutral gray */
   --color-border: oklch(0.84 0 0);
   --color-border-subtle: oklch(0.90 0 0);
 
-  /* Text — pure black-gray scale */
+  /* Text - pure black-gray scale */
   --color-text: oklch(0.16 0 0);
   --color-text-muted: oklch(0.42 0 0);
   --color-text-dim: oklch(0.58 0 0);
 
-  /* Accent — just darker gray, no color. Contrast does the work */
+  /* Accent - just darker gray, no color. Contrast does the work */
   --color-accent: oklch(0.28 0 0);
   --color-accent-soft: oklch(0.28 0 0 / 0.06);
   --color-accent-medium: oklch(0.28 0 0 / 0.10);
   --color-accent-fill: oklch(0.92 0 0);          /* light gray CTA bg */
   --color-accent-fill-hover: oklch(0.88 0 0);    /* darker on hover */
 
-  /* Semantic — minimal chroma, just enough to read intent */
+  /* Semantic - minimal chroma, just enough to read intent */
   --color-positive: oklch(0.38 0.04 162);
   --color-positive-soft: oklch(0.38 0.04 162 / 0.07);
   --color-warning: oklch(0.44 0.04 80);
@@ -165,7 +165,7 @@ textarea:focus {
   border-color: color-mix(in oklch, var(--color-accent) 18%, transparent);
 }
 
-/* Light leaks — soft, diffused color bleed */
+/* Light leaks - soft, diffused color bleed */
 .cta-leak {
   position: absolute;
   pointer-events: none;
@@ -206,7 +206,7 @@ textarea:focus {
   50% { opacity: 1; transform: translate(-8px, 4px) scale(1.08); }
 }
 
-/* ── Reveal animations ── */
+/* -- Reveal animations -- */
 @keyframes reveal-up {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
@@ -221,7 +221,7 @@ textarea:focus {
 .reveal-d3 { animation-delay: 180ms; }
 .reveal-d4 { animation-delay: 240ms; }
 
-/* ── Floating navbar ── */
+/* -- Floating navbar -- */
 .navbar {
   position: sticky;
   top: 12px;
@@ -270,7 +270,7 @@ textarea:focus {
   background: color-mix(in oklch, var(--color-accent) 8%, transparent);
 }
 
-/* ── Navbar mobile override ── */
+/* -- Navbar mobile override -- */
 @media (max-width: 767px) {
   .navbar {
     top: 0;
@@ -286,7 +286,7 @@ textarea:focus {
   }
 }
 
-/* ── Bottom nav (mobile) ── */
+/* -- Bottom nav (mobile) -- */
 .btm-nav {
   display: none;
   position: fixed;
@@ -338,7 +338,7 @@ textarea:focus {
   height: 20px;
 }
 
-/* ── Theme transition ── */
+/* -- Theme transition -- */
 html.theme-transitioning,
 html.theme-transitioning *:not(svg *):not(path):not(rect):not(circle):not(line),
 html.theme-transitioning *:not(svg *)::before,
@@ -347,7 +347,7 @@ html.theme-transitioning *:not(svg *)::after {
               border-color 0.2s ease, box-shadow 0.2s ease !important;
 }
 
-/* ── Light mode adjustments ── */
+/* -- Light mode adjustments -- */
 [data-theme="light"] body::after { background: radial-gradient(ellipse, oklch(0.50 0 0 / 0.03), transparent 70%); }
 [data-theme="light"] .cta-leak--warm { background: oklch(0.50 0 0 / 0.02); }
 [data-theme="light"] .cta-leak--cool { background: oklch(0.55 0 0 / 0.015); }
