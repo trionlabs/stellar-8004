@@ -409,3 +409,57 @@ fn test_upgrade_requires_auth() {
     let result = client.try_upgrade(&fake_hash);
     assert!(result.is_err());
 }
+
+// Regression test for audit finding A5: aggregate updates were using `+=` on i128
+// without overflow checks. A single feedback with value = i128::MAX followed by a
+// second feedback with value = 1 used to wrap silently, permanently poisoning the
+// running aggregate. The fix replaces `+=` with `checked_add` and surfaces
+// AggregateOverflow.
+#[test]
+fn test_aggregate_overflow_is_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+    let reviewer2 = Address::generate(&env);
+
+    // First feedback maxes out the aggregate.
+    client.give_feedback(
+        &reviewer,
+        &0,
+        &i128::MAX,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+
+    // A second positive feedback would wrap. Must be rejected.
+    let result = client.try_give_feedback(
+        &reviewer2,
+        &0,
+        &1,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+    assert!(
+        result.is_err(),
+        "checked_add should reject the wrapping addition"
+    );
+
+    // The aggregate must still hold the original max value, untouched by the
+    // failed second call.
+    let summary = client.get_summary(
+        &0,
+        &Vec::<Address>::new(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+    );
+    assert_eq!(summary.summary_value, i128::MAX);
+    assert_eq!(summary.count, 1);
+}
