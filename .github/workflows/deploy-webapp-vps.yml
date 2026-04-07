@@ -37,17 +37,27 @@ jobs:
             docker exec s8004-db psql -U postgres -c \
               "CREATE TABLE IF NOT EXISTS schema_migrations (filename text PRIMARY KEY, applied_at timestamptz DEFAULT now());"
 
+            # Try to claim the migration row first via INSERT ... ON CONFLICT
+            # DO NOTHING. The RETURNING clause tells us whether we won the
+            # claim. If two CI runs race for the same migration file, only
+            # one wins; the other prints "already applied" and skips. This
+            # makes the apply loop safe under concurrent deploys.
             for f in supabase/migrations/*.sql; do
               NAME=$(basename "$f")
-              ALREADY=$(docker exec s8004-db psql -U postgres -tAc \
-                "SELECT 1 FROM schema_migrations WHERE filename='$NAME'" 2>/dev/null || true)
-              if [ "$ALREADY" = "1" ]; then
-                echo "  $NAME - already applied"
-              else
-                echo "  $NAME - applying..."
-                docker exec -i s8004-db psql -U postgres -v ON_ERROR_STOP=1 < "$f"
+              CLAIMED=$(docker exec s8004-db psql -U postgres -tAc \
+                "INSERT INTO schema_migrations (filename) VALUES ('$NAME') ON CONFLICT (filename) DO NOTHING RETURNING 1;" \
+                2>/dev/null || true)
+              if [ -z "$CLAIMED" ]; then
+                echo "  $NAME - already applied or claimed by concurrent deploy"
+                continue
+              fi
+
+              echo "  $NAME - applying..."
+              if ! docker exec -i s8004-db psql -U postgres -v ON_ERROR_STOP=1 < "$f"; then
+                echo "  $NAME - APPLY FAILED, releasing claim"
                 docker exec s8004-db psql -U postgres -c \
-                  "INSERT INTO schema_migrations (filename) VALUES ('$NAME');"
+                  "DELETE FROM schema_migrations WHERE filename='$NAME';"
+                exit 1
               fi
             done
 
