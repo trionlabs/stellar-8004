@@ -100,6 +100,10 @@ impl IdentityRegistryContract {
         new_uri: String,
     ) -> Result<(), IdentityError> {
         caller.require_auth();
+        // ERC-8004 reference rejects empty URIs.
+        if new_uri.len() == 0 {
+            return Err(IdentityError::EmptyValue);
+        }
         Self::require_owner_or_approved(e, &caller, agent_id)?;
         storage::set_agent_uri(e, agent_id, &new_uri);
         events::uri_updated(e, agent_id, &caller, &new_uri);
@@ -120,6 +124,10 @@ impl IdentityRegistryContract {
         value: Bytes,
     ) -> Result<(), IdentityError> {
         caller.require_auth();
+        // ERC-8004 reference rejects empty metadata keys.
+        if key.len() == 0 {
+            return Err(IdentityError::EmptyValue);
+        }
         if key.len() > MAX_METADATA_KEY_LEN {
             return Err(IdentityError::MetadataKeyTooLong);
         }
@@ -161,7 +169,7 @@ impl IdentityRegistryContract {
         new_wallet.require_auth();
         Self::require_owner_or_approved(e, &caller, agent_id)?;
         storage::set_agent_wallet(e, agent_id, &new_wallet);
-        events::wallet_set(e, agent_id, &new_wallet);
+        events::agent_wallet_set(e, agent_id, &new_wallet, &caller);
         Ok(())
     }
 
@@ -177,7 +185,7 @@ impl IdentityRegistryContract {
         caller.require_auth();
         Self::require_owner_or_approved(e, &caller, agent_id)?;
         storage::remove_agent_wallet(e, agent_id);
-        events::wallet_removed(e, agent_id);
+        events::agent_wallet_unset(e, agent_id, &caller);
         Ok(())
     }
 
@@ -204,6 +212,22 @@ impl IdentityRegistryContract {
     /// this instead of `owner_of`, which panics on missing tokens.
     pub fn find_owner(e: &Env, agent_id: u32) -> Option<Address> {
         storage::find_owner(e, agent_id)
+    }
+
+    /// ERC-8004 spec: returns true if an agent has been minted and not
+    /// burned. The reference reputation registry uses this in its
+    /// `giveFeedback` precondition. Functionally identical to `find_owner`
+    /// returning `Some` but exposed under the spec name for cross-chain
+    /// binding compatibility.
+    pub fn agent_exists(e: &Env, agent_id: u32) -> bool {
+        storage::find_owner(e, agent_id).is_some()
+    }
+
+    /// ERC-8004 spec: returns the total number of agents ever minted.
+    /// Backed by the OZ NFT sequential mint counter, which never decreases
+    /// (we don't expose a burn path).
+    pub fn total_agents(e: &Env) -> u32 {
+        stellar_tokens::non_fungible::sequential::next_token_id(e)
     }
 
     // --- Internal ---

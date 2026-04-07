@@ -20,6 +20,7 @@ use crate::types::{ValidationStatus, ValidationSummary};
 #[contractclient(name = "IdentityRegistryClient")]
 pub trait IdentityRegistryInterface {
     fn find_owner(e: &Env, agent_id: u32) -> Option<Address>;
+    fn agent_exists(e: &Env, agent_id: u32) -> bool;
     fn get_approved(e: &Env, token_id: u32) -> Option<Address>;
     fn is_approved_for_all(e: &Env, owner: Address, operator: Address) -> bool;
 }
@@ -144,6 +145,13 @@ impl ValidationRegistryContract {
         request_hash: BytesN<32>,
     ) -> Result<ValidationStatus, ValidationError> {
         storage::get_validation(e, &request_hash).ok_or(ValidationError::RequestNotFound)
+    }
+
+    /// ERC-8004 spec: returns true if a validation request exists. Wraps the
+    /// internal `has_validation` storage check so cross-contract callers can
+    /// query existence without a panicking unwrap.
+    pub fn request_exists(e: &Env, request_hash: BytesN<32>) -> bool {
+        storage::has_validation(e, &request_hash)
     }
 
     pub fn get_summary(
