@@ -56,7 +56,7 @@
 		overflow: visible;
 	}
 
-	/* ── Primary: opaque accent fill + glow ── */
+	/* -- Primary: opaque accent fill + glow -- */
 	.cta-btn--primary {
 		background: var(--color-accent-fill);
 		border: 0.5px solid color-mix(in oklch, var(--color-accent) 35%, transparent);
@@ -68,7 +68,7 @@
 		box-shadow: var(--shadow-accent-md);
 	}
 
-	/* ── Secondary: border only, no fill ── */
+	/* -- Secondary: border only, no fill -- */
 	.cta-btn--secondary {
 		background: var(--color-surface);
 		border: 0.5px solid color-mix(in oklch, var(--color-accent) 22%, transparent);

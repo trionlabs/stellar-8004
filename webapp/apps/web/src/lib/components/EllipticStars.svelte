@@ -135,7 +135,7 @@
 			const ddy = sy[i] - my;
 			const distSq = ddx * ddx + ddy * ddy;
 
-			// Skip stars too far from cursor — nearly invisible
+			// Skip stars too far from cursor - nearly invisible
 			if (distSq > GLOW_RADIUS_SQ) continue;
 
 			const dist = Math.sqrt(distSq);
