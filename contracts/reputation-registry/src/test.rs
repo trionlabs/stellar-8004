@@ -25,11 +25,12 @@ mod mock_identity {
                 .set(&DataKey::Owner(token_id), &owner);
         }
 
-        pub fn owner_of(e: &Env, token_id: u32) -> Address {
-            e.storage()
-                .persistent()
-                .get(&DataKey::Owner(token_id))
-                .unwrap()
+        pub fn clear_owner(e: &Env, token_id: u32) {
+            e.storage().persistent().remove(&DataKey::Owner(token_id));
+        }
+
+        pub fn find_owner(e: &Env, agent_id: u32) -> Option<Address> {
+            e.storage().persistent().get(&DataKey::Owner(agent_id))
         }
 
         pub fn get_approved(_e: &Env, _token_id: u32) -> Option<Address> {
@@ -410,11 +411,6 @@ fn test_upgrade_requires_auth() {
     assert!(result.is_err());
 }
 
-// Regression test for audit finding A5: aggregate updates were using `+=` on i128
-// without overflow checks. A single feedback with value = i128::MAX followed by a
-// second feedback with value = 1 used to wrap silently, permanently poisoning the
-// running aggregate. The fix replaces `+=` with `checked_add` and surfaces
-// AggregateOverflow.
 #[test]
 fn test_aggregate_overflow_is_rejected() {
     let env = Env::default();
@@ -462,4 +458,65 @@ fn test_aggregate_overflow_is_rejected() {
     );
     assert_eq!(summary.summary_value, i128::MAX);
     assert_eq!(summary.count, 1);
+}
+
+#[test]
+fn test_give_feedback_on_missing_agent_returns_error_not_panic() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, identity, _, reviewer) = setup(&env);
+
+    // Wipe the agent record so identity.find_owner returns None.
+    identity.clear_owner(&0);
+
+    let result = client.try_give_feedback(
+        &reviewer,
+        &0,
+        &50,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+    assert!(
+        result.is_err(),
+        "give_feedback against a missing agent must return Err, not panic"
+    );
+}
+
+#[test]
+fn test_append_response_on_missing_agent_returns_error_not_panic() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, identity, agent_owner, reviewer) = setup(&env);
+
+    // First give feedback while the agent exists.
+    client.give_feedback(
+        &reviewer,
+        &0,
+        &75,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+
+    // Now wipe the agent and try to respond.
+    identity.clear_owner(&0);
+    let result = client.try_append_response(
+        &agent_owner,
+        &0,
+        &reviewer,
+        &1,
+        &String::from_str(&env, "https://response.json"),
+        &zero_hash(&env),
+    );
+    assert!(
+        result.is_err(),
+        "append_response against a missing agent must return Err, not panic"
+    );
 }
