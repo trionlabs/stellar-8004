@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fundTestnet, validateTag, MAX_TAG_LENGTH, validateStellarAddress, formatSorobanError } from '../src/core/helpers.js';
+import {
+	fundTestnet,
+	validateTag,
+	MAX_TAG_LENGTH,
+	validateStellarAddress,
+	formatSorobanError,
+	generateRequestNonce
+} from '../src/core/helpers.js';
 
 describe('fundTestnet', () => {
 	afterEach(() => {
@@ -102,11 +109,13 @@ describe('formatSorobanError', () => {
 		expect(formatSorobanError(new Error('ETIMEDOUT'))).toBe('Network timeout. Check your connection and try again.');
 	});
 
-	it('truncates long unknown errors to 200 chars', () => {
+	it('truncates long unknown errors and points at the console', () => {
 		const longMsg = 'x'.repeat(300);
 		const result = formatSorobanError(new Error(longMsg));
-		expect(result.length).toBeLessThanOrEqual(203);
-		expect(result.endsWith('...')).toBe(true);
+		// 200 chars of payload + the "...(see console for full error)" suffix.
+		expect(result.length).toBeGreaterThan(200);
+		expect(result.startsWith('x'.repeat(200))).toBe(true);
+		expect(result).toContain('see console for full error');
 	});
 
 	it('passes through short unknown errors as-is', () => {
@@ -115,5 +124,50 @@ describe('formatSorobanError', () => {
 
 	it('handles non-Error values', () => {
 		expect(formatSorobanError('raw string error')).toBe('raw string error');
+	});
+});
+
+describe('generateRequestNonce', () => {
+	it('returns a 32-byte hash by default', async () => {
+		const nonce = await generateRequestNonce(
+			1,
+			'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7'
+		);
+		expect(nonce).toBeInstanceOf(Uint8Array);
+		expect(nonce.length).toBe(32);
+	});
+
+	it('uses caller-supplied content hash when provided', async () => {
+		const supplied = new Uint8Array(32);
+		for (let i = 0; i < 32; i++) supplied[i] = i;
+		const nonce = await generateRequestNonce(
+			1,
+			'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7',
+			supplied
+		);
+		expect(nonce).toBe(supplied);
+	});
+
+	it('rejects content hashes with the wrong length', async () => {
+		const tooShort = new Uint8Array(16);
+		await expect(
+			generateRequestNonce(
+				1,
+				'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7',
+				tooShort
+			)
+		).rejects.toThrow('contentHash must be 32 bytes');
+	});
+
+	it('returns distinct nonces for back-to-back calls in default mode', async () => {
+		const a = await generateRequestNonce(
+			1,
+			'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7'
+		);
+		const b = await generateRequestNonce(
+			1,
+			'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7'
+		);
+		expect(Array.from(a)).not.toEqual(Array.from(b));
 	});
 });
