@@ -15,11 +15,12 @@
 		"test": "echo \"no tests configured\""
 	},
 	"dependencies": {
-		"@trionlabs/8004s-sdk": "workspace:*",
 		"@stellar/freighter-api": "^6.0.0",
 		"@stellar/stellar-sdk": "^15.0.0",
 		"@stellar8004/db": "workspace:*",
 		"@supabase/supabase-js": "^2.49.0",
+		"@trionlabs/8004s-sdk": "workspace:*",
+		"buffer": "^6.0.3",
 		"shiki": "^4.0.2"
 	},
 	"devDependencies": {

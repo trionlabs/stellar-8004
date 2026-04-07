@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Buffer } from 'buffer';
 	import { getClients } from '$lib/sdk-client.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 
