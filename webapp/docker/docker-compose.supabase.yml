@@ -611,15 +611,41 @@ services:
         "log_min_messages=fatal" # prevents Realtime polling queries from appearing in logs
       ]
 
-  # SECURITY NOTE: Docker socket is mounted read-only for log collection.
-  # For hardened production, consider tecnativa/docker-socket-proxy instead.
+  # Read-only Docker socket proxy. Vector only needs to enumerate containers
+  # and tail their logs - it does not need exec, network, image, or volume
+  # access. Mounting the raw socket would let a vector compromise reach the
+  # full Docker API and pivot to host. The proxy whitelists exactly the
+  # endpoints vector uses.
+  docker-socket-proxy:
+    container_name: s8004-docker-socket-proxy
+    image: tecnativa/docker-socket-proxy:0.3
+    restart: unless-stopped
+    privileged: false
+    environment:
+      CONTAINERS: 1
+      INFO: 1
+      VERSION: 1
+      # Everything else stays denied (POST, EXEC, NETWORKS, VOLUMES, IMAGES,
+      # BUILD, COMMIT, CONFIGS, SECRETS, SERVICES, SWARM, NODES, PLUGINS,
+      # SYSTEM, TASKS, AUTH...).
+      LOG_LEVEL: warning
+    volumes:
+      - ${DOCKER_SOCKET_LOCATION}:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:2375/_ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   vector:
     container_name: s8004-vector
     image: timberio/vector:0.53.0-alpine
     restart: unless-stopped
+    depends_on:
+      docker-socket-proxy:
+        condition: service_healthy
     volumes:
       - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro
-      - ${DOCKER_SOCKET_LOCATION}:/var/run/docker.sock:ro
     healthcheck:
       test:
         [
@@ -635,6 +661,10 @@ services:
       retries: 3
     environment:
       LOGFLARE_PUBLIC_ACCESS_TOKEN: ${LOGFLARE_PUBLIC_ACCESS_TOKEN}
+      # Override the Docker socket location so vector talks to the proxy
+      # instead of mounting the host socket directly. The proxy exposes the
+      # API on tcp://docker-socket-proxy:2375.
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
     command:
       [
         "--config",
