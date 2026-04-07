@@ -150,6 +150,124 @@ fn test_transfer_clears_wallet() {
 }
 
 #[test]
+fn test_transfer_clears_metadata() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user1 = Address::generate(&env);
+    let user2 = Address::generate(&env);
+
+    client.register(&user1);
+    let key1 = String::from_str(&env, "domain");
+    let key2 = String::from_str(&env, "verified");
+    client.set_metadata(
+        &user1,
+        &0,
+        &key1,
+        &Bytes::from_slice(&env, b"trionlabs.dev"),
+    );
+    client.set_metadata(&user1, &0, &key2, &Bytes::from_slice(&env, b"true"));
+    assert!(client.get_metadata(&0, &key1).is_some());
+    assert!(client.get_metadata(&0, &key2).is_some());
+
+    client.transfer(&user1, &user2, &0);
+
+    // The new owner must not inherit claims authored by the previous owner.
+    assert_eq!(client.get_metadata(&0, &key1), None);
+    assert_eq!(client.get_metadata(&0, &key2), None);
+}
+
+#[test]
+fn test_set_metadata_rejects_excess_keys() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let agent_id = client.register(&user);
+
+    // Fill the index up to the cap.
+    for i in 0..100u32 {
+        // Vary the key so each one is distinct. soroban_sdk::String has no
+        // formatting helper at runtime, so build a short ASCII suffix.
+        let mut buf = [b'k', b'_', 0, 0, 0, 0];
+        let mut n = i;
+        let mut idx = 5usize;
+        if n == 0 {
+            buf[2] = b'0';
+        } else {
+            while n > 0 && idx >= 2 {
+                buf[idx] = b'0' + (n % 10) as u8;
+                n /= 10;
+                idx -= 1;
+            }
+        }
+        let s = core::str::from_utf8(&buf).unwrap().trim_end_matches('\0');
+        let key = String::from_str(&env, s);
+        client.set_metadata(&user, &agent_id, &key, &Bytes::from_slice(&env, b"v"));
+    }
+
+    // The 101st distinct key must be rejected.
+    let overflow_key = String::from_str(&env, "overflow");
+    let result = client.try_set_metadata(
+        &user,
+        &agent_id,
+        &overflow_key,
+        &Bytes::from_slice(&env, b"v"),
+    );
+    assert!(result.is_err());
+
+    // Updating an existing key must still be allowed at the cap.
+    let existing = String::from_str(&env, "k_0");
+    let update = client.try_set_metadata(
+        &user,
+        &agent_id,
+        &existing,
+        &Bytes::from_slice(&env, b"updated"),
+    );
+    assert!(update.is_ok());
+}
+
+#[test]
+fn test_extend_ttl_extends_metadata_entries() {
+    use crate::storage::DataKey;
+
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let agent_id = client.register(&user);
+    let contract_addr = client.address.clone();
+
+    let key = String::from_str(&env, "domain");
+    client.set_metadata(
+        &user,
+        &agent_id,
+        &key,
+        &Bytes::from_slice(&env, b"trionlabs"),
+    );
+
+    // Burn most of the TTL window without touching the metadata.
+    let advance: u32 = crate::storage::TTL_BUMP - 100;
+    env.ledger().with_mut(|l| l.sequence_number += advance);
+
+    // extend_ttl must reach into the MetadataKeys index and bump the
+    // individual Metadata entry.
+    client.extend_ttl(&agent_id);
+
+    env.as_contract(&contract_addr, || {
+        let ttl = env
+            .storage()
+            .persistent()
+            .get_ttl(&DataKey::Metadata(agent_id, key.clone()));
+        assert_eq!(
+            ttl,
+            crate::storage::TTL_BUMP,
+            "extend_ttl should bump the metadata entry to TTL_BUMP"
+        );
+    });
+}
+
+#[test]
 fn test_name_and_symbol() {
     let env = Env::default();
     let (client, _) = create_client(&env);
