@@ -2,8 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { wallet } from '$lib/wallet.svelte.js';
-	import { client, stellarConfig } from '$lib/sdk-client.js';
-	import { buildMetadataJson, toDataUri } from '@trionlabs/8004s-sdk';
+	import { getClients, stellarConfig } from '$lib/sdk-client.js';
+	import { buildMetadataJson, toDataUri, validateAgentUri } from '@trionlabs/8004s-sdk';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
 	import CtaButton from '$lib/components/CtaButton.svelte';
 	import Stepper from '$lib/components/Stepper.svelte';
@@ -86,10 +86,17 @@
 				: manualUri.trim();
 
 			const agentUri = uri || undefined;
-			const result = await client.registerAgent(agentUri);
+			if (agentUri) validateAgentUri(agentUri);
+			const { identity } = getClients();
+			const tx = agentUri
+				? await identity.register_with_uri({ caller: wallet.address!, agent_uri: agentUri })
+				: await identity.register({ caller: wallet.address! });
+			const sent = await tx.signAndSend();
+			const agentId = sent.result;
+			const txHash = sent.sendTransactionResponse?.hash ?? '';
 			status = 'success';
 			sessionStorage.removeItem(STORAGE_KEY);
-			await goto(`/agents/${result.agentId}?registered=true&tx=${result.hash}`);
+			await goto(`/agents/${agentId}?registered=true&tx=${txHash}`);
 		} catch (err) {
 			errorMsg = err instanceof Error ? err.message : 'Registration failed';
 			status = 'error';
@@ -101,9 +108,17 @@
 		errorMsg = '';
 
 		try {
-			const result = await client.registerAgent(agentUri.trim() || undefined);
+			const trimmedUri = agentUri.trim() || undefined;
+			if (trimmedUri) validateAgentUri(trimmedUri);
+			const { identity } = getClients();
+			const tx = trimmedUri
+				? await identity.register_with_uri({ caller: wallet.address!, agent_uri: trimmedUri })
+				: await identity.register({ caller: wallet.address! });
+			const sent = await tx.signAndSend();
+			const resultAgentId = sent.result;
+			const txHash = sent.sendTransactionResponse?.hash ?? '';
 			status = 'success';
-			await goto(`/agents/${result.agentId}?registered=true&tx=${result.hash}`);
+			await goto(`/agents/${resultAgentId}?registered=true&tx=${txHash}`);
 		} catch (err) {
 			errorMsg = err instanceof Error ? err.message : 'Registration failed';
 			status = 'error';
