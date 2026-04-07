@@ -17,6 +17,21 @@ const MAX_SUMMARY_CLIENTS: u32 = 5;
 // `find_owner` returns Option<Address> instead of panicking when the agent
 // is missing, which avoids crashing this contract on cross-contract calls
 // into a non-existent or archived agent.
+//
+// TRUST ASSUMPTION: every authorization decision in this contract delegates
+// to the identity registry pointed at by `storage::get_identity_registry`.
+// That registry is upgradeable by its owner (`#[only_owner] upgrade()`), so
+// the identity registry's admin can:
+//   - replace the WASM with one that returns a fake owner from `find_owner`,
+//     letting an attacker bypass `Err(SelfFeedback)` and `Err(NotOwnerOrApproved)`
+//   - replace the WASM with one that always reports the attacker as approved
+//     for any agent, letting them respond on behalf of agents they don't own
+// In other words: the reputation registry is only as trustworthy as the
+// identity registry's admin key. If you operate a reputation registry that
+// points at a third-party identity registry, you inherit that party's
+// upgrade-key custody risk. The intended deployment is that both registries
+// share the same admin (or that the identity registry is governed by the
+// same multisig / timelock as the reputation registry).
 #[contractclient(name = "IdentityRegistryClient")]
 pub trait IdentityRegistryInterface {
     fn find_owner(e: &Env, agent_id: u32) -> Option<Address>;
