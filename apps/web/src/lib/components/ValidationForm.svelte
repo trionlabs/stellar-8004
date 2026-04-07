@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Buffer } from 'buffer';
 	import { getClients } from '$lib/sdk-client.js';
 	import { generateRequestHash } from '@trionlabs/8004s-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
