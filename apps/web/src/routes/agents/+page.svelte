@@ -204,7 +204,7 @@
 						</span>
 					</div>
 
-					<div class="hidden w-14 text-right lg:block">
+					<div class="hidden w-14 text-right lg:block" title="Avg feedback score ({agent.feedbackCount} feedback)">
 						{#if agent.feedbackCount > 0}
 							<p class="tabular-nums text-xs text-text-muted">{scoreFormatter.format(agent.avgScore ?? 0)}</p>
 							<p class="text-[9px] text-text-dim/40">{agent.feedbackCount}</p>
@@ -213,7 +213,7 @@
 						{/if}
 					</div>
 
-					<div class="hidden w-14 text-right xl:block">
+					<div class="hidden w-14 text-right xl:block" title="Avg validation score ({agent.validationCount} validations)">
 						{#if agent.validationCount > 0}
 							<p class="tabular-nums text-xs text-text-muted">{scoreFormatter.format(agent.avgValidationScore ?? 0)}</p>
 							<p class="text-[9px] text-text-dim/40">{agent.validationCount}</p>
