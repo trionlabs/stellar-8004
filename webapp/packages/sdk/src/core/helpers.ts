@@ -34,14 +34,28 @@ export function validateTag(tag: string, label = 'Tag'): void {
 }
 
 /**
- * Generate a unique nonce for a validation request.
- * This is NOT a content hash - it is a random unique identifier
- * used as a lookup key on-chain for `get_validation_status`.
+ * Build a unique 32-byte request hash for `requestValidation`.
+ *
+ * Default mode (no `contentHash`): generates a random nonce derived from
+ * agent_id + validator + timestamp + UUID. This is NOT a content commitment;
+ * it is a unique lookup key for `get_validation_status` only.
+ *
+ * Spec-compliant mode (`contentHash` provided): uses the caller-supplied
+ * 32-byte hash. ERC-8004 defines `request_hash` as `sha256(work)` so a
+ * validator can verify that the request matches the work being attested.
+ * Cross-chain interop with EVM ERC-8004 implementations requires this mode.
  */
 export async function generateRequestNonce(
 	agentId: number,
-	validatorAddress: string
+	validatorAddress: string,
+	contentHash?: Uint8Array
 ): Promise<Uint8Array> {
+	if (contentHash) {
+		if (contentHash.length !== 32) {
+			throw new Error(`contentHash must be 32 bytes, got ${contentHash.length}`);
+		}
+		return contentHash;
+	}
 	const encoder = new TextEncoder();
 	const data = encoder.encode(
 		`${agentId}:${validatorAddress}:${Date.now()}:${crypto.randomUUID()}`
@@ -73,7 +87,15 @@ export function formatSorobanError(err: unknown): string {
 	if (/insufficient.*balance/i.test(msg)) return 'Insufficient XLM balance for transaction fees.';
 	if (/expired/i.test(msg)) return 'Transaction expired. Please try again.';
 	if (/timeout|ETIMEDOUT/i.test(msg)) return 'Network timeout. Check your connection and try again.';
-	return msg.length > 200 ? msg.slice(0, 200) + '...' : msg;
+	if (msg.length > 200) {
+		// Always log the full error to console before truncating - the
+		// truncation hides the XDR-encoded contract error context that's
+		// the only useful diagnostic for Soroban failures.
+		// eslint-disable-next-line no-console
+		console.error('[formatSorobanError] full error:', err);
+		return msg.slice(0, 200) + '... (see console for full error)';
+	}
+	return msg;
 }
 
 export function estimateGas(
