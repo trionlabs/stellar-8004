@@ -13,8 +13,6 @@ describe('isValidStellarAddress', () => {
   });
 
   it('accepts the deployed identity-registry contract address (C...)', () => {
-    // Audit finding B2: contract addresses must be accepted so smart-wallet
-    // agents do not get silently dropped by the indexer parsers.
     expect(
       isValidStellarAddress(
         'CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ',
