@@ -1,4 +1,4 @@
-# 042 — Edge Function Init Container
+# 042 - Edge Function Init Container
 
 **Status:** DONE
 **Owner:** yaman
@@ -15,7 +15,7 @@ New `functions-init` init container (`s8004-edge-init`) that:
 2. Rewrites `.js` imports to `.ts` (Deno compatibility)
 3. Runs once before `functions` service starts (`service_completed_successfully`)
 
-`functions` service now `depends_on: functions-init: condition: service_completed_successfully` — guaranteed to have built source before starting.
+`functions` service now `depends_on: functions-init: condition: service_completed_successfully` - guaranteed to have built source before starting.
 
 ## Verification
 

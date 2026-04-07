@@ -88,7 +88,7 @@ export function extractServices(uriData: unknown): unknown[] {
     );
   }
 
-  // Backward compat: "endpoints" array with {type, url} → normalize to services format
+  // Backward compat: "endpoints" array with {type, url} -> normalize to services format
   if (Array.isArray(record.endpoints)) {
     return record.endpoints
       .filter((e) => e && typeof e === 'object')
