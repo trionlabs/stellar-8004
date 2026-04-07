@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import * as StellarSdk from '@stellar/stellar-sdk';
-	import { client } from '$lib/sdk-client.js';
+	import { getClients } from '$lib/sdk-client.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let {
@@ -37,7 +37,13 @@
 		errorMsg = '';
 
 		try {
-			await client.setAgentWallet(agentId, walletInput.trim());
+			const { identity } = getClients();
+			const tx = await identity.set_agent_wallet({
+				caller: wallet.address!,
+				agent_id: agentId,
+				new_wallet: walletInput.trim(),
+			});
+			await tx.signAndSend();
 			status = 'success';
 			invalidateAll();
 		} catch (err) {
@@ -52,7 +58,12 @@
 		showUnbindConfirm = false;
 
 		try {
-			await client.unsetAgentWallet(agentId);
+			const { identity } = getClients();
+			const tx = await identity.unset_agent_wallet({
+				caller: wallet.address!,
+				agent_id: agentId,
+			});
+			await tx.signAndSend();
 			status = 'success';
 			invalidateAll();
 		} catch (err) {
