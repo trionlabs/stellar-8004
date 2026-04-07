@@ -23,7 +23,22 @@ export async function fundTestnet(address: string): Promise<void> {
 	}
 }
 
-export async function generateRequestHash(
+/** Maximum tag length for feedback tags. Soroban String has practical limits; keeping tags short avoids simulation failures with unhelpful errors. */
+export const MAX_TAG_LENGTH = 64;
+
+/** Validates feedback tag length. Throws if tag exceeds MAX_TAG_LENGTH. */
+export function validateTag(tag: string, label = 'Tag'): void {
+	if (tag.length > MAX_TAG_LENGTH) {
+		throw new Error(`${label} too long (${tag.length} chars, max ${MAX_TAG_LENGTH})`);
+	}
+}
+
+/**
+ * Generate a unique nonce for a validation request.
+ * This is NOT a content hash — it is a random unique identifier
+ * used as a lookup key on-chain for `get_validation_status`.
+ */
+export async function generateRequestNonce(
 	agentId: number,
 	validatorAddress: string
 ): Promise<Uint8Array> {
