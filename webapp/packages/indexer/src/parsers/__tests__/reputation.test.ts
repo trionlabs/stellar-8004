@@ -112,7 +112,9 @@ describe('parseReputationEvent', () => {
     expect(result).not.toHaveProperty('responseIndex');
   });
 
-  it('throws when ResponseAppended is missing responder', () => {
+  it('returns null when ResponseAppended is missing responder', () => {
+    // Was a throw before; now wrapped in the outer try/catch so a malformed
+    // event from the RPC cannot crash the indexer's per-batch processing.
     const event = mockEvent({
       topics: ['response_appended', 1, MOCK_CLIENT],
       data: {
@@ -123,7 +125,7 @@ describe('parseReputationEvent', () => {
       typeHints: { feedback_index: 'u64' },
     });
 
-    expect(() => parseReputationEvent(event)).toThrow('responder field missing');
+    expect(parseReputationEvent(event)).toBeNull();
   });
 
   it('returns null for too-short topic lists', () => {

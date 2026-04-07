@@ -58,7 +58,9 @@ describe('parseValidationEvent', () => {
     );
   });
 
-  it('throws when ValidationResponded is missing response', () => {
+  it('returns null when ValidationResponded is missing response', () => {
+    // Was a throw before; now wrapped in the outer try/catch so a malformed
+    // event from the RPC cannot crash the indexer's per-batch processing.
     const event = mockEvent({
       topics: ['validation_responded', MOCK_VALIDATOR, 1],
       data: {
@@ -69,7 +71,7 @@ describe('parseValidationEvent', () => {
       },
     });
 
-    expect(() => parseValidationEvent(event)).toThrow('response field missing');
+    expect(parseValidationEvent(event)).toBeNull();
   });
 
   it('returns null for unknown events', () => {
