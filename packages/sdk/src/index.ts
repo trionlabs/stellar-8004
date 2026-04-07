@@ -29,11 +29,12 @@ export {
 	toDataUri,
 	validateUrl,
 	validateAgentUri,
+	validateMetadataJson,
 	SAFE_URI_SCHEMES,
 } from './core/metadata.js';
 
 // Helpers
-export { estimateGas, fundTestnet, generateRequestHash } from './core/helpers.js';
+export { estimateGas, fundTestnet, generateRequestNonce, validateTag, MAX_TAG_LENGTH } from './core/helpers.js';
 
 // Types
 export type { AgentFormData, ServiceEntry } from './core/types.js';
