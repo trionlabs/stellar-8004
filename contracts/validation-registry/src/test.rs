@@ -1,9 +1,13 @@
 #![cfg(test)]
 extern crate std;
 
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{
+    testutils::{storage::Persistent as _, Address as _, Ledger as _},
+    Address, BytesN, Env, String, Vec,
+};
 
 use crate::contract::{ValidationRegistryContract, ValidationRegistryContractClient};
+use crate::storage::{DataKey, TTL_BUMP};
 
 mod mock_identity {
     use soroban_sdk::{contract, contractimpl, contracttype, Address, Env};
@@ -360,4 +364,47 @@ fn test_validation_request_on_missing_agent_returns_error_not_panic() {
         result.is_err(),
         "validation_request against a missing agent must return Err, not panic"
     );
+}
+
+#[test]
+fn test_validation_ttl_survives_long_idle_periods_via_reads() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, agent_owner, validator) = setup(&env);
+    let contract_addr = client.address.clone();
+
+    let hash = test_hash(&env, 7);
+    let uri = String::from_str(&env, "https://validate.example.com");
+    client.validation_request(&agent_owner, &validator, &0, &uri, &hash);
+
+    // The Validation entry must be at full TTL after the write.
+    env.as_contract(&contract_addr, || {
+        let ttl = env
+            .storage()
+            .persistent()
+            .get_ttl(&DataKey::Validation(hash.clone()));
+        assert_eq!(
+            ttl, TTL_BUMP,
+            "set path should extend the validation TTL to TTL_BUMP"
+        );
+    });
+
+    // Burn most of the TTL window.
+    let advance: u32 = TTL_BUMP - 100;
+    env.ledger().with_mut(|l| l.sequence_number += advance);
+
+    // get_validation_status must extend the TTL on read; the entry must survive.
+    let status = client.get_validation_status(&hash);
+    assert_eq!(status.agent_id, 0);
+
+    env.as_contract(&contract_addr, || {
+        let ttl = env
+            .storage()
+            .persistent()
+            .get_ttl(&DataKey::Validation(hash.clone()));
+        assert_eq!(
+            ttl, TTL_BUMP,
+            "get_validation_status should re-extend the validation TTL to TTL_BUMP"
+        );
+    });
 }
