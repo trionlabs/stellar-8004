@@ -111,10 +111,11 @@ impl ValidationRegistryContract {
             return Err(ValidationError::NotDesignatedValidator);
         }
 
-        if status.has_response {
-            return Err(ValidationError::AlreadyResponded);
-        }
-
+        // ERC-8004 spec: `validationResponse` is callable multiple times per
+        // requestHash to enable progressive states (a validator updating
+        // their own assessment as more evidence arrives). The previous
+        // single-shot rejection was a spec violation. Only the original
+        // validator can update, so this cannot be abused by a third party.
         status.response = response;
         status.response_hash = response_hash.clone();
         status.tag = tag.clone();
