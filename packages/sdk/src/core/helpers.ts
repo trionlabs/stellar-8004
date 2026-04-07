@@ -23,6 +23,18 @@ export async function fundTestnet(address: string): Promise<void> {
 	}
 }
 
+export async function generateRequestHash(
+	agentId: number,
+	validatorAddress: string
+): Promise<Uint8Array> {
+	const encoder = new TextEncoder();
+	const data = encoder.encode(
+		`${agentId}:${validatorAddress}:${Date.now()}:${crypto.randomUUID()}`
+	);
+	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+	return new Uint8Array(hashBuffer);
+}
+
 export function estimateGas(
 	simulation: StellarSdk.rpc.Api.SimulateTransactionResponse
 ): GasEstimate {

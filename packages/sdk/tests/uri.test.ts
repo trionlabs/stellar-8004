@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateAgentUri } from '../src/core/client.js';
+import { validateAgentUri } from '../src/core/metadata.js';
 
 describe('validateAgentUri', () => {
 	it('accepts supported schemes', () => {
