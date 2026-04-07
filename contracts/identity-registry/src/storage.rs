@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, Bytes, Env, String};
+use soroban_sdk::{contracttype, Address, Bytes, Env, String, Vec};
 use stellar_tokens::non_fungible::{
     NFTStorageKey, BALANCE_EXTEND_AMOUNT, BALANCE_TTL_THRESHOLD, OWNER_EXTEND_AMOUNT,
     OWNER_TTL_THRESHOLD,
@@ -14,6 +14,10 @@ pub const TTL_BUMP: u32 = 1_036_800;
 // limit comfortably holds JSON references, signatures, IPFS CIDs, etc.
 pub const MAX_METADATA_KEY_LEN: u32 = 64;
 pub const MAX_METADATA_VALUE_LEN: u32 = 4096;
+// Cap on the number of distinct metadata keys per agent. Bounds the size of
+// the MetadataKeys index Vec and bounds the gas of `extend_agent_ttl` and the
+// transfer-time clear loop.
+pub const MAX_METADATA_KEYS: u32 = 100;
 
 /// Reads the OZ NonFungibleToken owner entry directly. Returns `None` for
 /// missing or archived tokens; `Base::owner_of` panics in the same case,
@@ -34,6 +38,9 @@ pub enum DataKey {
     AgentUri(u32),
     Metadata(u32, String),
     AgentWallet(u32),
+    /// Index of metadata keys for an agent. Used by extend_agent_ttl to bump
+    /// every Metadata entry and by transfer overrides to clear them all.
+    MetadataKeys(u32),
 }
 
 pub fn extend_instance_ttl(e: &Env) {
@@ -52,6 +59,24 @@ pub fn extend_agent_ttl(e: &Env, agent_id: u32) {
         e.storage()
             .persistent()
             .extend_ttl(&wallet_key, TTL_THRESHOLD, TTL_BUMP);
+    }
+
+    // Bump every metadata entry recorded in the per-agent key index. Note:
+    // entries written before the MetadataKeys index existed will not be in
+    // the Vec and so will continue to rely on extend-on-read.
+    let keys_key = DataKey::MetadataKeys(agent_id);
+    if let Some(keys) = e.storage().persistent().get::<_, Vec<String>>(&keys_key) {
+        e.storage()
+            .persistent()
+            .extend_ttl(&keys_key, TTL_THRESHOLD, TTL_BUMP);
+        for key in keys.iter() {
+            let entry = DataKey::Metadata(agent_id, key);
+            if e.storage().persistent().has(&entry) {
+                e.storage()
+                    .persistent()
+                    .extend_ttl(&entry, TTL_THRESHOLD, TTL_BUMP);
+            }
+        }
     }
 
     // Extend the OZ NonFungibleToken Owner and Balance entries. OZ extends
@@ -78,41 +103,113 @@ pub fn extend_agent_ttl(e: &Env, agent_id: u32) {
 // --- Agent URI ---
 
 pub fn set_agent_uri(e: &Env, agent_id: u32, uri: &String) {
+    let key = DataKey::AgentUri(agent_id);
+    e.storage().persistent().set(&key, uri);
     e.storage()
         .persistent()
-        .set(&DataKey::AgentUri(agent_id), uri);
+        .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
 }
 
 pub fn get_agent_uri(e: &Env, agent_id: u32) -> Option<String> {
-    e.storage().persistent().get(&DataKey::AgentUri(agent_id))
+    let key = DataKey::AgentUri(agent_id);
+    let value = e.storage().persistent().get(&key);
+    if value.is_some() {
+        e.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
+    }
+    value
 }
 
 // --- Agent Metadata ---
 
-pub fn set_metadata(e: &Env, agent_id: u32, key: &String, value: &Bytes) {
+/// Returns true if the new key was inserted (i.e. count increased).
+fn record_metadata_key(e: &Env, agent_id: u32, key: &String) -> bool {
+    let keys_key = DataKey::MetadataKeys(agent_id);
+    let mut keys: Vec<String> = e
+        .storage()
+        .persistent()
+        .get(&keys_key)
+        .unwrap_or_else(|| Vec::new(e));
+
+    // Soroban Vec lacks `contains`, so this is O(n) - acceptable given
+    // MAX_METADATA_KEYS = 100.
+    for existing in keys.iter() {
+        if existing == *key {
+            return false;
+        }
+    }
+
+    keys.push_back(key.clone());
+    e.storage().persistent().set(&keys_key, &keys);
     e.storage()
         .persistent()
-        .set(&DataKey::Metadata(agent_id, key.clone()), value);
+        .extend_ttl(&keys_key, TTL_THRESHOLD, TTL_BUMP);
+    true
+}
+
+pub fn metadata_key_count(e: &Env, agent_id: u32) -> u32 {
+    e.storage()
+        .persistent()
+        .get::<_, Vec<String>>(&DataKey::MetadataKeys(agent_id))
+        .map(|keys| keys.len())
+        .unwrap_or(0)
+}
+
+pub fn set_metadata(e: &Env, agent_id: u32, key: &String, value: &Bytes) {
+    record_metadata_key(e, agent_id, key);
+    let entry = DataKey::Metadata(agent_id, key.clone());
+    e.storage().persistent().set(&entry, value);
+    e.storage()
+        .persistent()
+        .extend_ttl(&entry, TTL_THRESHOLD, TTL_BUMP);
 }
 
 pub fn get_metadata(e: &Env, agent_id: u32, key: &String) -> Option<Bytes> {
-    e.storage()
-        .persistent()
-        .get(&DataKey::Metadata(agent_id, key.clone()))
+    let entry = DataKey::Metadata(agent_id, key.clone());
+    let value = e.storage().persistent().get(&entry);
+    if value.is_some() {
+        e.storage()
+            .persistent()
+            .extend_ttl(&entry, TTL_THRESHOLD, TTL_BUMP);
+    }
+    value
+}
+
+/// Removes every metadata entry tracked in the MetadataKeys index for an
+/// agent, then removes the index itself. Called from the transfer overrides
+/// so a new owner does not inherit claims authored by the previous one.
+pub fn clear_all_metadata(e: &Env, agent_id: u32) {
+    let keys_key = DataKey::MetadataKeys(agent_id);
+    if let Some(keys) = e.storage().persistent().get::<_, Vec<String>>(&keys_key) {
+        for key in keys.iter() {
+            e.storage()
+                .persistent()
+                .remove(&DataKey::Metadata(agent_id, key));
+        }
+        e.storage().persistent().remove(&keys_key);
+    }
 }
 
 // --- Agent Wallet ---
 
 pub fn set_agent_wallet(e: &Env, agent_id: u32, wallet: &Address) {
+    let key = DataKey::AgentWallet(agent_id);
+    e.storage().persistent().set(&key, wallet);
     e.storage()
         .persistent()
-        .set(&DataKey::AgentWallet(agent_id), wallet);
+        .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
 }
 
 pub fn get_agent_wallet(e: &Env, agent_id: u32) -> Option<Address> {
-    e.storage()
-        .persistent()
-        .get(&DataKey::AgentWallet(agent_id))
+    let key = DataKey::AgentWallet(agent_id);
+    let value = e.storage().persistent().get(&key);
+    if value.is_some() {
+        e.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
+    }
+    value
 }
 
 pub fn remove_agent_wallet(e: &Env, agent_id: u32) {
