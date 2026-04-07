@@ -36,46 +36,74 @@ pub fn get_identity_registry(e: &Env) -> Address {
 // --- Validation ---
 
 pub fn has_validation(e: &Env, request_hash: &BytesN<32>) -> bool {
-    e.storage()
-        .persistent()
-        .has(&DataKey::Validation(request_hash.clone()))
+    let key = DataKey::Validation(request_hash.clone());
+    if e.storage().persistent().has(&key) {
+        e.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
+        true
+    } else {
+        false
+    }
 }
 
 pub fn set_validation(e: &Env, request_hash: &BytesN<32>, status: &ValidationStatus) {
+    let key = DataKey::Validation(request_hash.clone());
+    e.storage().persistent().set(&key, status);
     e.storage()
         .persistent()
-        .set(&DataKey::Validation(request_hash.clone()), status);
+        .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
 }
 
 pub fn get_validation(e: &Env, request_hash: &BytesN<32>) -> Option<ValidationStatus> {
-    e.storage()
-        .persistent()
-        .get(&DataKey::Validation(request_hash.clone()))
+    let key = DataKey::Validation(request_hash.clone());
+    let status = e.storage().persistent().get(&key);
+    if status.is_some() {
+        e.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
+    }
+    status
 }
 
 // --- Agent Validations (indexed) ---
 
 pub fn get_agent_validation_count(e: &Env, agent_id: u32) -> u32 {
-    e.storage()
-        .persistent()
-        .get(&DataKey::AgentValidationCount(agent_id))
-        .unwrap_or(0)
+    let key = DataKey::AgentValidationCount(agent_id);
+    if let Some(count) = e.storage().persistent().get::<_, u32>(&key) {
+        e.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
+        count
+    } else {
+        0
+    }
 }
 
 pub fn add_agent_validation(e: &Env, agent_id: u32, request_hash: &BytesN<32>) {
     let count = get_agent_validation_count(e, agent_id);
+    let at_key = DataKey::AgentValidationAt(agent_id, count);
+    e.storage().persistent().set(&at_key, request_hash);
     e.storage()
         .persistent()
-        .set(&DataKey::AgentValidationAt(agent_id, count), request_hash);
+        .extend_ttl(&at_key, TTL_THRESHOLD, TTL_BUMP);
+
+    let count_key = DataKey::AgentValidationCount(agent_id);
+    e.storage().persistent().set(&count_key, &(count + 1));
     e.storage()
         .persistent()
-        .set(&DataKey::AgentValidationCount(agent_id), &(count + 1));
+        .extend_ttl(&count_key, TTL_THRESHOLD, TTL_BUMP);
 }
 
 pub fn get_agent_validation_at(e: &Env, agent_id: u32, index: u32) -> Option<BytesN<32>> {
-    e.storage()
-        .persistent()
-        .get(&DataKey::AgentValidationAt(agent_id, index))
+    let key = DataKey::AgentValidationAt(agent_id, index);
+    let hash = e.storage().persistent().get(&key);
+    if hash.is_some() {
+        e.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
+    }
+    hash
 }
 
 pub fn get_agent_validations_paginated(
@@ -98,22 +126,30 @@ pub fn get_agent_validations_paginated(
 // --- Validator Requests (indexed) ---
 
 fn get_validator_request_count(e: &Env, validator: &Address) -> u32 {
-    e.storage()
-        .persistent()
-        .get(&DataKey::ValidatorRequestCount(validator.clone()))
-        .unwrap_or(0)
+    let key = DataKey::ValidatorRequestCount(validator.clone());
+    if let Some(count) = e.storage().persistent().get::<_, u32>(&key) {
+        e.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
+        count
+    } else {
+        0
+    }
 }
 
 pub fn add_validator_request(e: &Env, validator: &Address, request_hash: &BytesN<32>) {
     let count = get_validator_request_count(e, validator);
-    e.storage().persistent().set(
-        &DataKey::ValidatorRequestAt(validator.clone(), count),
-        request_hash,
-    );
-    e.storage().persistent().set(
-        &DataKey::ValidatorRequestCount(validator.clone()),
-        &(count + 1),
-    );
+    let at_key = DataKey::ValidatorRequestAt(validator.clone(), count);
+    e.storage().persistent().set(&at_key, request_hash);
+    e.storage()
+        .persistent()
+        .extend_ttl(&at_key, TTL_THRESHOLD, TTL_BUMP);
+
+    let count_key = DataKey::ValidatorRequestCount(validator.clone());
+    e.storage().persistent().set(&count_key, &(count + 1));
+    e.storage()
+        .persistent()
+        .extend_ttl(&count_key, TTL_THRESHOLD, TTL_BUMP);
 }
 
 pub fn get_validator_requests_paginated(
@@ -126,11 +162,11 @@ pub fn get_validator_requests_paginated(
     let mut result = Vec::new(e);
     let end = core::cmp::min(start.saturating_add(limit), count);
     for i in start..end {
-        if let Some(hash) = e
-            .storage()
-            .persistent()
-            .get::<_, BytesN<32>>(&DataKey::ValidatorRequestAt(validator.clone(), i))
-        {
+        let key = DataKey::ValidatorRequestAt(validator.clone(), i);
+        if let Some(hash) = e.storage().persistent().get::<_, BytesN<32>>(&key) {
+            e.storage()
+                .persistent()
+                .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
             result.push_back(hash);
         }
     }
