@@ -159,11 +159,22 @@ export class FreighterSigner implements WalletSigner {
 		}
 
 		// Freighter may return a Buffer (Node) or string (browser).
-		// Normalize to base64 string for WalletSigner compatibility.
-		const signed =
-			typeof result.signedAuthEntry === 'string'
-				? result.signedAuthEntry
-				: (result.signedAuthEntry as unknown as { toString(encoding: string): string }).toString('base64');
+		// Normalize to a base64 string. Use Buffer.isBuffer when available
+		// rather than blindly casting through `unknown` - if the runtime
+		// shape changes we get a clean fallback to String() instead of a
+		// silent crash inside an unverified .toString('base64') call.
+		const raw = result.signedAuthEntry;
+		let signed: string;
+		if (typeof raw === 'string') {
+			signed = raw;
+		} else if (
+			typeof globalThis.Buffer !== 'undefined' &&
+			globalThis.Buffer.isBuffer(raw)
+		) {
+			signed = (raw as { toString(encoding: 'base64'): string }).toString('base64');
+		} else {
+			signed = String(raw);
+		}
 
 		return {
 			signedAuthEntry: signed,
