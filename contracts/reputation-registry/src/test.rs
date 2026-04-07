@@ -37,6 +37,10 @@ mod mock_identity {
             e.storage().persistent().get(&DataKey::Owner(agent_id))
         }
 
+        pub fn agent_exists(e: &Env, agent_id: u32) -> bool {
+            e.storage().persistent().has(&DataKey::Owner(agent_id))
+        }
+
         pub fn get_approved(_e: &Env, _token_id: u32) -> Option<Address> {
             None
         }
@@ -108,13 +112,15 @@ fn test_give_feedback() {
 }
 
 #[test]
-fn test_self_feedback_rejected() {
+fn test_self_feedback_allowed_per_jan_2026_spec() {
+    // ERC-8004 Jan 2026 update removed pre-authorization. Per spec, the
+    // agent owner can submit feedback to their own agent on-chain. Off-chain
+    // consumers MUST filter self-feedback in their scoring.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, agent_owner, _) = setup(&env);
 
-    // Agent owner tries to give feedback to own agent - should fail
-    let result = client.try_give_feedback(
+    client.give_feedback(
         &agent_owner,
         &0,
         &100,
@@ -125,7 +131,15 @@ fn test_self_feedback_rejected() {
         &empty_str(&env),
         &zero_hash(&env),
     );
-    assert!(result.is_err());
+
+    let summary = client.get_summary(
+        &0,
+        &Vec::<Address>::new(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+    );
+    assert_eq!(summary.count, 1);
+    assert_eq!(summary.summary_value, 100);
 }
 
 #[test]
@@ -352,7 +366,7 @@ fn test_anyone_can_append_response() {
         &0,
         &reviewer,
         &1,
-        &String::from_str(&env, ""),
+        &String::from_str(&env, "https://example.com/response.json"),
         &zero_hash(&env),
     );
     assert_eq!(client.get_response_count(&0, &reviewer, &1), 1);
