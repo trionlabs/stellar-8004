@@ -10,6 +10,13 @@ use crate::types::{ValidationStatus, ValidationSummary};
 // `find_owner` returns Option<Address> instead of panicking when the agent
 // is missing, which avoids crashing this contract on cross-contract calls
 // into a non-existent or archived agent.
+//
+// TRUST ASSUMPTION: like the reputation registry, every authorization decision
+// here delegates to the upgradeable identity registry. A compromised identity-
+// registry admin can replace its WASM to make `find_owner` return whatever
+// they want, bypassing the `NotOwnerOrApproved` check. Both registries should
+// share custody (or sit behind the same multisig / timelock) as the identity
+// registry they point at.
 #[contractclient(name = "IdentityRegistryClient")]
 pub trait IdentityRegistryInterface {
     fn find_owner(e: &Env, agent_id: u32) -> Option<Address>;
