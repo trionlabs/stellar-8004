@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { client } from '$lib/sdk-client.js';
+	import { getClients } from '$lib/sdk-client.js';
+	import { generateRequestHash } from '@trionlabs/8004s-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
@@ -33,13 +34,17 @@
 		errorMsg = '';
 
 		try {
-			const result = await client.requestValidation({
-				agentId,
-				validatorAddress,
-				requestUri
+			const { validation } = getClients();
+			const requestHash = await generateRequestHash(agentId, validatorAddress);
+			const tx = await validation.validation_request({
+				caller: wallet.address!,
+				validator_address: validatorAddress,
+				agent_id: agentId,
+				request_uri: requestUri,
+				request_hash: Buffer.from(requestHash),
 			});
-
-			txHash = result.hash;
+			const sent = await tx.signAndSend();
+			txHash = sent.sendTransactionResponse?.hash ?? '';
 			status = 'success';
 		} catch (err) {
 			errorMsg = err instanceof Error ? err.message : 'Failed to request validation';

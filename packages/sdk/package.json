@@ -152,7 +152,8 @@
     "prepack": "pnpm build"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "^15.0.0"
+    "@stellar/stellar-sdk": "^15.0.0",
+    "buffer": "^6.0.3"
   },
   "peerDependencies": {
     "@stellar/freighter-api": ">=6.0.0"

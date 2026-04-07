@@ -2,7 +2,8 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { client } from '$lib/sdk-client.js';
+	import { getClients } from '$lib/sdk-client.js';
+	import { validateAgentUri } from '@trionlabs/8004s-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { createSupabase } from '$lib/supabase.js';
 	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
@@ -83,7 +84,14 @@
 		uriUpdateStatus = 'submitting';
 		uriUpdateError = '';
 		try {
-			await client.updateAgentUri(data.agent.id, newUri.trim());
+			validateAgentUri(newUri.trim());
+			const { identity } = getClients();
+			const tx = await identity.set_agent_uri({
+				caller: wallet.address!,
+				agent_id: data.agent.id,
+				new_uri: newUri.trim(),
+			});
+			await tx.signAndSend();
 			uriUpdateStatus = 'success';
 			setTimeout(() => {
 				showUriEditor = false;
