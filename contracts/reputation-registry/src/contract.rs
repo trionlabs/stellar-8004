@@ -35,6 +35,7 @@ const MAX_SUMMARY_CLIENTS: u32 = 5;
 #[contractclient(name = "IdentityRegistryClient")]
 pub trait IdentityRegistryInterface {
     fn find_owner(e: &Env, agent_id: u32) -> Option<Address>;
+    fn agent_exists(e: &Env, agent_id: u32) -> bool;
     fn get_approved(e: &Env, token_id: u32) -> Option<Address>;
     fn is_approved_for_all(e: &Env, owner: Address, operator: Address) -> bool;
 }
@@ -67,22 +68,16 @@ impl ReputationRegistryContract {
             return Err(ReputationError::InvalidValueDecimals);
         }
 
-        // Prevent self-feedback: caller must not be owner, approved, or operator.
+        // ERC-8004 Jan 2026 update: any caller can submit feedback. The
+        // pre-authorization mechanism (and the self-feedback restriction)
+        // were removed. Spam and Sybil resistance are explicitly delegated
+        // to off-chain filtering and reputation systems. Off-chain consumers
+        // MUST filter feedback authored by the agent owner from their own
+        // scoring if they want to defend against self-puffing.
         let identity_addr = storage::get_identity_registry(e);
         let identity = IdentityRegistryClient::new(e, &identity_addr);
-        let owner = identity
-            .find_owner(&agent_id)
-            .ok_or(ReputationError::AgentNotFound)?;
-        if caller == owner {
-            return Err(ReputationError::SelfFeedback);
-        }
-        if let Some(approved) = identity.get_approved(&agent_id) {
-            if caller == approved {
-                return Err(ReputationError::SelfFeedback);
-            }
-        }
-        if identity.is_approved_for_all(&owner, &caller) {
-            return Err(ReputationError::SelfFeedback);
+        if !identity.agent_exists(&agent_id) {
+            return Err(ReputationError::AgentNotFound);
         }
 
         // Track client
@@ -171,20 +166,19 @@ impl ReputationRegistryContract {
     ) -> Result<(), ReputationError> {
         caller.require_auth();
 
+        // ERC-8004 reference rejects empty response URIs.
+        if response_uri.len() == 0 {
+            return Err(ReputationError::EmptyValue);
+        }
+
         // ERC-8004 spec: `appendResponse` is callable by anyone. The off-chain
         // layer is responsible for filtering responses by responder identity
         // (e.g. only the agent owner's responses are treated as authoritative).
-        // The previous owner-only restriction was a spec violation that locked
-        // out third-party response flows.
-        //
-        // Verify the agent actually exists so we don't track responses against
-        // a non-existent or archived agent and so cross-contract callers
-        // surface a clean AgentNotFound rather than panicking.
         let identity_addr = storage::get_identity_registry(e);
         let identity = IdentityRegistryClient::new(e, &identity_addr);
-        identity
-            .find_owner(&agent_id)
-            .ok_or(ReputationError::AgentNotFound)?;
+        if !identity.agent_exists(&agent_id) {
+            return Err(ReputationError::AgentNotFound);
+        }
 
         // Verify feedback exists
         storage::get_feedback(e, agent_id, &client_address, feedback_index)

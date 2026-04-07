@@ -36,6 +36,10 @@ mod mock_identity {
             e.storage().persistent().get(&DataKey::Owner(agent_id))
         }
 
+        pub fn agent_exists(e: &Env, agent_id: u32) -> bool {
+            e.storage().persistent().has(&DataKey::Owner(agent_id))
+        }
+
         pub fn get_approved(_e: &Env, _token_id: u32) -> Option<Address> {
             None
         }
