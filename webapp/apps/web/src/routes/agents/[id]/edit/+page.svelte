@@ -140,7 +140,7 @@
 					<p class="text-[10px] text-text-dim uppercase tracking-wider">Transaction</p>
 					<div class="flex items-center gap-2">
 						<a href="https://stellar.expert/explorer/testnet/tx/{saveTxHash}"
-							target="_blank" rel="noopener"
+							target="_blank" rel="noopener noreferrer"
 							class="flex-1 font-mono text-[10px] text-accent hover:underline break-all text-left">
 							{saveTxHash}
 						</a>
