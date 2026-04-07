@@ -65,6 +65,7 @@ impl IdentityRegistryContract {
         // panic here because the public signature returns u32, not Result.
         // Callers must enforce the limits client-side or use `set_metadata`
         // for incremental writes that surface errors cleanly.
+        let reserved_wallet_key = String::from_str(e, "agentWallet");
         for entry in metadata.iter() {
             assert!(
                 entry.key.len() <= MAX_METADATA_KEY_LEN,
@@ -73,6 +74,12 @@ impl IdentityRegistryContract {
             assert!(
                 entry.value.len() <= MAX_METADATA_VALUE_LEN,
                 "metadata value too long"
+            );
+            // ERC-8004: `agentWallet` is reserved. Reject so a caller cannot
+            // smuggle in a fake wallet binding via the metadata path.
+            assert!(
+                entry.key != reserved_wallet_key,
+                "agentWallet is a reserved metadata key - use set_agent_wallet"
             );
         }
         let agent_id = Base::sequential_mint(e, &caller);
@@ -118,6 +125,12 @@ impl IdentityRegistryContract {
         }
         if value.len() > MAX_METADATA_VALUE_LEN {
             return Err(IdentityError::MetadataValueTooLong);
+        }
+        // ERC-8004: `agentWallet` is reserved and must be settable only via
+        // the dedicated entry point with wallet auth. Reject so a caller
+        // cannot smuggle a fake binding through the metadata path.
+        if key == String::from_str(e, "agentWallet") {
+            return Err(IdentityError::ReservedMetadataKey);
         }
         Self::require_owner_or_approved(e, &caller, agent_id)?;
         // Reject the write if it would create a new key beyond the per-agent

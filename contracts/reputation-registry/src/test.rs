@@ -322,7 +322,11 @@ fn test_non_submitter_cannot_revoke() {
 }
 
 #[test]
-fn test_non_owner_cannot_append_response() {
+fn test_anyone_can_append_response() {
+    // ERC-8004 spec: appendResponse() is callable by anyone. The off-chain
+    // layer is responsible for filtering responses by responder identity
+    // (e.g. only responses from the agent owner are treated as authoritative).
+    // This used to be restricted to owner/approved which violated the spec.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
@@ -340,7 +344,10 @@ fn test_non_owner_cannot_append_response() {
         &zero_hash(&env),
     );
 
-    let result = client.try_append_response(
+    // A stranger - not the agent owner, not approved - must be able to
+    // append a response. The previous owner-only restriction was a spec
+    // violation.
+    client.append_response(
         &stranger,
         &0,
         &reviewer,
@@ -348,7 +355,7 @@ fn test_non_owner_cannot_append_response() {
         &String::from_str(&env, ""),
         &zero_hash(&env),
     );
-    assert!(result.is_err());
+    assert_eq!(client.get_response_count(&0, &reviewer, &1), 1);
 }
 
 #[test]
