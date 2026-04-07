@@ -25,6 +25,10 @@ pub struct UriUpdated {
 pub struct MetadataSet {
     #[topic]
     pub agent_id: u32,
+    /// ERC-8004 spec lists this as an indexed topic so subscribers can filter
+    /// by metadata key on-chain. The same value is also exposed below as a
+    /// data field for ergonomic decoding.
+    #[topic]
     pub key: String,
     pub value: Bytes,
 }
