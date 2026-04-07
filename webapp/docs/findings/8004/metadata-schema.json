@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stellar8004.com/schemas/agent-metadata-v1.json",
+  "title": "ERC-8004 Agent Metadata (Stellar)",
+  "description": "Schema for ERC-8004 spec-compliant agent metadata on Stellar",
+  "type": "object",
+  "required": ["type", "name"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+      "description": "Protocol identifier URI (same across all ERC-8004 implementations)"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Human-readable agent name"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Agent description"
+    },
+    "image": {
+      "type": "string",
+      "description": "Agent image URI (IPFS or HTTPS)"
+    },
+    "services": {
+      "type": "array",
+      "description": "Service endpoints exposed by this agent",
+      "items": {
+        "type": "object",
+        "required": ["name", "endpoint"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Service protocol name (e.g. MCP, A2A, Web)"
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "description": "Service endpoint URL"
+          },
+          "version": {
+            "type": "string",
+            "description": "Service protocol version"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "supportedTrust": {
+      "type": "array",
+      "description": "Trust mechanisms supported by this agent",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "examples": ["reputation", "crypto-economic", "tee-attestation"]
+      }
+    },
+    "x402": {
+      "type": "boolean",
+      "description": "Whether this agent supports the HTTP 402 Payment Required standard for paid services",
+      "default": false
+    }
+  },
+  "additionalProperties": true
+}
