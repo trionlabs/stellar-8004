@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fundTestnet, validateTag, MAX_TAG_LENGTH } from '../src/core/helpers.js';
+import { fundTestnet, validateTag, MAX_TAG_LENGTH, validateStellarAddress, formatSorobanError } from '../src/core/helpers.js';
 
 describe('fundTestnet', () => {
 	afterEach(() => {
@@ -52,5 +52,66 @@ describe('validateTag', () => {
 		expect(() => validateTag('a'.repeat(MAX_TAG_LENGTH + 1), 'Tag 2')).toThrow(
 			'Tag 2 too long'
 		);
+	});
+});
+
+describe('validateStellarAddress', () => {
+	it('accepts a valid ed25519 public key', () => {
+		expect(() => validateStellarAddress('GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7')).not.toThrow();
+	});
+
+	it('rejects an invalid address', () => {
+		expect(() => validateStellarAddress('not-an-address')).toThrow('Address is not a valid Stellar address');
+	});
+
+	it('rejects a contract address (C...)', () => {
+		expect(() => validateStellarAddress('CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ')).toThrow(
+			'is not a valid Stellar address'
+		);
+	});
+
+	it('rejects empty string', () => {
+		expect(() => validateStellarAddress('')).toThrow('is not a valid Stellar address');
+	});
+
+	it('uses custom label', () => {
+		expect(() => validateStellarAddress('bad', 'Validator')).toThrow('Validator is not a valid Stellar address');
+	});
+});
+
+describe('formatSorobanError', () => {
+	it('returns friendly message for user declined', () => {
+		expect(formatSorobanError(new Error('User declined the transaction'))).toBe('Transaction cancelled in wallet.');
+	});
+
+	it('returns friendly message for budget exceeded', () => {
+		expect(formatSorobanError(new Error('HostError(Budget, LimitExceeded)'))).toBe(
+			'Transaction resource limit exceeded. Try a simpler operation.'
+		);
+	});
+
+	it('returns friendly message for network mismatch', () => {
+		expect(formatSorobanError(new Error('network mismatch detected'))).toBe(
+			'Wallet is on a different network than the app.'
+		);
+	});
+
+	it('returns friendly message for timeout', () => {
+		expect(formatSorobanError(new Error('ETIMEDOUT'))).toBe('Network timeout. Check your connection and try again.');
+	});
+
+	it('truncates long unknown errors to 200 chars', () => {
+		const longMsg = 'x'.repeat(300);
+		const result = formatSorobanError(new Error(longMsg));
+		expect(result.length).toBeLessThanOrEqual(201);
+		expect(result.endsWith('…')).toBe(true);
+	});
+
+	it('passes through short unknown errors as-is', () => {
+		expect(formatSorobanError(new Error('Something broke'))).toBe('Something broke');
+	});
+
+	it('handles non-Error values', () => {
+		expect(formatSorobanError('raw string error')).toBe('raw string error');
 	});
 });
