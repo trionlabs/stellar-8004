@@ -12,14 +12,16 @@
  *   npx tsx scripts/recover-agents.ts 31 33       # recover specific range
  */
 import * as StellarSdk from '@stellar/stellar-sdk';
+import { MAINNET_CONFIG, TESTNET_CONFIG } from '@trionlabs/8004-sdk';
 
-const RPC_URL = process.env.STELLAR_RPC_URL || 'https://soroban-testnet.stellar.org';
+// Single source of truth for addresses lives in @trionlabs/8004-sdk.
+const SDK_CONFIG = process.env.STELLAR_NETWORK === 'mainnet' ? MAINNET_CONFIG : TESTNET_CONFIG;
+
+const RPC_URL = process.env.STELLAR_RPC_URL || SDK_CONFIG.rpcUrl;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'http://localhost:54321';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
-const IDENTITY_CONTRACT = process.env.IDENTITY_REGISTRY || 'CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ';
-const NETWORK_PASSPHRASE = process.env.STELLAR_NETWORK === 'mainnet'
-	? 'Public Global Stellar Network ; September 2015'
-	: StellarSdk.Networks.TESTNET;
+const IDENTITY_CONTRACT = process.env.IDENTITY_REGISTRY || SDK_CONFIG.contracts.identity;
+const NETWORK_PASSPHRASE = SDK_CONFIG.networkPassphrase;
 
 const server = new StellarSdk.rpc.Server(RPC_URL);
 
