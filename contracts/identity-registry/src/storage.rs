@@ -1,5 +1,8 @@
 use soroban_sdk::{contracttype, Address, Bytes, Env, String};
-use stellar_tokens::non_fungible::NFTStorageKey;
+use stellar_tokens::non_fungible::{
+    NFTStorageKey, BALANCE_EXTEND_AMOUNT, BALANCE_TTL_THRESHOLD, OWNER_EXTEND_AMOUNT,
+    OWNER_TTL_THRESHOLD,
+};
 
 // ~30 days at 5s/ledger
 pub const TTL_THRESHOLD: u32 = 518_400;
@@ -43,6 +46,26 @@ pub fn extend_agent_ttl(e: &Env, agent_id: u32) {
         e.storage()
             .persistent()
             .extend_ttl(&wallet_key, TTL_THRESHOLD, TTL_BUMP);
+    }
+
+    // Extend the OZ NonFungibleToken Owner and Balance entries. OZ extends
+    // these on every read in `Base::owner_of` / `Base::balance`, but an agent
+    // that goes 30 days without a single privileged call would still archive
+    // those entries. extend_ttl must keep the NFT itself alive too, otherwise
+    // every cross-contract caller would crash via panic on the next access.
+    let owner_key = NFTStorageKey::Owner(agent_id);
+    if let Some(owner) = e.storage().persistent().get::<_, Address>(&owner_key) {
+        e.storage()
+            .persistent()
+            .extend_ttl(&owner_key, OWNER_TTL_THRESHOLD, OWNER_EXTEND_AMOUNT);
+        let balance_key = NFTStorageKey::Balance(owner);
+        if e.storage().persistent().has(&balance_key) {
+            e.storage().persistent().extend_ttl(
+                &balance_key,
+                BALANCE_TTL_THRESHOLD,
+                BALANCE_EXTEND_AMOUNT,
+            );
+        }
     }
 }
 
