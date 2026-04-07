@@ -1,5 +1,4 @@
 -- Table-based lock for indexer concurrency guard (pgBouncer-safe)
--- See: backlog/013_PHASE5_CONCURRENCY_INTEGRITY.md
 
 CREATE TABLE IF NOT EXISTS indexer_locks (
   lock_name text PRIMARY KEY,
