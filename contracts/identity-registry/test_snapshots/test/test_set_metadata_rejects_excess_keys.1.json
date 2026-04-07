@@ -8402,18 +8402,13 @@
               },
               {
                 "u32": 0
+              },
+              {
+                "string": "k_0"
               }
             ],
             "data": {
               "map": [
-                {
-                  "key": {
-                    "symbol": "key"
-                  },
-                  "val": {
-                    "string": "k_0"
-                  }
-                },
                 {
                   "key": {
                     "symbol": "value"
