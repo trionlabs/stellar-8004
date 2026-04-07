@@ -24,11 +24,12 @@ mod mock_identity {
                 .set(&DataKey::Owner(token_id), &owner);
         }
 
-        pub fn owner_of(e: &Env, token_id: u32) -> Address {
-            e.storage()
-                .persistent()
-                .get(&DataKey::Owner(token_id))
-                .unwrap()
+        pub fn clear_owner(e: &Env, token_id: u32) {
+            e.storage().persistent().remove(&DataKey::Owner(token_id));
+        }
+
+        pub fn find_owner(e: &Env, agent_id: u32) -> Option<Address> {
+            e.storage().persistent().get(&DataKey::Owner(agent_id))
         }
 
         pub fn get_approved(_e: &Env, _token_id: u32) -> Option<Address> {
@@ -341,4 +342,22 @@ fn test_upgrade_requires_auth() {
     let fake_hash = soroban_sdk::BytesN::from_array(&env, &[0u8; 32]);
     let result = client.try_upgrade(&fake_hash);
     assert!(result.is_err());
+}
+
+#[test]
+fn test_validation_request_on_missing_agent_returns_error_not_panic() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, identity, agent_owner, validator) = setup(&env);
+
+    // Wipe the agent so identity.find_owner returns None.
+    identity.clear_owner(&0);
+
+    let hash = test_hash(&env, 42);
+    let uri = String::from_str(&env, "https://validate.example.com");
+    let result = client.try_validation_request(&agent_owner, &validator, &0, &uri, &hash);
+    assert!(
+        result.is_err(),
+        "validation_request against a missing agent must return Err, not panic"
+    );
 }

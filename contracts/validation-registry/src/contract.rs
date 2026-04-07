@@ -7,9 +7,12 @@ use crate::events;
 use crate::storage;
 use crate::types::{ValidationStatus, ValidationSummary};
 
+// `find_owner` returns Option<Address> instead of panicking when the agent
+// is missing, which avoids crashing this contract on cross-contract calls
+// into a non-existent or archived agent.
 #[contractclient(name = "IdentityRegistryClient")]
 pub trait IdentityRegistryInterface {
-    fn owner_of(e: &Env, token_id: u32) -> Address;
+    fn find_owner(e: &Env, agent_id: u32) -> Option<Address>;
     fn get_approved(e: &Env, token_id: u32) -> Option<Address>;
     fn is_approved_for_all(e: &Env, owner: Address, operator: Address) -> bool;
 }
@@ -34,10 +37,12 @@ impl ValidationRegistryContract {
     ) -> Result<(), ValidationError> {
         caller.require_auth();
 
-        // Only agent owner, approved, or approved-for-all can request
+        // Only agent owner, approved, or approved-for-all can request.
         let identity_addr = storage::get_identity_registry(e);
         let identity = IdentityRegistryClient::new(e, &identity_addr);
-        let owner = identity.owner_of(&agent_id);
+        let owner = identity
+            .find_owner(&agent_id)
+            .ok_or(ValidationError::AgentNotFound)?;
         if caller != owner {
             let mut authorized = false;
             if let Some(approved) = identity.get_approved(&agent_id) {

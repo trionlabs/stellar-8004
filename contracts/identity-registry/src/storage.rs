@@ -1,9 +1,23 @@
 use soroban_sdk::{contracttype, Address, Bytes, Env, String};
+use stellar_tokens::non_fungible::NFTStorageKey;
 
 // ~30 days at 5s/ledger
 pub const TTL_THRESHOLD: u32 = 518_400;
 // ~60 days
 pub const TTL_BUMP: u32 = 1_036_800;
+
+/// Reads the OZ NonFungibleToken owner entry directly. Returns `None` for
+/// missing or archived tokens; `Base::owner_of` panics in the same case,
+/// which is unsafe in cross-contract callers.
+///
+/// Named `find_owner` because `try_owner_of` is reserved by the soroban-sdk
+/// `#[contractimpl]` macro for the auto-generated fallible companion of the
+/// `owner_of` method inherited from the OZ NonFungibleToken trait.
+pub fn find_owner(e: &Env, agent_id: u32) -> Option<Address> {
+    e.storage()
+        .persistent()
+        .get::<_, Address>(&NFTStorageKey::Owner(agent_id))
+}
 
 #[contracttype]
 #[derive(Clone)]

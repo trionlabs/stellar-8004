@@ -9,4 +9,5 @@ pub enum ReputationError {
     InvalidValueDecimals = 3,
     NotOwnerOrApproved = 4,
     AggregateOverflow = 5,
+    AgentNotFound = 6,
 }

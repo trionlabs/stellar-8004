@@ -10,4 +10,5 @@ pub enum ValidationError {
     RequestAlreadyExists = 4,
     NotDesignatedValidator = 5,
     AlreadyResponded = 6,
+    AgentNotFound = 7,
 }
