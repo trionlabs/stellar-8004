@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="24" fill="oklch(0.13 0.014 250)"/>
+  <g transform="translate(64,64)">
+    <!-- Planet body -->
+    <defs>
+      <radialGradient id="planet" cx="40%" cy="35%" r="50%">
+        <stop offset="0%" stop-color="oklch(0.82 0.08 250)"/>
+        <stop offset="100%" stop-color="oklch(0.55 0.12 250)"/>
+      </radialGradient>
+    </defs>
+    <circle r="22" fill="url(#planet)"/>
+    <!-- Ring behind -->
+    <ellipse rx="42" ry="12" fill="none" stroke="oklch(0.74 0.07 250)" stroke-width="2.5" opacity="0.3" transform="rotate(-20)"/>
+    <!-- Ring front (clipped to appear in front) -->
+    <clipPath id="front">
+      <rect x="-50" y="0" width="100" height="50" transform="rotate(-20)"/>
+    </clipPath>
+    <ellipse rx="42" ry="12" fill="none" stroke="oklch(0.74 0.07 250)" stroke-width="2.5" opacity="0.7" transform="rotate(-20)" clip-path="url(#front)"/>
+    <!-- Inner ring -->
+    <ellipse rx="34" ry="9" fill="none" stroke="oklch(0.72 0.10 162)" stroke-width="1" opacity="0.35" transform="rotate(-20)"/>
+    <!-- Subtle atmosphere glow -->
+    <circle r="24" fill="none" stroke="oklch(0.74 0.07 250)" stroke-width="0.5" opacity="0.15"/>
+  </g>
+</svg>

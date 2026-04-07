@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Mainnet seed script (contains no secrets but not for production)
+scripts/seed-mainnet.ts
+
+# Local agent and tooling state
+.claude/
+.codex/
+.opencode/
+.superpowers/
+.mcp.json
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Keys / certificates / SSH material
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+authorized_keys
+known_hosts
+
+# Build and test output
+*.tgz
+dist/
+build/
+.svelte-kit/
+.output/
+.vercel/
+.netlify/
+.wrangler/
+coverage/
+playwright-report/
+test-results/
+supabase/functions/_shared/indexer/
+
+# Caches
+*.tsbuildinfo
+.eslintcache
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local skill/workbench directories
+skills/
+stellar-agentic-skills/
+
+# Markdown files (docs kept locally, not in git history)
+*.md
+!packages/sdk/README.md
+
+# E2E test scripts (generate keypairs, not for production)
+scripts/e2e-*.ts
+
+# OS files
+.DS_Store
+Thumbs.db
