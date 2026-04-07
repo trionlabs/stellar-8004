@@ -7,4 +7,6 @@ pub enum IdentityError {
     NotOwnerOrApproved = 1,
     UriNotSet = 2,
     AgentNotFound = 3,
+    MetadataKeyTooLong = 4,
+    MetadataValueTooLong = 5,
 }
