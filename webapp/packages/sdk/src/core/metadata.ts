@@ -41,9 +41,41 @@ export function buildMetadataJson(form: AgentFormData): Record<string, unknown> 
 const KNOWN_FIELDS = ['type', 'name', 'description', 'image', 'services', 'supportedTrust', 'x402', 'endpoints'];
 
 /**
+ * Translate the legacy `endpoints: [{type, url}]` schema to the spec
+ * `services: [{name, endpoint, version}]` schema. Returns null if the input
+ * is not a non-empty array of valid endpoint records.
+ */
+function endpointsToServices(
+	endpoints: unknown
+): Array<{ name: string; endpoint: string; version?: string }> | null {
+	if (!Array.isArray(endpoints) || endpoints.length === 0) return null;
+	const out: Array<{ name: string; endpoint: string; version?: string }> = [];
+	for (const e of endpoints) {
+		if (!e || typeof e !== 'object') continue;
+		const ep = e as Record<string, unknown>;
+		const endpoint = typeof ep.url === 'string' ? ep.url
+			: typeof ep.endpoint === 'string' ? ep.endpoint
+			: '';
+		if (!endpoint) continue;
+		const name = typeof ep.type === 'string' ? ep.type
+			: typeof ep.name === 'string' ? ep.name
+			: 'unknown';
+		const version = typeof ep.version === 'string' ? ep.version : undefined;
+		out.push({ name, endpoint, ...(version ? { version } : {}) });
+	}
+	return out.length > 0 ? out : null;
+}
+
+/**
  * Build metadata JSON for edit mode.
  * Preserves unknown fields from the original metadata (e.g. custom extensions like
  * `license`, `category`) so they survive the edit round-trip without data loss.
+ *
+ * If the existing metadata uses the legacy `endpoints` schema and the form
+ * has no services (e.g. the agent's URI was never resolved by the indexer
+ * so `data.agent.services` came back empty), we automatically translate
+ * `endpoints` -> `services`. This prevents the silent data loss where saving
+ * an unedited legacy agent would drop its endpoint list.
  */
 export function buildMetadataJsonForEdit(
 	form: AgentFormData,
@@ -61,7 +93,12 @@ export function buildMetadataJsonForEdit(
 
 	if (form.description) metadata.description = form.description;
 	if (form.imageUrl) metadata.image = form.imageUrl;
-	if (form.services.length > 0) metadata.services = form.services;
+	if (form.services.length > 0) {
+		metadata.services = form.services;
+	} else {
+		const fromLegacy = endpointsToServices(existing.endpoints);
+		if (fromLegacy) metadata.services = fromLegacy;
+	}
 	if (form.supportedTrust.length > 0) metadata.supportedTrust = form.supportedTrust;
 	if (form.x402Enabled) metadata.x402 = true;
 
