@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import * as StellarSdk from '@stellar/stellar-sdk';
+	import { validateStellarAddress } from '@trionlabs/8004-sdk';
 	import { getClients } from '$lib/sdk-client.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 
@@ -22,10 +22,16 @@
 		wallet.address.toUpperCase() === currentWallet.toUpperCase()
 	);
 
-	const addressError = $derived(
-		walletInput.trim() && !StellarSdk.StrKey.isValidEd25519PublicKey(walletInput.trim())
-			? 'Invalid Stellar address (must start with G...)' : ''
-	);
+	const addressError = $derived.by(() => {
+		const v = walletInput.trim();
+		if (!v) return '';
+		try {
+			validateStellarAddress(v, 'Wallet');
+			return '';
+		} catch (e) {
+			return e instanceof Error ? e.message : 'Invalid Stellar address';
+		}
+	});
 
 	const isDifferentAddress = $derived(
 		walletInput.trim() && wallet.address && walletInput.trim() !== wallet.address
