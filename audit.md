@@ -18,7 +18,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 
 ## A. Soroban Smart Contracts (`contracts/`)
 
-### A1. CRITICAL - `extend_agent_ttl` does not extend `Metadata` entries [VERIFIED] [STILL OPEN]
+### A1. CRITICAL - `extend_agent_ttl` does not extend `Metadata` entries [DONE in accfb26]
 - **File:** `contracts/identity-registry/src/storage.rs:20-33`
 - **What:** `extend_agent_ttl(e, agent_id)` only bumps `AgentUri(id)` and `AgentWallet(id)`. The third persistent storage variant - `Metadata(id, key)` - is never extended. There is also no helper that enumerates an agent's metadata keys, so even an explicit caller cannot extend them.
 - **Why it matters:** All metadata entries archive after `TTL_THRESHOLD` ledgers (~30 days). Metadata is actively used by `register_full` (`contract.rs:53-67`) and `set_metadata` (`contract.rs:90-102`), so this is real production data getting silently archived. The off-chain indexer doesn't read metadata, so the breakage is invisible until something on-chain calls `get_metadata` and gets `None`.
@@ -52,7 +52,7 @@ Findings tagged **[VERIFIED]** were directly read in the source. Findings tagged
 - **Fix:** Use `checked_add` / `checked_sub` and return an `AggregateOverflow` error from `give_feedback` and `revoke_feedback`. Cheaper alternative: validate at entry that `value.abs() <= 10^36` so the aggregate can hold ~100 such entries before overflow - this trades exploit-resistance for slightly less expressive feedback values, which is fine.
 - **Side note found while verifying:** `agg.count += 1` (lines 148, 198) and `agg.count -= 1` (lines 161, 219) are also unchecked, but `count` is a `u64` so practically unreachable.
 
-### A6. MEDIUM - `transfer` / `transfer_from` only clears `agent_wallet`
+### A6. MEDIUM - `transfer` / `transfer_from` only clears `agent_wallet` [DONE in accfb26]
 - **File:** `contracts/identity-registry/src/contract.rs` (the `ContractOverrides` block per the architecture plan)
 - **What:** The `ContractOverrides::transfer` and `transfer_from` clear `agent_wallet` but do not clear or migrate `Metadata(agent_id, *)` entries. Metadata set by the previous owner persists into the new owner's account.
 - **Why it matters:** Off-chain systems trust an agent's metadata as "what the current owner asserted". An attacker can set authoritative-looking metadata (e.g. `"verified": true`, `"domain": "anthropic.com"`), then transfer the NFT to a victim. The victim now appears to have asserted those claims.
@@ -406,30 +406,29 @@ These were reported by the parallel agents. I checked and they don't hold up:
 - C8+C15 - `96044e2` validations.tag length constraint, index, search_agents grant
 - B7 - `244a51c` add noreferrer to external explorer links
 - C2 - `fe98496` JSON size cap + SSRF guard in resolveUri/parseDataUri
+- A1+A6 - `accfb26` metadata key index, extend on read, clear on transfer
 
 **Open, in priority order:**
 
-1. **A1 (metadata TTL extension or removal)** - investigate caller graph, then either add a key index or delete the API. Tied to A6.
-3. **A6 (transfer doesn't clear metadata)** - tied to A1.
-4. **C5 (backfill / indexer concurrent races)** - operationally important.
-5. **C6 (Kong auth header logging)** - verify access log format first.
-6. **A8 (`get_summary` with explicit clients is O(n*m))** - cap the input list.
-7. **A9 (unchecked u32 increments)** - cheap, low-impact.
-8. **C1 (feedback historical data audit)** - one-shot backfill diff.
-9. **B3 (form-level address validation audit)** - enumerate forms.
-10. **B4 (legacy endpoints field drop)** - depends on whether any legacy agents still exist.
-11. **A10 (cross-contract trust documentation)** - rustdoc + upgrade-timelock decision.
-12. **A15 (architecture plan vs code divergence)** - rewrite or delete the stale plan.
-13. **C-series MEDIUM/LOW backlog** - C9, C10, C11, C12, C13, C14, C16-C19.
-14. **D-series infrastructure** - D1-D5.
-15. **E-series cross-cutting** - E1-E5.
-16. **B-series LOW** - B5, B6, B8 through B15.
+1. **C5 (backfill / indexer concurrent races)** - operationally important.
+2. **C6 (Kong auth header logging)** - verify access log format first.
+3. **A8 (`get_summary` with explicit clients is O(n*m))** - cap the input list.
+4. **A9 (unchecked u32 increments)** - cheap, low-impact.
+5. **C1 (feedback historical data audit)** - one-shot backfill diff.
+6. **B3 (form-level address validation audit)** - enumerate forms.
+7. **B4 (legacy endpoints field drop)** - depends on whether any legacy agents still exist.
+8. **A10 (cross-contract trust documentation)** - rustdoc + upgrade-timelock decision.
+9. **A15 (architecture plan vs code divergence)** - rewrite or delete the stale plan.
+10. **C-series MEDIUM/LOW backlog** - C9, C10, C11, C12, C13, C14, C16-C19.
+11. **D-series infrastructure** - D1-D5.
+12. **E-series cross-cutting** - E1-E5.
+13. **B-series LOW** - B5, B6, B8 through B15.
 
 **Quick wins still open (under 30 min each):** A9, B11, B12, B14, C16, C17, C18, C19.
 
-**Medium effort still open (under a day):** B4, B5, B6, B8, B9, B10, B13, C2, C9, C10, C11, C12, C13, C14, D2, D3, D4, D5.
+**Medium effort still open (under a day):** B4, B5, B6, B8, B9, B10, B13, C9, C10, C11, C12, C13, C14, D2, D3, D4, D5.
 
-**Bigger projects (multi-day):** A1+A6 (metadata), A8 (per-client aggregates), B3 (form audit), C1 (historical data audit), C5 (backfill concurrency), D1 (mainnet WASM verify), E1 (e2e CI test), E2 (upgrade docs).
+**Bigger projects (multi-day):** A8 (per-client aggregates), B3 (form audit), C1 (historical data audit), C5 (backfill concurrency), D1 (mainnet WASM verify), E1 (e2e CI test), E2 (upgrade docs).
 
 ## H. Verification approach per finding
 
