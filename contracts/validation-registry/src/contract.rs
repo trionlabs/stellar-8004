@@ -184,6 +184,11 @@ impl ValidationRegistryContract {
             }
         }
 
+        // average_response uses integer division, so [51, 50] reports 50
+        // not 50.5. Validation responses are documented as 0..=100, and
+        // callers wanting fractional precision should compute the average
+        // off-chain from the raw responses returned by
+        // get_agent_validations_paginated + get_validation_status.
         ValidationSummary {
             count: match_count,
             average_response: if match_count > 0 {

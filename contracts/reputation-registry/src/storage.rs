@@ -132,6 +132,15 @@ fn get_client_count(e: &Env, agent_id: u32) -> u32 {
     }
 }
 
+/// Returns up to `limit` client addresses starting at `start`.
+///
+/// The returned Vec may contain fewer entries than `limit` only when `start
+/// + limit > count`. There are currently no code paths that delete a
+/// `ClientAtIndex` entry, so within the `start..count` range every slot is
+/// populated and the Some-check on the storage read is defensive only. If
+/// a future change ever introduces tombstones, this function should be
+/// changed to return `Vec<Option<Address>>` so callers can distinguish
+/// "end of list" from "tombstoned slot mid-range".
 pub fn get_clients_paginated(e: &Env, agent_id: u32, start: u32, limit: u32) -> Vec<Address> {
     let count = get_client_count(e, agent_id);
     let mut result = Vec::new(e);
