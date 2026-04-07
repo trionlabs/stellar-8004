@@ -526,6 +526,40 @@ fn test_append_response_on_missing_agent_returns_error_not_panic() {
 }
 
 #[test]
+fn test_get_summary_caps_explicit_client_list() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, _) = setup(&env);
+
+    // Build 7 reviewers, each with one feedback worth 10 points.
+    let reviewers: std::vec::Vec<Address> = (0..7).map(|_| Address::generate(&env)).collect();
+    for r in &reviewers {
+        client.give_feedback(
+            &r,
+            &0,
+            &10,
+            &0,
+            &empty_str(&env),
+            &empty_str(&env),
+            &empty_str(&env),
+            &empty_str(&env),
+            &zero_hash(&env),
+        );
+    }
+
+    // Pass all 7 to get_summary. The cap is 5, so the result must reflect
+    // exactly 5 contributions (50 points) - the trailing 2 are silently
+    // dropped to keep storage reads bounded.
+    let mut clients_arg = Vec::<Address>::new(&env);
+    for r in &reviewers {
+        clients_arg.push_back(r.clone());
+    }
+    let summary = client.get_summary(&0, &clients_arg, &empty_str(&env), &empty_str(&env));
+    assert_eq!(summary.count, 5);
+    assert_eq!(summary.summary_value, 50);
+}
+
+#[test]
 fn test_aggregate_ttl_survives_long_idle_periods_via_reads() {
     let env = Env::default();
     env.mock_all_auths();
