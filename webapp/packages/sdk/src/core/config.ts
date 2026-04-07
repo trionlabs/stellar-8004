@@ -30,7 +30,11 @@ export const TESTNET_CONFIG: StellarConfig = {
 		validation: 'CA6GIV7QB4B3O5SBZZRL3E3XMFFECGRETSN4JXAYTFKF5HUTD4JY2SJQ'
 	},
 	deployVersion: '2026-04-06',
-	deployLedger: 1819978
+	// Approximate testnet ledger at the v2 redeploy (commit 01d588b on
+	// 2026-04-02). Used by cold-start scans only - the running indexer
+	// reads its own checkpoint cursor. Override via DEPLOY_LEDGER env if
+	// you have a more accurate value from stellar.expert.
+	deployLedger: 1900000
 };
 
 export const MAINNET_CONFIG: StellarConfig = {
