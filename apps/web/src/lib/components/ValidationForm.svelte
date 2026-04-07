@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Buffer } from 'buffer';
 	import { getClients } from '$lib/sdk-client.js';
-	import { generateRequestNonce } from '@trionlabs/8004s-sdk';
+	import { generateRequestNonce, validateStellarAddress, formatSorobanError } from '@trionlabs/8004s-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
@@ -13,10 +13,10 @@
 	let txHash = $state('');
 
 	const busy = $derived(status === 'submitting');
-	const hasValidAddress = $derived(
-		validatorAddress.length === 0 ||
-			(validatorAddress.startsWith('G') && validatorAddress.length === 56)
-	);
+	const hasValidAddress = $derived.by(() => {
+		if (validatorAddress.length === 0) return true;
+		try { validateStellarAddress(validatorAddress); return true; } catch { return false; }
+	});
 
 	async function submit() {
 		if (!wallet.connected) {
@@ -25,8 +25,10 @@
 			return;
 		}
 
-		if (!validatorAddress.startsWith('G') || validatorAddress.length !== 56) {
-			errorMsg = 'Enter a valid Stellar validator address.';
+		try {
+			validateStellarAddress(validatorAddress, 'Validator address');
+		} catch (e) {
+			errorMsg = e instanceof Error ? e.message : 'Invalid validator address';
 			status = 'error';
 			return;
 		}
@@ -48,7 +50,7 @@
 			txHash = sent.sendTransactionResponse?.hash ?? '';
 			status = 'success';
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Failed to request validation';
+			errorMsg = formatSorobanError(err);
 			status = 'error';
 		}
 	}

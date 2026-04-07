@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { getClients, stellarConfig } from '$lib/sdk-client.js';
-	import { buildMetadataJson, toDataUri, validateAgentUri } from '@trionlabs/8004s-sdk';
+	import { buildMetadataJson, toDataUri, validateAgentUri, formatSorobanError } from '@trionlabs/8004s-sdk';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
 	import CtaButton from '$lib/components/CtaButton.svelte';
 	import Stepper from '$lib/components/Stepper.svelte';
@@ -98,7 +98,7 @@
 			sessionStorage.removeItem(STORAGE_KEY);
 			await goto(`/agents/${agentId}?registered=true&tx=${txHash}`);
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Registration failed';
+			errorMsg = formatSorobanError(err);
 			status = 'error';
 		}
 	}
@@ -120,7 +120,7 @@
 			status = 'success';
 			await goto(`/agents/${resultAgentId}?registered=true&tx=${txHash}`);
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Registration failed';
+			errorMsg = formatSorobanError(err);
 			status = 'error';
 		}
 	}

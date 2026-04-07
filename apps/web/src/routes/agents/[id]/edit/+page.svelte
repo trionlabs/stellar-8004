@@ -7,7 +7,7 @@
 		toDataUri
 	} from '@trionlabs/8004s-sdk';
 	import { getClients } from '$lib/sdk-client.js';
-	import { validateAgentUri } from '@trionlabs/8004s-sdk';
+	import { validateAgentUri, formatSorobanError } from '@trionlabs/8004s-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
 	import type { PageProps } from './$types';
@@ -117,7 +117,7 @@
 				goto(resolve(`/agents/${data.agent.id}`), { invalidateAll: true });
 			}, 1500);
 		} catch (err) {
-			saveError = err instanceof Error ? err.message : 'Failed to update metadata';
+			saveError = formatSorobanError(err);
 			saveStatus = 'error';
 		}
 	}
