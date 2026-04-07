@@ -75,7 +75,7 @@ pnpm add @stellar/freighter-api`;
 	const sdkQuickStart = `import { Keypair } from '@stellar/stellar-sdk';
 import {
   AutoStorage,
-  SorobanClient,
+  createClients,
   TESTNET_CONFIG,
   buildMetadataJson,
   fundTestnet,
@@ -90,7 +90,7 @@ if (!secret) {
 
 const keypair = Keypair.fromSecret(secret);
 const signer = wrapBasicSigner(keypair, TESTNET_CONFIG.networkPassphrase);
-const client = new SorobanClient(signer, TESTNET_CONFIG);
+const { identity } = createClients(TESTNET_CONFIG, signer);
 
 await fundTestnet(signer.publicKey);
 
@@ -116,10 +116,14 @@ const storage = new AutoStorage({
 });
 
 const agentUri = await storage.upload(metadata);
-const result = await client.registerAgent(agentUri);
+const tx = await identity.register_with_uri({
+  caller: keypair.publicKey(),
+  agent_uri: agentUri
+});
+const sent = await tx.signAndSend();
 
-console.log('Registered agent:', result.agentId);
-console.log('Transaction hash:', result.hash);`;
+console.log('Registered agent:', sent.result);
+console.log('Transaction hash:', sent.sendTransactionResponse?.hash);`;
 
 	const registrationFlowDiagram = `Developer App
     |
@@ -133,7 +137,7 @@ SDK Metadata Builder
     v
 Agent URI
     |
-    | 3. SorobanClient.registerAgent(uri)
+    | 3. identity.register_with_uri(uri)
     v
 Soroban RPC
     |
@@ -158,7 +162,7 @@ import { Keypair } from '@stellar/stellar-sdk';
 import {
   AutoStorage,
   ExplorerClient,
-  SorobanClient,
+  createClients,
   TESTNET_CONFIG,
   buildMetadataJson,
   fundTestnet,
@@ -173,7 +177,7 @@ if (!secret) {
 
 const keypair = Keypair.fromSecret(secret);
 const signer = wrapBasicSigner(keypair, TESTNET_CONFIG.networkPassphrase);
-const client = new SorobanClient(signer, TESTNET_CONFIG);
+const { identity } = createClients(TESTNET_CONFIG, signer);
 const explorer = new ExplorerClient('https://stellar8004.com');
 
 const metadata = buildMetadataJson({
@@ -201,7 +205,13 @@ const storage = new AutoStorage({
 const agentUri = await storage.upload(metadata);
 console.log('Agent URI:', agentUri);
 
-const { agentId, hash } = await client.registerAgent(agentUri);
+const tx = await identity.register_with_uri({
+  caller: keypair.publicKey(),
+  agent_uri: agentUri
+});
+const sent = await tx.signAndSend();
+const agentId = sent.result;
+const hash = sent.sendTransactionResponse?.hash;
 console.log('Submitted tx:', hash);
 console.log('Waiting for indexer...');
 
@@ -580,7 +590,7 @@ console.log('Indexer status:', health.data.status);`;
 					<li>ExplorerClient wraps the same public GET endpoints documented above, so it works anywhere <code class="rounded bg-surface-raised px-1.5 py-0.5 text-[11px] font-mono">fetch</code> is available.</li>
 					<li>For browser apps, point it at <code class="rounded bg-surface-raised px-1.5 py-0.5 text-[11px] font-mono">https://stellar8004.com</code> for direct public reads.</li>
 					<li>If your own mirror or proxy tightens cross-origin rules, call the explorer from your backend instead and keep the client code unchanged.</li>
-					<li>Writes still go through <code class="rounded bg-surface-raised px-1.5 py-0.5 text-[11px] font-mono">SorobanClient</code>, which signs locally and submits directly to Soroban RPC.</li>
+					<li>Writes use the contract binding clients (e.g. <code class="rounded bg-surface-raised px-1.5 py-0.5 text-[11px] font-mono">IdentityClient</code>), which sign locally and submit directly to Soroban RPC.</li>
 				</ul>
 			</div>
 		</div>
