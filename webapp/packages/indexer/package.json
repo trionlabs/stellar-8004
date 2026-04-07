@@ -1,0 +1,21 @@
+{
+  "name": "@stellar8004/indexer",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "sync:shared": "node ../../scripts/sync-indexer-to-shared.js"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^15.0.0",
+    "@supabase/supabase-js": "^2.49.0"
+  },
+  "devDependencies": {
+    "@stellar8004/db": "workspace:*",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
+  }
+}
