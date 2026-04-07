@@ -460,15 +460,20 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 			break;
 
 		case 'ResponseAppended':
-			await supabasePost('feedback_responses', {
-				agent_id: d.agentId,
-				client_address: d.clientAddress,
-				feedback_index: d.feedbackIndex,
-				responder: d.responder,
-				response_uri: d.responseUri,
-				response_hash: d.responseHash,
-				tx_hash: d.txHash,
-				created_at: d.ledgerClosedAt,
+			// Route through the SECURITY DEFINER function so the advisory
+			// lock that derives response_index is held during this insert.
+			// A direct INSERT into feedback_responses would bypass the lock
+			// added in migration 021 and re-introduce the response_index
+			// race that migration was meant to fix.
+			await callRpc('insert_feedback_response', {
+				p_agent_id: d.agentId,
+				p_client_address: d.clientAddress,
+				p_feedback_index: String(d.feedbackIndex),
+				p_responder: d.responder,
+				p_response_uri: d.responseUri,
+				p_response_hash: d.responseHash,
+				p_created_at: d.ledgerClosedAt,
+				p_tx_hash: d.txHash,
 			});
 			break;
 	}
