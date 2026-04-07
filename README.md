@@ -105,33 +105,7 @@ stellar contract deploy \
 
 ## Webapp and SDK
 
-`webapp/` contains the SvelteKit frontend, Soroban event indexer, Supabase schema, and the `@trionlabs/8004-sdk` TypeScript SDK that powers the [stellar8004.com](https://stellar8004.com) explorer.
-
-```bash
-cd webapp
-pnpm install
-pnpm dev   # http://localhost:5173
-```
-
-See `webapp/packages/sdk/README.md` for full SDK usage. Auto-generated contract bindings are exposed via the `@trionlabs/8004-sdk/bindings` entry point and instantiated through the `createClients(config, signer)` factory.
-
-```typescript
-import {
-  TESTNET_CONFIG,
-  createClients,
-  FreighterSigner,
-} from '@trionlabs/8004-sdk';
-
-const signer = new FreighterSigner();
-await signer.connect();
-const { identity, reputation, validation } = createClients(TESTNET_CONFIG, signer);
-
-const tx = await identity.register_with_uri({
-  caller: signer.publicKey,
-  agent_uri: 'https://myagent.example/.well-known/agent-registration.json',
-});
-const { result: agentId } = await tx.signAndSend();
-```
+The [stellar8004.com](https://stellar8004.com) explorer, the Soroban event indexer, the self-hosted Supabase stack, and the `@trionlabs/8004-sdk` TypeScript SDK live under [`webapp/`](webapp/). See [`webapp/README.md`](webapp/README.md) for layout, local-dev instructions, and SDK quick start.
 
 ## Spec Coverage
 

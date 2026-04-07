@@ -63,8 +63,10 @@ yarn-error.log*
 skills/
 stellar-agentic-skills/
 
-# Markdown files (docs kept locally, not in git history)
+# Markdown is local-only by default to keep planning notes out of the repo;
+# the explicit exceptions below are the docs that ship.
 *.md
+!README.md
 !packages/sdk/README.md
 
 # E2E test scripts (generate keypairs, not for production)
