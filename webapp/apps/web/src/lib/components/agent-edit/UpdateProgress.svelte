@@ -41,7 +41,7 @@
 			<a
 				href="https://stellar.expert/explorer/testnet/tx/{txHash}"
 				target="_blank"
-				rel="noopener"
+				rel="noopener noreferrer"
 				class="mt-1 block font-mono text-xs text-accent hover:underline break-all"
 			>{txHash}</a>
 		</div>
