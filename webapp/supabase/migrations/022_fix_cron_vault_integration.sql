@@ -2,13 +2,13 @@
 --
 -- Fixes three bugs in cron jobs created by migrations 015 and 018:
 --
---   1. Missing 'apikey' header — Kong key-auth plugin requires it; without it
+--   1. Missing 'apikey' header - Kong key-auth plugin requires it; without it
 --      every cron request gets HTTP 401 from the API gateway.
 --
---   2. 30_000 numeric literal — PostgreSQL does not support underscore digit
+--   2. 30_000 numeric literal - PostgreSQL does not support underscore digit
 --      separators; the resolve-uris job failed with a syntax error on every run.
 --
---   3. Vault secret references — original migrations reference vault secrets
+--   3. Vault secret references - original migrations reference vault secrets
 --      but never create them. This migration adds 'service_role_key' to the
 --      vault lookup set and assumes vault-setup.sql has run (via migrate container).
 --
