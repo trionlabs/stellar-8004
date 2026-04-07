@@ -68,11 +68,8 @@ export function toBigInt(val: unknown, fieldName: string): bigint {
 
 /**
  * Validates that a string is a Stellar address - either an Ed25519 account ID
- * (G...) or a contract address (C...).
- *
- * Audit finding B2: this function used to reject contract addresses outright,
- * which silently dropped events from smart-wallet agents (passkey kits, MPC,
- * etc.). The contract code itself accepts any Address, so the parser must too.
+ * (G...) or a contract address (C...). Smart-wallet agents are addressed with
+ * C... so the parser must accept both forms.
  */
 export function isValidStellarAddress(address: string): boolean {
   if (typeof address !== 'string' || address.length !== 56) return false;
