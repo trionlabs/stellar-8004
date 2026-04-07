@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Buffer } from 'buffer';
 	import { getClients } from '$lib/sdk-client.js';
+	import { validateTag } from '@trionlabs/8004s-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
@@ -33,6 +34,9 @@
 		errorMsg = '';
 
 		try {
+			validateTag(tag1, 'Tag 1');
+			if (tag2) validateTag(tag2, 'Tag 2');
+
 			// Evidence URI and hash come from the user, not from us.
 			// If the user provides an evidence URI, we hash the URI itself
 			// so the on-chain record links to it. The actual evidence content
