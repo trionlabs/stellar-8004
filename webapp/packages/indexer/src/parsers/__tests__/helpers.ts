@@ -46,11 +46,17 @@ export function mockEvent(opts: {
   topics: unknown[];
   data?: Record<string, unknown>;
   typeHints?: Record<string, ScValTypeHint>;
+  // Per-index type hints for topics. Needed for u64 topics like
+  // feedback_index where we cannot infer the underlying ScVal type from the
+  // JS bigint alone.
+  topicTypeHints?: Record<number, ScValTypeHint>;
   ledger?: number;
   txHash?: string;
   contractId?: string;
 }): EventResponse {
-  const topic = opts.topics.map((value) => toScVal(value));
+  const topic = opts.topics.map((value, idx) =>
+    toScVal(value, opts.topicTypeHints?.[idx]),
+  );
   const payload = buildDataScVal(opts.data, opts.typeHints);
 
   return {

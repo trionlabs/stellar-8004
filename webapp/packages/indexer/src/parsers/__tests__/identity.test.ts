@@ -66,10 +66,11 @@ describe('parseIdentityEvent', () => {
     );
   });
 
-  it('parses MetadataSet events', () => {
+  it('parses MetadataSet events with key as topic', () => {
+    // Spec compliance pass: `key` is now an indexed topic at index 2.
     const event = mockEvent({
-      topics: ['metadata_set', 1],
-      data: { key: 'category', value: textEncoder.encode('defi') },
+      topics: ['metadata_set', 1, 'category'],
+      data: { value: textEncoder.encode('defi') },
     });
 
     const result = parseIdentityEvent(event);
@@ -84,34 +85,40 @@ describe('parseIdentityEvent', () => {
     );
   });
 
-  it('parses WalletSet events', () => {
+  it('parses AgentWalletSet events with all three indexed topics', () => {
+    // Spec compliance pass: ERC-8004 AgentWalletSet has agent_id, new_wallet
+    // and set_by all as indexed topics.
+    const setBy = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
     const event = mockEvent({
-      topics: ['wallet_set', 1],
-      data: { wallet: new Address(MOCK_OWNER) },
+      topics: ['agent_wallet_set', 1, new Address(MOCK_OWNER), new Address(setBy)],
     });
 
     const result = parseIdentityEvent(event);
 
     expect(result).toEqual(
       expect.objectContaining({
-        type: 'WalletSet',
+        type: 'AgentWalletSet',
         agentId: 1,
-        wallet: MOCK_OWNER,
+        newWallet: MOCK_OWNER,
+        setBy,
       }),
     );
   });
 
-  it('parses WalletRemoved events with void data', () => {
+  it('parses AgentWalletUnset events with set_by topic', () => {
+    // Soroban-only companion event for the unset case (no zero-address
+    // sentinel in Soroban).
     const event = mockEvent({
-      topics: ['wallet_removed', 1],
+      topics: ['agent_wallet_unset', 1, new Address(MOCK_OWNER)],
     });
 
     const result = parseIdentityEvent(event);
 
     expect(result).toEqual(
       expect.objectContaining({
-        type: 'WalletRemoved',
+        type: 'AgentWalletUnset',
         agentId: 1,
+        setBy: MOCK_OWNER,
       }),
     );
   });
