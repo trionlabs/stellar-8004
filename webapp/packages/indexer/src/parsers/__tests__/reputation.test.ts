@@ -13,14 +13,15 @@ const MOCK_RESPONDER = new Address(
 );
 
 describe('parseReputationEvent', () => {
-  it('parses NewFeedback events with i128 values', () => {
+  it('parses NewFeedback events with tag1 as topic[3]', () => {
+    // Spec compliance pass: `tag1` is now an indexed topic so subscribers
+    // can filter by tag on-chain.
     const event = mockEvent({
-      topics: ['new_feedback', 1, MOCK_CLIENT],
+      topics: ['new_feedback', 1, MOCK_CLIENT, 'starred'],
       data: {
         feedback_index: 1n,
         value: 85n,
         value_decimals: 0,
-        tag1: 'starred',
         tag2: '',
         endpoint: 'https://agent.example.com',
         feedback_uri: 'ipfs://QmFeedback',
@@ -47,12 +48,11 @@ describe('parseReputationEvent', () => {
 
   it('parses NewFeedback events with negative i128 values', () => {
     const event = mockEvent({
-      topics: ['new_feedback', 2, MOCK_CLIENT],
+      topics: ['new_feedback', 2, MOCK_CLIENT, ''],
       data: {
         feedback_index: 1n,
         value: -50n,
         value_decimals: 2,
-        tag1: '',
         tag2: '',
         endpoint: '',
         feedback_uri: '',
@@ -67,11 +67,12 @@ describe('parseReputationEvent', () => {
     expect(result && 'value' in result ? result.value : undefined).toBe(-50n);
   });
 
-  it('parses FeedbackRevoked events', () => {
+  it('parses FeedbackRevoked events with feedback_index as topic[3]', () => {
+    // Spec compliance pass: feedback_index is now an indexed topic and the
+    // event body is empty (all three fields are topics).
     const event = mockEvent({
-      topics: ['feedback_revoked', 1, MOCK_CLIENT],
-      data: { feedback_index: 3n },
-      typeHints: { feedback_index: 'u64' },
+      topics: ['feedback_revoked', 1, MOCK_CLIENT, 3n],
+      topicTypeHints: { 3: 'u64' },
     });
 
     const result = parseReputationEvent(event);
@@ -86,11 +87,12 @@ describe('parseReputationEvent', () => {
     );
   });
 
-  it("reads ResponseAppended.clientAddress from topic[2]", () => {
+  it('parses ResponseAppended with responder as topic[3]', () => {
+    // Spec compliance pass: `responder` is now an indexed topic so off-chain
+    // consumers can filter by responder identity on-chain.
     const event = mockEvent({
-      topics: ['response_appended', 1, MOCK_CLIENT],
+      topics: ['response_appended', 1, MOCK_CLIENT, MOCK_RESPONDER],
       data: {
-        responder: MOCK_RESPONDER,
         feedback_index: 1n,
         response_uri: 'ipfs://QmResponse',
         response_hash: new Uint8Array(32).fill(0xcd),
@@ -112,9 +114,8 @@ describe('parseReputationEvent', () => {
     expect(result).not.toHaveProperty('responseIndex');
   });
 
-  it('returns null when ResponseAppended is missing responder', () => {
-    // Was a throw before; now wrapped in the outer try/catch so a malformed
-    // event from the RPC cannot crash the indexer's per-batch processing.
+  it('returns null when ResponseAppended topics are too short to carry responder', () => {
+    // Topic length must be >= 4 now that responder is at index 3.
     const event = mockEvent({
       topics: ['response_appended', 1, MOCK_CLIENT],
       data: {

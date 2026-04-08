@@ -173,24 +173,31 @@ export async function writeIdentityEvent(
       break;
     }
 
-    case 'WalletSet': {
-      if (event.agentId == null || !event.wallet) {
-        logMalformedEvent('identity', 'WalletSet', event);
+    case 'AgentWalletSet': {
+      // Spec compliance pass: ERC-8004 `AgentWalletSet(agentId, newWallet, setBy)`.
+      // Renamed from `WalletSet` and the wallet field is now `newWallet`.
+      // We do not currently persist `setBy` - subscribers can read it from the
+      // raw event topic if they need to filter by initiator.
+      if (event.agentId == null || !event.newWallet) {
+        logMalformedEvent('identity', 'AgentWalletSet', event);
         return;
       }
 
       const result = await db
         .from('agents')
-        .update({ wallet: event.wallet })
+        .update({ wallet: event.newWallet })
         .eq('id', event.agentId);
 
       assertNoError(result, `[identity] failed to set wallet for agent ${event.agentId}`);
       break;
     }
 
-    case 'WalletRemoved': {
+    case 'AgentWalletUnset': {
+      // Soroban-only companion to AgentWalletSet for the unset case.
+      // Renamed from `WalletRemoved`. The contract emits this in place of the
+      // EVM `AgentWalletSet(agentId, address(0), setBy)` pattern.
       if (event.agentId == null) {
-        logMalformedEvent('identity', 'WalletRemoved', event);
+        logMalformedEvent('identity', 'AgentWalletUnset', event);
         return;
       }
 
@@ -297,9 +304,11 @@ export async function writeValidationEvent(
   event: ValidationEvent,
 ): Promise<void> {
   switch (event.type) {
-    case 'ValidationRequested': {
+    case 'ValidationRequest': {
+      // Spec compliance pass: renamed from `ValidationRequested` to match
+      // the ERC-8004 `ValidationRequest` event name (no past-tense suffix).
       if (!event.requestHash || event.agentId == null || !event.validatorAddress) {
-        logMalformedEvent('validation', 'ValidationRequested', event);
+        logMalformedEvent('validation', 'ValidationRequest', event);
         return;
       }
 
@@ -322,9 +331,13 @@ export async function writeValidationEvent(
       break;
     }
 
-    case 'ValidationResponded': {
+    case 'ValidationResponse': {
+      // Spec compliance pass: renamed from `ValidationResponded`. The Jan 2026
+      // spec also makes this event progressive (callable multiple times by the
+      // original validator), so the upsert pattern below intentionally
+      // overwrites prior response state instead of rejecting duplicates.
       if (!event.requestHash || event.response == null) {
-        logMalformedEvent('validation', 'ValidationResponded', event);
+        logMalformedEvent('validation', 'ValidationResponse', event);
         return;
       }
 

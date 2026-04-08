@@ -33,18 +33,26 @@ export interface MetadataSetEvent {
   txHash: string;
 }
 
-export interface WalletSetEvent {
-  type: 'WalletSet';
+/// ERC-8004 spec event: AgentWalletSet { agentId, newWallet, setBy }.
+/// All three fields are indexed in the spec. Renamed from WalletSet in the
+/// spec compliance pass.
+export interface AgentWalletSetEvent {
+  type: 'AgentWalletSet';
   agentId: number;
-  wallet: string;
+  newWallet: string;
+  setBy: string;
   ledger: number;
   ledgerClosedAt: string;
   txHash: string;
 }
 
-export interface WalletRemovedEvent {
-  type: 'WalletRemoved';
+/// Soroban-only companion to AgentWalletSet for the unset case. The spec
+/// uses AgentWalletSet(agentId, address(0), setBy) but Soroban has no
+/// zero-address sentinel, so the unset operation gets its own event.
+export interface AgentWalletUnsetEvent {
+  type: 'AgentWalletUnset';
   agentId: number;
+  setBy: string;
   ledger: number;
   ledgerClosedAt: string;
   txHash: string;
@@ -54,8 +62,8 @@ export type IdentityEvent =
   | RegisteredEvent
   | UriUpdatedEvent
   | MetadataSetEvent
-  | WalletSetEvent
-  | WalletRemovedEvent;
+  | AgentWalletSetEvent
+  | AgentWalletUnsetEvent;
 
 export function parseIdentityEvent(
   event: rpc.Api.GetEventsResponse['events'][number],
@@ -116,33 +124,52 @@ function parseIdentityEventInner(
     }
 
     case 'metadata_set': {
+      // Spec compliance pass: `key` is now an indexed topic on the
+      // contractevent struct. The value still travels in the event body.
+      if (event.topic.length < 3) return null;
+      const key = String(scValToNative(event.topic[2]));
       const data = parseEventData(scValToNative(event.value));
 
       return {
         type: 'MetadataSet',
         ...base,
-        key: String(data.key ?? ''),
+        key,
         value: bytesToUtf8(data.value),
       };
     }
 
-    case 'wallet_set': {
-      const data = parseEventData(scValToNative(event.value));
-      const wallet = String(data.wallet ?? '');
-      if (!isValidStellarAddress(wallet)) return null;
+    case 'agent_wallet_set': {
+      // Spec compliance: ERC-8004 `AgentWalletSet(agentId, newWallet, setBy)`
+      // with all three indexed. We renamed from `wallet_set` and added the
+      // `set_by` topic so off-chain consumers can filter by initiator.
+      if (event.topic.length < 4) return null;
+      const newWallet = String(scValToNative(event.topic[2]));
+      if (!isValidStellarAddress(newWallet)) return null;
+      const setBy = String(scValToNative(event.topic[3]));
+      if (!isValidStellarAddress(setBy)) return null;
 
       return {
-        type: 'WalletSet',
+        type: 'AgentWalletSet',
         ...base,
-        wallet,
+        newWallet,
+        setBy,
       };
     }
 
-    case 'wallet_removed':
+    case 'agent_wallet_unset': {
+      // Soroban-only companion to AgentWalletSet for the unset case.
+      // The spec uses AgentWalletSet(agentId, address(0), setBy) but Soroban
+      // has no zero-address sentinel, so we emit a separate event.
+      if (event.topic.length < 3) return null;
+      const setBy = String(scValToNative(event.topic[2]));
+      if (!isValidStellarAddress(setBy)) return null;
+
       return {
-        type: 'WalletRemoved',
+        type: 'AgentWalletUnset',
         ...base,
+        setBy,
       };
+    }
 
     default:
       return null;

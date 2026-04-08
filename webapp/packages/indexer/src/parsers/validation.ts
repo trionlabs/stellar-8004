@@ -3,8 +3,11 @@ import type { rpc } from '@stellar/stellar-sdk';
 
 import { isValidStellarAddress, parseEventData, toHex } from '../helpers.js';
 
-export interface ValidationRequestedEvent {
-  type: 'ValidationRequested';
+// Spec compliance pass: ERC-8004 spec event names are `ValidationRequest` and
+// `ValidationResponse` (no past-tense suffix). Renamed from the previous
+// `ValidationRequested` / `ValidationResponded` to match.
+export interface ValidationRequestEvent {
+  type: 'ValidationRequest';
   validatorAddress: string;
   agentId: number;
   requestHash: string;
@@ -14,8 +17,8 @@ export interface ValidationRequestedEvent {
   txHash: string;
 }
 
-export interface ValidationRespondedEvent {
-  type: 'ValidationResponded';
+export interface ValidationResponseEvent {
+  type: 'ValidationResponse';
   validatorAddress: string;
   agentId: number;
   requestHash: string;
@@ -29,8 +32,8 @@ export interface ValidationRespondedEvent {
 }
 
 export type ValidationEvent =
-  | ValidationRequestedEvent
-  | ValidationRespondedEvent;
+  | ValidationRequestEvent
+  | ValidationResponseEvent;
 
 export function parseValidationEvent(
   event: rpc.Api.GetEventsResponse['events'][number],
@@ -47,54 +50,52 @@ export function parseValidationEvent(
 function parseValidationEventInner(
   event: rpc.Api.GetEventsResponse['events'][number],
 ): ValidationEvent | null {
-  if (!event.topic || event.topic.length < 3) return null;
+  if (!event.topic || event.topic.length < 4) return null;
 
   const eventName = scValToNative(event.topic[0]) as string;
   const validatorAddress = String(scValToNative(event.topic[1]));
   if (!isValidStellarAddress(validatorAddress)) return null;
   const agentId = Number(scValToNative(event.topic[2]));
   if (!Number.isSafeInteger(agentId) || agentId < 0) return null;
+  // Spec compliance pass: `request_hash` is now an indexed topic at index 3.
+  const requestHash = toHex(scValToNative(event.topic[3]));
+  if (requestHash.length !== 64) return null;
 
   const base = {
     validatorAddress,
     agentId,
+    requestHash,
     ledger: event.ledger,
     ledgerClosedAt: event.ledgerClosedAt,
     txHash: event.txHash,
   };
 
   switch (eventName) {
-    case 'validation_requested': {
+    case 'validation_request': {
       const data = parseEventData(scValToNative(event.value));
-      const requestHash = toHex(data.request_hash);
-      if (requestHash.length !== 64) return null;
 
       return {
-        type: 'ValidationRequested',
+        type: 'ValidationRequest',
         ...base,
-        requestHash,
         requestUri: String(data.request_uri ?? ''),
       };
     }
 
-    case 'validation_responded': {
+    case 'validation_response': {
       const data = parseEventData(scValToNative(event.value));
 
       if (data.response == null) {
-        throw new TypeError('ValidationResponded: response field missing');
+        throw new TypeError('ValidationResponse: response field missing');
       }
 
-      const requestHash = toHex(data.request_hash);
-      if (requestHash.length !== 64) return null;
       const response = Number(data.response);
       if (!Number.isInteger(response) || response < 0 || response > 100) {
         return null;
       }
 
       return {
-        type: 'ValidationResponded',
+        type: 'ValidationResponse',
         ...base,
-        requestHash,
         response,
         responseUri: String(data.response_uri ?? ''),
         responseHash: toHex(data.response_hash),
