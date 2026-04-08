@@ -196,27 +196,42 @@ function parseIdentityEvent(
 			};
 		}
 		case 'metadata_set': {
+			// Spec compliance pass: `key` is now an indexed topic at index 2.
+			if (topic.length < 3) return null;
 			const agentId = Number(StellarSdk.scValToNative(topic[1]));
+			const key = String(StellarSdk.scValToNative(topic[2]));
 			return {
 				type: 'MetadataSet',
 				contractName: 'identity',
-				data: { agentId, key: String(data.key ?? ''), value: data.value, ...base },
+				data: { agentId, key, value: data.value, ...base },
 			};
 		}
-		case 'wallet_set': {
+		case 'agent_wallet_set': {
+			// Spec compliance pass: ERC-8004 AgentWalletSet has all three
+			// fields indexed (agent_id, new_wallet, set_by). Renamed from
+			// wallet_set.
+			if (topic.length < 4) return null;
 			const agentId = Number(StellarSdk.scValToNative(topic[1]));
+			const newWallet = String(StellarSdk.scValToNative(topic[2]));
+			if (!isValidAddress(newWallet)) return null;
+			const setBy = String(StellarSdk.scValToNative(topic[3]));
 			return {
-				type: 'WalletSet',
+				type: 'AgentWalletSet',
 				contractName: 'identity',
-				data: { agentId, wallet: String(data.wallet ?? ''), ...base },
+				data: { agentId, newWallet, setBy, ...base },
 			};
 		}
-		case 'wallet_removed': {
+		case 'agent_wallet_unset': {
+			// Soroban-only companion to AgentWalletSet for the unset case
+			// (no zero-address sentinel in Soroban). Renamed from
+			// wallet_removed.
+			if (topic.length < 3) return null;
 			const agentId = Number(StellarSdk.scValToNative(topic[1]));
+			const setBy = String(StellarSdk.scValToNative(topic[2]));
 			return {
-				type: 'WalletRemoved',
+				type: 'AgentWalletUnset',
 				contractName: 'identity',
-				data: { agentId, ...base },
+				data: { agentId, setBy, ...base },
 			};
 		}
 		default:
@@ -232,9 +247,12 @@ function parseReputationEvent(
 ): ParsedEvent | null {
 	switch (eventName) {
 		case 'new_feedback': {
+			// Spec compliance pass: `tag1` is now an indexed topic at index 3.
+			if (topic.length < 4) return null;
 			const agentId = Number(StellarSdk.scValToNative(topic[1]));
 			const clientAddress = String(StellarSdk.scValToNative(topic[2]));
 			if (!isValidAddress(clientAddress)) return null;
+			const tag1 = String(StellarSdk.scValToNative(topic[3]));
 			return {
 				type: 'NewFeedback',
 				contractName: 'reputation',
@@ -244,7 +262,7 @@ function parseReputationEvent(
 					feedbackIndex: Number(data.feedback_index ?? 0),
 					value: data.value,
 					valueDecimals: Number(data.value_decimals ?? 0),
-					tag1: String(data.tag1 ?? ''),
+					tag1,
 					tag2: String(data.tag2 ?? ''),
 					endpoint: String(data.endpoint ?? ''),
 					feedbackUri: String(data.feedback_uri ?? ''),
@@ -254,24 +272,33 @@ function parseReputationEvent(
 			};
 		}
 		case 'feedback_revoked': {
+			// Spec compliance pass: `feedback_index` is now an indexed topic
+			// at index 3. The event body is empty.
+			if (topic.length < 4) return null;
 			const agentId = Number(StellarSdk.scValToNative(topic[1]));
 			const clientAddress = String(StellarSdk.scValToNative(topic[2]));
+			const feedbackIndex = Number(StellarSdk.scValToNative(topic[3]));
 			return {
 				type: 'FeedbackRevoked',
 				contractName: 'reputation',
-				data: { agentId, clientAddress, feedbackIndex: Number(data.feedback_index ?? 0), ...base },
+				data: { agentId, clientAddress, feedbackIndex, ...base },
 			};
 		}
 		case 'response_appended': {
+			// Spec compliance pass: `responder` is now an indexed topic at
+			// index 3.
+			if (topic.length < 4) return null;
 			const agentId = Number(StellarSdk.scValToNative(topic[1]));
 			const clientAddress = String(StellarSdk.scValToNative(topic[2]));
+			const responder = String(StellarSdk.scValToNative(topic[3]));
+			if (!isValidAddress(responder)) return null;
 			return {
 				type: 'ResponseAppended',
 				contractName: 'reputation',
 				data: {
 					agentId,
 					clientAddress,
-					responder: String(data.responder ?? ''),
+					responder,
 					feedbackIndex: Number(data.feedback_index ?? 0),
 					responseUri: String(data.response_uri ?? ''),
 					responseHash: data.response_hash ? toHex(data.response_hash) : '',
@@ -291,35 +318,43 @@ function parseValidationEvent(
 	base: { ledger: number; ledgerClosedAt: string; txHash: string }
 ): ParsedEvent | null {
 	switch (eventName) {
-		case 'validation_requested': {
+		case 'validation_request': {
+			// Spec compliance pass: renamed from `validation_requested`.
+			// `request_hash` is now an indexed topic at index 3.
+			if (topic.length < 4) return null;
 			const validatorAddress = String(StellarSdk.scValToNative(topic[1]));
 			const agentId = Number(StellarSdk.scValToNative(topic[2]));
 			if (!isValidAddress(validatorAddress)) return null;
+			const requestHash = toHex(StellarSdk.scValToNative(topic[3]));
 			return {
-				type: 'ValidationRequested',
+				type: 'ValidationRequest',
 				contractName: 'validation',
 				data: {
 					validatorAddress,
 					agentId,
-					requestHash: data.request_hash ? toHex(data.request_hash) : '',
+					requestHash,
 					requestUri: String(data.request_uri ?? ''),
 					...base,
 				},
 			};
 		}
-		case 'validation_responded': {
+		case 'validation_response': {
+			// Spec compliance pass: renamed from `validation_responded`.
+			// `request_hash` is now an indexed topic at index 3.
+			if (topic.length < 4) return null;
 			const validatorAddress = String(StellarSdk.scValToNative(topic[1]));
 			const agentId = Number(StellarSdk.scValToNative(topic[2]));
 			if (!isValidAddress(validatorAddress)) return null;
+			const requestHash = toHex(StellarSdk.scValToNative(topic[3]));
 			const response = Number(data.response);
 			if (!Number.isInteger(response) || response < 0 || response > 100) return null;
 			return {
-				type: 'ValidationResponded',
+				type: 'ValidationResponse',
 				contractName: 'validation',
 				data: {
 					validatorAddress,
 					agentId,
-					requestHash: data.request_hash ? toHex(data.request_hash) : '',
+					requestHash,
 					response,
 					responseUri: String(data.response_uri ?? ''),
 					responseHash: data.response_hash ? toHex(data.response_hash) : '',
@@ -381,15 +416,19 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 			}, 'id');
 			break;
 
-		case 'WalletSet':
+		case 'AgentWalletSet':
+			// Spec compliance pass: renamed from WalletSet. Field renamed to
+			// `newWallet` to match the contract event struct.
 			await supabasePost('agents', {
 				id: d.agentId,
-				wallet: d.wallet,
+				wallet: d.newWallet,
 				updated_at: d.ledgerClosedAt,
 			}, 'id');
 			break;
 
-		case 'WalletRemoved':
+		case 'AgentWalletUnset':
+			// Spec compliance pass: renamed from WalletRemoved. The unset case
+			// is its own event in Soroban (no zero-address sentinel).
 			await supabasePost('agents', {
 				id: d.agentId,
 				wallet: null,
@@ -428,7 +467,8 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 			});
 			break;
 
-		case 'ValidationRequested':
+		case 'ValidationRequest':
+			// Spec compliance pass: renamed from ValidationRequested.
 			await supabasePost('validations', {
 				request_hash: d.requestHash,
 				agent_id: d.agentId,
@@ -439,7 +479,7 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 			}, 'request_hash');
 			break;
 
-		case 'ValidationResponded':
+		case 'ValidationResponse':
 			await fetch(`${SUPABASE_URL}/rest/v1/validations?request_hash=eq.${d.requestHash}`, {
 				method: 'PATCH',
 				headers: {

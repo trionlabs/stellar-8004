@@ -4,8 +4,8 @@ export {
   type RegisteredEvent,
   type UriUpdatedEvent,
   type MetadataSetEvent,
-  type WalletSetEvent,
-  type WalletRemovedEvent,
+  type AgentWalletSetEvent,
+  type AgentWalletUnsetEvent,
 } from './identity.js';
 
 export {
@@ -19,6 +19,6 @@ export {
 export {
   parseValidationEvent,
   type ValidationEvent,
-  type ValidationRequestedEvent,
-  type ValidationRespondedEvent,
+  type ValidationRequestEvent,
+  type ValidationResponseEvent,
 } from './validation.js';
