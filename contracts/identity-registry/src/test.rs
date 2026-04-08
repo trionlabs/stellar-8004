@@ -52,6 +52,31 @@ fn test_register_with_uri() {
 }
 
 #[test]
+fn test_token_uri_returns_agent_uri() {
+    // ERC-8004 inherits IERC721Metadata. Cross-chain consumers calling
+    // `tokenURI(agentId)` per the standard interface MUST get the agent's
+    // URI back, not the OZ default of `base_uri + token_id` (which is
+    // empty for us). The IdentityBase override on token_uri exists to
+    // satisfy this; this test pins the behavior so a future refactor
+    // cannot silently break the IERC721Metadata contract surface.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let uri = String::from_str(&env, "https://example.com/agent.json");
+
+    client.register_with_uri(&user, &uri);
+    assert_eq!(client.token_uri(&0), uri);
+
+    // An agent registered without a URI should still return an empty
+    // string from `token_uri` rather than panic, matching the behavior
+    // of `agent_uri`'s `Option::None` -> empty fallback in the override.
+    let user2 = Address::generate(&env);
+    client.register(&user2);
+    assert_eq!(client.token_uri(&1), String::from_str(&env, ""));
+}
+
+#[test]
 fn test_register_full() {
     let env = Env::default();
     env.mock_all_auths();
