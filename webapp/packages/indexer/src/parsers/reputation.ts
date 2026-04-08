@@ -8,6 +8,15 @@ import {
   toHex,
 } from '../helpers.js';
 
+// scValToNative coerces scvU64 / scvI64 / scvU32 to JS number when the
+// value fits in MAX_SAFE_INTEGER and to bigint otherwise. The reputation
+// indexer feedback_index is u64 in Rust so we accept either at the parser
+// boundary.
+function topicToBigInt(topic: unknown, fieldName: string): bigint {
+  const native = scValToNative(topic as never);
+  return toBigInt(native, fieldName);
+}
+
 export interface NewFeedbackEvent {
   type: 'NewFeedback';
   agentId: number;
@@ -86,6 +95,9 @@ function parseReputationEventInner(
 
   switch (eventName) {
     case 'new_feedback': {
+      // Spec compliance pass: `tag1` is now an indexed topic at index 3.
+      if (event.topic.length < 4) return null;
+      const tag1 = String(scValToNative(event.topic[3]));
       const data = parseEventData(scValToNative(event.value));
       const feedbackIndex = toBigInt(data.feedback_index, 'feedback_index');
       if (feedbackIndex < 1n) return null;
@@ -100,7 +112,7 @@ function parseReputationEventInner(
         feedbackIndex,
         value: toBigInt(data.value, 'value'),
         valueDecimals,
-        tag1: String(data.tag1 ?? ''),
+        tag1,
         tag2: String(data.tag2 ?? ''),
         endpoint: String(data.endpoint ?? ''),
         feedbackUri: String(data.feedback_uri ?? ''),
@@ -109,8 +121,10 @@ function parseReputationEventInner(
     }
 
     case 'feedback_revoked': {
-      const data = parseEventData(scValToNative(event.value));
-      const feedbackIndex = toBigInt(data.feedback_index, 'feedback_index');
+      // Spec compliance pass: `feedback_index` is now an indexed topic at
+      // index 3. The event body is empty (all fields are topics).
+      if (event.topic.length < 4) return null;
+      const feedbackIndex = topicToBigInt(event.topic[3], 'feedback_index');
       if (feedbackIndex < 1n) return null;
 
       return {
@@ -121,14 +135,13 @@ function parseReputationEventInner(
     }
 
     case 'response_appended': {
-      const data = parseEventData(scValToNative(event.value));
-
-      if (data.responder == null) {
-        throw new TypeError('ResponseAppended: responder field missing');
-      }
-
-      const responder = String(data.responder);
+      // Spec compliance pass: `responder` is now an indexed topic at index 3
+      // so off-chain consumers can filter by responder identity on-chain.
+      if (event.topic.length < 4) return null;
+      const responder = String(scValToNative(event.topic[3]));
       if (!isValidStellarAddress(responder)) return null;
+
+      const data = parseEventData(scValToNative(event.value));
       const feedbackIndex = toBigInt(data.feedback_index, 'feedback_index');
       if (feedbackIndex < 1n) return null;
 
