@@ -114,10 +114,10 @@ Comparison against the canonical reference at [`ChaosChain/trustless-agents-erc-
 | Registry | Spec Functions | Implemented | Partial / Missing |
 |----------|----------------|-------------|-------------------|
 | Identity | 11 | 11 | - |
-| Reputation | 10 | 9 (+1 in SDK) | `getResponseCount` partial (no `responders[]` filter); `readAllFeedback` in SDK |
+| Reputation | 10 | 9 | `getResponseCount` partial (no `responders[]` filter); `readAllFeedback` intentionally not on-chain - iterating all feedback would exceed Soroban's per-tx read budget. The explorer indexer exposes a paginated `/api/v1/agents/:id/feedback` HTTP endpoint that the `@trionlabs/8004-sdk` `ExplorerClient.getFeedback()` wraps. |
 | Validation | 9 | 8 | `getRequest` missing (would require storing `requestURI` on-chain) |
 
-Plus Soroban-only additions: `extend_ttl`, `upgrade`, `version`, `find_owner` on each contract; `agent_exists` on identity for cross-contract use.
+Plus Soroban-only additions: `extend_ttl`, `upgrade`, `version`, `find_owner` on each contract; `agent_exists`, `total_agents` on identity for cross-contract / spec parity; `request_exists` on validation for spec parity. The identity registry also overrides `token_uri` so the inherited `IERC721Metadata.tokenURI(agentId)` returns the agent's URI instead of the OZ default `base_uri + token_id` (which is empty for us).
 
 ## Differences from the EVM Reference
 
@@ -127,13 +127,14 @@ Soroban is not EVM-compatible. Below is the full delta against the canonical ref
 
 - `setAgentWallet` uses Soroban's native `require_auth()` on both caller and new wallet instead of EIP-712 / ERC-1271 signatures. Simpler, handles replay protection and domain separation natively. Smart-wallet contracts must implement `__check_auth` (Stellar's equivalent of ERC-1271). The trade-off: no offline pre-signed binding flow - both wallets must sign in the same transaction envelope.
 - `getClients`, `getAgentValidations`, `getValidatorRequests` are paginated as `*_paginated(start, limit)`. Soroban has a per-transaction read limit (~100 entries), so unbounded array returns are not possible.
-- `readAllFeedback` moved to TypeScript SDK. Iterating all feedback on-chain would exceed Soroban resource limits for any agent with significant history.
+- `readAllFeedback` is not implemented on-chain. Iterating all feedback would exceed Soroban resource limits for any agent with significant history. The explorer indexer's `/api/v1/agents/:id/feedback` HTTP endpoint covers the same use case off-chain (paginated, tag-filterable) and is wrapped by `ExplorerClient.getFeedback()` in the TypeScript SDK.
 - `getSummary` accepts an empty `clientAddresses` array as a shortcut for the agent-wide pre-computed aggregate. The spec requires non-empty; we are more permissive.
 - `getSummary` with an explicit client list is hard-capped at 5 clients (`MAX_SUMMARY_CLIENTS`). Soroban's per-tx storage read budget would otherwise blow up on larger lists.
 - Three named registers (`register`, `register_with_uri`, `register_full`) instead of Solidity overloading - Soroban has no overloading.
 - Wallet AND all metadata cleared on NFT transfer via `ContractOverrides` trait. The spec only mandates clearing the `agentWallet` reserved key; we go further by clearing the full metadata set, since metadata represents claims authored by the previous owner.
-- `appendResponse` matches the Jan 2026 spec: callable by anyone, no owner-only restriction. Off-chain consumers filter responses by responder identity.
-- `validationResponse` matches the Jan 2026 spec: callable multiple times per `requestHash` for progressive states. Only the original validator can update.
+- `giveFeedback` matches the Jan 2026 spec: any caller may submit feedback for any registered agent, including the agent owner themselves. The pre-authorization mechanism (`feedbackAuth`) and the self-feedback restriction were both removed in the Jan 2026 update because they handed an attack surface to owners (silent revocation) for little gain. **Spam, Sybil, and self-puffing resistance are explicitly the responsibility of off-chain consumers.** Our explorer enforces this in `webapp/supabase/migrations/030_leaderboard_filter_self_feedback.sql` by excluding rows where `client_address = agents.owner` from the leaderboard scoring view. Any third-party consumer subscribing directly to the contract events MUST apply an equivalent filter or it will be vulnerable to owner self-inflation. The deprecated `SelfFeedback` error variant is retained at error code `1` for binding ABI stability but is never raised.
+- `appendResponse` matches the Jan 2026 spec: callable by anyone, no owner-only restriction. Off-chain consumers filter responses by responder identity (the `responder` field is an indexed event topic in our `ResponseAppended`).
+- `validationResponse` matches the Jan 2026 spec: callable multiple times per `requestHash` for progressive states. Only the original validator can update. The deprecated `AlreadyResponded` error variant is retained at error code `6` for binding ABI stability but is never raised.
 
 **Storage optimizations:**
 
@@ -157,8 +158,21 @@ Soroban is not EVM-compatible. Below is the full delta against the canonical ref
 
 - All function names are snake_case (`set_agent_uri`, `give_feedback`, `validation_request`) per Rust convention; spec uses camelCase.
 - Wallet events are split into `AgentWalletSet { agent_id, new_wallet, set_by }` (set/update) and `AgentWalletUnset { agent_id, set_by }` (unset). The spec uses a single `AgentWalletSet` event with `address(0)` as the unset sentinel; Soroban has no zero-address sentinel so the unset case is its own event. Cross-chain subscribers reading the spec event need to also listen for `AgentWalletUnset`.
+- Validation events use the spec names `ValidationRequest` / `ValidationResponse` (not the past-tense `ValidationRequested` / `ValidationResponded` we shipped originally). Renamed in the spec compliance pass.
 - `MetadataEntry` field names use `key`, `value` instead of spec's `metadataKey`, `metadataValue`.
 - Soroban events emit each indexed string field once with the literal value as a topic. Solidity events emit indexed string fields twice (once as `keccak256` topic, once as the literal data). For our `MetadataSet`, `NewFeedback.tag1` etc., the topic is the unhashed Soroban string - more direct for Soroban subscribers but structurally different from the spec's hashed-topic + literal-data pattern.
+
+**Event topic alignment with the Jan 2026 spec:**
+
+The following fields were promoted to indexed event topics during the spec compliance pass so off-chain subscribers can filter on-chain. Any consumer that was reading the prior event shape needs to update their parser - the value moved from the Map-encoded data body into the topic list:
+
+- `MetadataSet`: `key` is now an indexed topic at index 2.
+- `NewFeedback`: `tag1` is now an indexed topic at index 3 (matches the spec's `indexedTag1`).
+- `FeedbackRevoked`: `feedback_index` is now an indexed topic at index 3, making all three fields indexed and the data body empty.
+- `ResponseAppended`: `responder` is now an indexed topic at index 3.
+- `ValidationRequest` / `ValidationResponse`: `request_hash` is now an indexed topic at index 3.
+
+The `webapp/packages/indexer` parsers and `scripts/backfill-events.ts` were updated to read from these topic positions. A historical re-index from the deploy ledger uses the new parsers and works against the redeployed contracts; events emitted by older WASM versions cannot be re-parsed without rolling back the parser changes.
 
 **Partial coverage:**
 
@@ -175,8 +189,9 @@ Soroban is not EVM-compatible. Below is the full delta against the canonical ref
 - `agent_exists()` on Identity Registry - boolean variant of `find_owner` matching the spec's `agentExists()` name. Used by cross-contract precondition checks.
 - `total_agents()` on Identity Registry - matches the spec function. Backed by the OZ NFT sequential token id counter.
 - `request_exists()` on Validation Registry - matches the spec function. Wraps the internal storage existence check.
-- Reserved `agentWallet` metadata key is enforced: `set_metadata` and `register_full` reject this key, matching the spec requirement that wallet bindings flow through `set_agent_wallet` only.
-- Empty key / URI rejection on `set_metadata`, `set_agent_uri`, `append_response`, matching the reference impl's `require(bytes(...).length > 0)` checks.
+- `token_uri()` overridden in `IdentityBase` (the `ContractOverrides` impl) to return the per-agent URI from `storage::get_agent_uri`. The OZ default returns `base_uri + token_id` and our base URI is empty, so without this override the standard `IERC721Metadata.tokenURI()` would return an empty string for every agent. The override mirrors what the reference Solidity implementation does in its `_tokenURI` override.
+- Reserved `agentWallet` metadata key is enforced: `set_metadata` and `register_full` reject this key with `IdentityError::ReservedMetadataKey`, matching the spec requirement that wallet bindings flow through `set_agent_wallet` only.
+- Empty key / URI rejection on `set_metadata`, `set_agent_uri`, `append_response` with `IdentityError::EmptyValue` / `ReputationError::EmptyValue`, matching the reference impl's `require(bytes(...).length > 0)` checks.
 - Per-entry size caps on metadata: 64-byte keys, 4096-byte values, 100 keys per agent. Bounds storage growth for the metadata API.
 
 ## Global Agent Identifier
