@@ -25,6 +25,20 @@ impl ContractOverrides for IdentityBase {
         storage::clear_all_metadata(e, token_id);
         Base::transfer_from(e, spender, from, to, token_id);
     }
+
+    /// ERC-8004 inherits IERC721Metadata, which requires `tokenURI(tokenId)`
+    /// to return the agent's URI. The default OZ implementation returns
+    /// `base_uri + token_id`, and our base URI is empty, so without this
+    /// override `token_uri` would return an empty string for every agent.
+    /// The reference Solidity implementation overrides `_tokenURI` to return
+    /// the per-agent URI; we mirror that here so cross-chain consumers
+    /// reading via the standard `IERC721Metadata` interface get a useful
+    /// value. We still panic on a missing token via `Base::owner_of` to
+    /// match the OZ default semantics.
+    fn token_uri(e: &Env, token_id: u32) -> String {
+        let _ = Base::owner_of(e, token_id);
+        storage::get_agent_uri(e, token_id).unwrap_or_else(|| String::from_str(e, ""))
+    }
 }
 
 #[contract]
