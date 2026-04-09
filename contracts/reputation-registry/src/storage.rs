@@ -186,4 +186,3 @@ pub fn increment_response_count(
         .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
     Ok(())
 }
-
