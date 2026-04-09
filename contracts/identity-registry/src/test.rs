@@ -53,12 +53,12 @@ fn test_register_with_uri() {
 
 #[test]
 fn test_token_uri_returns_agent_uri() {
-    // ERC-8004 inherits IERC721Metadata. Cross-chain consumers calling
+    // 8004 spec inherits NFT metadata. Cross-chain consumers calling
     // `tokenURI(agentId)` per the standard interface MUST get the agent's
     // URI back, not the OZ default of `base_uri + token_id` (which is
     // empty for us). The IdentityBase override on token_uri exists to
     // satisfy this; this test pins the behavior so a future refactor
-    // cannot silently break the IERC721Metadata contract surface.
+    // cannot silently break the NFT metadata contract surface.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _) = create_client(&env);
@@ -158,7 +158,7 @@ fn test_set_agent_wallet() {
 
 #[test]
 fn test_register_initializes_agent_wallet_to_caller() {
-    // Spec parity (canonical erc-8004): every register* MUST initialize the
+    // 8004 spec: every register* initializes the
     // reserved `agentWallet` metadata key to the caller's address. The
     // off-chain layer reads this from the MetadataSet event and seeds the
     // explorer DB with `agent_wallet = owner` until the owner explicitly
@@ -557,7 +557,7 @@ fn test_set_metadata_rejects_oversized_value() {
 
 #[test]
 fn test_set_metadata_rejects_reserved_agent_wallet_key() {
-    // ERC-8004 spec: `agentWallet` is a reserved metadata key. It must be
+    // 8004 spec spec: `agentWallet` is a reserved metadata key. It must be
     // settable only via the dedicated `set_agent_wallet` entry point with
     // wallet auth, never through `setMetadata`.
     let env = Env::default();
