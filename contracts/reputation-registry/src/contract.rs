@@ -114,7 +114,7 @@ impl ReputationRegistryContract {
         Ok(())
     }
 
-    /// Callable by anyone per spec.
+    /// Callable by anyone.
     pub fn append_response(
         e: &Env,
         caller: Address,
