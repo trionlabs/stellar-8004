@@ -10,6 +10,8 @@ pub enum ReputationError {
     SelfFeedback = 1,
     FeedbackNotFound = 2,
     InvalidValueDecimals = 3,
+    /// Retained for binding ABI stability. Was returned when
+    /// `append_response` was owner-restricted; now open to anyone per spec.
     NotOwnerOrApproved = 4,
     AggregateOverflow = 5,
     AgentNotFound = 6,
