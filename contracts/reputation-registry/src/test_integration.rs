@@ -75,7 +75,7 @@ fn test_full_lifecycle_with_real_identity() {
     assert_eq!(summary.count, 1);
     assert_eq!(summary.summary_value, 90);
 
-    // Spec parity (canonical erc-8004): the agent owner is REJECTED from
+    // Spec parity (canonical 8004): the agent owner is REJECTED from
     // give_feedback. Self-feedback is enforced on-chain via the identity
     // registry's `is_authorized_or_owner` check.
     let result = rep_client.try_give_feedback(
