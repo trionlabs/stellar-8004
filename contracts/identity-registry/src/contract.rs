@@ -33,7 +33,7 @@ impl ContractOverrides for IdentityBase {
     }
 
     /// Returns per-agent URI instead of OZ default empty string.
-    /// Panics on missing token per ERC-721 spec.
+    /// Panics on missing token per NFT spec.
     fn token_uri(e: &Env, token_id: u32) -> String {
         let _ = Base::owner_of(e, token_id);
         storage::get_agent_uri(e, token_id).unwrap_or_else(|| String::from_str(e, ""))

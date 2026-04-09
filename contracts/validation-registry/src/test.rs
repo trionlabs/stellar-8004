@@ -308,7 +308,7 @@ fn test_response_to_nonexistent_request_fails() {
 
 #[test]
 fn test_progressive_validation_response() {
-    // ERC-8004 spec: validationResponse() is callable multiple times per
+    // 8004 spec: validationResponse() is callable multiple times per
     // requestHash to enable progressive states. The same validator can
     // update their assessment as more evidence arrives. This used to
     // reject the second call which violated the spec.
