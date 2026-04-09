@@ -55,7 +55,7 @@ Requires Rust nightly and the `stellar` CLI.
 cargo install stellar-cli
 
 make build    # Build all contracts to WASM
-make test     # Run all 72 tests (unit + integration + negative)
+make test     # Run all 74 tests (unit + integration + negative)
 make fmt      # Format
 ```
 
