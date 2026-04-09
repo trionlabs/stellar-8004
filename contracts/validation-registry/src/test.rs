@@ -308,10 +308,7 @@ fn test_response_to_nonexistent_request_fails() {
 
 #[test]
 fn test_progressive_validation_response() {
-    // 8004 spec: validationResponse() is callable multiple times per
-    // requestHash to enable progressive states. The same validator can
-    // update their assessment as more evidence arrives. This used to
-    // reject the second call which violated the spec.
+    // Validators can update their response (progressive validation).
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, agent_owner, validator) = setup(&env);
@@ -339,7 +336,7 @@ fn test_progressive_validation_response() {
     assert_eq!(status1.tag, String::from_str(&env, "tentative"));
 
     // Second response from the same validator: revised score 50.
-    // Spec says this MUST succeed (progressive states).
+    // Second call updates the score.
     client.validation_response(
         &validator,
         &hash,
