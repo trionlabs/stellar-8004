@@ -581,6 +581,47 @@ fn test_set_metadata_rejects_reserved_agent_wallet_key() {
 }
 
 #[test]
+fn test_register_full_rejects_excess_metadata_entries() {
+    // register_full must enforce the same MAX_METADATA_KEYS cap as
+    // set_metadata. Without this check, a caller could bypass the cap
+    // and store >100 keys on a single agent, making subsequent
+    // set_metadata calls permanently fail.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+
+    let mut entries = Vec::new(&env);
+    for i in 0..101u32 {
+        let mut buf = [b'k', b'_', 0, 0, 0, 0];
+        let mut n = i;
+        let mut idx = 5usize;
+        if n == 0 {
+            buf[2] = b'0';
+        } else {
+            while n > 0 && idx >= 2 {
+                buf[idx] = b'0' + (n % 10) as u8;
+                n /= 10;
+                idx -= 1;
+            }
+        }
+        let s = core::str::from_utf8(&buf).unwrap().trim_end_matches('\0');
+        entries.push_back(MetadataEntry {
+            key: String::from_str(&env, s),
+            value: Bytes::from_slice(&env, b"v"),
+        });
+    }
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        client.register_full(&user, &String::from_str(&env, "ipfs://x"), &entries)
+    }));
+    assert!(
+        result.is_err(),
+        "register_full with >100 metadata entries must be rejected"
+    );
+}
+
+#[test]
 fn test_register_full_rejects_reserved_agent_wallet_key() {
     // Same constraint as set_metadata: agentWallet cannot be smuggled in
     // through the registration metadata array.

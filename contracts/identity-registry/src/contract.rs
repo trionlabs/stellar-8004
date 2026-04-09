@@ -96,6 +96,10 @@ impl IdentityRegistryContract {
         // Callers must enforce the limits client-side or use `set_metadata`
         // for incremental writes that surface errors cleanly.
         let reserved_wallet_key = agent_wallet_key(e);
+        assert!(
+            metadata.len() <= MAX_METADATA_KEYS,
+            "too many metadata entries"
+        );
         for entry in metadata.iter() {
             assert!(
                 entry.key.len() <= MAX_METADATA_KEY_LEN,
