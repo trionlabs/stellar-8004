@@ -20,23 +20,12 @@ pub struct UriUpdated {
     pub new_uri: String,
 }
 
-/// ERC-8004 spec:
-///   `event MetadataSet(uint256 indexed agentId, string indexed indexedMetadataKey, string metadataKey, bytes metadataValue);`
-///
-/// The canonical reference uses this single event for ALL metadata writes,
-/// including the reserved `agentWallet` key. We mirror that contract: every
-/// wallet write (register, set, unset, transfer-clear) emits a `MetadataSet`
-/// with `key = "agentWallet"` and the StrKey-encoded address bytes (or empty
-/// bytes on unset). There is no dedicated wallet event - this matches the
-/// spec exactly.
+/// All metadata writes (including agentWallet) flow through this event.
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MetadataSet {
     #[topic]
     pub agent_id: u32,
-    /// ERC-8004 spec lists this as an indexed topic so subscribers can filter
-    /// by metadata key on-chain. The same value is also exposed below as a
-    /// data field for ergonomic decoding.
     #[topic]
     pub key: String,
     pub value: Bytes,
