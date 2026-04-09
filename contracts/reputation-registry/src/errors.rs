@@ -14,4 +14,7 @@ pub enum ReputationError {
     EmptyValue = 7,
     ValueOutOfRange = 8,
     ClientAddressesRequired = 9,
+    NoUpgradeProposed = 10,
+    TimelockNotExpired = 11,
+    UpgradeAlreadyProposed = 12,
 }
