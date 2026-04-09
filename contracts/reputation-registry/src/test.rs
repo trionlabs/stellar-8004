@@ -138,11 +138,8 @@ fn test_give_feedback() {
 
 #[test]
 fn test_self_feedback_rejected() {
-    // ERC-8004 spec (canonical erc-8004/erc-8004-contracts): the agent
-    // owner and any approved operator MUST be rejected from `giveFeedback`.
-    // The reference enforces this via `isAuthorizedOrOwner`. Re-anchored
-    // after a previous pass mistakenly removed the check based on the
-    // chaoslabs reference.
+    // 8004 spec: agent owner and approved operators are rejected from
+    // giveFeedback via isAuthorizedOrOwner.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, agent_owner, _) = setup(&env);
@@ -327,7 +324,7 @@ fn test_get_summary_wad_normalization_picks_mode_decimals() {
 
 #[test]
 fn test_get_summary_rejects_empty_client_list() {
-    // Spec parity: the canonical erc-8004 reference REVERTS when called
+    // Spec parity: the canonical 8004 reference REVERTS when called
     // without a client filter. The all-clients aggregate path was a
     // Sybil/spam vector explicitly called out by the spec, and our prior
     // pre-computed aggregate path was a non-spec extension. Now removed.
@@ -447,7 +444,7 @@ fn test_non_submitter_cannot_revoke() {
 
 #[test]
 fn test_anyone_can_append_response() {
-    // ERC-8004 spec: appendResponse() is callable by anyone. The off-chain
+    // 8004 spec: appendResponse() is callable by anyone. The off-chain
     // layer is responsible for filtering responses by responder identity
     // (e.g. only responses from the agent owner are treated as authoritative).
     // This used to be restricted to owner/approved which violated the spec.
