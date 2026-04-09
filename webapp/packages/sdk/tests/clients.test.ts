@@ -44,7 +44,9 @@ describe('createClients', () => {
 				'set_agent_uri', 'agent_uri',
 				'set_metadata', 'get_metadata',
 				'set_agent_wallet', 'get_agent_wallet', 'unset_agent_wallet',
-				'extend_ttl', 'upgrade', 'version',
+				'extend_ttl', 'propose_upgrade', 'cancel_upgrade', 'execute_upgrade', 'pending_upgrade', 'version',
+				'find_owner', 'agent_exists', 'is_authorized_or_owner', 'total_agents',
+				'get_owner', 'transfer_ownership', 'accept_ownership', 'renounce_ownership',
 				'balance', 'owner_of', 'transfer', 'transfer_from',
 				'approve', 'approve_for_all', 'get_approved', 'is_approved_for_all',
 				'name', 'symbol', 'token_uri',
@@ -62,7 +64,9 @@ describe('createClients', () => {
 				'give_feedback', 'revoke_feedback', 'append_response',
 				'read_feedback', 'get_summary',
 				'get_clients_paginated', 'get_last_index', 'get_response_count',
-				'get_identity_registry', 'extend_ttl', 'upgrade', 'version',
+				'get_identity_registry', 'extend_ttl',
+				'propose_upgrade', 'cancel_upgrade', 'execute_upgrade', 'pending_upgrade', 'version',
+				'get_owner', 'transfer_ownership', 'accept_ownership', 'renounce_ownership',
 			];
 			for (const method of expectedMethods) {
 				expect(typeof (reputation as any)[method]).toBe('function');
@@ -75,9 +79,11 @@ describe('createClients', () => {
 			const { validation } = createClients(TESTNET_CONFIG, mockSigner);
 			const expectedMethods = [
 				'validation_request', 'validation_response',
-				'get_validation_status', 'get_summary',
+				'get_validation_status', 'request_exists', 'get_summary',
 				'get_agent_validations_paginated', 'get_validator_requests_paginated',
-				'get_identity_registry', 'extend_ttl', 'upgrade', 'version',
+				'get_identity_registry', 'extend_ttl',
+				'propose_upgrade', 'cancel_upgrade', 'execute_upgrade', 'pending_upgrade', 'version',
+				'get_owner', 'transfer_ownership', 'accept_ownership', 'renounce_ownership',
 			];
 			for (const method of expectedMethods) {
 				expect(typeof (validation as any)[method]).toBe('function');
