@@ -51,7 +51,11 @@ mod mock_identity {
         }
 
         pub fn is_authorized_or_owner(e: &Env, spender: Address, agent_id: u32) -> bool {
-            if let Some(owner) = e.storage().persistent().get::<_, Address>(&DataKey::Owner(agent_id)) {
+            if let Some(owner) = e
+                .storage()
+                .persistent()
+                .get::<_, Address>(&DataKey::Owner(agent_id))
+            {
                 if owner == spender {
                     return true;
                 }
@@ -564,7 +568,10 @@ fn test_value_out_of_range_rejected() {
         &empty_str(&env),
         &zero_hash(&env),
     );
-    assert!(result.is_err(), "values above MAX_ABS_VALUE must be rejected");
+    assert!(
+        result.is_err(),
+        "values above MAX_ABS_VALUE must be rejected"
+    );
 
     // Negative bound symmetric.
     let result = client.try_give_feedback(
@@ -578,7 +585,10 @@ fn test_value_out_of_range_rejected() {
         &empty_str(&env),
         &zero_hash(&env),
     );
-    assert!(result.is_err(), "values below -MAX_ABS_VALUE must be rejected");
+    assert!(
+        result.is_err(),
+        "values below -MAX_ABS_VALUE must be rejected"
+    );
 
     // Exactly at the bound is accepted.
     let max_abs: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_000;
