@@ -174,10 +174,12 @@ export async function writeIdentityEvent(
     }
 
     case 'AgentWalletSet': {
-      // Spec compliance pass: ERC-8004 `AgentWalletSet(agentId, newWallet, setBy)`.
-      // Renamed from `WalletSet` and the wallet field is now `newWallet`.
-      // We do not currently persist `setBy` - subscribers can read it from the
-      // raw event topic if they need to filter by initiator.
+      // Synthetic shape derived from a `metadata_set` event whose indexed
+      // key is "agentWallet". The canonical erc-8004 reference uses
+      // MetadataSet for ALL wallet writes (no dedicated wallet event); the
+      // parser promotes the relevant rows to this typed shape so the
+      // wallet column gets a clean update path. The raw on-chain event is
+      // still MetadataSet for cross-chain subscribers.
       if (event.agentId == null || !event.newWallet) {
         logMalformedEvent('identity', 'AgentWalletSet', event);
         return;
@@ -193,9 +195,11 @@ export async function writeIdentityEvent(
     }
 
     case 'AgentWalletUnset': {
-      // Soroban-only companion to AgentWalletSet for the unset case.
-      // Renamed from `WalletRemoved`. The contract emits this in place of the
-      // EVM `AgentWalletSet(agentId, address(0), setBy)` pattern.
+      // Same provenance as AgentWalletSet: a `metadata_set` event with
+      // key="agentWallet" and an empty bytes value. Spec parity with the
+      // canonical reference's `_update` override that emits a MetadataSet
+      // with empty bytes on transfer (and `unsetAgentWallet` does the
+      // same).
       if (event.agentId == null) {
         logMalformedEvent('identity', 'AgentWalletUnset', event);
         return;
@@ -332,10 +336,10 @@ export async function writeValidationEvent(
     }
 
     case 'ValidationResponse': {
-      // Spec compliance pass: renamed from `ValidationResponded`. The Jan 2026
-      // spec also makes this event progressive (callable multiple times by the
-      // original validator), so the upsert pattern below intentionally
-      // overwrites prior response state instead of rejecting duplicates.
+      // Spec parity (canonical erc-8004): renamed from `ValidationResponded`.
+      // The spec allows multiple responses per requestHash (progressive
+      // validation states like soft/hard finality), so the upsert pattern
+      // below intentionally overwrites prior response state.
       if (!event.requestHash || event.response == null) {
         logMalformedEvent('validation', 'ValidationResponse', event);
         return;
