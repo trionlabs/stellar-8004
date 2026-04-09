@@ -1,5 +1,5 @@
 export { Client as IdentityClient } from './identity.js';
-export type { MetadataEntry } from './identity.js';
+export type { MetadataEntry, UpgradeProposal } from './identity.js';
 
 export { Client as ReputationClient } from './reputation.js';
 export type { FeedbackData, SummaryResult } from './reputation.js';

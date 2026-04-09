@@ -674,9 +674,7 @@ fn test_get_summary_caps_explicit_client_list() {
 
 #[test]
 fn test_feedback_ttl_survives_long_idle_periods_via_reads() {
-    // After dropping the running aggregate, the per-feedback persistent
-    // entries are the load-bearing storage. Verify TTL extension on reads
-    // keeps them alive across long idle windows.
+    // TTL extension on reads keeps feedback entries alive across idle windows.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
