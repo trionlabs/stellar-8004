@@ -5,8 +5,17 @@ use stellar_tokens::non_fungible::{Base, ContractOverrides, NonFungibleToken};
 
 use crate::errors::IdentityError;
 use crate::events;
-use crate::storage::{self, MAX_METADATA_KEYS, MAX_METADATA_KEY_LEN, MAX_METADATA_VALUE_LEN};
+use crate::storage::{
+    self, address_to_strkey_bytes, MAX_METADATA_KEYS, MAX_METADATA_KEY_LEN, MAX_METADATA_VALUE_LEN,
+};
 use crate::types::MetadataEntry;
+
+/// The reserved metadata key for the per-agent operational wallet, per the
+/// canonical erc-8004 reference. Cross-chain consumers SHOULD treat this
+/// metadata key the same way the EVM reference does.
+fn agent_wallet_key(e: &Env) -> String {
+    String::from_str(e, "agentWallet")
+}
 
 // Custom ContractOverrides that clears agent wallet and metadata on transfer.
 // Metadata is non-transferable: a previous owner could otherwise hand a victim
@@ -17,12 +26,17 @@ impl ContractOverrides for IdentityBase {
     fn transfer(e: &Env, from: &Address, to: &Address, token_id: u32) {
         storage::remove_agent_wallet(e, token_id);
         storage::clear_all_metadata(e, token_id);
+        // Mirror the canonical reference: a transfer emits a MetadataSet
+        // event with the empty bytes value for the reserved `agentWallet`
+        // key, signaling that the new owner must re-authorize a wallet.
+        events::metadata_set(e, token_id, &agent_wallet_key(e), &Bytes::new(e));
         Base::transfer(e, from, to, token_id);
     }
 
     fn transfer_from(e: &Env, spender: &Address, from: &Address, to: &Address, token_id: u32) {
         storage::remove_agent_wallet(e, token_id);
         storage::clear_all_metadata(e, token_id);
+        events::metadata_set(e, token_id, &agent_wallet_key(e), &Bytes::new(e));
         Base::transfer_from(e, spender, from, to, token_id);
     }
 
@@ -56,6 +70,7 @@ impl IdentityRegistryContract {
     pub fn register(e: &Env, caller: Address) -> u32 {
         caller.require_auth();
         let agent_id = Base::sequential_mint(e, &caller);
+        Self::init_agent_wallet(e, agent_id, &caller);
         events::registered(e, agent_id, &caller, &String::from_str(e, ""));
         agent_id
     }
@@ -64,6 +79,7 @@ impl IdentityRegistryContract {
         caller.require_auth();
         let agent_id = Base::sequential_mint(e, &caller);
         storage::set_agent_uri(e, agent_id, &agent_uri);
+        Self::init_agent_wallet(e, agent_id, &caller);
         events::registered(e, agent_id, &caller, &agent_uri);
         agent_id
     }
@@ -79,7 +95,7 @@ impl IdentityRegistryContract {
         // panic here because the public signature returns u32, not Result.
         // Callers must enforce the limits client-side or use `set_metadata`
         // for incremental writes that surface errors cleanly.
-        let reserved_wallet_key = String::from_str(e, "agentWallet");
+        let reserved_wallet_key = agent_wallet_key(e);
         for entry in metadata.iter() {
             assert!(
                 entry.key.len() <= MAX_METADATA_KEY_LEN,
@@ -98,11 +114,23 @@ impl IdentityRegistryContract {
         }
         let agent_id = Base::sequential_mint(e, &caller);
         storage::set_agent_uri(e, agent_id, &agent_uri);
+        Self::init_agent_wallet(e, agent_id, &caller);
         for entry in metadata.iter() {
             storage::set_metadata(e, agent_id, &entry.key, &entry.value);
+            events::metadata_set(e, agent_id, &entry.key, &entry.value);
         }
         events::registered(e, agent_id, &caller, &agent_uri);
         agent_id
+    }
+
+    /// Spec parity with the canonical erc-8004 reference: every `register*`
+    /// initializes the `agentWallet` reserved metadata key to the caller's
+    /// address and emits a `MetadataSet` event for it. The off-chain layer
+    /// reads this event to populate `agents.agent_wallet`.
+    fn init_agent_wallet(e: &Env, agent_id: u32, owner: &Address) {
+        storage::set_agent_wallet(e, agent_id, owner);
+        let bytes = address_to_strkey_bytes(e, owner);
+        events::metadata_set(e, agent_id, &agent_wallet_key(e), &bytes);
     }
 
     // --- URI ---
@@ -151,7 +179,7 @@ impl IdentityRegistryContract {
         // ERC-8004: `agentWallet` is reserved and must be settable only via
         // the dedicated entry point with wallet auth. Reject so a caller
         // cannot smuggle a fake binding through the metadata path.
-        if key == String::from_str(e, "agentWallet") {
+        if key == agent_wallet_key(e) {
             return Err(IdentityError::ReservedMetadataKey);
         }
         Self::require_owner_or_approved(e, &caller, agent_id)?;
@@ -167,7 +195,15 @@ impl IdentityRegistryContract {
         Ok(())
     }
 
+    /// ERC-8004 spec: `getMetadata(agentId, "agentWallet")` MUST return the
+    /// per-agent wallet bytes. We store the wallet as a typed `Address` in a
+    /// dedicated slot rather than in the metadata mapping; the special-case
+    /// here makes the spec view contract correct without duplicating storage.
     pub fn get_metadata(e: &Env, agent_id: u32, key: String) -> Option<Bytes> {
+        if key == agent_wallet_key(e) {
+            return storage::get_agent_wallet(e, agent_id)
+                .map(|addr| address_to_strkey_bytes(e, &addr));
+        }
         storage::get_metadata(e, agent_id, &key)
     }
 
@@ -183,7 +219,12 @@ impl IdentityRegistryContract {
         new_wallet.require_auth();
         Self::require_owner_or_approved(e, &caller, agent_id)?;
         storage::set_agent_wallet(e, agent_id, &new_wallet);
-        events::agent_wallet_set(e, agent_id, &new_wallet, &caller);
+        // Spec parity: emit a MetadataSet event for the reserved
+        // `agentWallet` key. The canonical erc-8004 reference does NOT have
+        // a dedicated wallet event - all wallet writes flow through the
+        // metadata event surface.
+        let bytes = address_to_strkey_bytes(e, &new_wallet);
+        events::metadata_set(e, agent_id, &agent_wallet_key(e), &bytes);
         Ok(())
     }
 
@@ -199,7 +240,9 @@ impl IdentityRegistryContract {
         caller.require_auth();
         Self::require_owner_or_approved(e, &caller, agent_id)?;
         storage::remove_agent_wallet(e, agent_id);
-        events::agent_wallet_unset(e, agent_id, &caller);
+        // Spec parity: empty bytes value signals the unset, mirroring the
+        // EVM reference's `$._metadata[agentId]["agentWallet"] = ""`.
+        events::metadata_set(e, agent_id, &agent_wallet_key(e), &Bytes::new(e));
         Ok(())
     }
 
@@ -235,6 +278,29 @@ impl IdentityRegistryContract {
     /// binding compatibility.
     pub fn agent_exists(e: &Env, agent_id: u32) -> bool {
         storage::find_owner(e, agent_id).is_some()
+    }
+
+    /// ERC-8004 spec: `isAuthorizedOrOwner(spender, agentId) -> bool`. The
+    /// canonical reputation registry uses THIS single view for self-feedback
+    /// prevention - any caller for whom this returns true is rejected from
+    /// `giveFeedback` because they are the agent owner or an approved
+    /// operator. Returns `false` (rather than panicking) when the agent does
+    /// not exist, so cross-contract callers can fold the check into a single
+    /// branch.
+    pub fn is_authorized_or_owner(e: &Env, spender: Address, agent_id: u32) -> bool {
+        let owner = match storage::find_owner(e, agent_id) {
+            Some(o) => o,
+            None => return false,
+        };
+        if spender == owner {
+            return true;
+        }
+        if let Some(approved) = Base::get_approved(e, agent_id) {
+            if spender == approved {
+                return true;
+            }
+        }
+        Base::is_approved_for_all(e, &owner, &spender)
     }
 
     /// ERC-8004 spec: returns the total number of agents ever minted.

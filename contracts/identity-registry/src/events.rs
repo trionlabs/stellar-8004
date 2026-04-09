@@ -20,6 +20,15 @@ pub struct UriUpdated {
     pub new_uri: String,
 }
 
+/// ERC-8004 spec:
+///   `event MetadataSet(uint256 indexed agentId, string indexed indexedMetadataKey, string metadataKey, bytes metadataValue);`
+///
+/// The canonical reference uses this single event for ALL metadata writes,
+/// including the reserved `agentWallet` key. We mirror that contract: every
+/// wallet write (register, set, unset, transfer-clear) emits a `MetadataSet`
+/// with `key = "agentWallet"` and the StrKey-encoded address bytes (or empty
+/// bytes on unset). There is no dedicated wallet event - this matches the
+/// spec exactly.
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MetadataSet {
@@ -31,37 +40,6 @@ pub struct MetadataSet {
     #[topic]
     pub key: String,
     pub value: Bytes,
-}
-
-/// ERC-8004 spec event:
-///   `event AgentWalletSet(uint256 indexed agentId, address indexed newWallet, address indexed setBy);`
-///
-/// All three fields are indexed in the spec. We match the spec's name and
-/// index three topics. The `set_by` field is required by the spec to give
-/// off-chain filters access to who initiated the binding (typically the
-/// agent owner or an approved operator).
-#[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AgentWalletSet {
-    #[topic]
-    pub agent_id: u32,
-    #[topic]
-    pub new_wallet: Address,
-    #[topic]
-    pub set_by: Address,
-}
-
-/// Soroban has no `address(0)` sentinel, so we cannot reuse the spec's
-/// `AgentWalletSet(agentId, address(0), setBy)` pattern for unset events.
-/// Emit a separate `AgentWalletUnset` instead. Cross-chain subscribers
-/// reading the spec event need to also listen for this companion event.
-#[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AgentWalletUnset {
-    #[topic]
-    pub agent_id: u32,
-    #[topic]
-    pub set_by: Address,
 }
 
 pub fn registered(e: &Env, agent_id: u32, owner: &Address, agent_uri: &String) {
@@ -87,23 +65,6 @@ pub fn metadata_set(e: &Env, agent_id: u32, key: &String, value: &Bytes) {
         agent_id,
         key: key.clone(),
         value: value.clone(),
-    }
-    .publish(e);
-}
-
-pub fn agent_wallet_set(e: &Env, agent_id: u32, new_wallet: &Address, set_by: &Address) {
-    AgentWalletSet {
-        agent_id,
-        new_wallet: new_wallet.clone(),
-        set_by: set_by.clone(),
-    }
-    .publish(e);
-}
-
-pub fn agent_wallet_unset(e: &Env, agent_id: u32, set_by: &Address) {
-    AgentWalletUnset {
-        agent_id,
-        set_by: set_by.clone(),
     }
     .publish(e);
 }

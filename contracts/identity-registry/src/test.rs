@@ -157,6 +157,60 @@ fn test_set_agent_wallet() {
 }
 
 #[test]
+fn test_register_initializes_agent_wallet_to_caller() {
+    // Spec parity (canonical erc-8004): every register* MUST initialize the
+    // reserved `agentWallet` metadata key to the caller's address. The
+    // off-chain layer reads this from the MetadataSet event and seeds the
+    // explorer DB with `agent_wallet = owner` until the owner explicitly
+    // re-binds it.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+
+    let user1 = Address::generate(&env);
+    client.register(&user1);
+    assert_eq!(client.get_agent_wallet(&0), Some(user1.clone()));
+
+    let user2 = Address::generate(&env);
+    client.register_with_uri(&user2, &String::from_str(&env, "ipfs://x"));
+    assert_eq!(client.get_agent_wallet(&1), Some(user2.clone()));
+
+    let user3 = Address::generate(&env);
+    client.register_full(
+        &user3,
+        &String::from_str(&env, "ipfs://y"),
+        &Vec::new(&env),
+    );
+    assert_eq!(client.get_agent_wallet(&2), Some(user3.clone()));
+}
+
+#[test]
+fn test_get_metadata_for_agent_wallet_returns_strkey_bytes() {
+    // Spec parity: getMetadata(agentId, "agentWallet") MUST return the
+    // wallet bytes. We expose the StrKey-encoded ASCII representation
+    // (56 bytes) so cross-chain consumers can decode it with any standard
+    // Stellar library.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+
+    client.register(&user);
+
+    let key = String::from_str(&env, "agentWallet");
+    let bytes = client.get_metadata(&0, &key).expect("agentWallet metadata");
+    assert_eq!(
+        bytes.len(),
+        56,
+        "Stellar StrKey addresses are exactly 56 ASCII characters"
+    );
+
+    // After unset, the metadata read should return None.
+    client.unset_agent_wallet(&user, &0);
+    assert_eq!(client.get_metadata(&0, &key), None);
+}
+
+#[test]
 fn test_transfer_clears_wallet() {
     let env = Env::default();
     env.mock_all_auths();
@@ -380,6 +434,40 @@ fn test_find_owner_returns_none_for_missing_agent() {
     // No agent has been registered yet.
     assert_eq!(client.find_owner(&0), None);
     assert_eq!(client.find_owner(&999), None);
+}
+
+#[test]
+fn test_is_authorized_or_owner() {
+    // Spec parity: this is the cross-contract auth view used by the
+    // canonical reputation registry's self-feedback prevention. It must
+    // return true for the owner, true for an explicit operator (via
+    // approve / approve_for_all), false for unrelated addresses, and
+    // false for non-existent agents (without panicking).
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+
+    // Missing agent.
+    let stranger = Address::generate(&env);
+    assert!(!client.is_authorized_or_owner(&stranger, &0));
+
+    let owner = Address::generate(&env);
+    let agent_id = client.register(&owner);
+
+    // Owner.
+    assert!(client.is_authorized_or_owner(&owner, &agent_id));
+    // Random stranger.
+    assert!(!client.is_authorized_or_owner(&stranger, &agent_id));
+
+    // Per-agent approval.
+    let operator = Address::generate(&env);
+    client.approve(&owner, &operator, &agent_id, &1_000_000u32);
+    assert!(client.is_authorized_or_owner(&operator, &agent_id));
+
+    // Approve-for-all.
+    let blanket = Address::generate(&env);
+    client.approve_for_all(&owner, &blanket, &1_000_000u32);
+    assert!(client.is_authorized_or_owner(&blanket, &agent_id));
 }
 
 #[test]
