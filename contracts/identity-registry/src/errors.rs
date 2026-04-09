@@ -12,4 +12,7 @@ pub enum IdentityError {
     TooManyMetadataKeys = 6,
     ReservedMetadataKey = 7,
     EmptyValue = 8,
+    NoUpgradeProposed = 9,
+    TimelockNotExpired = 10,
+    UpgradeAlreadyProposed = 11,
 }
