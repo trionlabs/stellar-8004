@@ -196,42 +196,60 @@ function parseIdentityEvent(
 			};
 		}
 		case 'metadata_set': {
-			// Spec compliance pass: `key` is now an indexed topic at index 2.
+			// Spec parity (canonical erc-8004): `key` is an indexed topic at
+			// index 2. The reserved `agentWallet` key is promoted to a typed
+			// AgentWalletSet/Unset shape so the DB writer routes it to the
+			// wallet column instead of the generic metadata table. Empty
+			// bytes value -> Unset; otherwise the bytes are the StrKey ASCII
+			// of the wallet address.
 			if (topic.length < 3) return null;
 			const agentId = Number(StellarSdk.scValToNative(topic[1]));
 			const key = String(StellarSdk.scValToNative(topic[2]));
+
+			if (key === 'agentWallet') {
+				const valueBytes: Uint8Array | undefined = data.value;
+				const valueText = valueBytes
+					? Buffer.from(valueBytes).toString('utf8')
+					: '';
+				if (valueText.length === 0) {
+					return {
+						type: 'AgentWalletUnset',
+						contractName: 'identity',
+						data: { agentId, ...base },
+					};
+				}
+				if (!isValidAddress(valueText)) return null;
+				return {
+					type: 'AgentWalletSet',
+					contractName: 'identity',
+					data: { agentId, newWallet: valueText, ...base },
+				};
+			}
+
 			return {
 				type: 'MetadataSet',
 				contractName: 'identity',
 				data: { agentId, key, value: data.value, ...base },
 			};
 		}
+		// Legacy: pre-spec-alignment WASM emitted dedicated wallet events.
 		case 'agent_wallet_set': {
-			// Spec compliance pass: ERC-8004 AgentWalletSet has all three
-			// fields indexed (agent_id, new_wallet, set_by). Renamed from
-			// wallet_set.
 			if (topic.length < 4) return null;
 			const agentId = Number(StellarSdk.scValToNative(topic[1]));
 			const newWallet = String(StellarSdk.scValToNative(topic[2]));
 			if (!isValidAddress(newWallet)) return null;
-			const setBy = String(StellarSdk.scValToNative(topic[3]));
 			return {
 				type: 'AgentWalletSet',
 				contractName: 'identity',
-				data: { agentId, newWallet, setBy, ...base },
+				data: { agentId, newWallet, ...base },
 			};
 		}
 		case 'agent_wallet_unset': {
-			// Soroban-only companion to AgentWalletSet for the unset case
-			// (no zero-address sentinel in Soroban). Renamed from
-			// wallet_removed.
-			if (topic.length < 3) return null;
 			const agentId = Number(StellarSdk.scValToNative(topic[1]));
-			const setBy = String(StellarSdk.scValToNative(topic[2]));
 			return {
 				type: 'AgentWalletUnset',
 				contractName: 'identity',
-				data: { agentId, setBy, ...base },
+				data: { agentId, ...base },
 			};
 		}
 		default:
@@ -417,8 +435,10 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 			break;
 
 		case 'AgentWalletSet':
-			// Spec compliance pass: renamed from WalletSet. Field renamed to
-			// `newWallet` to match the contract event struct.
+			// Synthetic shape derived from a `metadata_set` event whose
+			// indexed key is "agentWallet". The on-chain wire event is
+			// MetadataSet (per the canonical erc-8004 reference); the
+			// parser promotes it to a typed shape for the wallet column.
 			await supabasePost('agents', {
 				id: d.agentId,
 				wallet: d.newWallet,
@@ -427,8 +447,10 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 			break;
 
 		case 'AgentWalletUnset':
-			// Spec compliance pass: renamed from WalletRemoved. The unset case
-			// is its own event in Soroban (no zero-address sentinel).
+			// Same provenance as AgentWalletSet: a `metadata_set` event
+			// with the agentWallet key and an empty bytes value. The
+			// canonical reference's _update override and unsetAgentWallet
+			// emit this on transfer / unset.
 			await supabasePost('agents', {
 				id: d.agentId,
 				wallet: null,
