@@ -1,7 +1,7 @@
 import { scValToNative } from '@stellar/stellar-sdk';
 import type { rpc } from '@stellar/stellar-sdk';
 
-import { bytesToUtf8, isValidStellarAddress, parseEventData } from '../helpers.js';
+import { bytesToUtf8, isValidStellarAddress, parseEventData } from '../helpers.ts';
 
 export interface RegisteredEvent {
   type: 'Registered';
