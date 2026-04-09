@@ -68,19 +68,18 @@ fn test_full_lifecycle_with_real_identity() {
     let fb = rep_client.read_feedback(&agent_id, &reviewer, &1);
     assert_eq!(fb.value, 90);
 
-    // Verify summary
-    let summary = rep_client.get_summary(
-        &agent_id,
-        &Vec::<Address>::new(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-    );
+    // Verify summary (must pass an explicit client list per spec)
+    let mut clients = Vec::<Address>::new(&env);
+    clients.push_back(reviewer.clone());
+    let summary =
+        rep_client.get_summary(&agent_id, &clients, &empty_str(&env), &empty_str(&env));
     assert_eq!(summary.count, 1);
     assert_eq!(summary.summary_value, 90);
 
-    // ERC-8004 Jan 2026 update: agent owner CAN self-review on chain.
-    // Off-chain consumers must filter self-feedback in their scoring.
-    rep_client.give_feedback(
+    // Spec parity (canonical erc-8004): the agent owner is REJECTED from
+    // give_feedback. Self-feedback is enforced on-chain via the identity
+    // registry's `is_authorized_or_owner` check.
+    let result = rep_client.try_give_feedback(
         &agent_owner,
         &agent_id,
         &100,
@@ -91,18 +90,13 @@ fn test_full_lifecycle_with_real_identity() {
         &empty_str(&env),
         &zero_hash(&env),
     );
-
-    // After self-review the aggregate should reflect both feedback entries.
-    let summary = rep_client.get_summary(
-        &agent_id,
-        &Vec::<Address>::new(&env),
-        &empty_str(&env),
-        &empty_str(&env),
+    assert!(
+        result.is_err(),
+        "agent owner self-feedback must be rejected on-chain"
     );
-    assert_eq!(summary.count, 2);
-    assert_eq!(summary.summary_value, 190);
 
-    // Agent owner responds to feedback
+    // Anyone can append a response per the spec - the previously
+    // owner-restricted path was a divergence.
     rep_client.append_response(
         &agent_owner,
         &agent_id,
@@ -113,15 +107,10 @@ fn test_full_lifecycle_with_real_identity() {
     );
     assert_eq!(rep_client.get_response_count(&agent_id, &reviewer, &1), 1);
 
-    // Revoke both feedback entries to verify aggregate updates correctly.
+    // Revoke the reviewer's feedback - the summary should drop to count 0.
     rep_client.revoke_feedback(&reviewer, &agent_id, &1);
-    rep_client.revoke_feedback(&agent_owner, &agent_id, &1);
-    let summary = rep_client.get_summary(
-        &agent_id,
-        &Vec::<Address>::new(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-    );
+    let summary =
+        rep_client.get_summary(&agent_id, &clients, &empty_str(&env), &empty_str(&env));
     assert_eq!(summary.count, 0);
     assert_eq!(summary.summary_value, 0);
 }
@@ -135,15 +124,14 @@ fn test_multiple_reviewers_with_real_identity() {
     let agent_owner = Address::generate(&env);
     let agent_id = id_client.register(&agent_owner);
 
-    // Multiple reviewers
-    let mut total = 0i128;
+    // Multiple reviewers - keep within MAX_SUMMARY_CLIENTS (5).
+    let mut summary_clients = Vec::<Address>::new(&env);
     for _ in 0..5 {
         let reviewer = Address::generate(&env);
-        let val = 80i128;
         rep_client.give_feedback(
             &reviewer,
             &agent_id,
-            &val,
+            &80,
             &0,
             &empty_str(&env),
             &empty_str(&env),
@@ -151,17 +139,19 @@ fn test_multiple_reviewers_with_real_identity() {
             &empty_str(&env),
             &zero_hash(&env),
         );
-        total += val;
+        summary_clients.push_back(reviewer);
     }
 
     let summary = rep_client.get_summary(
         &agent_id,
-        &Vec::<Address>::new(&env),
+        &summary_clients,
         &empty_str(&env),
         &empty_str(&env),
     );
     assert_eq!(summary.count, 5);
-    assert_eq!(summary.summary_value, total);
+    // Average of five identical 80-decimal-0 entries = 80.
+    assert_eq!(summary.summary_value, 80);
+    assert_eq!(summary.summary_value_decimals, 0);
 
     // Verify client pagination
     let clients = rep_client.get_clients_paginated(&agent_id, &0, &10);
