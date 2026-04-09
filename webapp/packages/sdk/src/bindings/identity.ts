@@ -45,27 +45,30 @@ export const IdentityError = {
   4: {message:"MetadataKeyTooLong"},
   5: {message:"MetadataValueTooLong"},
   6: {message:"TooManyMetadataKeys"},
-  /**
-   * ERC-8004 spec: `agentWallet` is a reserved metadata key. It cannot
-   * be set via `setMetadata()` or during `register()`. Use the dedicated
-   * `set_agent_wallet` entry point instead.
-   */
   7: {message:"ReservedMetadataKey"},
-  /**
-   * ERC-8004 spec: `setMetadata`, `setAgentURI`, and `register*` reject
-   * empty keys / URIs. Match the reference implementation.
-   */
-  8: {message:"EmptyValue"}
+  8: {message:"EmptyValue"},
+  9: {message:"NoUpgradeProposed"},
+  10: {message:"TimelockNotExpired"},
+  11: {message:"UpgradeAlreadyProposed"}
 }
 
 
 
+
+
+export interface UpgradeProposal {
+  proposed_at: u32;
+  wasm_hash: Buffer;
+}
 
 
 export interface MetadataEntry {
   key: string;
   value: Buffer;
 }
+
+
+
 
 
 
@@ -104,10 +107,7 @@ export interface Client {
 
   /**
    * Construct and simulate a get_metadata transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * ERC-8004 spec: `getMetadata(agentId, "agentWallet")` MUST return the
-   * per-agent wallet bytes. We store the wallet as a typed `Address` in a
-   * dedicated slot rather than in the metadata mapping; the special-case
-   * here makes the spec view contract correct without duplicating storage.
+   * Routes `agentWallet` key to the dedicated wallet storage slot.
    */
   get_metadata: ({agent_id, key}: {agent_id: u32, key: string}, options?: MethodOptions) => Promise<AssembledTransaction<Option<Buffer>>>
 
@@ -132,9 +132,24 @@ export interface Client {
   extend_ttl: ({agent_id}: {agent_id: u32}, options?: MethodOptions) => Promise<AssembledTransaction<null>>
 
   /**
-   * Construct and simulate a upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Construct and simulate a propose_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<null>>
+  propose_upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a cancel_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  cancel_upgrade: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a execute_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  execute_upgrade: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a pending_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  pending_upgrade: (options?: MethodOptions) => Promise<AssembledTransaction<Option<UpgradeProposal>>>
 
   /**
    * Construct and simulate a version transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -143,39 +158,23 @@ export interface Client {
 
   /**
    * Construct and simulate a find_owner transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Returns the owner of an agent, or `None` if the agent does not exist
-   * (or its NFT entry has been archived). Cross-contract callers must use
-   * this instead of `owner_of`, which panics on missing tokens.
+   * Non-panicking `owner_of` (safe for cross-contract calls).
    */
   find_owner: ({agent_id}: {agent_id: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Option<string>>>
 
   /**
    * Construct and simulate a agent_exists transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * ERC-8004 spec: returns true if an agent has been minted and not
-   * burned. The reference reputation registry uses this in its
-   * `giveFeedback` precondition. Functionally identical to `find_owner`
-   * returning `Some` but exposed under the spec name for cross-chain
-   * binding compatibility.
    */
   agent_exists: ({agent_id}: {agent_id: u32}, options?: MethodOptions) => Promise<AssembledTransaction<boolean>>
 
   /**
    * Construct and simulate a is_authorized_or_owner transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * ERC-8004 spec: `isAuthorizedOrOwner(spender, agentId) -> bool`. The
-   * canonical reputation registry uses THIS single view for self-feedback
-   * prevention - any caller for whom this returns true is rejected from
-   * `giveFeedback` because they are the agent owner or an approved
-   * operator. Returns `false` (rather than panicking) when the agent does
-   * not exist, so cross-contract callers can fold the check into a single
-   * branch.
+   * Returns true if spender is owner or approved. False if agent missing.
    */
   is_authorized_or_owner: ({spender, agent_id}: {spender: string, agent_id: u32}, options?: MethodOptions) => Promise<AssembledTransaction<boolean>>
 
   /**
    * Construct and simulate a total_agents transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * ERC-8004 spec: returns the total number of agents ever minted.
-   * Backed by the OZ NFT sequential mint counter, which never decreases
-   * (we don't expose a burn path).
    */
   total_agents: (options?: MethodOptions) => Promise<AssembledTransaction<u32>>
 
@@ -393,6 +392,91 @@ export interface Client {
    */
   token_uri: ({token_id}: {token_id: u32}, options?: MethodOptions) => Promise<AssembledTransaction<string>>
 
+  /**
+   * Construct and simulate a get_owner transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Returns `Some(Address)` if ownership is set, or `None` if ownership has
+   * been renounced.
+   * 
+   * # Arguments
+   * 
+   * * `e` - Access to the Soroban environment.
+   */
+  get_owner: (options?: MethodOptions) => Promise<AssembledTransaction<Option<string>>>
+
+  /**
+   * Construct and simulate a transfer_ownership transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Initiates a 2-step ownership transfer to a new address.
+   * 
+   * Requires authorization from the current owner. The new owner must later
+   * call `accept_ownership()` to complete the transfer.
+   * 
+   * # Arguments
+   * 
+   * * `e` - Access to the Soroban environment.
+   * * `new_owner` - The proposed new owner.
+   * * `live_until_ledger` - Ledger number until which the new owner can
+   * accept. A value of `0` cancels any pending transfer.
+   * 
+   * # Errors
+   * 
+   * * [`OwnableError::OwnerNotSet`] - If the owner is not set.
+   * * [`crate::role_transfer::RoleTransferError::NoPendingTransfer`] - If
+   * trying to cancel a transfer that doesn't exist.
+   * * [`crate::role_transfer::RoleTransferError::InvalidLiveUntilLedger`] -
+   * If the specified ledger is in the past.
+   * * [`crate::role_transfer::RoleTransferError::InvalidPendingAccount`] -
+   * If the specified pending account is not the same as the provided `new`
+   * address.
+   * 
+   * # Notes
+   * 
+   * * Authorization for the current owner is required.
+   */
+  transfer_ownership: ({new_owner, live_until_ledger}: {new_owner: string, live_until_ledger: u32}, options?: MethodOptions) => Promise<AssembledTransaction<null>>
+
+  /**
+   * Construct and simulate a accept_ownership transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Accepts a pending ownership transfer.
+   * 
+   * # Arguments
+   * 
+   * * `e` - Access to the Soroban environment.
+   * 
+   * # Errors
+   * 
+   * * [`crate::role_transfer::RoleTransferError::NoPendingTransfer`] - If
+   * there is no pending transfer to accept.
+   * 
+   * # Events
+   * 
+   * * topics - `["ownership_transfer_completed"]`
+   * * data - `[new_owner: Address]`
+   */
+  accept_ownership: (options?: MethodOptions) => Promise<AssembledTransaction<null>>
+
+  /**
+   * Construct and simulate a renounce_ownership transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Renounces ownership of the contract.
+   * 
+   * Permanently removes the owner, disabling all functions gated by
+   * `#[only_owner]`.
+   * 
+   * # Arguments
+   * 
+   * * `e` - Access to the Soroban environment.
+   * 
+   * # Errors
+   * 
+   * * [`OwnableError::TransferInProgress`] - If there is a pending ownership
+   * transfer.
+   * * [`OwnableError::OwnerNotSet`] - If the owner is not set.
+   * 
+   * # Notes
+   * 
+   * * Authorization for the current owner is required.
+   */
+  renounce_ownership: (options?: MethodOptions) => Promise<AssembledTransaction<null>>
+
 }
 export class Client extends ContractClient {
   static async deploy<T = Client>(
@@ -420,17 +504,20 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAANc2V0X2FnZW50X3VyaQAAAAAAAAMAAAAAAAAABmNhbGxlcgAAAAAAEwAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAAAAAAduZXdfdXJpAAAAABAAAAABAAAD6QAAAAIAAAfQAAAADUlkZW50aXR5RXJyb3IAAAA=",
         "AAAAAAAAAAAAAAAJYWdlbnRfdXJpAAAAAAAAAQAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAQAAA+kAAAAQAAAH0AAAAA1JZGVudGl0eUVycm9yAAAA",
         "AAAAAAAAAAAAAAAMc2V0X21ldGFkYXRhAAAABAAAAAAAAAAGY2FsbGVyAAAAAAATAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAAAAAAAA2tleQAAAAAQAAAAAAAAAAV2YWx1ZQAAAAAAAA4AAAABAAAD6QAAAAIAAAfQAAAADUlkZW50aXR5RXJyb3IAAAA=",
-        "AAAAAAAAARZFUkMtODAwNCBzcGVjOiBgZ2V0TWV0YWRhdGEoYWdlbnRJZCwgImFnZW50V2FsbGV0IilgIE1VU1QgcmV0dXJuIHRoZQpwZXItYWdlbnQgd2FsbGV0IGJ5dGVzLiBXZSBzdG9yZSB0aGUgd2FsbGV0IGFzIGEgdHlwZWQgYEFkZHJlc3NgIGluIGEKZGVkaWNhdGVkIHNsb3QgcmF0aGVyIHRoYW4gaW4gdGhlIG1ldGFkYXRhIG1hcHBpbmc7IHRoZSBzcGVjaWFsLWNhc2UKaGVyZSBtYWtlcyB0aGUgc3BlYyB2aWV3IGNvbnRyYWN0IGNvcnJlY3Qgd2l0aG91dCBkdXBsaWNhdGluZyBzdG9yYWdlLgAAAAAADGdldF9tZXRhZGF0YQAAAAIAAAAAAAAACGFnZW50X2lkAAAABAAAAAAAAAADa2V5AAAAABAAAAABAAAD6AAAAA4=",
+        "AAAAAAAAAD5Sb3V0ZXMgYGFnZW50V2FsbGV0YCBrZXkgdG8gdGhlIGRlZGljYXRlZCB3YWxsZXQgc3RvcmFnZSBzbG90LgAAAAAADGdldF9tZXRhZGF0YQAAAAIAAAAAAAAACGFnZW50X2lkAAAABAAAAAAAAAADa2V5AAAAABAAAAABAAAD6AAAAA4=",
         "AAAAAAAAAAAAAAAQc2V0X2FnZW50X3dhbGxldAAAAAMAAAAAAAAABmNhbGxlcgAAAAAAEwAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAAAAAApuZXdfd2FsbGV0AAAAAAATAAAAAQAAA+kAAAACAAAH0AAAAA1JZGVudGl0eUVycm9yAAAA",
         "AAAAAAAAAAAAAAAQZ2V0X2FnZW50X3dhbGxldAAAAAEAAAAAAAAACGFnZW50X2lkAAAABAAAAAEAAAPoAAAAEw==",
         "AAAAAAAAAAAAAAASdW5zZXRfYWdlbnRfd2FsbGV0AAAAAAACAAAAAAAAAAZjYWxsZXIAAAAAABMAAAAAAAAACGFnZW50X2lkAAAABAAAAAEAAAPpAAAAAgAAB9AAAAANSWRlbnRpdHlFcnJvcgAAAA==",
         "AAAAAAAAAAAAAAAKZXh0ZW5kX3R0bAAAAAAAAQAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAA==",
-        "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAA1uZXdfd2FzbV9oYXNoAAAAAAAD7gAAACAAAAAA",
+        "AAAAAAAAAAAAAAAPcHJvcG9zZV91cGdyYWRlAAAAAAEAAAAAAAAADW5ld193YXNtX2hhc2gAAAAAAAPuAAAAIAAAAAEAAAPpAAAAAgAAB9AAAAANSWRlbnRpdHlFcnJvcgAAAA==",
+        "AAAAAAAAAAAAAAAOY2FuY2VsX3VwZ3JhZGUAAAAAAAAAAAABAAAD6QAAAAIAAAfQAAAADUlkZW50aXR5RXJyb3IAAAA=",
+        "AAAAAAAAAAAAAAAPZXhlY3V0ZV91cGdyYWRlAAAAAAAAAAABAAAD6QAAAAIAAAfQAAAADUlkZW50aXR5RXJyb3IAAAA=",
+        "AAAAAAAAAAAAAAAPcGVuZGluZ191cGdyYWRlAAAAAAAAAAABAAAD6AAAB9AAAAAPVXBncmFkZVByb3Bvc2FsAA==",
         "AAAAAAAAAAAAAAAHdmVyc2lvbgAAAAAAAAAAAQAAABA=",
-        "AAAAAAAAAMZSZXR1cm5zIHRoZSBvd25lciBvZiBhbiBhZ2VudCwgb3IgYE5vbmVgIGlmIHRoZSBhZ2VudCBkb2VzIG5vdCBleGlzdAoob3IgaXRzIE5GVCBlbnRyeSBoYXMgYmVlbiBhcmNoaXZlZCkuIENyb3NzLWNvbnRyYWN0IGNhbGxlcnMgbXVzdCB1c2UKdGhpcyBpbnN0ZWFkIG9mIGBvd25lcl9vZmAsIHdoaWNoIHBhbmljcyBvbiBtaXNzaW5nIHRva2Vucy4AAAAAAApmaW5kX293bmVyAAAAAAABAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAABAAAD6AAAABM=",
-        "AAAAAAAAARZFUkMtODAwNCBzcGVjOiByZXR1cm5zIHRydWUgaWYgYW4gYWdlbnQgaGFzIGJlZW4gbWludGVkIGFuZCBub3QKYnVybmVkLiBUaGUgcmVmZXJlbmNlIHJlcHV0YXRpb24gcmVnaXN0cnkgdXNlcyB0aGlzIGluIGl0cwpgZ2l2ZUZlZWRiYWNrYCBwcmVjb25kaXRpb24uIEZ1bmN0aW9uYWxseSBpZGVudGljYWwgdG8gYGZpbmRfb3duZXJgCnJldHVybmluZyBgU29tZWAgYnV0IGV4cG9zZWQgdW5kZXIgdGhlIHNwZWMgbmFtZSBmb3IgY3Jvc3MtY2hhaW4KYmluZGluZyBjb21wYXRpYmlsaXR5LgAAAAAADGFnZW50X2V4aXN0cwAAAAEAAAAAAAAACGFnZW50X2lkAAAABAAAAAEAAAAB",
-        "AAAAAAAAAaBFUkMtODAwNCBzcGVjOiBgaXNBdXRob3JpemVkT3JPd25lcihzcGVuZGVyLCBhZ2VudElkKSAtPiBib29sYC4gVGhlCmNhbm9uaWNhbCByZXB1dGF0aW9uIHJlZ2lzdHJ5IHVzZXMgVEhJUyBzaW5nbGUgdmlldyBmb3Igc2VsZi1mZWVkYmFjawpwcmV2ZW50aW9uIC0gYW55IGNhbGxlciBmb3Igd2hvbSB0aGlzIHJldHVybnMgdHJ1ZSBpcyByZWplY3RlZCBmcm9tCmBnaXZlRmVlZGJhY2tgIGJlY2F1c2UgdGhleSBhcmUgdGhlIGFnZW50IG93bmVyIG9yIGFuIGFwcHJvdmVkCm9wZXJhdG9yLiBSZXR1cm5zIGBmYWxzZWAgKHJhdGhlciB0aGFuIHBhbmlja2luZykgd2hlbiB0aGUgYWdlbnQgZG9lcwpub3QgZXhpc3QsIHNvIGNyb3NzLWNvbnRyYWN0IGNhbGxlcnMgY2FuIGZvbGQgdGhlIGNoZWNrIGludG8gYSBzaW5nbGUKYnJhbmNoLgAAABZpc19hdXRob3JpemVkX29yX293bmVyAAAAAAACAAAAAAAAAAdzcGVuZGVyAAAAABMAAAAAAAAACGFnZW50X2lkAAAABAAAAAEAAAAB",
-        "AAAAAAAAAKFFUkMtODAwNCBzcGVjOiByZXR1cm5zIHRoZSB0b3RhbCBudW1iZXIgb2YgYWdlbnRzIGV2ZXIgbWludGVkLgpCYWNrZWQgYnkgdGhlIE9aIE5GVCBzZXF1ZW50aWFsIG1pbnQgY291bnRlciwgd2hpY2ggbmV2ZXIgZGVjcmVhc2VzCih3ZSBkb24ndCBleHBvc2UgYSBidXJuIHBhdGgpLgAAAAAAAAx0b3RhbF9hZ2VudHMAAAAAAAAAAQAAAAQ=",
+        "AAAAAAAAADlOb24tcGFuaWNraW5nIGBvd25lcl9vZmAgKHNhZmUgZm9yIGNyb3NzLWNvbnRyYWN0IGNhbGxzKS4AAAAAAAAKZmluZF9vd25lcgAAAAAAAQAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAQAAA+gAAAAT",
+        "AAAAAAAAAAAAAAAMYWdlbnRfZXhpc3RzAAAAAQAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAQAAAAE=",
+        "AAAAAAAAAEVSZXR1cm5zIHRydWUgaWYgc3BlbmRlciBpcyBvd25lciBvciBhcHByb3ZlZC4gRmFsc2UgaWYgYWdlbnQgbWlzc2luZy4AAAAAAAAWaXNfYXV0aG9yaXplZF9vcl9vd25lcgAAAAAAAgAAAAAAAAAHc3BlbmRlcgAAAAATAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAABAAAAAQ==",
+        "AAAAAAAAAAAAAAAMdG90YWxfYWdlbnRzAAAAAAAAAAEAAAAE",
         "AAAAAAAAAKtSZXR1cm5zIHRoZSBudW1iZXIgb2YgdG9rZW5zIG93bmVkIGJ5IGBhY2NvdW50YC4KCiMgQXJndW1lbnRzCgoqIGBlYCAtIEFjY2VzcyB0byB0aGUgU29yb2JhbiBlbnZpcm9ubWVudC4KKiBgYWNjb3VudGAgLSBUaGUgYWRkcmVzcyBmb3Igd2hpY2ggdGhlIGJhbGFuY2UgaXMgYmVpbmcgcXVlcmllZC4AAAAAB2JhbGFuY2UAAAAAAQAAAAAAAAAHYWNjb3VudAAAAAATAAAAAQAAAAQ=",
         "AAAAAAAAAOVSZXR1cm5zIHRoZSBvd25lciBvZiB0aGUgdG9rZW4gd2l0aCBgdG9rZW5faWRgLgoKIyBBcmd1bWVudHMKCiogYGVgIC0gQWNjZXNzIHRvIHRoZSBTb3JvYmFuIGVudmlyb25tZW50LgoqIGB0b2tlbl9pZGAgLSBUb2tlbiBJRCBhcyBhIG51bWJlci4KCiMgRXJyb3JzCgoqIFtgTm9uRnVuZ2libGVUb2tlbkVycm9yOjpOb25FeGlzdGVudFRva2VuYF0gLSBJZiB0aGUgdG9rZW4gZG9lcyBub3QKZXhpc3QuAAAAAAAACG93bmVyX29mAAAAAQAAAAAAAAAIdG9rZW5faWQAAAAEAAAAAQAAABM=",
         "AAAAAAAAAqBUcmFuc2ZlcnMgdGhlIHRva2VuIHdpdGggYHRva2VuX2lkYCBmcm9tIGBmcm9tYCB0byBgdG9gLgoKV0FSTklORzogQ29uZmlybWF0aW9uIHRoYXQgdGhlIHJlY2lwaWVudCBpcyBjYXBhYmxlIG9mIHJlY2VpdmluZyB0aGUKYE5vbi1GdW5naWJsZWAgaXMgdGhlIGNhbGxlcidzIHJlc3BvbnNpYmlsaXR5OyBvdGhlcndpc2UgdGhlIE5GVCBtYXkgYmUKcGVybWFuZW50bHkgbG9zdC4KCiMgQXJndW1lbnRzCgoqIGBlYCAtIEFjY2VzcyB0byB0aGUgU29yb2JhbiBlbnZpcm9ubWVudC4KKiBgZnJvbWAgLSBBY2NvdW50IG9mIHRoZSBzZW5kZXIuCiogYHRvYCAtIEFjY291bnQgb2YgdGhlIHJlY2lwaWVudC4KKiBgdG9rZW5faWRgIC0gVG9rZW4gSUQgYXMgYSBudW1iZXIuCgojIEVycm9ycwoKKiBbYE5vbkZ1bmdpYmxlVG9rZW5FcnJvcjo6SW5jb3JyZWN0T3duZXJgXSAtIElmIHRoZSBjdXJyZW50IG93bmVyCihiZWZvcmUgY2FsbGluZyB0aGlzIGZ1bmN0aW9uKSBpcyBub3QgYGZyb21gLgoqIFtgTm9uRnVuZ2libGVUb2tlbkVycm9yOjpOb25FeGlzdGVudFRva2VuYF0gLSBJZiB0aGUgdG9rZW4gZG9lcyBub3QKZXhpc3QuCgojIEV2ZW50cwoKKiB0b3BpY3MgLSBgWyJ0cmFuc2ZlciIsIGZyb206IEFkZHJlc3MsIHRvOiBBZGRyZXNzXWAKKiBkYXRhIC0gYFt0b2tlbl9pZDogdTMyXWAAAAAIdHJhbnNmZXIAAAADAAAAAAAAAARmcm9tAAAAEwAAAAAAAAACdG8AAAAAABMAAAAAAAAACHRva2VuX2lkAAAABAAAAAA=",
@@ -442,11 +529,19 @@ export class Client extends ContractClient {
         "AAAAAAAAAFtSZXR1cm5zIHRoZSB0b2tlbiBjb2xsZWN0aW9uIG5hbWUuCgojIEFyZ3VtZW50cwoKKiBgZWAgLSBBY2Nlc3MgdG8gdGhlIFNvcm9iYW4gZW52aXJvbm1lbnQuAAAAAARuYW1lAAAAAAAAAAEAAAAQ",
         "AAAAAAAAAF1SZXR1cm5zIHRoZSB0b2tlbiBjb2xsZWN0aW9uIHN5bWJvbC4KCiMgQXJndW1lbnRzCgoqIGBlYCAtIEFjY2VzcyB0byB0aGUgU29yb2JhbiBlbnZpcm9ubWVudC4AAAAAAAAGc3ltYm9sAAAAAAAAAAAAAQAAABA=",
         "AAAAAAAAAPVSZXR1cm5zIHRoZSBVbmlmb3JtIFJlc291cmNlIElkZW50aWZpZXIgKFVSSSkgZm9yIHRoZSB0b2tlbiB3aXRoCmB0b2tlbl9pZGAuCgojIEFyZ3VtZW50cwoKKiBgZWAgLSBBY2Nlc3MgdG8gdGhlIFNvcm9iYW4gZW52aXJvbm1lbnQuCiogYHRva2VuX2lkYCAtIFRva2VuIElEIGFzIGEgbnVtYmVyLgoKIyBOb3RlcwoKSWYgdGhlIHRva2VuIGRvZXMgbm90IGV4aXN0LCB0aGlzIGZ1bmN0aW9uIGlzIGV4cGVjdGVkIHRvIHBhbmljLgAAAAAAAAl0b2tlbl91cmkAAAAAAAABAAAAAAAAAAh0b2tlbl9pZAAAAAQAAAABAAAAEA==",
-        "AAAABAAAAAAAAAAAAAAADUlkZW50aXR5RXJyb3IAAAAAAAAIAAAAAAAAABJOb3RPd25lck9yQXBwcm92ZWQAAAAAAAEAAAAAAAAACVVyaU5vdFNldAAAAAAAAAIAAAAAAAAADUFnZW50Tm90Rm91bmQAAAAAAAADAAAAAAAAABJNZXRhZGF0YUtleVRvb0xvbmcAAAAAAAQAAAAAAAAAFE1ldGFkYXRhVmFsdWVUb29Mb25nAAAABQAAAAAAAAATVG9vTWFueU1ldGFkYXRhS2V5cwAAAAAGAAAAr0VSQy04MDA0IHNwZWM6IGBhZ2VudFdhbGxldGAgaXMgYSByZXNlcnZlZCBtZXRhZGF0YSBrZXkuIEl0IGNhbm5vdApiZSBzZXQgdmlhIGBzZXRNZXRhZGF0YSgpYCBvciBkdXJpbmcgYHJlZ2lzdGVyKClgLiBVc2UgdGhlIGRlZGljYXRlZApgc2V0X2FnZW50X3dhbGxldGAgZW50cnkgcG9pbnQgaW5zdGVhZC4AAAAAE1Jlc2VydmVkTWV0YWRhdGFLZXkAAAAABwAAAHpFUkMtODAwNCBzcGVjOiBgc2V0TWV0YWRhdGFgLCBgc2V0QWdlbnRVUklgLCBhbmQgYHJlZ2lzdGVyKmAgcmVqZWN0CmVtcHR5IGtleXMgLyBVUklzLiBNYXRjaCB0aGUgcmVmZXJlbmNlIGltcGxlbWVudGF0aW9uLgAAAAAACkVtcHR5VmFsdWUAAAAAAAg=",
+        "AAAAAAAAAJBSZXR1cm5zIGBTb21lKEFkZHJlc3MpYCBpZiBvd25lcnNoaXAgaXMgc2V0LCBvciBgTm9uZWAgaWYgb3duZXJzaGlwIGhhcwpiZWVuIHJlbm91bmNlZC4KCiMgQXJndW1lbnRzCgoqIGBlYCAtIEFjY2VzcyB0byB0aGUgU29yb2JhbiBlbnZpcm9ubWVudC4AAAAJZ2V0X293bmVyAAAAAAAAAAAAAAEAAAPoAAAAEw==",
+        "AAAAAAAAA45Jbml0aWF0ZXMgYSAyLXN0ZXAgb3duZXJzaGlwIHRyYW5zZmVyIHRvIGEgbmV3IGFkZHJlc3MuCgpSZXF1aXJlcyBhdXRob3JpemF0aW9uIGZyb20gdGhlIGN1cnJlbnQgb3duZXIuIFRoZSBuZXcgb3duZXIgbXVzdCBsYXRlcgpjYWxsIGBhY2NlcHRfb3duZXJzaGlwKClgIHRvIGNvbXBsZXRlIHRoZSB0cmFuc2Zlci4KCiMgQXJndW1lbnRzCgoqIGBlYCAtIEFjY2VzcyB0byB0aGUgU29yb2JhbiBlbnZpcm9ubWVudC4KKiBgbmV3X293bmVyYCAtIFRoZSBwcm9wb3NlZCBuZXcgb3duZXIuCiogYGxpdmVfdW50aWxfbGVkZ2VyYCAtIExlZGdlciBudW1iZXIgdW50aWwgd2hpY2ggdGhlIG5ldyBvd25lciBjYW4KYWNjZXB0LiBBIHZhbHVlIG9mIGAwYCBjYW5jZWxzIGFueSBwZW5kaW5nIHRyYW5zZmVyLgoKIyBFcnJvcnMKCiogW2BPd25hYmxlRXJyb3I6Ok93bmVyTm90U2V0YF0gLSBJZiB0aGUgb3duZXIgaXMgbm90IHNldC4KKiBbYGNyYXRlOjpyb2xlX3RyYW5zZmVyOjpSb2xlVHJhbnNmZXJFcnJvcjo6Tm9QZW5kaW5nVHJhbnNmZXJgXSAtIElmCnRyeWluZyB0byBjYW5jZWwgYSB0cmFuc2ZlciB0aGF0IGRvZXNuJ3QgZXhpc3QuCiogW2BjcmF0ZTo6cm9sZV90cmFuc2Zlcjo6Um9sZVRyYW5zZmVyRXJyb3I6OkludmFsaWRMaXZlVW50aWxMZWRnZXJgXSAtCklmIHRoZSBzcGVjaWZpZWQgbGVkZ2VyIGlzIGluIHRoZSBwYXN0LgoqIFtgY3JhdGU6OnJvbGVfdHJhbnNmZXI6OlJvbGVUcmFuc2ZlckVycm9yOjpJbnZhbGlkUGVuZGluZ0FjY291bnRgXSAtCklmIHRoZSBzcGVjaWZpZWQgcGVuZGluZyBhY2NvdW50IGlzIG5vdCB0aGUgc2FtZSBhcyB0aGUgcHJvdmlkZWQgYG5ld2AKYWRkcmVzcy4KCiMgTm90ZXMKCiogQXV0aG9yaXphdGlvbiBmb3IgdGhlIGN1cnJlbnQgb3duZXIgaXMgcmVxdWlyZWQuAAAAAAASdHJhbnNmZXJfb3duZXJzaGlwAAAAAAACAAAAAAAAAAluZXdfb3duZXIAAAAAAAATAAAAAAAAABFsaXZlX3VudGlsX2xlZGdlcgAAAAAAAAQAAAAA",
+        "AAAAAAAAATBBY2NlcHRzIGEgcGVuZGluZyBvd25lcnNoaXAgdHJhbnNmZXIuCgojIEFyZ3VtZW50cwoKKiBgZWAgLSBBY2Nlc3MgdG8gdGhlIFNvcm9iYW4gZW52aXJvbm1lbnQuCgojIEVycm9ycwoKKiBbYGNyYXRlOjpyb2xlX3RyYW5zZmVyOjpSb2xlVHJhbnNmZXJFcnJvcjo6Tm9QZW5kaW5nVHJhbnNmZXJgXSAtIElmCnRoZXJlIGlzIG5vIHBlbmRpbmcgdHJhbnNmZXIgdG8gYWNjZXB0LgoKIyBFdmVudHMKCiogdG9waWNzIC0gYFsib3duZXJzaGlwX3RyYW5zZmVyX2NvbXBsZXRlZCJdYAoqIGRhdGEgLSBgW25ld19vd25lcjogQWRkcmVzc11gAAAAEGFjY2VwdF9vd25lcnNoaXAAAAAAAAAAAA==",
+        "AAAAAAAAAYVSZW5vdW5jZXMgb3duZXJzaGlwIG9mIHRoZSBjb250cmFjdC4KClBlcm1hbmVudGx5IHJlbW92ZXMgdGhlIG93bmVyLCBkaXNhYmxpbmcgYWxsIGZ1bmN0aW9ucyBnYXRlZCBieQpgI1tvbmx5X293bmVyXWAuCgojIEFyZ3VtZW50cwoKKiBgZWAgLSBBY2Nlc3MgdG8gdGhlIFNvcm9iYW4gZW52aXJvbm1lbnQuCgojIEVycm9ycwoKKiBbYE93bmFibGVFcnJvcjo6VHJhbnNmZXJJblByb2dyZXNzYF0gLSBJZiB0aGVyZSBpcyBhIHBlbmRpbmcgb3duZXJzaGlwCnRyYW5zZmVyLgoqIFtgT3duYWJsZUVycm9yOjpPd25lck5vdFNldGBdIC0gSWYgdGhlIG93bmVyIGlzIG5vdCBzZXQuCgojIE5vdGVzCgoqIEF1dGhvcml6YXRpb24gZm9yIHRoZSBjdXJyZW50IG93bmVyIGlzIHJlcXVpcmVkLgAAAAAAABJyZW5vdW5jZV9vd25lcnNoaXAAAAAAAAAAAAAA",
+        "AAAABAAAAAAAAAAAAAAADUlkZW50aXR5RXJyb3IAAAAAAAALAAAAAAAAABJOb3RPd25lck9yQXBwcm92ZWQAAAAAAAEAAAAAAAAACVVyaU5vdFNldAAAAAAAAAIAAAAAAAAADUFnZW50Tm90Rm91bmQAAAAAAAADAAAAAAAAABJNZXRhZGF0YUtleVRvb0xvbmcAAAAAAAQAAAAAAAAAFE1ldGFkYXRhVmFsdWVUb29Mb25nAAAABQAAAAAAAAATVG9vTWFueU1ldGFkYXRhS2V5cwAAAAAGAAAAAAAAABNSZXNlcnZlZE1ldGFkYXRhS2V5AAAAAAcAAAAAAAAACkVtcHR5VmFsdWUAAAAAAAgAAAAAAAAAEU5vVXBncmFkZVByb3Bvc2VkAAAAAAAACQAAAAAAAAASVGltZWxvY2tOb3RFeHBpcmVkAAAAAAAKAAAAAAAAABZVcGdyYWRlQWxyZWFkeVByb3Bvc2VkAAAAAAAL",
         "AAAABQAAAAAAAAAAAAAAClJlZ2lzdGVyZWQAAAAAAAEAAAAKcmVnaXN0ZXJlZAAAAAAAAwAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAQAAAAAAAAAFb3duZXIAAAAAAAATAAAAAQAAAAAAAAAJYWdlbnRfdXJpAAAAAAAAEAAAAAAAAAAC",
         "AAAABQAAAAAAAAAAAAAAClVyaVVwZGF0ZWQAAAAAAAEAAAALdXJpX3VwZGF0ZWQAAAAAAwAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAQAAAAAAAAAKdXBkYXRlZF9ieQAAAAAAEwAAAAEAAAAAAAAAB25ld191cmkAAAAAEAAAAAAAAAAC",
-        "AAAABQAAAgNFUkMtODAwNCBzcGVjOgpgZXZlbnQgTWV0YWRhdGFTZXQodWludDI1NiBpbmRleGVkIGFnZW50SWQsIHN0cmluZyBpbmRleGVkIGluZGV4ZWRNZXRhZGF0YUtleSwgc3RyaW5nIG1ldGFkYXRhS2V5LCBieXRlcyBtZXRhZGF0YVZhbHVlKTtgCgpUaGUgY2Fub25pY2FsIHJlZmVyZW5jZSB1c2VzIHRoaXMgc2luZ2xlIGV2ZW50IGZvciBBTEwgbWV0YWRhdGEgd3JpdGVzLAppbmNsdWRpbmcgdGhlIHJlc2VydmVkIGBhZ2VudFdhbGxldGAga2V5LiBXZSBtaXJyb3IgdGhhdCBjb250cmFjdDogZXZlcnkKd2FsbGV0IHdyaXRlIChyZWdpc3Rlciwgc2V0LCB1bnNldCwgdHJhbnNmZXItY2xlYXIpIGVtaXRzIGEgYE1ldGFkYXRhU2V0YAp3aXRoIGBrZXkgPSAiYWdlbnRXYWxsZXQiYCBhbmQgdGhlIFN0cktleS1lbmNvZGVkIGFkZHJlc3MgYnl0ZXMgKG9yIGVtcHR5CmJ5dGVzIG9uIHVuc2V0KS4gVGhlcmUgaXMgbm8gZGVkaWNhdGVkIHdhbGxldCBldmVudCAtIHRoaXMgbWF0Y2hlcyB0aGUKc3BlYyBleGFjdGx5LgAAAAAAAAAAC01ldGFkYXRhU2V0AAAAAAEAAAAMbWV0YWRhdGFfc2V0AAAAAwAAAAAAAAAIYWdlbnRfaWQAAAAEAAAAAQAAAK1FUkMtODAwNCBzcGVjIGxpc3RzIHRoaXMgYXMgYW4gaW5kZXhlZCB0b3BpYyBzbyBzdWJzY3JpYmVycyBjYW4gZmlsdGVyCmJ5IG1ldGFkYXRhIGtleSBvbi1jaGFpbi4gVGhlIHNhbWUgdmFsdWUgaXMgYWxzbyBleHBvc2VkIGJlbG93IGFzIGEKZGF0YSBmaWVsZCBmb3IgZXJnb25vbWljIGRlY29kaW5nLgAAAAAAAANrZXkAAAAAEAAAAAEAAAAAAAAABXZhbHVlAAAAAAAADgAAAAAAAAAC",
+        "AAAABQAAAERBbGwgbWV0YWRhdGEgd3JpdGVzIChpbmNsdWRpbmcgYWdlbnRXYWxsZXQpIGZsb3cgdGhyb3VnaCB0aGlzIGV2ZW50LgAAAAAAAAALTWV0YWRhdGFTZXQAAAAAAQAAAAxtZXRhZGF0YV9zZXQAAAADAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAABAAAAAAAAAANrZXkAAAAAEAAAAAEAAAAAAAAABXZhbHVlAAAAAAAADgAAAAAAAAAC",
+        "AAAAAQAAAAAAAAAAAAAAD1VwZ3JhZGVQcm9wb3NhbAAAAAACAAAAAAAAAAtwcm9wb3NlZF9hdAAAAAAEAAAAAAAAAAl3YXNtX2hhc2gAAAAAAAPuAAAAIA==",
         "AAAAAQAAAAAAAAAAAAAADU1ldGFkYXRhRW50cnkAAAAAAAACAAAAAAAAAANrZXkAAAAAEAAAAAAAAAAFdmFsdWUAAAAAAAAO",
+        "AAAABQAAADZFdmVudCBlbWl0dGVkIHdoZW4gYW4gb3duZXJzaGlwIHRyYW5zZmVyIGlzIGluaXRpYXRlZC4AAAAAAAAAAAART3duZXJzaGlwVHJhbnNmZXIAAAAAAAABAAAAEm93bmVyc2hpcF90cmFuc2ZlcgAAAAAAAwAAAAAAAAAJb2xkX293bmVyAAAAAAAAEwAAAAAAAAAAAAAACW5ld19vd25lcgAAAAAAABMAAAAAAAAAAAAAABFsaXZlX3VudGlsX2xlZGdlcgAAAAAAAAQAAAAAAAAAAg==",
+        "AAAABQAAADZFdmVudCBlbWl0dGVkIHdoZW4gYW4gb3duZXJzaGlwIHRyYW5zZmVyIGlzIGNvbXBsZXRlZC4AAAAAAAAAAAAaT3duZXJzaGlwVHJhbnNmZXJDb21wbGV0ZWQAAAAAAAEAAAAcb3duZXJzaGlwX3RyYW5zZmVyX2NvbXBsZXRlZAAAAAEAAAAAAAAACW5ld19vd25lcgAAAAAAABMAAAAAAAAAAg==",
+        "AAAABQAAACpFdmVudCBlbWl0dGVkIHdoZW4gb3duZXJzaGlwIGlzIHJlbm91bmNlZC4AAAAAAAAAAAAST3duZXJzaGlwUmVub3VuY2VkAAAAAAABAAAAE293bmVyc2hpcF9yZW5vdW5jZWQAAAAAAQAAAAAAAAAJb2xkX293bmVyAAAAAAAAEwAAAAAAAAAC",
         "AAAABQAAACpFdmVudCBlbWl0dGVkIHdoZW4gYSB0b2tlbiBpcyB0cmFuc2ZlcnJlZC4AAAAAAAAAAAAIVHJhbnNmZXIAAAABAAAACHRyYW5zZmVyAAAAAwAAAAAAAAAEZnJvbQAAABMAAAABAAAAAAAAAAJ0bwAAAAAAEwAAAAEAAAAAAAAACHRva2VuX2lkAAAABAAAAAAAAAAC",
         "AAAABQAAACpFdmVudCBlbWl0dGVkIHdoZW4gYW4gYXBwcm92YWwgaXMgZ3JhbnRlZC4AAAAAAAAAAAAHQXBwcm92ZQAAAAABAAAAB2FwcHJvdmUAAAAABAAAAAAAAAAIYXBwcm92ZXIAAAATAAAAAQAAAAAAAAAIdG9rZW5faWQAAAAEAAAAAQAAAAAAAAAIYXBwcm92ZWQAAAATAAAAAAAAAAAAAAARbGl2ZV91bnRpbF9sZWRnZXIAAAAAAAAEAAAAAAAAAAI=",
         "AAAABQAAADZFdmVudCBlbWl0dGVkIHdoZW4gYXBwcm92YWwgZm9yIGFsbCB0b2tlbnMgaXMgZ3JhbnRlZC4AAAAAAAAAAAANQXBwcm92ZUZvckFsbAAAAAAAAAEAAAAPYXBwcm92ZV9mb3JfYWxsAAAAAAMAAAAAAAAABW93bmVyAAAAAAAAEwAAAAEAAAAAAAAACG9wZXJhdG9yAAAAEwAAAAAAAAAAAAAAEWxpdmVfdW50aWxfbGVkZ2VyAAAAAAAABAAAAAAAAAAC",
@@ -466,7 +561,10 @@ export class Client extends ContractClient {
         get_agent_wallet: this.txFromJSON<Option<string>>,
         unset_agent_wallet: this.txFromJSON<Result<void>>,
         extend_ttl: this.txFromJSON<null>,
-        upgrade: this.txFromJSON<null>,
+        propose_upgrade: this.txFromJSON<Result<void>>,
+        cancel_upgrade: this.txFromJSON<Result<void>>,
+        execute_upgrade: this.txFromJSON<Result<void>>,
+        pending_upgrade: this.txFromJSON<Option<UpgradeProposal>>,
         version: this.txFromJSON<string>,
         find_owner: this.txFromJSON<Option<string>>,
         agent_exists: this.txFromJSON<boolean>,
@@ -482,6 +580,10 @@ export class Client extends ContractClient {
         is_approved_for_all: this.txFromJSON<boolean>,
         name: this.txFromJSON<string>,
         symbol: this.txFromJSON<string>,
-        token_uri: this.txFromJSON<string>
+        token_uri: this.txFromJSON<string>,
+        get_owner: this.txFromJSON<Option<string>>,
+        transfer_ownership: this.txFromJSON<null>,
+        accept_ownership: this.txFromJSON<null>,
+        renounce_ownership: this.txFromJSON<null>
   }
 }
