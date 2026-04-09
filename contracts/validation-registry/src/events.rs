@@ -1,8 +1,5 @@
 use soroban_sdk::{contractevent, Address, BytesN, Env, String};
 
-/// ERC-8004 spec event names are `ValidationRequest` and `ValidationResponse`
-/// (no past-tense suffix). The previous `ValidationRequested` /
-/// `ValidationResponded` names did not match the spec.
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ValidationRequest {
@@ -10,7 +7,6 @@ pub struct ValidationRequest {
     pub validator_address: Address,
     #[topic]
     pub agent_id: u32,
-    /// ERC-8004 spec lists `requestHash` as the third indexed topic.
     #[topic]
     pub request_hash: BytesN<32>,
     pub request_uri: String,
@@ -23,7 +19,6 @@ pub struct ValidationResponse {
     pub validator_address: Address,
     #[topic]
     pub agent_id: u32,
-    /// ERC-8004 spec lists `requestHash` as the third indexed topic.
     #[topic]
     pub request_hash: BytesN<32>,
     pub response: u32,

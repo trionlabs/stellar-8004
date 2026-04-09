@@ -7,16 +7,7 @@ use crate::events;
 use crate::storage;
 use crate::types::{ValidationStatus, ValidationSummary};
 
-// `find_owner` returns Option<Address> instead of panicking when the agent
-// is missing, which avoids crashing this contract on cross-contract calls
-// into a non-existent or archived agent.
-//
-// TRUST ASSUMPTION: like the reputation registry, every authorization decision
-// here delegates to the upgradeable identity registry. A compromised identity-
-// registry admin can replace its WASM to make `find_owner` return whatever
-// they want, bypassing the `NotOwnerOrApproved` check. Both registries should
-// share custody (or sit behind the same multisig / timelock) as the identity
-// registry they point at.
+// Cross-contract auth delegates to identity registry; share custody.
 #[contractclient(name = "IdentityRegistryClient")]
 pub trait IdentityRegistryInterface {
     fn find_owner(e: &Env, agent_id: u32) -> Option<Address>;
@@ -45,7 +36,6 @@ impl ValidationRegistryContract {
     ) -> Result<(), ValidationError> {
         caller.require_auth();
 
-        // Only agent owner, approved, or approved-for-all can request.
         let identity_addr = storage::get_identity_registry(e);
         let identity = IdentityRegistryClient::new(e, &identity_addr);
         let owner = identity
@@ -66,12 +56,10 @@ impl ValidationRegistryContract {
             }
         }
 
-        // Check request doesn't already exist
         if storage::has_validation(e, &request_hash) {
             return Err(ValidationError::RequestAlreadyExists);
         }
 
-        // Store validation request
         let status = ValidationStatus {
             validator_address: validator_address.clone(),
             agent_id,
@@ -90,6 +78,7 @@ impl ValidationRegistryContract {
         Ok(())
     }
 
+    /// Responses are updateable (progressive validation); only original validator can update.
     pub fn validation_response(
         e: &Env,
         caller: Address,
@@ -112,11 +101,6 @@ impl ValidationRegistryContract {
             return Err(ValidationError::NotDesignatedValidator);
         }
 
-        // ERC-8004 spec: `validationResponse` is callable multiple times per
-        // requestHash to enable progressive states (a validator updating
-        // their own assessment as more evidence arrives). The previous
-        // single-shot rejection was a spec violation. Only the original
-        // validator can update, so this cannot be abused by a third party.
         status.response = response;
         status.response_hash = response_hash.clone();
         status.tag = tag.clone();
@@ -147,9 +131,6 @@ impl ValidationRegistryContract {
         storage::get_validation(e, &request_hash).ok_or(ValidationError::RequestNotFound)
     }
 
-    /// ERC-8004 spec: returns true if a validation request exists. Wraps the
-    /// internal `has_validation` storage check so cross-contract callers can
-    /// query existence without a panicking unwrap.
     pub fn request_exists(e: &Env, request_hash: BytesN<32>) -> bool {
         storage::has_validation(e, &request_hash)
     }
@@ -170,7 +151,6 @@ impl ValidationRegistryContract {
                     if !status.has_response {
                         continue;
                     }
-                    // Filter by validator if list is non-empty
                     if !validator_addresses.is_empty() {
                         let mut found = false;
                         for va in validator_addresses.iter() {
@@ -183,7 +163,6 @@ impl ValidationRegistryContract {
                             continue;
                         }
                     }
-                    // Filter by tag if non-empty
                     if tag.len() > 0 && status.tag != tag {
                         continue;
                     }
@@ -193,11 +172,7 @@ impl ValidationRegistryContract {
             }
         }
 
-        // average_response uses integer division, so [51, 50] reports 50
-        // not 50.5. Validation responses are documented as 0..=100, and
-        // callers wanting fractional precision should compute the average
-        // off-chain from the raw responses returned by
-        // get_agent_validations_paginated + get_validation_status.
+        // Integer division (50 not 50.5); use raw responses for precision.
         ValidationSummary {
             count: match_count,
             average_response: if match_count > 0 {

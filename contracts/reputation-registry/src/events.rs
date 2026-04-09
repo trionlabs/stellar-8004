@@ -7,8 +7,6 @@ pub struct NewFeedback {
     pub agent_id: u32,
     #[topic]
     pub client_address: Address,
-    /// ERC-8004 spec lists `tag1` as the third indexed topic so subscribers
-    /// can filter feedback by tag on-chain.
     #[topic]
     pub tag1: String,
     pub feedback_index: u64,
@@ -27,7 +25,6 @@ pub struct FeedbackRevoked {
     pub agent_id: u32,
     #[topic]
     pub client_address: Address,
-    /// ERC-8004 spec lists `feedbackIndex` as the third indexed topic.
     #[topic]
     pub feedback_index: u64,
 }
@@ -39,8 +36,6 @@ pub struct ResponseAppended {
     pub agent_id: u32,
     #[topic]
     pub client_address: Address,
-    /// ERC-8004 spec lists `responder` as the third indexed topic so the
-    /// off-chain layer can filter responses by responder identity.
     #[topic]
     pub responder: Address,
     pub feedback_index: u64,
