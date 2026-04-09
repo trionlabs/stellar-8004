@@ -1,10 +1,11 @@
-use soroban_sdk::{contracttype, Address, Env, Vec};
+use soroban_sdk::{contracttype, Address, BytesN, Env, Vec};
 
 use crate::errors::ReputationError;
 use crate::types::FeedbackData;
 
 pub const TTL_THRESHOLD: u32 = 518_400;
 pub const TTL_BUMP: u32 = 1_036_800;
+pub const TIMELOCK_LEDGERS: u32 = 51_840;
 
 pub fn extend_instance_ttl(e: &Env) {
     e.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_BUMP);
@@ -20,6 +21,28 @@ pub enum DataKey {
     ClientAtIndex(u32, u32),
     ClientExists(u32, Address),
     ResponseCount(u32, Address, u64),
+    PendingUpgrade,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub struct UpgradeProposal {
+    pub wasm_hash: BytesN<32>,
+    pub proposed_at: u32,
+}
+
+pub fn set_pending_upgrade(e: &Env, proposal: &UpgradeProposal) {
+    e.storage()
+        .instance()
+        .set(&DataKey::PendingUpgrade, proposal);
+}
+
+pub fn get_pending_upgrade(e: &Env) -> Option<UpgradeProposal> {
+    e.storage().instance().get(&DataKey::PendingUpgrade)
+}
+
+pub fn remove_pending_upgrade(e: &Env) {
+    e.storage().instance().remove(&DataKey::PendingUpgrade);
 }
 
 // --- Identity Registry ---

@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, Bytes, Env, String, Vec};
+use soroban_sdk::{contracttype, Address, Bytes, BytesN, Env, String, Vec};
 use stellar_tokens::non_fungible::{
     NFTStorageKey, BALANCE_EXTEND_AMOUNT, BALANCE_TTL_THRESHOLD, OWNER_EXTEND_AMOUNT,
     OWNER_TTL_THRESHOLD,
@@ -28,6 +28,9 @@ pub fn find_owner(e: &Env, agent_id: u32) -> Option<Address> {
         .get::<_, Address>(&NFTStorageKey::Owner(agent_id))
 }
 
+// 3 days at 5s/ledger. Changing this requires an upgrade (which is itself timelocked).
+pub const TIMELOCK_LEDGERS: u32 = 51_840;
+
 #[contracttype]
 #[derive(Clone)]
 pub enum DataKey {
@@ -35,6 +38,28 @@ pub enum DataKey {
     Metadata(u32, String),
     AgentWallet(u32),
     MetadataKeys(u32),
+    PendingUpgrade,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub struct UpgradeProposal {
+    pub wasm_hash: BytesN<32>,
+    pub proposed_at: u32,
+}
+
+pub fn set_pending_upgrade(e: &Env, proposal: &UpgradeProposal) {
+    e.storage()
+        .instance()
+        .set(&DataKey::PendingUpgrade, proposal);
+}
+
+pub fn get_pending_upgrade(e: &Env) -> Option<UpgradeProposal> {
+    e.storage().instance().get(&DataKey::PendingUpgrade)
+}
+
+pub fn remove_pending_upgrade(e: &Env) {
+    e.storage().instance().remove(&DataKey::PendingUpgrade);
 }
 
 pub fn extend_instance_ttl(e: &Env) {
