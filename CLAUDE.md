@@ -23,7 +23,7 @@ Single test: `cargo test --package identity-registry test_register`
 
 Three independent Soroban contracts in a Cargo workspace:
 
-- **Identity Registry** (`contracts/identity-registry/`) - Agent registration as NFTs using OZ `NonFungibleToken` with `ContractOverrides` to clear wallet on transfer. Sequential minting via `Base::sequential_mint`. Uses `#[only_owner]` from `stellar-macros` for admin functions.
+- **Identity Registry** (`contracts/identity-registry/`) - Agent registration as NFTs using OZ `NonFungibleToken` with `ContractOverrides` to clear wallet on transfer. Sequential minting via `Base::sequential_mint`. Timelocked upgrades (3-day delay). OZ 2-step ownership transfer exposed.
 - **Reputation Registry** (`contracts/reputation-registry/`) - Feedback storage with indexed client pattern (no growing Vecs). WAD-normalized `get_summary` computed on demand (requires explicit client list). Cross-contract calls to Identity Registry via `#[contractclient]` for self-feedback prevention.
 - **Validation Registry** (`contracts/validation-registry/`) - Request/response lifecycle for third-party attestations. Same `#[contractclient]` pattern for ownership checks.
 
