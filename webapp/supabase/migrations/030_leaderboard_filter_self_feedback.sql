@@ -1,20 +1,13 @@
 -- 030_leaderboard_filter_self_feedback.sql
 -- Filter self-feedback out of the leaderboard aggregates.
 --
--- Background: the ERC-8004 Jan 2026 spec update removed the on-chain
--- requirement that the agent owner cannot give feedback to their own agent.
--- The pre-authorization mechanism (`is_authorized_feedback`) was dropped from
--- the spec because it provided an attack surface (an owner could brick a
--- pending good review by revoking authorization) and added complexity for
--- little gain. Self-review filtering is now an off-chain consumer's
--- responsibility.
+-- The canonical erc-8004 reference enforces self-feedback rejection ON-CHAIN
+-- via `isAuthorizedOrOwner` in `giveFeedback`. Our reputation registry
+-- mirrors this check, so self-feedback is rejected at the contract level.
 --
--- Our reputation registry follows the spec and accepts self-feedback. This
--- migration excludes self-feedback rows from the on-page reputation score so
--- an agent owner cannot inflate their own score by spamming themselves.
--- Self-feedback rows remain visible on the agent detail page (the spec
--- acknowledges them as legitimate signal once the consumer can attribute
--- them) but they no longer move the leaderboard ranking.
+-- This materialized view filter is DEFENSE-IN-DEPTH: if the on-chain check
+-- were ever bypassed (e.g. via a compromised identity registry admin key),
+-- the leaderboard would still exclude self-authored feedback rows.
 --
 -- Implementation: rebuild the materialized view with a NOT EXISTS clause on
 -- the feedback subquery that excludes rows where the feedback's
