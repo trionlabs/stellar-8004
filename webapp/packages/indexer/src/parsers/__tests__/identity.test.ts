@@ -67,7 +67,8 @@ describe('parseIdentityEvent', () => {
   });
 
   it('parses MetadataSet events with key as topic', () => {
-    // Spec compliance pass: `key` is now an indexed topic at index 2.
+    // Spec parity (canonical erc-8004): `key` is an indexed topic at
+    // index 2. The value travels in the event body.
     const event = mockEvent({
       topics: ['metadata_set', 1, 'category'],
       data: { value: textEncoder.encode('defi') },
@@ -85,12 +86,14 @@ describe('parseIdentityEvent', () => {
     );
   });
 
-  it('parses AgentWalletSet events with all three indexed topics', () => {
-    // Spec compliance pass: ERC-8004 AgentWalletSet has agent_id, new_wallet
-    // and set_by all as indexed topics.
-    const setBy = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
+  it('promotes a metadata_set with the agentWallet key to AgentWalletSet', () => {
+    // The canonical erc-8004 reference flows ALL wallet writes through
+    // MetadataSet (no dedicated wallet event). The parser promotes the
+    // relevant rows to a typed shape so the DB writer can route them to
+    // the wallet column.
     const event = mockEvent({
-      topics: ['agent_wallet_set', 1, new Address(MOCK_OWNER), new Address(setBy)],
+      topics: ['metadata_set', 1, 'agentWallet'],
+      data: { value: textEncoder.encode(MOCK_OWNER) },
     });
 
     const result = parseIdentityEvent(event);
@@ -100,16 +103,17 @@ describe('parseIdentityEvent', () => {
         type: 'AgentWalletSet',
         agentId: 1,
         newWallet: MOCK_OWNER,
-        setBy,
       }),
     );
   });
 
-  it('parses AgentWalletUnset events with set_by topic', () => {
-    // Soroban-only companion event for the unset case (no zero-address
-    // sentinel in Soroban).
+  it('promotes a metadata_set with the agentWallet key and empty value to AgentWalletUnset', () => {
+    // Spec parity: the canonical reference's _update override and
+    // unsetAgentWallet emit a MetadataSet with empty bytes. The parser
+    // surfaces this as the typed Unset shape.
     const event = mockEvent({
-      topics: ['agent_wallet_unset', 1, new Address(MOCK_OWNER)],
+      topics: ['metadata_set', 1, 'agentWallet'],
+      data: { value: textEncoder.encode('') },
     });
 
     const result = parseIdentityEvent(event);
@@ -118,9 +122,19 @@ describe('parseIdentityEvent', () => {
       expect.objectContaining({
         type: 'AgentWalletUnset',
         agentId: 1,
-        setBy: MOCK_OWNER,
       }),
     );
+  });
+
+  it('drops a wallet metadata_set with malformed bytes', () => {
+    // If the bytes do not StrKey-decode, drop the event rather than
+    // corrupt the wallet column.
+    const event = mockEvent({
+      topics: ['metadata_set', 1, 'agentWallet'],
+      data: { value: textEncoder.encode('not-a-valid-stellar-address') },
+    });
+
+    expect(parseIdentityEvent(event)).toBeNull();
   });
 
   it('returns null for unknown events', () => {
