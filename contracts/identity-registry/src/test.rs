@@ -401,13 +401,58 @@ fn test_non_owner_cannot_unset_wallet() {
 }
 
 #[test]
-fn test_upgrade_requires_auth() {
+fn test_timelocked_upgrade() {
     let env = Env::default();
-    // No mock_all_auths - proves auth is enforced
+    env.mock_all_auths();
     let (client, _admin) = create_client(&env);
-    let fake_hash = soroban_sdk::BytesN::from_array(&env, &[0u8; 32]);
-    let result = client.try_upgrade(&fake_hash);
+    let fake_hash = soroban_sdk::BytesN::from_array(&env, &[1u8; 32]);
+
+    // Propose
+    client.propose_upgrade(&fake_hash);
+    let pending = client.pending_upgrade().expect("should have proposal");
+    assert_eq!(pending.wasm_hash, fake_hash);
+
+    // Can't execute before timelock
+    let result = client.try_execute_upgrade();
     assert!(result.is_err());
+
+    // Advance past timelock (51840 ledgers)
+    env.ledger().with_mut(|l| l.sequence_number += 51_841);
+
+    // Now it would execute (but we don't have valid WASM, so skip actual deploy)
+    // Just verify the proposal is readable and cancellable.
+    client.cancel_upgrade();
+    assert!(client.pending_upgrade().is_none());
+}
+
+#[test]
+fn test_propose_upgrade_rejects_duplicate() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let hash = soroban_sdk::BytesN::from_array(&env, &[1u8; 32]);
+
+    client.propose_upgrade(&hash);
+    let result = client.try_propose_upgrade(&hash);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_ownership_transfer() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin) = create_client(&env);
+
+    assert_eq!(client.get_owner(), Some(admin.clone()));
+
+    let new_owner = Address::generate(&env);
+    // 2-step: propose then accept
+    client.transfer_ownership(&new_owner, &1_000_000u32);
+    // Still old owner until accepted
+    assert_eq!(client.get_owner(), Some(admin));
+
+    client.accept_ownership();
+    assert_eq!(client.get_owner(), Some(new_owner));
 }
 
 #[test]

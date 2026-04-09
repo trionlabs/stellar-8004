@@ -1,5 +1,5 @@
 use soroban_sdk::{contract, contractclient, contractimpl, Address, BytesN, Env, String, Vec};
-use stellar_access::ownable::{self as ownable};
+use stellar_access::ownable::{self as ownable, Ownable};
 use stellar_macros::only_owner;
 
 use crate::errors::ValidationError;
@@ -211,14 +211,53 @@ impl ValidationRegistryContract {
         storage::extend_instance_ttl(e);
     }
 
-    // --- Admin ---
+    // --- Timelocked upgrade ---
 
     #[only_owner]
-    pub fn upgrade(e: &Env, new_wasm_hash: BytesN<32>) {
-        e.deployer().update_current_contract_wasm(new_wasm_hash);
+    pub fn propose_upgrade(e: &Env, new_wasm_hash: BytesN<32>) -> Result<(), ValidationError> {
+        if storage::get_pending_upgrade(e).is_some() {
+            return Err(ValidationError::UpgradeAlreadyProposed);
+        }
+        storage::set_pending_upgrade(
+            e,
+            &storage::UpgradeProposal {
+                wasm_hash: new_wasm_hash,
+                proposed_at: e.ledger().sequence(),
+            },
+        );
+        Ok(())
+    }
+
+    #[only_owner]
+    pub fn cancel_upgrade(e: &Env) -> Result<(), ValidationError> {
+        if storage::get_pending_upgrade(e).is_none() {
+            return Err(ValidationError::NoUpgradeProposed);
+        }
+        storage::remove_pending_upgrade(e);
+        Ok(())
+    }
+
+    #[only_owner]
+    pub fn execute_upgrade(e: &Env) -> Result<(), ValidationError> {
+        let proposal = storage::get_pending_upgrade(e).ok_or(ValidationError::NoUpgradeProposed)?;
+        let elapsed = e.ledger().sequence().saturating_sub(proposal.proposed_at);
+        if elapsed < storage::TIMELOCK_LEDGERS {
+            return Err(ValidationError::TimelockNotExpired);
+        }
+        storage::remove_pending_upgrade(e);
+        e.deployer()
+            .update_current_contract_wasm(proposal.wasm_hash);
+        Ok(())
+    }
+
+    pub fn pending_upgrade(e: &Env) -> Option<storage::UpgradeProposal> {
+        storage::get_pending_upgrade(e)
     }
 
     pub fn version(e: &Env) -> String {
         String::from_str(e, "0.1.0")
     }
 }
+
+#[contractimpl(contracttrait)]
+impl Ownable for ValidationRegistryContract {}
