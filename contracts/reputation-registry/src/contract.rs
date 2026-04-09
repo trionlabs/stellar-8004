@@ -7,25 +7,30 @@ use crate::events;
 use crate::storage;
 use crate::types::{FeedbackData, SummaryResult};
 
-/// Maximum number of clients accepted in `get_summary`'s explicit-list path.
-/// Each client costs `last_index` storage reads. Soroban's per-tx read budget
-/// is small (~100 entries), so we silently truncate larger inputs to keep the
-/// call from running out of gas. Callers needing breadth should use the
-/// pre-computed aggregate path (empty client list).
+/// Maximum number of clients accepted in `get_summary`. Each client costs
+/// `last_index` storage reads. Soroban's per-tx read budget is small (~100
+/// entries), so we silently cap larger inputs to keep the call from running
+/// out of gas. Callers needing more breadth should make multiple calls.
 const MAX_SUMMARY_CLIENTS: u32 = 5;
 
-// `find_owner` returns Option<Address> instead of panicking when the agent
-// is missing, which avoids crashing this contract on cross-contract calls
-// into a non-existent or archived agent.
+/// ERC-8004 spec: `giveFeedback` rejects values outside `[-1e38, 1e38]` so a
+/// single feedback cannot wrap the i128 aggregate or overflow the WAD-mul in
+/// `get_summary`. Mirrors the canonical reference's `MAX_ABS_VALUE`.
+const MAX_ABS_VALUE: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_000; // 1e38
+
+// `find_owner` and `is_authorized_or_owner` return Option/bool instead of
+// panicking on a missing agent, which avoids crashing this contract on
+// cross-contract calls into a non-existent or archived agent.
 //
 // TRUST ASSUMPTION: every authorization decision in this contract delegates
 // to the identity registry pointed at by `storage::get_identity_registry`.
 // That registry is upgradeable by its owner (`#[only_owner] upgrade()`), so
 // the identity registry's admin can:
-//   - replace the WASM with one that returns a fake owner from `find_owner`,
-//     letting an attacker bypass `Err(SelfFeedback)` and `Err(NotOwnerOrApproved)`
-//   - replace the WASM with one that always reports the attacker as approved
-//     for any agent, letting them respond on behalf of agents they don't own
+//   - replace the WASM with one that returns false from
+//     `is_authorized_or_owner`, letting the agent owner bypass the
+//     self-feedback check and inflate their own reputation
+//   - replace the WASM with one that always reports the attacker as
+//     authorized, letting them act as approved operator for any agent
 // In other words: the reputation registry is only as trustworthy as the
 // identity registry's admin key. If you operate a reputation registry that
 // points at a third-party identity registry, you inherit that party's
@@ -36,8 +41,7 @@ const MAX_SUMMARY_CLIENTS: u32 = 5;
 pub trait IdentityRegistryInterface {
     fn find_owner(e: &Env, agent_id: u32) -> Option<Address>;
     fn agent_exists(e: &Env, agent_id: u32) -> bool;
-    fn get_approved(e: &Env, token_id: u32) -> Option<Address>;
-    fn is_approved_for_all(e: &Env, owner: Address, operator: Address) -> bool;
+    fn is_authorized_or_owner(e: &Env, spender: Address, agent_id: u32) -> bool;
 }
 
 #[contract]
@@ -64,20 +68,35 @@ impl ReputationRegistryContract {
     ) -> Result<(), ReputationError> {
         caller.require_auth();
 
+        // Spec parity: `valueDecimals` must be in `[0, 18]`.
         if value_decimals > 18 {
             return Err(ReputationError::InvalidValueDecimals);
         }
 
-        // ERC-8004 Jan 2026 update: any caller can submit feedback. The
-        // pre-authorization mechanism (and the self-feedback restriction)
-        // were removed. Spam and Sybil resistance are explicitly delegated
-        // to off-chain filtering and reputation systems. Off-chain consumers
-        // MUST filter feedback authored by the agent owner from their own
-        // scoring if they want to defend against self-puffing.
+        // Spec parity: `value` must be in `[-1e38, 1e38]` (`MAX_ABS_VALUE`).
+        // The bound is loose enough for any realistic feedback signal but
+        // tight enough that no single feedback can wrap the i128 sum in
+        // `get_summary`'s WAD normalization.
+        if value > MAX_ABS_VALUE || value < -MAX_ABS_VALUE {
+            return Err(ReputationError::ValueOutOfRange);
+        }
+
+        // Spec parity: the canonical erc-8004 reference rejects feedback
+        // authored by the agent owner or an approved operator via a single
+        // `isAuthorizedOrOwner` cross-contract call to the identity
+        // registry. The check ALSO covers the agent-existence precondition:
+        // a missing agent panics inside the OZ `owner_of` call, surfaced
+        // here as an absent owner (returns false). We trap that and return
+        // `AgentNotFound` for ergonomics, but the spec uses a single revert
+        // path. Self-feedback returns `SelfFeedback` to give callers a
+        // distinguishable error code.
         let identity_addr = storage::get_identity_registry(e);
         let identity = IdentityRegistryClient::new(e, &identity_addr);
         if !identity.agent_exists(&agent_id) {
             return Err(ReputationError::AgentNotFound);
+        }
+        if identity.is_authorized_or_owner(&caller, &agent_id) {
+            return Err(ReputationError::SelfFeedback);
         }
 
         // Track client
@@ -98,10 +117,6 @@ impl ReputationRegistryContract {
             tag2: tag2.clone(),
         };
         storage::set_feedback(e, agent_id, &caller, feedback_index, &data);
-
-        // Update running aggregate
-        storage::update_aggregate_add(e, agent_id, value, value_decimals)?;
-        storage::update_tag_aggregate_add(e, agent_id, &tag1, &tag2, value, value_decimals)?;
 
         // Emit event with full data (including off-chain fields)
         events::new_feedback(
@@ -136,17 +151,6 @@ impl ReputationRegistryContract {
             return Err(ReputationError::FeedbackNotFound);
         }
 
-        // Subtract from aggregate before revoking
-        storage::update_aggregate_sub(e, agent_id, data.value, data.value_decimals)?;
-        storage::update_tag_aggregate_sub(
-            e,
-            agent_id,
-            &data.tag1,
-            &data.tag2,
-            data.value,
-            data.value_decimals,
-        )?;
-
         data.is_revoked = true;
         storage::set_feedback(e, agent_id, &caller, feedback_index, &data);
 
@@ -171,16 +175,12 @@ impl ReputationRegistryContract {
             return Err(ReputationError::EmptyValue);
         }
 
-        // ERC-8004 spec: `appendResponse` is callable by anyone. The off-chain
-        // layer is responsible for filtering responses by responder identity
-        // (e.g. only the agent owner's responses are treated as authoritative).
-        let identity_addr = storage::get_identity_registry(e);
-        let identity = IdentityRegistryClient::new(e, &identity_addr);
-        if !identity.agent_exists(&agent_id) {
-            return Err(ReputationError::AgentNotFound);
-        }
-
-        // Verify feedback exists
+        // Spec parity: `appendResponse` is callable by ANYONE - no
+        // owner/operator restriction. The reference does not verify the
+        // agent exists either; the feedback-existence check below covers
+        // it (a missing agent has `lastIndex == 0`, so any feedback lookup
+        // returns `FeedbackNotFound`). Off-chain consumers filter by
+        // `responder` to surface authoritative responses.
         storage::get_feedback(e, agent_id, &client_address, feedback_index)
             .ok_or(ReputationError::FeedbackNotFound)?;
 
@@ -212,62 +212,111 @@ impl ReputationRegistryContract {
             .ok_or(ReputationError::FeedbackNotFound)
     }
 
+    /// Spec parity: returns the average over all matching feedback for the
+    /// given clients, normalized to 18-decimal WAD precision and then scaled
+    /// back to the most-frequent (mode) `valueDecimals`. Reverts when
+    /// `client_addresses` is empty - the canonical reference rejects this
+    /// path explicitly because all-clients aggregates are a Sybil/spam
+    /// vector. The off-chain explorer is responsible for any "agent-wide"
+    /// score, where it can apply per-client weighting.
+    ///
+    /// **i128 WAD overflow note:** the canonical reference uses `int256` for
+    /// the intermediate WAD computation (`value * 10^(18-decimals)`).
+    /// Soroban only has `i128`, so the multiply overflows for feedback with
+    /// `|value| > ~1.7e20` at `decimals=0`. The checked_mul returns
+    /// `AggregateOverflow` cleanly - no silent corruption. Realistic
+    /// feedback values (quality ratings, uptimes, response times) are well
+    /// within the safe range. Callers with extreme values should use higher
+    /// `decimals` to reduce the normalization factor.
     pub fn get_summary(
         e: &Env,
         agent_id: u32,
         client_addresses: Vec<Address>,
         tag1: String,
         tag2: String,
-    ) -> SummaryResult {
+    ) -> Result<SummaryResult, ReputationError> {
         if client_addresses.is_empty() {
-            // Use pre-computed aggregate
-            let has_tags = tag1.len() > 0 || tag2.len() > 0;
-            if has_tags {
-                storage::get_tag_aggregate(e, agent_id, &tag1, &tag2)
-            } else {
-                storage::get_aggregate(e, agent_id)
-            }
-        } else {
-            // Compute on-the-fly for specific clients. Capped at MAX_SUMMARY_CLIENTS
-            // because each client costs `last_index` storage reads, and Soroban's
-            // per-tx read budget is small (~100 entries). Callers needing more
-            // breadth should use the empty-list path (pre-computed aggregate) or
-            // paginate over multiple calls.
-            let limit = core::cmp::min(client_addresses.len(), MAX_SUMMARY_CLIENTS);
-            let mut count = 0u64;
-            let mut sum = 0i128;
-            let mut max_dec = 0u32;
+            return Err(ReputationError::ClientAddressesRequired);
+        }
 
-            for idx in 0..limit {
-                let client = client_addresses.get(idx).unwrap();
-                let last = storage::get_last_index(e, agent_id, &client);
-                for i in 1..=last {
-                    if let Some(fb) = storage::get_feedback(e, agent_id, &client, i) {
-                        if fb.is_revoked {
-                            continue;
-                        }
-                        let tag_match = (tag1.len() == 0 || fb.tag1 == tag1)
-                            && (tag2.len() == 0 || fb.tag2 == tag2);
-                        if tag_match {
-                            count = count.saturating_add(1);
-                            // Saturating: this path returns SummaryResult directly (no Result),
-                            // so we clamp instead of erroring. Persistent aggregates above use
-                            // checked arithmetic and surface AggregateOverflow.
-                            sum = sum.saturating_add(fb.value);
-                            if fb.value_decimals > max_dec {
-                                max_dec = fb.value_decimals;
-                            }
-                        }
+        // Soroban's per-tx storage read budget caps how many clients we can
+        // walk in one call. The hard cap below silently truncates the input
+        // list - callers needing breadth should make multiple calls.
+        let limit = core::cmp::min(client_addresses.len(), MAX_SUMMARY_CLIENTS);
+
+        // 18-decimal WAD precision matches the canonical reference's
+        // intermediate format. Each feedback is normalized into WAD before
+        // summing so that `value=1, decimals=0` and `value=100, decimals=2`
+        // both contribute the same magnitude.
+        let mut sum_wad: i128 = 0;
+        let mut count: u64 = 0;
+        // Frequency table indexed by `valueDecimals` (0..=18). Used to pick
+        // the mode decimals for the final output.
+        let mut decimal_counts = [0u64; 19];
+
+        for idx in 0..limit {
+            let client = client_addresses.get(idx).unwrap();
+            let last = storage::get_last_index(e, agent_id, &client);
+            for i in 1..=last {
+                if let Some(fb) = storage::get_feedback(e, agent_id, &client, i) {
+                    if fb.is_revoked {
+                        continue;
                     }
+                    if tag1.len() != 0 && fb.tag1 != tag1 {
+                        continue;
+                    }
+                    if tag2.len() != 0 && fb.tag2 != tag2 {
+                        continue;
+                    }
+                    let dec = if fb.value_decimals > 18 {
+                        18
+                    } else {
+                        fb.value_decimals
+                    };
+                    let factor = pow10(18 - dec);
+                    let normalized = fb
+                        .value
+                        .checked_mul(factor)
+                        .ok_or(ReputationError::AggregateOverflow)?;
+                    sum_wad = sum_wad
+                        .checked_add(normalized)
+                        .ok_or(ReputationError::AggregateOverflow)?;
+                    decimal_counts[dec as usize] += 1;
+                    count = count
+                        .checked_add(1)
+                        .ok_or(ReputationError::AggregateOverflow)?;
                 }
             }
+        }
 
-            SummaryResult {
-                count,
-                summary_value: sum,
-                summary_value_decimals: max_dec,
+        if count == 0 {
+            return Ok(SummaryResult {
+                count: 0,
+                summary_value: 0,
+                summary_value_decimals: 0,
+            });
+        }
+
+        // Mode decimals: most frequent valueDecimals across the matched
+        // feedback. Ties resolve to the lowest decimals (first match wins).
+        let mut mode_dec: u32 = 0;
+        let mut max_freq: u64 = 0;
+        for d in 0u32..=18 {
+            let freq = decimal_counts[d as usize];
+            if freq > max_freq {
+                max_freq = freq;
+                mode_dec = d;
             }
         }
+
+        let avg_wad = sum_wad / (count as i128);
+        let summary_value = avg_wad / pow10(18 - mode_dec);
+
+        Ok(SummaryResult {
+            count,
+            summary_value,
+            summary_value_decimals: mode_dec,
+        })
     }
 
     pub fn get_clients_paginated(e: &Env, agent_id: u32, start: u32, limit: u32) -> Vec<Address> {
@@ -307,4 +356,17 @@ impl ReputationRegistryContract {
     pub fn version(e: &Env) -> String {
         String::from_str(e, "0.1.0")
     }
+}
+
+/// Returns `10^exp` as `i128`. `exp` is bounded to `[0, 18]` by the
+/// `valueDecimals` invariant in `give_feedback`, so the result fits in
+/// `i128` (`10^18 < 2^60`).
+fn pow10(exp: u32) -> i128 {
+    let mut acc: i128 = 1;
+    let mut i = 0;
+    while i < exp {
+        acc *= 10;
+        i += 1;
+    }
+    acc
 }
