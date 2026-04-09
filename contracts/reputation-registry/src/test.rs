@@ -138,8 +138,7 @@ fn test_give_feedback() {
 
 #[test]
 fn test_self_feedback_rejected() {
-    // 8004 spec: agent owner and approved operators are rejected from
-    // giveFeedback via isAuthorizedOrOwner.
+    // Owner cannot review their own agent.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, agent_owner, _) = setup(&env);
@@ -163,8 +162,7 @@ fn test_self_feedback_rejected() {
 
 #[test]
 fn test_approved_operator_rejected_from_self_feedback() {
-    // The spec rejects approved operators too, not just the literal owner.
-    // Drives the `is_authorized_or_owner` Approved branch in the mock.
+    // Approved operators can't review either.
     let env = Env::default();
     env.mock_all_auths();
     let (client, identity, _, _) = setup(&env);
@@ -214,9 +212,7 @@ fn test_revoke_feedback() {
 
 #[test]
 fn test_get_summary_returns_average() {
-    // Spec parity: get_summary returns the AVERAGE (not the sum) over the
-    // matching feedback, expressed in mode-decimals (most frequent
-    // valueDecimals across the matched set).
+    // get_summary returns the average, not the sum.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
@@ -245,7 +241,7 @@ fn test_get_summary_returns_average() {
 
 #[test]
 fn test_get_summary_revoked_excluded() {
-    // Spec parity: revoked feedback must be excluded from the average.
+    // Revoked feedback excluded from average.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
@@ -284,17 +280,9 @@ fn test_get_summary_revoked_excluded() {
 
 #[test]
 fn test_get_summary_wad_normalization_picks_mode_decimals() {
-    // Two feedbacks with `decimals=0` (the mode) plus one with `decimals=2`.
-    // Spec WAD math: normalize each to 18 decimals, average, then scale
-    // back to the mode (0 decimals).
-    //
-    //   feedback A: value=80,  decimals=0  -> 80e18 in WAD
-    //   feedback B: value=90,  decimals=0  -> 90e18 in WAD
-    //   feedback C: value=10000, decimals=2 -> 100e18 in WAD (10000 / 100)
-    //
-    // average WAD = (80 + 90 + 100) * 1e18 / 3 = 90e18
-    // mode decimals = 0 (count=2 vs decimals=2 count=1)
-    // summary_value = 90e18 / 1e18 = 90
+    // Mixed decimals: (80, dec=0), (90, dec=0), (10000, dec=2) = 100.
+    // All normalize to 18 decimals, average = (80+90+100)/3 = 90.
+    // Mode decimals = 0 (two entries), so output is 90 with decimals=0.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
@@ -324,10 +312,7 @@ fn test_get_summary_wad_normalization_picks_mode_decimals() {
 
 #[test]
 fn test_get_summary_rejects_empty_client_list() {
-    // Spec parity: the canonical 8004 reference REVERTS when called
-    // without a client filter. The all-clients aggregate path was a
-    // Sybil/spam vector explicitly called out by the spec, and our prior
-    // pre-computed aggregate path was a non-spec extension. Now removed.
+    // Empty client list must revert (Sybil prevention).
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, _) = setup(&env);
@@ -444,10 +429,7 @@ fn test_non_submitter_cannot_revoke() {
 
 #[test]
 fn test_anyone_can_append_response() {
-    // 8004 spec: appendResponse() is callable by anyone. The off-chain
-    // layer is responsible for filtering responses by responder identity
-    // (e.g. only responses from the agent owner are treated as authoritative).
-    // This used to be restricted to owner/approved which violated the spec.
+    // Anyone can append a response, not just the agent owner.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
@@ -465,9 +447,6 @@ fn test_anyone_can_append_response() {
         &zero_hash(&env),
     );
 
-    // A stranger - not the agent owner, not approved - must be able to
-    // append a response. The previous owner-only restriction was a spec
-    // violation.
     client.append_response(
         &stranger,
         &0,
@@ -545,9 +524,7 @@ fn test_upgrade_requires_auth() {
 
 #[test]
 fn test_value_out_of_range_rejected() {
-    // Spec parity: `value` must be in `[-1e38, 1e38]`. Anything bigger is
-    // rejected at the entry point so a single feedback cannot wrap the
-    // i128 sum in `get_summary`'s WAD normalization.
+    // Values outside [-1e38, 1e38] are rejected.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
@@ -630,12 +607,7 @@ fn test_give_feedback_on_missing_agent_returns_error_not_panic() {
 
 #[test]
 fn test_append_response_for_missing_feedback_returns_error_not_panic() {
-    // Spec parity: append_response no longer cross-contract calls the
-    // identity registry; it relies on the feedback-existence check (a
-    // missing agent has zero feedback rows, so any lookup is rejected
-    // cleanly with FeedbackNotFound). This test verifies the error path
-    // for the "wrong feedback index" case which is the primary user-facing
-    // failure mode.
+    // Appending to non-existent feedback returns FeedbackNotFound.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, agent_owner, reviewer) = setup(&env);
