@@ -13,4 +13,7 @@ pub enum ValidationError {
     AlreadyResponded = 6,
     AgentNotFound = 7,
     CounterOverflow = 8,
+    NoUpgradeProposed = 9,
+    TimelockNotExpired = 10,
+    UpgradeAlreadyProposed = 11,
 }

@@ -1,5 +1,5 @@
 use soroban_sdk::{contract, contractimpl, Address, Bytes, BytesN, Env, String, Vec};
-use stellar_access::ownable::{self as ownable};
+use stellar_access::ownable::{self as ownable, Ownable};
 use stellar_macros::only_owner;
 use stellar_tokens::non_fungible::{Base, ContractOverrides, NonFungibleToken};
 
@@ -217,11 +217,47 @@ impl IdentityRegistryContract {
         storage::extend_agent_ttl(e, agent_id);
     }
 
-    // --- Admin ---
+    // --- Timelocked upgrade ---
 
     #[only_owner]
-    pub fn upgrade(e: &Env, new_wasm_hash: BytesN<32>) {
-        e.deployer().update_current_contract_wasm(new_wasm_hash);
+    pub fn propose_upgrade(e: &Env, new_wasm_hash: BytesN<32>) -> Result<(), IdentityError> {
+        if storage::get_pending_upgrade(e).is_some() {
+            return Err(IdentityError::UpgradeAlreadyProposed);
+        }
+        storage::set_pending_upgrade(
+            e,
+            &storage::UpgradeProposal {
+                wasm_hash: new_wasm_hash,
+                proposed_at: e.ledger().sequence(),
+            },
+        );
+        Ok(())
+    }
+
+    #[only_owner]
+    pub fn cancel_upgrade(e: &Env) -> Result<(), IdentityError> {
+        if storage::get_pending_upgrade(e).is_none() {
+            return Err(IdentityError::NoUpgradeProposed);
+        }
+        storage::remove_pending_upgrade(e);
+        Ok(())
+    }
+
+    #[only_owner]
+    pub fn execute_upgrade(e: &Env) -> Result<(), IdentityError> {
+        let proposal = storage::get_pending_upgrade(e).ok_or(IdentityError::NoUpgradeProposed)?;
+        let elapsed = e.ledger().sequence().saturating_sub(proposal.proposed_at);
+        if elapsed < storage::TIMELOCK_LEDGERS {
+            return Err(IdentityError::TimelockNotExpired);
+        }
+        storage::remove_pending_upgrade(e);
+        e.deployer()
+            .update_current_contract_wasm(proposal.wasm_hash);
+        Ok(())
+    }
+
+    pub fn pending_upgrade(e: &Env) -> Option<storage::UpgradeProposal> {
+        storage::get_pending_upgrade(e)
     }
 
     pub fn version(e: &Env) -> String {
@@ -285,3 +321,6 @@ impl IdentityRegistryContract {
 impl NonFungibleToken for IdentityRegistryContract {
     type ContractType = IdentityBase;
 }
+
+#[contractimpl(contracttrait)]
+impl Ownable for IdentityRegistryContract {}
