@@ -97,7 +97,7 @@ Compared against the [8004 reference contracts](https://github.com/erc-8004/erc-
 | Reputation | 10 | 8 | `readAllFeedback` off-chain only (explorer HTTP endpoint). `getResponseCount` no `responders[]` filter. `getClients` paginated. |
 | Validation | 7 | All 7 | `getAgentValidations` and `getValidatorRequests` paginated. |
 
-Soroban-only additions: `extend_ttl`, `upgrade`, `version`, `find_owner`, `agent_exists`, `total_agents`, `request_exists`, `token_uri` override, metadata size caps (64B key / 4KB value / 100 keys).
+Soroban-only additions: `extend_ttl`, `propose_upgrade` / `execute_upgrade` / `cancel_upgrade` / `pending_upgrade` (3-day timelocked upgrades), `version`, `find_owner`, `agent_exists`, `total_agents`, `request_exists`, `token_uri` override, metadata size caps (64B key / 4KB value / 100 keys). OZ 2-step ownership exposed: `get_owner`, `transfer_ownership`, `accept_ownership`, `renounce_ownership`.
 
 ## Differences from the EVM Reference
 
