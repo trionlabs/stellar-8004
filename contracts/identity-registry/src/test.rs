@@ -53,12 +53,8 @@ fn test_register_with_uri() {
 
 #[test]
 fn test_token_uri_returns_agent_uri() {
-    // 8004 spec inherits NFT metadata. Cross-chain consumers calling
-    // `tokenURI(agentId)` per the standard interface MUST get the agent's
-    // URI back, not the OZ default of `base_uri + token_id` (which is
-    // empty for us). The IdentityBase override on token_uri exists to
-    // satisfy this; this test pins the behavior so a future refactor
-    // cannot silently break the NFT metadata contract surface.
+    // token_uri must return the agent's URI, not the empty OZ default.
+    // Without the override in IdentityBase this would be blank.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _) = create_client(&env);
@@ -68,9 +64,7 @@ fn test_token_uri_returns_agent_uri() {
     client.register_with_uri(&user, &uri);
     assert_eq!(client.token_uri(&0), uri);
 
-    // An agent registered without a URI should still return an empty
-    // string from `token_uri` rather than panic, matching the behavior
-    // of `agent_uri`'s `Option::None` -> empty fallback in the override.
+    // No URI set - should return empty string, not panic.
     let user2 = Address::generate(&env);
     client.register(&user2);
     assert_eq!(client.token_uri(&1), String::from_str(&env, ""));
@@ -158,11 +152,7 @@ fn test_set_agent_wallet() {
 
 #[test]
 fn test_register_initializes_agent_wallet_to_caller() {
-    // 8004 spec: every register* initializes the
-    // reserved `agentWallet` metadata key to the caller's address. The
-    // off-chain layer reads this from the MetadataSet event and seeds the
-    // explorer DB with `agent_wallet = owner` until the owner explicitly
-    // re-binds it.
+    // All three register variants should set agentWallet to the caller.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _) = create_client(&env);
@@ -182,10 +172,7 @@ fn test_register_initializes_agent_wallet_to_caller() {
 
 #[test]
 fn test_get_metadata_for_agent_wallet_returns_strkey_bytes() {
-    // Spec parity: getMetadata(agentId, "agentWallet") MUST return the
-    // wallet bytes. We expose the StrKey-encoded ASCII representation
-    // (56 bytes) so cross-chain consumers can decode it with any standard
-    // Stellar library.
+    // get_metadata("agentWallet") should return the wallet as StrKey bytes.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _) = create_client(&env);
@@ -434,11 +421,7 @@ fn test_find_owner_returns_none_for_missing_agent() {
 
 #[test]
 fn test_is_authorized_or_owner() {
-    // Spec parity: this is the cross-contract auth view used by the
-    // canonical reputation registry's self-feedback prevention. It must
-    // return true for the owner, true for an explicit operator (via
-    // approve / approve_for_all), false for unrelated addresses, and
-    // false for non-existent agents (without panicking).
+    // Covers: owner, approved, approve_for_all, stranger, missing agent.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _) = create_client(&env);
@@ -557,9 +540,7 @@ fn test_set_metadata_rejects_oversized_value() {
 
 #[test]
 fn test_set_metadata_rejects_reserved_agent_wallet_key() {
-    // 8004 spec spec: `agentWallet` is a reserved metadata key. It must be
-    // settable only via the dedicated `set_agent_wallet` entry point with
-    // wallet auth, never through `setMetadata`.
+    // agentWallet is reserved - must go through set_agent_wallet.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _) = create_client(&env);
