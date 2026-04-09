@@ -1,6 +1,6 @@
 # webapp - 8004scan explorer for Stellar
 
-The frontend, indexer, and SDK that power [stellar8004.com](https://stellar8004.com), the explorer / discovery UI for the Stellar deployment of [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) (Trustless Agents). The contracts themselves live in the parent repo at [`../contracts`](../contracts).
+The frontend, indexer, and SDK that power [stellar8004.com](https://stellar8004.com), the explorer / discovery UI for the Stellar deployment of the [8004 standard](https://www.8004.org) (Trustless Agents). The contracts themselves live in the parent repo at [`../contracts`](../contracts).
 
 ## Layout
 
