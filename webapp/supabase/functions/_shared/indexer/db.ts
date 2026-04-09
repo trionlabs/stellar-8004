@@ -1,10 +1,10 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { requireEnv } from './env.js';
-import { log } from './logger.js';
-import type { IdentityEvent } from './parsers/identity.js';
-import type { ReputationEvent } from './parsers/reputation.js';
-import type { ValidationEvent } from './parsers/validation.js';
+import { requireEnv } from './env.ts';
+import { log } from './logger.ts';
+import type { IdentityEvent } from './parsers/identity.ts';
+import type { ReputationEvent } from './parsers/reputation.ts';
+import type { ValidationEvent } from './parsers/validation.ts';
 
 type SupabaseResult = {
   error: { message: string } | null;
