@@ -68,16 +68,14 @@ fn test_full_lifecycle_with_real_identity() {
     let fb = rep_client.read_feedback(&agent_id, &reviewer, &1);
     assert_eq!(fb.value, 90);
 
-    // Verify summary (must pass an explicit client list per spec)
+    // Summary with explicit client list
     let mut clients = Vec::<Address>::new(&env);
     clients.push_back(reviewer.clone());
     let summary = rep_client.get_summary(&agent_id, &clients, &empty_str(&env), &empty_str(&env));
     assert_eq!(summary.count, 1);
     assert_eq!(summary.summary_value, 90);
 
-    // Spec parity (canonical 8004): the agent owner is REJECTED from
-    // give_feedback. Self-feedback is enforced on-chain via the identity
-    // registry's `is_authorized_or_owner` check.
+    // Owner cannot self-review.
     let result = rep_client.try_give_feedback(
         &agent_owner,
         &agent_id,
