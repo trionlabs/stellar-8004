@@ -358,15 +358,31 @@ impl ReputationRegistryContract {
     }
 }
 
-/// Returns `10^exp` as `i128`. `exp` is bounded to `[0, 18]` by the
-/// `valueDecimals` invariant in `give_feedback`, so the result fits in
-/// `i128` (`10^18 < 2^60`).
+/// `10^exp` as `i128`. `exp` MUST be in `[0, 18]` (enforced by the
+/// `valueDecimals <= 18` check in `give_feedback`). Const lookup avoids
+/// the loop and makes the gas cost deterministic.
+const POW10: [i128; 19] = [
+    1,
+    10,
+    100,
+    1_000,
+    10_000,
+    100_000,
+    1_000_000,
+    10_000_000,
+    100_000_000,
+    1_000_000_000,
+    10_000_000_000,
+    100_000_000_000,
+    1_000_000_000_000,
+    10_000_000_000_000,
+    100_000_000_000_000,
+    1_000_000_000_000_000,
+    10_000_000_000_000_000,
+    100_000_000_000_000_000,
+    1_000_000_000_000_000_000,
+];
+
 fn pow10(exp: u32) -> i128 {
-    let mut acc: i128 = 1;
-    let mut i = 0;
-    while i < exp {
-        acc *= 10;
-        i += 1;
-    }
-    acc
+    POW10[exp as usize]
 }
