@@ -4,6 +4,22 @@ use stellar_tokens::non_fungible::{
     OWNER_TTL_THRESHOLD,
 };
 
+/// Encodes a Soroban `Address` into the StrKey ASCII bytes (`G...` for
+/// ed25519 accounts or `C...` for contract accounts). Always 56 bytes.
+///
+/// The canonical erc-8004 reference stores `agentWallet` as `bytes` in the
+/// metadata mapping (`abi.encodePacked(address)` on EVM = the raw 20-byte
+/// address). Stellar addresses don't fit that shape, so we use the StrKey
+/// representation as the on-chain bytes encoding. Cross-chain consumers can
+/// decode this with any Stellar StrKey decoder.
+pub fn address_to_strkey_bytes(e: &Env, addr: &Address) -> Bytes {
+    let s = addr.to_string();
+    let len = s.len() as usize;
+    let mut buf = [0u8; 56];
+    s.copy_into_slice(&mut buf[..len]);
+    Bytes::from_slice(e, &buf[..len])
+}
+
 // TTL_THRESHOLD: when a persistent entry's remaining live-until ledger drops
 // below this many ledgers, the next read will bump it back up to TTL_BUMP.
 // 518_400 ledgers * 5 seconds / ledger = 2_592_000 seconds = 30 days.
