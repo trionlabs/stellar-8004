@@ -176,11 +176,7 @@ fn test_register_initializes_agent_wallet_to_caller() {
     assert_eq!(client.get_agent_wallet(&1), Some(user2.clone()));
 
     let user3 = Address::generate(&env);
-    client.register_full(
-        &user3,
-        &String::from_str(&env, "ipfs://y"),
-        &Vec::new(&env),
-    );
+    client.register_full(&user3, &String::from_str(&env, "ipfs://y"), &Vec::new(&env));
     assert_eq!(client.get_agent_wallet(&2), Some(user3.clone()));
 }
 

@@ -71,8 +71,7 @@ fn test_full_lifecycle_with_real_identity() {
     // Verify summary (must pass an explicit client list per spec)
     let mut clients = Vec::<Address>::new(&env);
     clients.push_back(reviewer.clone());
-    let summary =
-        rep_client.get_summary(&agent_id, &clients, &empty_str(&env), &empty_str(&env));
+    let summary = rep_client.get_summary(&agent_id, &clients, &empty_str(&env), &empty_str(&env));
     assert_eq!(summary.count, 1);
     assert_eq!(summary.summary_value, 90);
 
@@ -109,8 +108,7 @@ fn test_full_lifecycle_with_real_identity() {
 
     // Revoke the reviewer's feedback - the summary should drop to count 0.
     rep_client.revoke_feedback(&reviewer, &agent_id, &1);
-    let summary =
-        rep_client.get_summary(&agent_id, &clients, &empty_str(&env), &empty_str(&env));
+    let summary = rep_client.get_summary(&agent_id, &clients, &empty_str(&env), &empty_str(&env));
     assert_eq!(summary.count, 0);
     assert_eq!(summary.summary_value, 0);
 }
