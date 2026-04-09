@@ -1,7 +1,7 @@
 use soroban_sdk::{contracttype, Address, Env, Vec};
 
 use crate::errors::ReputationError;
-use crate::types::{FeedbackData, SummaryResult};
+use crate::types::FeedbackData;
 
 pub const TTL_THRESHOLD: u32 = 518_400;
 pub const TTL_BUMP: u32 = 1_036_800;
@@ -20,8 +20,6 @@ pub enum DataKey {
     ClientAtIndex(u32, u32),
     ClientExists(u32, Address),
     ResponseCount(u32, Address, u64),
-    AgentAggregate(u32),
-    AgentTagAggregate(u32, soroban_sdk::String, soroban_sdk::String),
 }
 
 // --- Identity Registry ---
@@ -189,141 +187,3 @@ pub fn increment_response_count(
     Ok(())
 }
 
-// --- Aggregates ---
-
-pub fn get_aggregate(e: &Env, agent_id: u32) -> SummaryResult {
-    let key = DataKey::AgentAggregate(agent_id);
-    if let Some(agg) = e.storage().persistent().get::<_, SummaryResult>(&key) {
-        e.storage()
-            .persistent()
-            .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
-        agg
-    } else {
-        SummaryResult {
-            count: 0,
-            summary_value: 0,
-            summary_value_decimals: 0,
-        }
-    }
-}
-
-pub fn update_aggregate_add(
-    e: &Env,
-    agent_id: u32,
-    value: i128,
-    decimals: u32,
-) -> Result<(), ReputationError> {
-    let mut agg = get_aggregate(e, agent_id);
-    agg.count = agg
-        .count
-        .checked_add(1)
-        .ok_or(ReputationError::AggregateOverflow)?;
-    agg.summary_value = agg
-        .summary_value
-        .checked_add(value)
-        .ok_or(ReputationError::AggregateOverflow)?;
-    if decimals > agg.summary_value_decimals {
-        agg.summary_value_decimals = decimals;
-    }
-    let key = DataKey::AgentAggregate(agent_id);
-    e.storage().persistent().set(&key, &agg);
-    e.storage()
-        .persistent()
-        .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
-    Ok(())
-}
-
-pub fn update_aggregate_sub(
-    e: &Env,
-    agent_id: u32,
-    value: i128,
-    _decimals: u32,
-) -> Result<(), ReputationError> {
-    let mut agg = get_aggregate(e, agent_id);
-    if agg.count > 0 {
-        agg.count -= 1;
-        agg.summary_value = agg
-            .summary_value
-            .checked_sub(value)
-            .ok_or(ReputationError::AggregateOverflow)?;
-    }
-    let key = DataKey::AgentAggregate(agent_id);
-    e.storage().persistent().set(&key, &agg);
-    e.storage()
-        .persistent()
-        .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
-    Ok(())
-}
-
-pub fn get_tag_aggregate(
-    e: &Env,
-    agent_id: u32,
-    tag1: &soroban_sdk::String,
-    tag2: &soroban_sdk::String,
-) -> SummaryResult {
-    let key = DataKey::AgentTagAggregate(agent_id, tag1.clone(), tag2.clone());
-    if let Some(agg) = e.storage().persistent().get::<_, SummaryResult>(&key) {
-        e.storage()
-            .persistent()
-            .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
-        agg
-    } else {
-        SummaryResult {
-            count: 0,
-            summary_value: 0,
-            summary_value_decimals: 0,
-        }
-    }
-}
-
-pub fn update_tag_aggregate_add(
-    e: &Env,
-    agent_id: u32,
-    tag1: &soroban_sdk::String,
-    tag2: &soroban_sdk::String,
-    value: i128,
-    decimals: u32,
-) -> Result<(), ReputationError> {
-    let mut agg = get_tag_aggregate(e, agent_id, tag1, tag2);
-    agg.count = agg
-        .count
-        .checked_add(1)
-        .ok_or(ReputationError::AggregateOverflow)?;
-    agg.summary_value = agg
-        .summary_value
-        .checked_add(value)
-        .ok_or(ReputationError::AggregateOverflow)?;
-    if decimals > agg.summary_value_decimals {
-        agg.summary_value_decimals = decimals;
-    }
-    let key = DataKey::AgentTagAggregate(agent_id, tag1.clone(), tag2.clone());
-    e.storage().persistent().set(&key, &agg);
-    e.storage()
-        .persistent()
-        .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
-    Ok(())
-}
-
-pub fn update_tag_aggregate_sub(
-    e: &Env,
-    agent_id: u32,
-    tag1: &soroban_sdk::String,
-    tag2: &soroban_sdk::String,
-    value: i128,
-    _decimals: u32,
-) -> Result<(), ReputationError> {
-    let mut agg = get_tag_aggregate(e, agent_id, tag1, tag2);
-    if agg.count > 0 {
-        agg.count -= 1;
-        agg.summary_value = agg
-            .summary_value
-            .checked_sub(value)
-            .ok_or(ReputationError::AggregateOverflow)?;
-    }
-    let key = DataKey::AgentTagAggregate(agent_id, tag1.clone(), tag2.clone());
-    e.storage().persistent().set(&key, &agg);
-    e.storage()
-        .persistent()
-        .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
-    Ok(())
-}

@@ -9,13 +9,16 @@ use soroban_sdk::{
 use crate::contract::{ReputationRegistryContract, ReputationRegistryContractClient};
 use crate::storage::{DataKey, TTL_BUMP};
 
-// We need a mock identity registry for cross-contract calls
+// Mock identity registry for cross-contract calls. Tracks owners + an
+// optional "approved" address per agent so we can drive both the
+// self-feedback rejection path and the operator-bypass path.
 mod mock_identity {
     use soroban_sdk::{contract, contractimpl, contracttype, Address, Env};
 
     #[contracttype]
     pub enum DataKey {
         Owner(u32),
+        Approved(u32),
     }
 
     #[contract]
@@ -33,6 +36,12 @@ mod mock_identity {
             e.storage().persistent().remove(&DataKey::Owner(token_id));
         }
 
+        pub fn set_approved(e: &Env, token_id: u32, operator: Address) {
+            e.storage()
+                .persistent()
+                .set(&DataKey::Approved(token_id), &operator);
+        }
+
         pub fn find_owner(e: &Env, agent_id: u32) -> Option<Address> {
             e.storage().persistent().get(&DataKey::Owner(agent_id))
         }
@@ -41,11 +50,23 @@ mod mock_identity {
             e.storage().persistent().has(&DataKey::Owner(agent_id))
         }
 
-        pub fn get_approved(_e: &Env, _token_id: u32) -> Option<Address> {
-            None
-        }
-
-        pub fn is_approved_for_all(_e: &Env, _owner: Address, _operator: Address) -> bool {
+        pub fn is_authorized_or_owner(e: &Env, spender: Address, agent_id: u32) -> bool {
+            if let Some(owner) = e.storage().persistent().get::<_, Address>(&DataKey::Owner(agent_id)) {
+                if owner == spender {
+                    return true;
+                }
+            } else {
+                return false;
+            }
+            if let Some(approved) = e
+                .storage()
+                .persistent()
+                .get::<_, Address>(&DataKey::Approved(agent_id))
+            {
+                if approved == spender {
+                    return true;
+                }
+            }
             false
         }
     }
@@ -112,15 +133,17 @@ fn test_give_feedback() {
 }
 
 #[test]
-fn test_self_feedback_allowed_per_jan_2026_spec() {
-    // ERC-8004 Jan 2026 update removed pre-authorization. Per spec, the
-    // agent owner can submit feedback to their own agent on-chain. Off-chain
-    // consumers MUST filter self-feedback in their scoring.
+fn test_self_feedback_rejected() {
+    // ERC-8004 spec (canonical erc-8004/erc-8004-contracts): the agent
+    // owner and any approved operator MUST be rejected from `giveFeedback`.
+    // The reference enforces this via `isAuthorizedOrOwner`. Re-anchored
+    // after a previous pass mistakenly removed the check based on the
+    // chaoslabs reference.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, agent_owner, _) = setup(&env);
 
-    client.give_feedback(
+    let result = client.try_give_feedback(
         &agent_owner,
         &0,
         &100,
@@ -131,15 +154,38 @@ fn test_self_feedback_allowed_per_jan_2026_spec() {
         &empty_str(&env),
         &zero_hash(&env),
     );
-
-    let summary = client.get_summary(
-        &0,
-        &Vec::<Address>::new(&env),
-        &empty_str(&env),
-        &empty_str(&env),
+    assert!(
+        result.is_err(),
+        "agent owner must be rejected from give_feedback"
     );
-    assert_eq!(summary.count, 1);
-    assert_eq!(summary.summary_value, 100);
+}
+
+#[test]
+fn test_approved_operator_rejected_from_self_feedback() {
+    // The spec rejects approved operators too, not just the literal owner.
+    // Drives the `is_authorized_or_owner` Approved branch in the mock.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, identity, _, _) = setup(&env);
+    let operator = Address::generate(&env);
+
+    identity.set_approved(&0, &operator);
+
+    let result = client.try_give_feedback(
+        &operator,
+        &0,
+        &100,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+    assert!(
+        result.is_err(),
+        "approved operator must be rejected from give_feedback"
+    );
 }
 
 #[test]
@@ -166,12 +212,14 @@ fn test_revoke_feedback() {
 }
 
 #[test]
-fn test_get_summary_aggregate() {
+fn test_get_summary_returns_average() {
+    // Spec parity: get_summary returns the AVERAGE (not the sum) over the
+    // matching feedback, expressed in mode-decimals (most frequent
+    // valueDecimals across the matched set).
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
 
-    // Give three feedbacks
     for val in [80i128, 90, 70] {
         client.give_feedback(
             &reviewer,
@@ -186,18 +234,17 @@ fn test_get_summary_aggregate() {
         );
     }
 
-    let summary = client.get_summary(
-        &0,
-        &Vec::<Address>::new(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-    );
+    let mut clients = Vec::<Address>::new(&env);
+    clients.push_back(reviewer.clone());
+    let summary = client.get_summary(&0, &clients, &empty_str(&env), &empty_str(&env));
     assert_eq!(summary.count, 3);
-    assert_eq!(summary.summary_value, 240); // 80 + 90 + 70
+    assert_eq!(summary.summary_value, 80); // (80 + 90 + 70) / 3
+    assert_eq!(summary.summary_value_decimals, 0);
 }
 
 #[test]
-fn test_revoke_updates_aggregate() {
+fn test_get_summary_revoked_excluded() {
+    // Spec parity: revoked feedback must be excluded from the average.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
@@ -227,14 +274,73 @@ fn test_revoke_updates_aggregate() {
 
     client.revoke_feedback(&reviewer, &0, &1);
 
-    let summary = client.get_summary(
+    let mut clients = Vec::<Address>::new(&env);
+    clients.push_back(reviewer.clone());
+    let summary = client.get_summary(&0, &clients, &empty_str(&env), &empty_str(&env));
+    assert_eq!(summary.count, 1);
+    assert_eq!(summary.summary_value, 50);
+}
+
+#[test]
+fn test_get_summary_wad_normalization_picks_mode_decimals() {
+    // Two feedbacks with `decimals=0` (the mode) plus one with `decimals=2`.
+    // Spec WAD math: normalize each to 18 decimals, average, then scale
+    // back to the mode (0 decimals).
+    //
+    //   feedback A: value=80,  decimals=0  -> 80e18 in WAD
+    //   feedback B: value=90,  decimals=0  -> 90e18 in WAD
+    //   feedback C: value=10000, decimals=2 -> 100e18 in WAD (10000 / 100)
+    //
+    // average WAD = (80 + 90 + 100) * 1e18 / 3 = 90e18
+    // mode decimals = 0 (count=2 vs decimals=2 count=1)
+    // summary_value = 90e18 / 1e18 = 90
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+
+    let inputs: [(i128, u32); 3] = [(80, 0), (90, 0), (10_000, 2)];
+    for (val, dec) in inputs {
+        client.give_feedback(
+            &reviewer,
+            &0,
+            &val,
+            &dec,
+            &empty_str(&env),
+            &empty_str(&env),
+            &empty_str(&env),
+            &empty_str(&env),
+            &zero_hash(&env),
+        );
+    }
+
+    let mut clients = Vec::<Address>::new(&env);
+    clients.push_back(reviewer.clone());
+    let summary = client.get_summary(&0, &clients, &empty_str(&env), &empty_str(&env));
+    assert_eq!(summary.count, 3);
+    assert_eq!(summary.summary_value_decimals, 0);
+    assert_eq!(summary.summary_value, 90);
+}
+
+#[test]
+fn test_get_summary_rejects_empty_client_list() {
+    // Spec parity: the canonical erc-8004 reference REVERTS when called
+    // without a client filter. The all-clients aggregate path was a
+    // Sybil/spam vector explicitly called out by the spec, and our prior
+    // pre-computed aggregate path was a non-spec extension. Now removed.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, _) = setup(&env);
+
+    let result = client.try_get_summary(
         &0,
         &Vec::<Address>::new(&env),
         &empty_str(&env),
         &empty_str(&env),
     );
-    assert_eq!(summary.count, 1);
-    assert_eq!(summary.summary_value, 50);
+    assert!(
+        result.is_err(),
+        "get_summary with empty client list must revert"
+    );
 }
 
 #[test]
@@ -437,17 +543,49 @@ fn test_upgrade_requires_auth() {
 }
 
 #[test]
-fn test_aggregate_overflow_is_rejected() {
+fn test_value_out_of_range_rejected() {
+    // Spec parity: `value` must be in `[-1e38, 1e38]`. Anything bigger is
+    // rejected at the entry point so a single feedback cannot wrap the
+    // i128 sum in `get_summary`'s WAD normalization.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
-    let reviewer2 = Address::generate(&env);
 
-    // First feedback maxes out the aggregate.
+    // 1e38 + 1 must be rejected.
+    let too_big: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_001;
+    let result = client.try_give_feedback(
+        &reviewer,
+        &0,
+        &too_big,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+    assert!(result.is_err(), "values above MAX_ABS_VALUE must be rejected");
+
+    // Negative bound symmetric.
+    let result = client.try_give_feedback(
+        &reviewer,
+        &0,
+        &(-too_big),
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+    assert!(result.is_err(), "values below -MAX_ABS_VALUE must be rejected");
+
+    // Exactly at the bound is accepted.
+    let max_abs: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_000;
     client.give_feedback(
         &reviewer,
         &0,
-        &i128::MAX,
+        &max_abs,
         &0,
         &empty_str(&env),
         &empty_str(&env),
@@ -455,34 +593,6 @@ fn test_aggregate_overflow_is_rejected() {
         &empty_str(&env),
         &zero_hash(&env),
     );
-
-    // A second positive feedback would wrap. Must be rejected.
-    let result = client.try_give_feedback(
-        &reviewer2,
-        &0,
-        &1,
-        &0,
-        &empty_str(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-        &zero_hash(&env),
-    );
-    assert!(
-        result.is_err(),
-        "checked_add should reject the wrapping addition"
-    );
-
-    // The aggregate must still hold the original max value, untouched by the
-    // failed second call.
-    let summary = client.get_summary(
-        &0,
-        &Vec::<Address>::new(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-    );
-    assert_eq!(summary.summary_value, i128::MAX);
-    assert_eq!(summary.count, 1);
 }
 
 #[test]
@@ -512,26 +622,18 @@ fn test_give_feedback_on_missing_agent_returns_error_not_panic() {
 }
 
 #[test]
-fn test_append_response_on_missing_agent_returns_error_not_panic() {
+fn test_append_response_for_missing_feedback_returns_error_not_panic() {
+    // Spec parity: append_response no longer cross-contract calls the
+    // identity registry; it relies on the feedback-existence check (a
+    // missing agent has zero feedback rows, so any lookup is rejected
+    // cleanly with FeedbackNotFound). This test verifies the error path
+    // for the "wrong feedback index" case which is the primary user-facing
+    // failure mode.
     let env = Env::default();
     env.mock_all_auths();
-    let (client, identity, agent_owner, reviewer) = setup(&env);
+    let (client, _, agent_owner, reviewer) = setup(&env);
 
-    // First give feedback while the agent exists.
-    client.give_feedback(
-        &reviewer,
-        &0,
-        &75,
-        &0,
-        &empty_str(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-        &zero_hash(&env),
-    );
-
-    // Now wipe the agent and try to respond.
-    identity.clear_owner(&0);
+    // No feedback has been written for (agent=0, client=reviewer, index=1).
     let result = client.try_append_response(
         &agent_owner,
         &0,
@@ -542,7 +644,7 @@ fn test_append_response_on_missing_agent_returns_error_not_panic() {
     );
     assert!(
         result.is_err(),
-        "append_response against a missing agent must return Err, not panic"
+        "append_response for a missing feedback must return Err, not panic"
     );
 }
 
@@ -569,19 +671,23 @@ fn test_get_summary_caps_explicit_client_list() {
     }
 
     // Pass all 7 to get_summary. The cap is 5, so the result must reflect
-    // exactly 5 contributions (50 points) - the trailing 2 are silently
-    // dropped to keep storage reads bounded.
+    // exactly 5 contributions - the trailing 2 are silently dropped to keep
+    // storage reads bounded.
     let mut clients_arg = Vec::<Address>::new(&env);
     for r in &reviewers {
         clients_arg.push_back(r.clone());
     }
     let summary = client.get_summary(&0, &clients_arg, &empty_str(&env), &empty_str(&env));
     assert_eq!(summary.count, 5);
-    assert_eq!(summary.summary_value, 50);
+    // 5 contributions of (10, dec=0). Average = 10.
+    assert_eq!(summary.summary_value, 10);
 }
 
 #[test]
-fn test_aggregate_ttl_survives_long_idle_periods_via_reads() {
+fn test_feedback_ttl_survives_long_idle_periods_via_reads() {
+    // After dropping the running aggregate, the per-feedback persistent
+    // entries are the load-bearing storage. Verify TTL extension on reads
+    // keeps them alive across long idle windows.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
@@ -599,15 +705,14 @@ fn test_aggregate_ttl_survives_long_idle_periods_via_reads() {
         &zero_hash(&env),
     );
 
-    // Aggregate persistent entry must be at full TTL after a write.
     env.as_contract(&contract_addr, || {
         let ttl = env
             .storage()
             .persistent()
-            .get_ttl(&DataKey::AgentAggregate(0));
+            .get_ttl(&DataKey::Feedback(0, reviewer.clone(), 1));
         assert_eq!(
             ttl, TTL_BUMP,
-            "set path should extend the aggregate TTL to TTL_BUMP"
+            "set path should extend the feedback entry TTL to TTL_BUMP"
         );
     });
 
@@ -615,24 +720,18 @@ fn test_aggregate_ttl_survives_long_idle_periods_via_reads() {
     let advance: u32 = TTL_BUMP - 100;
     env.ledger().with_mut(|l| l.sequence_number += advance);
 
-    // get_summary must extend the TTL on read; the aggregate must survive.
-    let summary = client.get_summary(
-        &0,
-        &Vec::<Address>::new(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-    );
-    assert_eq!(summary.count, 1);
-    assert_eq!(summary.summary_value, 80);
+    // read_feedback must extend the TTL on read; the entry must survive.
+    let fb = client.read_feedback(&0, &reviewer, &1);
+    assert_eq!(fb.value, 80);
 
     env.as_contract(&contract_addr, || {
         let ttl = env
             .storage()
             .persistent()
-            .get_ttl(&DataKey::AgentAggregate(0));
+            .get_ttl(&DataKey::Feedback(0, reviewer.clone(), 1));
         assert_eq!(
             ttl, TTL_BUMP,
-            "get_summary should re-extend the aggregate TTL to TTL_BUMP"
+            "read_feedback should re-extend the feedback TTL to TTL_BUMP"
         );
     });
 }
