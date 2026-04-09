@@ -363,12 +363,22 @@ fn test_progressive_validation_response() {
 }
 
 #[test]
-fn test_upgrade_requires_auth() {
+fn test_timelocked_upgrade() {
     let env = Env::default();
+    env.mock_all_auths();
     let (client, _, _, _) = setup(&env);
-    let fake_hash = soroban_sdk::BytesN::from_array(&env, &[0u8; 32]);
-    let result = client.try_upgrade(&fake_hash);
+    let hash = soroban_sdk::BytesN::from_array(&env, &[1u8; 32]);
+
+    client.propose_upgrade(&hash);
+    assert!(client.pending_upgrade().is_some());
+
+    // Too early
+    let result = client.try_execute_upgrade();
     assert!(result.is_err());
+
+    // Cancel instead
+    client.cancel_upgrade();
+    assert!(client.pending_upgrade().is_none());
 }
 
 #[test]
