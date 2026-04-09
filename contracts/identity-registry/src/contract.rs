@@ -10,25 +10,17 @@ use crate::storage::{
 };
 use crate::types::MetadataEntry;
 
-/// The reserved metadata key for the per-agent operational wallet, per the
-/// canonical erc-8004 reference. Cross-chain consumers SHOULD treat this
-/// metadata key the same way the EVM reference does.
 fn agent_wallet_key(e: &Env) -> String {
     String::from_str(e, "agentWallet")
 }
 
-// Custom ContractOverrides that clears agent wallet and metadata on transfer.
-// Metadata is non-transferable: a previous owner could otherwise hand a victim
-// an NFT pre-loaded with claims like `verified=true` or `domain=anthropic.com`.
+// Clears wallet and metadata on transfer to prevent claim inheritance.
 pub struct IdentityBase;
 
 impl ContractOverrides for IdentityBase {
     fn transfer(e: &Env, from: &Address, to: &Address, token_id: u32) {
         storage::remove_agent_wallet(e, token_id);
         storage::clear_all_metadata(e, token_id);
-        // Mirror the canonical reference: a transfer emits a MetadataSet
-        // event with the empty bytes value for the reserved `agentWallet`
-        // key, signaling that the new owner must re-authorize a wallet.
         events::metadata_set(e, token_id, &agent_wallet_key(e), &Bytes::new(e));
         Base::transfer(e, from, to, token_id);
     }
@@ -40,15 +32,8 @@ impl ContractOverrides for IdentityBase {
         Base::transfer_from(e, spender, from, to, token_id);
     }
 
-    /// ERC-8004 inherits IERC721Metadata, which requires `tokenURI(tokenId)`
-    /// to return the agent's URI. The default OZ implementation returns
-    /// `base_uri + token_id`, and our base URI is empty, so without this
-    /// override `token_uri` would return an empty string for every agent.
-    /// The reference Solidity implementation overrides `_tokenURI` to return
-    /// the per-agent URI; we mirror that here so cross-chain consumers
-    /// reading via the standard `IERC721Metadata` interface get a useful
-    /// value. We still panic on a missing token via `Base::owner_of` to
-    /// match the OZ default semantics.
+    /// Returns per-agent URI instead of OZ default empty string.
+    /// Panics on missing token per ERC-721 spec.
     fn token_uri(e: &Env, token_id: u32) -> String {
         let _ = Base::owner_of(e, token_id);
         storage::get_agent_uri(e, token_id).unwrap_or_else(|| String::from_str(e, ""))
@@ -91,10 +76,7 @@ impl IdentityRegistryContract {
         metadata: Vec<MetadataEntry>,
     ) -> u32 {
         caller.require_auth();
-        // Length validation matches `set_metadata`. Out-of-bounds entries
-        // panic here because the public signature returns u32, not Result.
-        // Callers must enforce the limits client-side or use `set_metadata`
-        // for incremental writes that surface errors cleanly.
+        // Panics on invalid input (returns u32, not Result).
         let reserved_wallet_key = agent_wallet_key(e);
         assert!(
             metadata.len() <= MAX_METADATA_KEYS,
@@ -109,8 +91,6 @@ impl IdentityRegistryContract {
                 entry.value.len() <= MAX_METADATA_VALUE_LEN,
                 "metadata value too long"
             );
-            // ERC-8004: `agentWallet` is reserved. Reject so a caller cannot
-            // smuggle in a fake wallet binding via the metadata path.
             assert!(
                 entry.key != reserved_wallet_key,
                 "agentWallet is a reserved metadata key - use set_agent_wallet"
@@ -127,10 +107,6 @@ impl IdentityRegistryContract {
         agent_id
     }
 
-    /// Spec parity with the canonical erc-8004 reference: every `register*`
-    /// initializes the `agentWallet` reserved metadata key to the caller's
-    /// address and emits a `MetadataSet` event for it. The off-chain layer
-    /// reads this event to populate `agents.agent_wallet`.
     fn init_agent_wallet(e: &Env, agent_id: u32, owner: &Address) {
         storage::set_agent_wallet(e, agent_id, owner);
         let bytes = address_to_strkey_bytes(e, owner);
@@ -146,7 +122,6 @@ impl IdentityRegistryContract {
         new_uri: String,
     ) -> Result<(), IdentityError> {
         caller.require_auth();
-        // ERC-8004 reference rejects empty URIs.
         if new_uri.len() == 0 {
             return Err(IdentityError::EmptyValue);
         }
@@ -170,7 +145,6 @@ impl IdentityRegistryContract {
         value: Bytes,
     ) -> Result<(), IdentityError> {
         caller.require_auth();
-        // ERC-8004 reference rejects empty metadata keys.
         if key.len() == 0 {
             return Err(IdentityError::EmptyValue);
         }
@@ -180,15 +154,10 @@ impl IdentityRegistryContract {
         if value.len() > MAX_METADATA_VALUE_LEN {
             return Err(IdentityError::MetadataValueTooLong);
         }
-        // ERC-8004: `agentWallet` is reserved and must be settable only via
-        // the dedicated entry point with wallet auth. Reject so a caller
-        // cannot smuggle a fake binding through the metadata path.
         if key == agent_wallet_key(e) {
             return Err(IdentityError::ReservedMetadataKey);
         }
         Self::require_owner_or_approved(e, &caller, agent_id)?;
-        // Reject the write if it would create a new key beyond the per-agent
-        // cap. Updates to existing keys are always allowed.
         let existing_value = storage::get_metadata(e, agent_id, &key);
         if existing_value.is_none() && storage::metadata_key_count(e, agent_id) >= MAX_METADATA_KEYS
         {
@@ -199,10 +168,7 @@ impl IdentityRegistryContract {
         Ok(())
     }
 
-    /// ERC-8004 spec: `getMetadata(agentId, "agentWallet")` MUST return the
-    /// per-agent wallet bytes. We store the wallet as a typed `Address` in a
-    /// dedicated slot rather than in the metadata mapping; the special-case
-    /// here makes the spec view contract correct without duplicating storage.
+    /// Routes `agentWallet` key to the dedicated wallet storage slot.
     pub fn get_metadata(e: &Env, agent_id: u32, key: String) -> Option<Bytes> {
         if key == agent_wallet_key(e) {
             return storage::get_agent_wallet(e, agent_id)
@@ -223,10 +189,6 @@ impl IdentityRegistryContract {
         new_wallet.require_auth();
         Self::require_owner_or_approved(e, &caller, agent_id)?;
         storage::set_agent_wallet(e, agent_id, &new_wallet);
-        // Spec parity: emit a MetadataSet event for the reserved
-        // `agentWallet` key. The canonical erc-8004 reference does NOT have
-        // a dedicated wallet event - all wallet writes flow through the
-        // metadata event surface.
         let bytes = address_to_strkey_bytes(e, &new_wallet);
         events::metadata_set(e, agent_id, &agent_wallet_key(e), &bytes);
         Ok(())
@@ -244,8 +206,6 @@ impl IdentityRegistryContract {
         caller.require_auth();
         Self::require_owner_or_approved(e, &caller, agent_id)?;
         storage::remove_agent_wallet(e, agent_id);
-        // Spec parity: empty bytes value signals the unset, mirroring the
-        // EVM reference's `$._metadata[agentId]["agentWallet"] = ""`.
         events::metadata_set(e, agent_id, &agent_wallet_key(e), &Bytes::new(e));
         Ok(())
     }
@@ -268,29 +228,16 @@ impl IdentityRegistryContract {
         String::from_str(e, "0.1.0")
     }
 
-    /// Returns the owner of an agent, or `None` if the agent does not exist
-    /// (or its NFT entry has been archived). Cross-contract callers must use
-    /// this instead of `owner_of`, which panics on missing tokens.
+    /// Non-panicking `owner_of` (safe for cross-contract calls).
     pub fn find_owner(e: &Env, agent_id: u32) -> Option<Address> {
         storage::find_owner(e, agent_id)
     }
 
-    /// ERC-8004 spec: returns true if an agent has been minted and not
-    /// burned. The reference reputation registry uses this in its
-    /// `giveFeedback` precondition. Functionally identical to `find_owner`
-    /// returning `Some` but exposed under the spec name for cross-chain
-    /// binding compatibility.
     pub fn agent_exists(e: &Env, agent_id: u32) -> bool {
         storage::find_owner(e, agent_id).is_some()
     }
 
-    /// ERC-8004 spec: `isAuthorizedOrOwner(spender, agentId) -> bool`. The
-    /// canonical reputation registry uses THIS single view for self-feedback
-    /// prevention - any caller for whom this returns true is rejected from
-    /// `giveFeedback` because they are the agent owner or an approved
-    /// operator. Returns `false` (rather than panicking) when the agent does
-    /// not exist, so cross-contract callers can fold the check into a single
-    /// branch.
+    /// Returns true if spender is owner or approved. False if agent missing.
     pub fn is_authorized_or_owner(e: &Env, spender: Address, agent_id: u32) -> bool {
         let owner = match storage::find_owner(e, agent_id) {
             Some(o) => o,
@@ -307,9 +254,6 @@ impl IdentityRegistryContract {
         Base::is_approved_for_all(e, &owner, &spender)
     }
 
-    /// ERC-8004 spec: returns the total number of agents ever minted.
-    /// Backed by the OZ NFT sequential mint counter, which never decreases
-    /// (we don't expose a burn path).
     pub fn total_agents(e: &Env) -> u32 {
         stellar_tokens::non_fungible::sequential::next_token_id(e)
     }
