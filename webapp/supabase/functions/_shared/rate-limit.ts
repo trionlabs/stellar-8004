@@ -9,38 +9,35 @@ export interface RateLimitResult {
 }
 
 /**
- * Per-IP rate limit using the api_rate_limits table.
- *
- * Insert is sequenced before count so concurrent requests from the same IP
- * cannot all see count=0 and pass simultaneously - the previous Promise.all
- * version had that bug. Worst case is now LIMIT + concurrency rather than
- * LIMIT * concurrency.
- *
- * Different consumers can pass distinct `limitPerMinute` values to keep
- * monitoring traffic on a stricter budget than the public API.
+ * Per-IP rate limit using an atomic SQL function that inserts and counts
+ * in one transaction. Eliminates the race where concurrent requests all
+ * see count=0.
  */
 export async function checkRateLimit(
   db: SupabaseClient,
   ip: string,
   limitPerMinute: number,
 ): Promise<RateLimitResult> {
-  const windowStart = new Date(Date.now() - WINDOW_SECONDS * 1000);
   const resetAt = new Date(Date.now() + WINDOW_SECONDS * 1000);
 
-  await db.from('api_rate_limits').insert({ ip, requested_at: new Date().toISOString() });
+  const { data, error } = await db.rpc('check_rate_limit', {
+    p_ip: ip,
+    p_limit_per_minute: limitPerMinute,
+  });
 
-  const countResult = await db
-    .from('api_rate_limits')
-    .select('requested_at', { count: 'exact', head: true })
-    .eq('ip', ip)
-    .gte('requested_at', windowStart.toISOString());
+  if (error || !data || data.length === 0) {
+    // If the RPC fails, fall back to allowing the request but log the error.
+    // Denying on infrastructure failure would DoS legitimate users.
+    console.error('[rate-limit] RPC failed, allowing request:', error?.message);
+    return { allowed: true, remaining: limitPerMinute, resetAt };
+  }
 
-  const count = countResult.count ?? 0;
-  const remaining = Math.max(0, limitPerMinute - count);
+  const row = data[0];
+  const count = Number(row.current_count ?? 0);
 
   return {
-    allowed: count <= limitPerMinute,
-    remaining,
+    allowed: row.allowed,
+    remaining: Math.max(0, limitPerMinute - count),
     resetAt,
   };
 }
