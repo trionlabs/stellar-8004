@@ -13,6 +13,24 @@ node_modules/
 docs/
 /supabase/
 
+# Secrets and env files (defense in depth — submodules already ignore these)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Database dumps
+*.sql.gz
+*.dump
+*.bak
+.pgpass
+
 
 # AI
 AGENTS.md
