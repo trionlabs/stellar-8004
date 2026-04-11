@@ -230,7 +230,6 @@ async function fetchJson(url: string): Promise<unknown | null> {
     return null;
   }
 
-  // Only http/https. Block file://, data: (handled separately), gopher://, ftp://, etc.
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     return null;
   }
@@ -239,24 +238,46 @@ async function fetchJson(url: string): Promise<unknown | null> {
     return null;
   }
 
+  // Reject bare IPs as hostnames - legitimate agent metadata is served from
+  // domains, not raw IPs. This blocks the simplest DNS rebinding vector
+  // (attacker uses their own IP, then rebinds to 127.0.0.1).
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(parsed.hostname) || parsed.hostname.startsWith('[')) {
+    return null;
+  }
+
   try {
+    // Don't follow redirects automatically - validate each hop.
     const response = await fetch(url, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      redirect: 'follow',
+      redirect: 'manual',
     });
 
-    if (!response.ok) {
-      return null;
-    }
-
-    // After redirect, recheck the final destination's hostname so a 302 to a
-    // private host is rejected.
-    try {
-      const finalUrl = new URL(response.url);
-      if (isPrivateOrLoopbackHost(finalUrl.hostname)) {
+    // Handle redirect manually: validate the Location header before following.
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location) return null;
+      let redirectUrl: URL;
+      try {
+        redirectUrl = new URL(location, url);
+      } catch {
         return null;
       }
-    } catch {
+      if (redirectUrl.protocol !== 'https:' && redirectUrl.protocol !== 'http:') return null;
+      if (isPrivateOrLoopbackHost(redirectUrl.hostname)) return null;
+      if (/^\d{1,3}(\.\d{1,3}){3}$/.test(redirectUrl.hostname) || redirectUrl.hostname.startsWith('[')) return null;
+
+      // Follow one redirect only.
+      const redirectResponse = await fetch(redirectUrl.toString(), {
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        redirect: 'error',
+      });
+      if (!redirectResponse.ok) return null;
+      const body = await readBodyWithLimit(redirectResponse, MAX_RESPONSE_BYTES);
+      if (body == null) return null;
+      return JSON.parse(new TextDecoder().decode(body));
+    }
+
+    if (!response.ok) {
       return null;
     }
 
