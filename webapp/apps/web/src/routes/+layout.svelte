@@ -2,6 +2,7 @@
 	import './layout.css';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
+	import { env } from '$env/dynamic/public';
 	import favicon from '$lib/assets/logo-saturn.svg';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { theme } from '$lib/theme.svelte.js';
@@ -10,6 +11,9 @@
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
 	let { children } = $props();
+
+	const appNetworkLabel =
+		env.PUBLIC_STELLAR_NETWORK === 'mainnet' ? 'Mainnet' : 'Testnet';
 
 	onMount(() => {
 		wallet.restore();
@@ -56,7 +60,7 @@
 	{#if wallet.networkMismatch}
 		<div class="relative z-10 border-b border-warning-soft bg-warning-soft px-4 py-3 text-center text-sm text-warning">
 			Freighter is on <span class="font-medium">{wallet.network}</span> - this app requires
-			<span class="font-medium uppercase">{wallet.network === 'TESTNET' ? 'Mainnet' : 'Testnet'}</span>.
+			<span class="font-medium uppercase">{appNetworkLabel}</span>.
 			Switch network in Freighter settings.
 		</div>
 	{/if}
