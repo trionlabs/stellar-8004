@@ -25,29 +25,24 @@ export const TESTNET_CONFIG: StellarConfig = {
 	rpcUrl: 'https://soroban-testnet.stellar.org',
 	networkPassphrase: StellarSdk.Networks.TESTNET,
 	contracts: {
-		identity: 'CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ',
-		reputation: 'CAOSF6L4UPTJSZD6KOJMGOOKUKXZNYRNPA2QBPZPTLGGK6XLGCW72YM4',
-		validation: 'CA6GIV7QB4B3O5SBZZRL3E3XMFFECGRETSN4JXAYTFKF5HUTD4JY2SJQ'
+		identity: 'CA4GKPENYABUM7POQFCN3RDXIDVISC7T5QKHW5BDCJWOFDBW7P5ZCSUG',
+		reputation: 'CDKDYYL2PU3HKTCWFCHVAALZGABLFZ4F6MIEE45JKE44VH6VH2D3DHMT',
+		validation: 'CD3YFHYEI2JGTBKZTRT7QOMM337POX2G7CPVDBRK6DFDOEFZIQFAOCHD'
 	},
-	deployVersion: '2026-04-06',
-	// Approximate testnet ledger at the v2 redeploy (commit 01d588b on
-	// 2026-04-02). Used by cold-start scans only - the running indexer
-	// reads its own checkpoint cursor. Override via DEPLOY_LEDGER env if
-	// you have a more accurate value from stellar.expert.
-	deployLedger: 1900000
+	deployVersion: '2026-04-11',
+	deployLedger: 1973000
 };
 
+// Mainnet TBD - will deploy after testnet validation.
 export const MAINNET_CONFIG: StellarConfig = {
 	network: 'mainnet',
 	rpcUrl: 'https://mainnet.sorobanrpc.com',
 	networkPassphrase: StellarSdk.Networks.PUBLIC,
 	contracts: {
-		identity: 'CCSMX3YEKU7IZCZSLORUCX6MQEOV6WXWAGTOJZG5YITEBAEH2Q5JY4XE',
-		reputation: 'CCIZJXEVL2DJXH772F7SX262M5SF7JNOIAROW2M7I6VTPOVCJ7KKM5HT',
-		validation: 'CAI3ZKBNXC52F2DCEX2XQLXUTRAQKCPWUUXDELW5SPAF4GAW4HCQ4JT3'
+		identity: '',
+		reputation: '',
+		validation: ''
 	},
-	deployVersion: '2026-04-07',
-	deployLedger: 62001391
 };
 
 export function getConfig(network: 'testnet' | 'mainnet' = 'testnet'): StellarConfig {
