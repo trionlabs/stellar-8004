@@ -10,3 +10,15 @@ target
 CLAUDE.md
 node_modules/
 .DS_Store
+docs/
+supabase/
+
+
+# AI
+AGENTS.md
+CLAUDE.md
+dev.md
+CODEX.md
+PLAN.md
+opencode.json
+Z.md
