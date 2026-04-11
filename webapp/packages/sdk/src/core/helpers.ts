@@ -78,6 +78,27 @@ export function validateStellarAddress(address: string, label = 'Address'): void
 	}
 }
 
+// Contract error codes to friendly messages.
+const CONTRACT_ERRORS: Record<string, Record<number, string>> = {
+	identity: {
+		1: 'Not authorized (must be agent owner or approved operator).',
+		7: 'agentWallet is a reserved key - use the wallet binding UI.',
+		8: 'Value cannot be empty.',
+	},
+	reputation: {
+		1: 'You cannot give feedback to your own agent.',
+		6: 'Agent not found.',
+		7: 'Response URI cannot be empty.',
+		8: 'Feedback value is out of the allowed range.',
+		9: 'Client addresses are required for summary queries.',
+	},
+	validation: {
+		1: 'Not authorized (must be agent owner or approved operator).',
+		4: 'A validation request with this hash already exists.',
+		5: 'Only the designated validator can respond.',
+	},
+};
+
 /** Maps opaque Soroban/wallet errors to user-friendly messages. */
 export function formatSorobanError(err: unknown): string {
 	const msg = err instanceof Error ? err.message : String(err);
@@ -87,10 +108,18 @@ export function formatSorobanError(err: unknown): string {
 	if (/insufficient.*balance/i.test(msg)) return 'Insufficient XLM balance for transaction fees.';
 	if (/expired/i.test(msg)) return 'Transaction expired. Please try again.';
 	if (/timeout|ETIMEDOUT/i.test(msg)) return 'Network timeout. Check your connection and try again.';
+
+	// Try to decode Soroban contract error codes (e.g. "Error(Contract, #1)")
+	const contractMatch = msg.match(/Error\(Contract,\s*#(\d+)\)/);
+	if (contractMatch) {
+		const code = parseInt(contractMatch[1], 10);
+		for (const registry of Object.values(CONTRACT_ERRORS)) {
+			if (registry[code]) return registry[code];
+		}
+		return `Contract error #${code}.`;
+	}
+
 	if (msg.length > 200) {
-		// Always log the full error to console before truncating - the
-		// truncation hides the XDR-encoded contract error context that's
-		// the only useful diagnostic for Soroban failures.
 		// eslint-disable-next-line no-console
 		console.error('[formatSorobanError] full error:', err);
 		return msg.slice(0, 200) + '... (see console for full error)';
