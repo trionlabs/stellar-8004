@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { explorerTxUrl } from '$lib/explorer.js';
+
 	type Step = { label: string; status: 'done' | 'active' | 'pending' };
 
 	let {
@@ -39,7 +41,7 @@
 		<div class="rounded-lg border border-border bg-surface p-3">
 			<p class="text-[10px] text-text-dim uppercase tracking-wider">Transaction</p>
 			<a
-				href="https://stellar.expert/explorer/testnet/tx/{txHash}"
+				href={explorerTxUrl(txHash)}
 				target="_blank"
 				rel="noopener noreferrer"
 				class="mt-1 block font-mono text-xs text-accent hover:underline break-all"
