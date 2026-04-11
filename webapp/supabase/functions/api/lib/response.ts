@@ -103,13 +103,20 @@ function readUriData(row: Record<string, unknown>, field: string): unknown {
   return undefined;
 }
 
+function sanitizeString(val: unknown, maxLen = 2048): string | null {
+  if (typeof val !== 'string') return null;
+  return val.slice(0, maxLen).replace(/[<>"]/g, (c) =>
+    c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'
+  );
+}
+
 export function formatAgent(row: Record<string, unknown>, scores?: Record<string, unknown> | null) {
   const result: Record<string, unknown> = {
     id: row.id,
     owner: row.owner,
-    name: readUriData(row, 'name') ?? `Agent #${row.id}`,
-    description: readUriData(row, 'description') ?? null,
-    image: readUriData(row, 'image') ?? null,
+    name: sanitizeString(readUriData(row, 'name')) ?? `Agent #${row.id}`,
+    description: sanitizeString(readUriData(row, 'description')) ?? null,
+    image: sanitizeString(readUriData(row, 'image'), 4096) ?? null,
     supportedTrust: row.supported_trust ?? [],
     x402Enabled: row.x402_enabled ?? false,
     hasServices: (row.services && Array.isArray(row.services) && (row.services as unknown[]).length > 0) ?? false,
