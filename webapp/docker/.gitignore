@@ -13,3 +13,9 @@ volumes/snippets/
 *.key
 *.crt
 volumes/api/server.*
+
+# Database dumps
+*.sql.gz
+*.dump
+*.bak
+.pgpass
