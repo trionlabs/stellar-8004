@@ -27,10 +27,10 @@ function createSupabaseAdmin(): SupabaseClient {
 
 Deno.serve(async (request: Request) => {
   const authHeader = request.headers.get('Authorization');
-  const expectedKey = Deno.env.get('HEALTH_SECRET') ?? Deno.env.get('INDEXER_SECRET');
+  const expectedKey = Deno.env.get('HEALTH_SECRET');
 
   if (!expectedKey || expectedKey.length < 16) {
-    return json({ ok: false, error: 'HEALTH_SECRET or INDEXER_SECRET not configured' }, { status: 503 });
+    return json({ ok: false, error: 'HEALTH_SECRET not configured' }, { status: 503 });
   }
 
   if (authHeader !== `Bearer ${expectedKey}`) {

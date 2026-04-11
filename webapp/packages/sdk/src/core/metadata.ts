@@ -35,6 +35,7 @@ export function buildMetadataJson(form: AgentFormData): Record<string, unknown> 
 	if (form.supportedTrust.length > 0) metadata.supportedTrust = form.supportedTrust;
 	if (form.x402Enabled) metadata.x402 = true;
 
+	validateMetadataJson(metadata);
 	return metadata;
 }
 

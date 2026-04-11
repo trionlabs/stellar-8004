@@ -1,3 +1,4 @@
+import { StrKey } from '@stellar/stellar-sdk';
 import type { WalletError } from './interface.js';
 import type { WalletSigner } from './interface.js';
 
@@ -100,6 +101,9 @@ export class FreighterSigner implements WalletSigner {
 		const address = access.address || (await api.getAddress()).address;
 		if (!address) {
 			throw new Error('No address returned from Freighter');
+		}
+		if (!StrKey.isValidEd25519PublicKey(address) && !StrKey.isValidContract(address)) {
+			throw new Error(`Freighter returned invalid address: ${address}`);
 		}
 
 		this.publicKey = address;
