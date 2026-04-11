@@ -1,75 +1,39 @@
 # Trustless Agents on Stellar/Soroban
 
-Implementation of the [8004 standard](https://www.8004.org) on Stellar/Soroban. The standard enables agent discovery, portable identity, and verifiable reputation across chains. Originally specified as [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) on Ethereum - this is the Stellar implementation.
+[8004 standard](https://www.8004.org) implementation on Stellar/Soroban - agent discovery, identity, and reputation.
 
-Note: The Identity and Reputation registries are stable and deployed across EVM chains. The Validation Registry is still under active community discussion and not yet deployed in the ecosystem. Our implementation follows the current draft spec and may need updates when the design is finalized.
+## Contracts
 
-## Deployed Contracts
-
-The single source of truth for contract addresses is [`webapp/packages/sdk/src/core/config.ts`](webapp/packages/sdk/src/core/config.ts). The indexer, scripts, and backfill all import from `@trionlabs/8004-sdk` - never hardcode addresses elsewhere.
-
-### Testnet
-
-| Contract | Address |
+| Contract | Testnet |
 |----------|---------|
-| Identity Registry | [`CA4GKPENYABUM7POQFCN3RDXIDVISC7T5QKHW5BDCJWOFDBW7P5ZCSUG`](https://stellar.expert/explorer/testnet/contract/CA4GKPENYABUM7POQFCN3RDXIDVISC7T5QKHW5BDCJWOFDBW7P5ZCSUG) |
-| Reputation Registry | [`CDKDYYL2PU3HKTCWFCHVAALZGABLFZ4F6MIEE45JKE44VH6VH2D3DHMT`](https://stellar.expert/explorer/testnet/contract/CDKDYYL2PU3HKTCWFCHVAALZGABLFZ4F6MIEE45JKE44VH6VH2D3DHMT) |
-| Validation Registry | [`CD3YFHYEI2JGTBKZTRT7QOMM337POX2G7CPVDBRK6DFDOEFZIQFAOCHD`](https://stellar.expert/explorer/testnet/contract/CD3YFHYEI2JGTBKZTRT7QOMM337POX2G7CPVDBRK6DFDOEFZIQFAOCHD) |
+| Identity Registry | [`CA4GKPEN...ZCSUG`](https://stellar.expert/explorer/testnet/contract/CA4GKPENYABUM7POQFCN3RDXIDVISC7T5QKHW5BDCJWOFDBW7P5ZCSUG) |
+| Reputation Registry | [`CDKDYYL2...DHMT`](https://stellar.expert/explorer/testnet/contract/CDKDYYL2PU3HKTCWFCHVAALZGABLFZ4F6MIEE45JKE44VH6VH2D3DHMT) |
+| Validation Registry | [`CD3YFHYE...OCHD`](https://stellar.expert/explorer/testnet/contract/CD3YFHYEI2JGTBKZTRT7QOMM337POX2G7CPVDBRK6DFDOEFZIQFAOCHD) |
 
-### Mainnet
+Mainnet TBD. Single source of truth for addresses: [`webapp/packages/sdk/src/core/config.ts`](webapp/packages/sdk/src/core/config.ts).
 
-TBD - will deploy after testnet validation.
-
-### After redeploying contracts
-
-Update these files with new addresses:
-
-1. `webapp/packages/sdk/src/core/config.ts` - `TESTNET_CONFIG` or `MAINNET_CONFIG` (the single source of truth - addresses + `deployLedger`)
-2. `webapp/packages/sdk/src/bindings/identity.ts` - `networks.testnet.contractId`
-3. `webapp/packages/sdk/src/bindings/reputation.ts` - same
-4. `webapp/packages/sdk/src/bindings/validation.ts` - same
-5. `webapp/packages/sdk/tests/config.test.ts` - test assertions for the config values
-6. `webapp/apps/web/.env.example` - example env for local dev
-7. `README.md` - the table above and the Global Agent Identifier example
-
-Then run `scripts/backfill-events.ts` from the new `deployLedger` and redeploy the indexer edge function.
-
-## Architecture
-
-Three independent Soroban contracts in a Cargo workspace, plus the webapp monorepo:
+## Structure
 
 ```
 contracts/
-  identity-registry/    - Agent registration as NFTs (OZ NonFungibleToken)
-  reputation-registry/  - Feedback with WAD-normalized averaging
+  identity-registry/    - Agent NFTs, metadata, wallet binding
+  reputation-registry/  - Feedback, self-feedback prevention, WAD averaging
   validation-registry/  - Third-party attestation requests/responses
 webapp/
-  apps/web/             - SvelteKit frontend for stellar8004.com
-  packages/sdk/         - @trionlabs/8004-sdk (TS SDK, canonical)
-  packages/indexer/     - Soroban event indexer (Supabase Edge Function)
-  packages/db/          - Supabase generated types
-  supabase/             - Migrations, functions, schema
+  apps/web/             - SvelteKit frontend (stellar8004.com)
+  packages/sdk/         - @trionlabs/8004-sdk
+  packages/indexer/     - Soroban event indexer
+  supabase/             - Migrations, edge functions, schema
 ```
-
-**Identity Registry** - Agents are registered as NFTs with sequential IDs. Supports metadata key-value storage, agent URI, and operational wallet. The `agentWallet` metadata key is initialized to caller on register, exposed via `get_metadata`, and flows through `MetadataSet` events (no dedicated wallet event). Wallet and all metadata are cleared on transfer.
-
-**Reputation Registry** - Feedback from any address except the agent owner or approved operators (on-chain self-feedback prevention via `is_authorized_or_owner`). Stores value, decimals, and two filter tags on-chain. Endpoint, URI, and hash are event-only. `get_summary` returns the WAD-normalized average over an explicit client list (empty list reverts).
-
-**Validation Registry** (draft) - Agent owners request validation from specific validators. Validators respond with a 0-100 score and may issue progressive updates. Based on the current draft spec.
 
 ## Build and Test
 
-Requires Rust nightly and the `stellar` CLI.
-
 ```bash
 cargo install stellar-cli
-
-make build    # Build all contracts to WASM
-make test     # Run all 74 tests (unit + integration + negative)
-make fmt      # Format
+make build    # Build all contracts
+make test     # 74 tests
+make fmt
 ```
-
-Single test: `cargo test --package identity-registry test_register`
 
 ## Deploy
 
@@ -93,81 +57,38 @@ stellar contract deploy \
   -- --owner $DEPLOYER --identity_registry <IDENTITY_CONTRACT_ID>
 ```
 
-## Webapp and SDK
+### After redeploying
 
-The [stellar8004.com](https://stellar8004.com) explorer, the Soroban event indexer, the self-hosted Supabase stack, and the `@trionlabs/8004-sdk` TypeScript SDK live under [`webapp/`](webapp/). See [`webapp/README.md`](webapp/README.md) for layout, local-dev instructions, and SDK quick start.
+Update these files with new addresses:
 
-## Spec Coverage
+1. `webapp/packages/sdk/src/core/config.ts` - addresses + `deployLedger`
+2. `webapp/packages/sdk/src/bindings/{identity,reputation,validation}.ts` - `networks.testnet.contractId`
+3. `webapp/packages/sdk/tests/config.test.ts` - assertions
+4. `webapp/apps/web/.env.example`
+5. This README
 
-Compared against the [8004 reference contracts](https://github.com/erc-8004/erc-8004-contracts) (`master`, 2026-04-08).
+Then run `scripts/backfill-events.ts` from the new deploy ledger and redeploy the indexer.
 
-| Registry | Spec Functions | Implemented | Partial / Missing |
-|----------|----------------|-------------|-------------------|
-| Identity | 11 | All 11 | - |
-| Reputation | 10 | 8 | `readAllFeedback` off-chain only (explorer HTTP endpoint). `getResponseCount` no `responders[]` filter. `getClients` paginated. |
-| Validation | 7 | All 7 | `getAgentValidations` and `getValidatorRequests` paginated. |
+## Webapp
 
-Soroban-only additions: `extend_ttl`, `propose_upgrade` / `execute_upgrade` / `cancel_upgrade` / `pending_upgrade` (3-day timelocked upgrades), `version`, `find_owner`, `agent_exists`, `total_agents`, `request_exists`, `token_uri` override, metadata size caps (64B key / 4KB value / 100 keys). OZ 2-step ownership exposed: `get_owner`, `transfer_ownership`, `accept_ownership`, `renounce_ownership`.
+See [`webapp/README.md`](webapp/README.md) for the explorer, SDK quick start, and local dev setup.
 
-## Differences from the EVM Reference
+## Agent Identifier
 
-All 8004 spec functions are implemented with equivalent behavior. The differences below are inherent to the Soroban runtime or are intentional security hardening.
-
-**Runtime constraints:**
-
-| What | EVM | Soroban |
-|------|-----|---------|
-| `setAgentWallet` auth | EIP-712 / ERC-1271 signature + deadline | `require_auth()` on both caller and wallet (native, no replay) |
-| `getClients` / `getAgentValidations` / `getValidatorRequests` | Returns full array | Paginated `*_paginated(start, limit)` (per-tx read budget ~100 entries) |
-| `readAllFeedback` | On-chain, returns 7 parallel arrays | Off-chain: explorer HTTP `/api/v1/agents/:id/feedback` wrapped by SDK `ExplorerClient.getFeedback()` |
-| `getSummary` client cap | Unbounded | Hard-capped at 5 clients per call |
-| Function overloading | `register()`, `register(uri)`, `register(uri, metadata)` | Three named functions: `register`, `register_with_uri`, `register_full` |
-| `getResponseCount` | Accepts `responders[]` filter | Total count only; per-responder filtering via `ResponseAppended` events |
-
-**Security hardening (stricter than spec):**
-
-- Transfer clears ALL metadata (spec only clears `agentWallet`). Prevents a previous owner's claims (e.g. `verified=true`) from persisting to new owner.
-- Metadata size caps: 64-byte keys, 4KB values, 100 keys per agent. Soroban storage is rented; without caps an agent can spam unbounded keys.
-
-**Type adaptations:**
-
-| Spec type | Soroban type | Notes |
-|-----------|-------------|-------|
-| `uint8` | `u32` | Soroban `#[contracttype]` has no `u8` |
-| `uint256 agentId` | `u32` | OZ Stellar NFT uses u32 (~4B agents) |
-| `int128 value` | `i128` | Native |
-| `uint64 feedbackIndex` | `u64` | Native |
-| `uint256 lastUpdate` | `u64` | Ledger sequence |
-| `address` | `Address` | Covers both G-accounts and C-contracts |
-| `abi.encodePacked(address)` | StrKey ASCII (56 bytes) | `agentWallet` metadata encoding |
-| `int256` WAD intermediate | `i128` | Overflow at `\|value\| > ~1.7e20` with `decimals=0`; returns `AggregateOverflow` cleanly |
-
-**Naming:** All functions are snake_case per Rust convention. Event indexed string topics are literal Soroban strings (not keccak256 hashes as in Solidity).
-
-**Event topic positions:**
-
-| Event | Topics | Body |
-|-------|--------|------|
-| `Registered` | `agent_id`, `owner` | `agent_uri` |
-| `UriUpdated` | `agent_id`, `updated_by` | `new_uri` |
-| `MetadataSet` | `agent_id`, `key` | `value` (wallet writes use `key="agentWallet"`) |
-| `NewFeedback` | `agent_id`, `client_address`, `tag1` | remaining fields |
-| `FeedbackRevoked` | `agent_id`, `client_address`, `feedback_index` | empty |
-| `ResponseAppended` | `agent_id`, `client_address`, `responder` | remaining fields |
-| `ValidationRequest` | `validator_address`, `agent_id`, `request_hash` | `request_uri` |
-| `ValidationResponse` | `validator_address`, `agent_id`, `request_hash` | remaining fields |
-
-## Global Agent Identifier
-
-Format: `stellar:{network}:{identityRegistryAddress}#{agentId}`
+`stellar:{network}:{identityRegistryAddress}#{agentId}`
 
 Example: `stellar:testnet:CA4GKPENYABUM7POQFCN3RDXIDVISC7T5QKHW5BDCJWOFDBW7P5ZCSUG#0`
+
+## Technical Details
+
+Spec coverage, EVM divergences, event layouts, and type mappings: [`TECHNICAL.md`](TECHNICAL.md).
 
 ## Dependencies
 
 - `soroban-sdk` 25.3.0
-- OpenZeppelin Stellar Contracts (pinned to commit `9dd85c30`) - NFT, access control, macros
+- OpenZeppelin Stellar Contracts (pinned to commit `9dd85c30`)
 - `stellar-cli` 25.2.0
+- Rust nightly pinned in `rust-toolchain.toml`
 
 ## References
 
@@ -175,7 +96,6 @@ Example: `stellar:testnet:CA4GKPENYABUM7POQFCN3RDXIDVISC7T5QKHW5BDCJWOFDBW7P5ZCS
 - [EIP-8004 Spec](https://eips.ethereum.org/EIPS/eip-8004)
 - [8004 Reference Contracts](https://github.com/erc-8004/erc-8004-contracts)
 - [8004 Network Registry](https://8004scan.io/networks)
-- [Best Practices](https://github.com/erc-8004/best-practices)
 
 ## License
 
