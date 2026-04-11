@@ -7,11 +7,12 @@
  * registers 10 agents with data URIs, and submits 20 feedback entries.
  */
 import * as StellarSdk from '@stellar/stellar-sdk';
+import { TESTNET_CONFIG } from '@trionlabs/8004-sdk';
 
 const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET;
-const RPC_URL = 'https://soroban-testnet.stellar.org';
-const IDENTITY_CONTRACT = 'CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ';
-const REPUTATION_CONTRACT = 'CAOSF6L4UPTJSZD6KOJMGOOKUKXZNYRNPA2QBPZPTLGGK6XLGCW72YM4';
+const RPC_URL = TESTNET_CONFIG.rpcUrl;
+const IDENTITY_CONTRACT = TESTNET_CONFIG.contracts.identity;
+const REPUTATION_CONTRACT = TESTNET_CONFIG.contracts.reputation;
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 120_000;

@@ -12,17 +12,13 @@ The canonical source of truth for these addresses is `webapp/packages/sdk/src/co
 
 | Contract | Address |
 |----------|---------|
-| Identity Registry | [`CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ`](https://stellar.expert/explorer/testnet/contract/CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ) |
-| Reputation Registry | [`CAOSF6L4UPTJSZD6KOJMGOOKUKXZNYRNPA2QBPZPTLGGK6XLGCW72YM4`](https://stellar.expert/explorer/testnet/contract/CAOSF6L4UPTJSZD6KOJMGOOKUKXZNYRNPA2QBPZPTLGGK6XLGCW72YM4) |
-| Validation Registry | [`CA6GIV7QB4B3O5SBZZRL3E3XMFFECGRETSN4JXAYTFKF5HUTD4JY2SJQ`](https://stellar.expert/explorer/testnet/contract/CA6GIV7QB4B3O5SBZZRL3E3XMFFECGRETSN4JXAYTFKF5HUTD4JY2SJQ) |
+| Identity Registry | [`CA4GKPENYABUM7POQFCN3RDXIDVISC7T5QKHW5BDCJWOFDBW7P5ZCSUG`](https://stellar.expert/explorer/testnet/contract/CA4GKPENYABUM7POQFCN3RDXIDVISC7T5QKHW5BDCJWOFDBW7P5ZCSUG) |
+| Reputation Registry | [`CDKDYYL2PU3HKTCWFCHVAALZGABLFZ4F6MIEE45JKE44VH6VH2D3DHMT`](https://stellar.expert/explorer/testnet/contract/CDKDYYL2PU3HKTCWFCHVAALZGABLFZ4F6MIEE45JKE44VH6VH2D3DHMT) |
+| Validation Registry | [`CD3YFHYEI2JGTBKZTRT7QOMM337POX2G7CPVDBRK6DFDOEFZIQFAOCHD`](https://stellar.expert/explorer/testnet/contract/CD3YFHYEI2JGTBKZTRT7QOMM337POX2G7CPVDBRK6DFDOEFZIQFAOCHD) |
 
 ### Mainnet
 
-| Contract | Address |
-|----------|---------|
-| Identity Registry | [`CCSMX3YEKU7IZCZSLORUCX6MQEOV6WXWAGTOJZG5YITEBAEH2Q5JY4XE`](https://stellar.expert/explorer/public/contract/CCSMX3YEKU7IZCZSLORUCX6MQEOV6WXWAGTOJZG5YITEBAEH2Q5JY4XE) |
-| Reputation Registry | [`CCIZJXEVL2DJXH772F7SX262M5SF7JNOIAROW2M7I6VTPOVCJ7KKM5HT`](https://stellar.expert/explorer/public/contract/CCIZJXEVL2DJXH772F7SX262M5SF7JNOIAROW2M7I6VTPOVCJ7KKM5HT) |
-| Validation Registry | [`CAI3ZKBNXC52F2DCEX2XQLXUTRAQKCPWUUXDELW5SPAF4GAW4HCQ4JT3`](https://stellar.expert/explorer/public/contract/CAI3ZKBNXC52F2DCEX2XQLXUTRAQKCPWUUXDELW5SPAF4GAW4HCQ4JT3) |
+TBD - will deploy after testnet validation.
 
 ## Architecture
 
@@ -151,7 +147,7 @@ All 8004 spec functions are implemented with equivalent behavior. The difference
 
 Format: `stellar:{network}:{identityRegistryAddress}#{agentId}`
 
-Example: `stellar:testnet:CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ#0`
+Example: `stellar:testnet:CA4GKPENYABUM7POQFCN3RDXIDVISC7T5QKHW5BDCJWOFDBW7P5ZCSUG#0`
 
 ## Dependencies
 
