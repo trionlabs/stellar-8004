@@ -104,25 +104,9 @@ Deno.serve(async (req: Request) => {
   }
 
   const servicePath = `/home/deno/functions/${service_name}`
-  console.error(`serving the request with ${servicePath}`)
-
-  const memoryLimitMb = 150
-  const workerTimeoutMs = 1 * 60 * 1000
-  const noModuleCache = false
-  const importMapPath = null
-  const envVarsObj = Deno.env.toObject()
-  const envVars = Object.keys(envVarsObj).map((k) => [k, envVarsObj[k]])
 
   try {
-    const worker = await EdgeRuntime.userWorkers.create({
-      servicePath,
-      memoryLimitMb,
-      workerTimeoutMs,
-      noModuleCache,
-      importMapPath,
-      envVars,
-    })
-    return await worker.fetch(req)
+    return await dispatchToWorker(service_name, servicePath, req)
   } catch (e) {
     const error = { msg: e.toString() }
     return new Response(JSON.stringify(error), {
@@ -131,3 +115,128 @@ Deno.serve(async (req: Request) => {
     })
   }
 })
+
+// ---------------------------------------------------------------------------
+// Worker pool
+// ---------------------------------------------------------------------------
+//
+// Why a pool: the previous implementation called EdgeRuntime.userWorkers.create
+// on every request with a 60s workerTimeoutMs. The worker handled the request
+// in ~1-3s and then sat idle for ~57s until edge-runtime force-killed it at the
+// wall-clock limit, emitting "wall clock duration warning" + "early termination"
+// log spam (one pair per invocation). With cron firing indexer + resolve-uris
+// ~3x/min, that produced ~90 warnings per 30 min.
+//
+// The pool keeps one worker alive per service, refreshing it proactively at
+// REFRESH_RATIO of its TTL so we never hit the hard wall-clock limit. Worker
+// creation is deduplicated via an in-flight map so concurrent requests share a
+// single create. If a fetch throws (worker crashed / OOM / TTL race), we
+// invalidate the cached worker and retry once with a fresh one.
+
+type WorkerConfig = {
+  memoryLimitMb: number
+  workerTimeoutMs: number
+}
+
+const DEFAULT_WORKER_CONFIG: WorkerConfig = {
+  memoryLimitMb: 256,
+  workerTimeoutMs: 30 * 60 * 1000, // 30 min
+}
+
+const WORKER_CONFIG: Record<string, WorkerConfig> = {
+  indexer: { memoryLimitMb: 256, workerTimeoutMs: 30 * 60 * 1000 },
+  'resolve-uris': { memoryLimitMb: 256, workerTimeoutMs: 30 * 60 * 1000 },
+  api: { memoryLimitMb: 256, workerTimeoutMs: 30 * 60 * 1000 },
+  'indexer-health': { memoryLimitMb: 128, workerTimeoutMs: 30 * 60 * 1000 },
+}
+
+// Refresh worker once it has burned through this fraction of its TTL, so the
+// new isolate is ready before edge-runtime force-terminates the old one.
+const REFRESH_RATIO = 0.85
+
+type CachedWorker = { worker: unknown; createdAt: number; cfg: WorkerConfig }
+
+const workerCache = new Map<string, CachedWorker>()
+const inflightCreate = new Map<string, Promise<CachedWorker>>()
+
+function configFor(serviceName: string): WorkerConfig {
+  return WORKER_CONFIG[serviceName] ?? DEFAULT_WORKER_CONFIG
+}
+
+function isFresh(entry: CachedWorker): boolean {
+  const age = Date.now() - entry.createdAt
+  return age < entry.cfg.workerTimeoutMs * REFRESH_RATIO
+}
+
+async function createCachedWorker(
+  serviceName: string,
+  servicePath: string
+): Promise<CachedWorker> {
+  const cfg = configFor(serviceName)
+  const envVarsObj = Deno.env.toObject()
+  const envVars = Object.keys(envVarsObj).map((k) => [k, envVarsObj[k]])
+
+  const worker = await EdgeRuntime.userWorkers.create({
+    servicePath,
+    memoryLimitMb: cfg.memoryLimitMb,
+    workerTimeoutMs: cfg.workerTimeoutMs,
+    noModuleCache: false,
+    importMapPath: null,
+    envVars,
+  })
+
+  console.log(
+    `[main] created worker for ${serviceName} (mem=${cfg.memoryLimitMb}MB ttl=${cfg.workerTimeoutMs}ms)`
+  )
+  return { worker, createdAt: Date.now(), cfg }
+}
+
+async function getWorker(
+  serviceName: string,
+  servicePath: string
+): Promise<unknown> {
+  const cached = workerCache.get(serviceName)
+  if (cached && isFresh(cached)) {
+    return cached.worker
+  }
+
+  let pending = inflightCreate.get(serviceName)
+  if (!pending) {
+    pending = createCachedWorker(serviceName, servicePath)
+      .then((entry) => {
+        workerCache.set(serviceName, entry)
+        return entry
+      })
+      .finally(() => {
+        inflightCreate.delete(serviceName)
+      })
+    inflightCreate.set(serviceName, pending)
+  }
+
+  const entry = await pending
+  return entry.worker
+}
+
+async function dispatchToWorker(
+  serviceName: string,
+  servicePath: string,
+  req: Request
+): Promise<Response> {
+  let worker = (await getWorker(serviceName, servicePath)) as {
+    fetch: (r: Request) => Promise<Response>
+  }
+  try {
+    return await worker.fetch(req)
+  } catch (e) {
+    // Worker likely died (TTL race, crash, OOM). Invalidate and retry once.
+    console.warn(
+      `[main] worker.fetch failed for ${serviceName}, retrying with fresh worker:`,
+      e instanceof Error ? e.message : String(e)
+    )
+    workerCache.delete(serviceName)
+    worker = (await getWorker(serviceName, servicePath)) as {
+      fetch: (r: Request) => Promise<Response>
+    }
+    return await worker.fetch(req)
+  }
+}
