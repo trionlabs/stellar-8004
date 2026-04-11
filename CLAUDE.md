@@ -48,12 +48,12 @@ Part of this monorepo (subtree-merged from `github.com/yamancan/stellar8004` on 
 - Storage: avoid growing Vec/Map - use count + indexed entries pattern
 - TTL constants: threshold=518400, bump=1036800 (~30/60 days at 5s/ledger)
 
-## Testnet Deployment (v2 - post audit)
+## Testnet Deployment
 
 Deployer: `GCOKXW3XCYYFD7ZXLT75LJPIES5SQGVMLWXKQQHGT2CE2KTSYWRBBWQU`
-- Identity Registry: `CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ`
-- Reputation Registry: `CAOSF6L4UPTJSZD6KOJMGOOKUKXZNYRNPA2QBPZPTLGGK6XLGCW72YM4`
-- Validation Registry: `CA6GIV7QB4B3O5SBZZRL3E3XMFFECGRETSN4JXAYTFKF5HUTD4JY2SJQ`
+- Identity Registry: `CA4GKPENYABUM7POQFCN3RDXIDVISC7T5QKHW5BDCJWOFDBW7P5ZCSUG`
+- Reputation Registry: `CDKDYYL2PU3HKTCWFCHVAALZGABLFZ4F6MIEE45JKE44VH6VH2D3DHMT`
+- Validation Registry: `CD3YFHYEI2JGTBKZTRT7QOMM337POX2G7CPVDBRK6DFDOEFZIQFAOCHD`
 
 ## Commit Conventions
 
