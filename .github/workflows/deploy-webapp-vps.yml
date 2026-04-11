@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'webapp/packages/indexer/**'
+      - 'webapp/packages/sdk/src/core/config.ts'
       - 'webapp/supabase/migrations/**'
       - 'webapp/supabase/functions/**'
       - 'webapp/docker/docker-compose.supabase.yml'
