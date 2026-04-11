@@ -6,9 +6,9 @@
 
 | Contract | Testnet |
 |----------|---------|
-| Identity Registry | [`CA4GKPEN...ZCSUG`](https://stellar.expert/explorer/testnet/contract/CA4GKPENYABUM7POQFCN3RDXIDVISC7T5QKHW5BDCJWOFDBW7P5ZCSUG) |
-| Reputation Registry | [`CDKDYYL2...DHMT`](https://stellar.expert/explorer/testnet/contract/CDKDYYL2PU3HKTCWFCHVAALZGABLFZ4F6MIEE45JKE44VH6VH2D3DHMT) |
-| Validation Registry | [`CD3YFHYE...OCHD`](https://stellar.expert/explorer/testnet/contract/CD3YFHYEI2JGTBKZTRT7QOMM337POX2G7CPVDBRK6DFDOEFZIQFAOCHD) |
+| Identity Registry | [`CDE3K4CO...7FIWZH`](https://stellar.expert/explorer/testnet/contract/CDE3K4COIAGWNNJQQLL26SYI3KBJF5FUDHXG5FA6GYDJCG7T5V7FIWZH) |
+| Reputation Registry | [`CBZEAGIE...GZ7HT55`](https://stellar.expert/explorer/testnet/contract/CBZEAGIEI3HXMDRLF44KLQJQQOH6LCYWWSGJVSYQYQO2HQ6DDGZ7HT55) |
+| Validation Registry | [`CC5USZRO...KLMO3SL`](https://stellar.expert/explorer/testnet/contract/CC5USZRO26MOIAVNYTTJDS63C2OBBLREOAOET4CPF2EZWO3YFKLMO3SL) |
 
 Mainnet TBD. Single source of truth for addresses: [`webapp/packages/sdk/src/core/config.ts`](webapp/packages/sdk/src/core/config.ts).
 
@@ -77,7 +77,7 @@ See [`webapp/README.md`](webapp/README.md) for the explorer, SDK quick start, an
 
 `stellar:{network}:{identityRegistryAddress}#{agentId}`
 
-Example: `stellar:testnet:CA4GKPENYABUM7POQFCN3RDXIDVISC7T5QKHW5BDCJWOFDBW7P5ZCSUG#0`
+Example: `stellar:testnet:CDE3K4COIAGWNNJQQLL26SYI3KBJF5FUDHXG5FA6GYDJCG7T5V7FIWZH#0`
 
 ## Technical Details
 
