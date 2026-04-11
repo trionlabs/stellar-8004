@@ -45,7 +45,7 @@ impl ReputationRegistryContract {
         if value_decimals > 18 {
             return Err(ReputationError::InvalidValueDecimals);
         }
-        if value > MAX_ABS_VALUE || value < -MAX_ABS_VALUE {
+        if !(-MAX_ABS_VALUE..=MAX_ABS_VALUE).contains(&value) {
             return Err(ReputationError::ValueOutOfRange);
         }
 
@@ -126,7 +126,7 @@ impl ReputationRegistryContract {
     ) -> Result<(), ReputationError> {
         caller.require_auth();
 
-        if response_uri.len() == 0 {
+        if response_uri.is_empty() {
             return Err(ReputationError::EmptyValue);
         }
 
@@ -186,10 +186,10 @@ impl ReputationRegistryContract {
                     if fb.is_revoked {
                         continue;
                     }
-                    if tag1.len() != 0 && fb.tag1 != tag1 {
+                    if !tag1.is_empty() && fb.tag1 != tag1 {
                         continue;
                     }
-                    if tag2.len() != 0 && fb.tag2 != tag2 {
+                    if !tag2.is_empty() && fb.tag2 != tag2 {
                         continue;
                     }
                     let dec = if fb.value_decimals > 18 {
