@@ -30,19 +30,20 @@ export const TESTNET_CONFIG: StellarConfig = {
 		validation: 'CC5USZRO26MOIAVNYTTJDS63C2OBBLREOAOET4CPF2EZWO3YFKLMO3SL'
 	},
 	deployVersion: '2026-04-11',
-	deployLedger: 1980693
+	deployLedger: 1980692
 };
 
-// Mainnet TBD - will deploy after testnet validation.
 export const MAINNET_CONFIG: StellarConfig = {
 	network: 'mainnet',
 	rpcUrl: 'https://mainnet.sorobanrpc.com',
 	networkPassphrase: StellarSdk.Networks.PUBLIC,
 	contracts: {
-		identity: '',
-		reputation: '',
-		validation: ''
+		identity: 'CBGPDCJIHQ32G42BE7F2CIT3YW6XRN5ED6GQJHCRZSNAYH6TGMCL6X35',
+		reputation: 'CBOIAIMMWAXI57OATLX6BWVDQLCC4YU55HV6MZXFRP6CBSGAMXSTEPPA',
+		validation: 'CBT6WWEVEPT2UFGFGVJJ7ELYGLQAGRYSVGDTGMCJTRWXOH27MWUO7UJG'
 	},
+	deployVersion: '2026-04-11',
+	deployLedger: 62071546
 };
 
 export function getConfig(network: 'testnet' | 'mainnet' = 'testnet'): StellarConfig {
