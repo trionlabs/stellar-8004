@@ -5,6 +5,7 @@
 	import { getClients } from '$lib/sdk-client.js';
 	import { validateAgentUri } from '@trionlabs/8004-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
+	import { explorerTxUrl } from '$lib/explorer.js';
 	import { createSupabase } from '$lib/supabase.js';
 	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
 	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
@@ -187,7 +188,7 @@
 				<div class="rounded-lg border border-border bg-surface p-3">
 					<p class="text-[10px] text-text-dim uppercase tracking-wider">Transaction</p>
 					<a
-						href="https://stellar.expert/explorer/testnet/tx/{data.txHash}"
+						href={explorerTxUrl(data.txHash)}
 						target="_blank"
 						rel="noopener noreferrer"
 						class="mt-1 block font-mono text-xs text-accent hover:underline break-all"

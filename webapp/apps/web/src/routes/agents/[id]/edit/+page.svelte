@@ -7,6 +7,7 @@
 		toDataUri
 	} from '@trionlabs/8004-sdk';
 	import { getClients } from '$lib/sdk-client.js';
+	import { explorerTxUrl } from '$lib/explorer.js';
 	import { validateAgentUri, formatSorobanError } from '@trionlabs/8004-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
@@ -155,7 +156,7 @@
 				<div class="rounded-lg border border-border bg-surface p-3 space-y-1">
 					<p class="text-[10px] text-text-dim uppercase tracking-wider">Transaction</p>
 					<div class="flex items-center gap-2">
-						<a href="https://stellar.expert/explorer/testnet/tx/{saveTxHash}"
+						<a href={explorerTxUrl(saveTxHash)}
 							target="_blank" rel="noopener noreferrer"
 							class="flex-1 font-mono text-[10px] text-accent hover:underline break-all text-left">
 							{saveTxHash}
