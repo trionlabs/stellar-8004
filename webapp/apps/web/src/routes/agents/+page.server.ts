@@ -147,7 +147,6 @@ export const load: PageServerLoad = async ({ url }) => {
 	const hasFilters = trustFilter.length > 0 || minScore > 0 || hasServices !== null;
 
 	if (hasFilters) {
-		const fetchLimit = ownerFilter ? perPage * 3 : perPage;
 		const advancedRows =
 			assertSuccess(
 				await db.rpc('search_agents_advanced', {
@@ -155,22 +154,14 @@ export const load: PageServerLoad = async ({ url }) => {
 					trust_filter: trustFilter,
 					min_score: minScore,
 					has_services_filter: hasServices ?? undefined,
-					result_limit: fetchLimit,
-					result_offset: 0
+					result_limit: perPage,
+					result_offset: offset,
+					owner_filter: ownerFilter || null,
 				}),
 				'Advanced search'
 			) ?? [];
 
-		// TODO: owner filter is client-side here because the RPC function
-		// doesn't accept an owner param. Pagination may be inaccurate when
-		// owner filter is combined with advanced filters. Push to DB when
-		// the RPC function is updated.
-		const filteredAdvanced = ownerFilter
-			? advancedRows.filter((r) => r.owner.toUpperCase() === ownerFilter.toUpperCase())
-			: advancedRows;
-
-		const startIndex = offset;
-		const pagedResults = filteredAdvanced.slice(startIndex, startIndex + perPage);
+		const pagedResults = advancedRows;
 
 		const agents: AgentListItem[] = pagedResults.map((row) => ({
 			id: row.agent_id,
@@ -194,38 +185,30 @@ export const load: PageServerLoad = async ({ url }) => {
 			sort,
 			order,
 			page,
-			hasMore: startIndex + perPage < filteredAdvanced.length,
+			hasMore: pagedResults.length === perPage,
 			filters: { trust: trustFilter, minScore, hasServices: hasServices ?? false },
 			ownerFilter
 		};
 	}
 
 	if (query.length > 0) {
-		const fetchLimit = ownerFilter ? perPage * 3 : perPage;
 		const searchRows =
 			assertSuccess(
 				await db.rpc('search_agents', {
 					search_query: query,
-					result_limit: fetchLimit,
-					result_offset: 0
+					result_limit: perPage,
+					result_offset: offset,
+					owner_filter: ownerFilter || null,
 				}),
 				'Agent search'
 			) ?? [];
 
-		// TODO: same client-side owner filter limitation as advanced search above
-		const filteredSearch = ownerFilter
-			? searchRows.filter((r) => r.owner.toUpperCase() === ownerFilter.toUpperCase())
-			: searchRows;
-
-		const startIndex = offset;
-		const pagedResults = filteredSearch.slice(startIndex, startIndex + perPage);
-
 		const scoreMap = await loadScoreMap(
 			db,
-			pagedResults.map((agent) => agent.id)
+			searchRows.map((agent) => agent.id)
 		);
 		const agents = sortAgents(
-			pagedResults.map((agent) => normalizeAgentRow(agent, scoreMap.get(agent.id))),
+			searchRows.map((agent) => normalizeAgentRow(agent, scoreMap.get(agent.id))),
 			sort,
 			order
 		);
@@ -236,7 +219,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			sort,
 			order,
 			page,
-			hasMore: startIndex + perPage < filteredSearch.length,
+			hasMore: searchRows.length === perPage,
 			filters: { trust: [] as string[], minScore: 0, hasServices: false },
 			ownerFilter
 		};
