@@ -18,7 +18,9 @@ const SRC = join(ROOT, 'packages', 'indexer', 'src');
 const DEST = join(ROOT, 'supabase', 'functions', '_shared', 'indexer');
 
 function transformImports(content) {
-  return content.replace(/from\s+['"](\..*?)\.js['"]/g, "from '$1.ts'");
+  return content
+    .replace(/from\s+['"](\..*?)\.js['"]/g, "from '$1.ts'")
+    .replace(/from\s+['"]@trionlabs\/8004-sdk['"]/g, "from './sdk-config.ts'");
 }
 
 function syncDir(srcDir, destDir) {
