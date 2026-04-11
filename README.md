@@ -4,13 +4,13 @@
 
 ## Contracts
 
-| Contract | Testnet |
-|----------|---------|
-| Identity Registry | [`CDE3K4CO...7FIWZH`](https://stellar.expert/explorer/testnet/contract/CDE3K4COIAGWNNJQQLL26SYI3KBJF5FUDHXG5FA6GYDJCG7T5V7FIWZH) |
-| Reputation Registry | [`CBZEAGIE...GZ7HT55`](https://stellar.expert/explorer/testnet/contract/CBZEAGIEI3HXMDRLF44KLQJQQOH6LCYWWSGJVSYQYQO2HQ6DDGZ7HT55) |
-| Validation Registry | [`CC5USZRO...KLMO3SL`](https://stellar.expert/explorer/testnet/contract/CC5USZRO26MOIAVNYTTJDS63C2OBBLREOAOET4CPF2EZWO3YFKLMO3SL) |
+| Contract | Testnet | Mainnet |
+|----------|---------|---------|
+| Identity Registry | [`CDE3K4CO...7FIWZH`](https://stellar.expert/explorer/testnet/contract/CDE3K4COIAGWNNJQQLL26SYI3KBJF5FUDHXG5FA6GYDJCG7T5V7FIWZH) | [`CBGPDCJI...GMCL6X35`](https://stellar.expert/explorer/public/contract/CBGPDCJIHQ32G42BE7F2CIT3YW6XRN5ED6GQJHCRZSNAYH6TGMCL6X35) |
+| Reputation Registry | [`CBZEAGIE...GZ7HT55`](https://stellar.expert/explorer/testnet/contract/CBZEAGIEI3HXMDRLF44KLQJQQOH6LCYWWSGJVSYQYQO2HQ6DDGZ7HT55) | [`CBOIAIMM...MXSTEPPA`](https://stellar.expert/explorer/public/contract/CBOIAIMMWAXI57OATLX6BWVDQLCC4YU55HV6MZXFRP6CBSGAMXSTEPPA) |
+| Validation Registry | [`CC5USZRO...KLMO3SL`](https://stellar.expert/explorer/testnet/contract/CC5USZRO26MOIAVNYTTJDS63C2OBBLREOAOET4CPF2EZWO3YFKLMO3SL) | [`CBT6WWEV...MWUO7UJG`](https://stellar.expert/explorer/public/contract/CBT6WWEVEPT2UFGFGVJJ7ELYGLQAGRYSVGDTGMCJTRWXOH27MWUO7UJG) |
 
-Mainnet TBD. Single source of truth for addresses: [`webapp/packages/sdk/src/core/config.ts`](webapp/packages/sdk/src/core/config.ts).
+Single source of truth for addresses: [`webapp/packages/sdk/src/core/config.ts`](webapp/packages/sdk/src/core/config.ts).
 
 ## Structure
 
