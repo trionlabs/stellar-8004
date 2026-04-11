@@ -12,7 +12,7 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-RUN pnpm --filter @trionlabs/8004s-sdk build
+RUN pnpm --filter @trionlabs/8004-sdk build
 RUN pnpm --filter @stellar8004/web build
 # Deploy creates a flat, self-contained node_modules without symlinks
 RUN pnpm --filter @stellar8004/web deploy --prod /prod
