@@ -6,7 +6,7 @@ Note: The Identity and Reputation registries are stable and deployed across EVM 
 
 ## Deployed Contracts
 
-The canonical source of truth for these addresses is `webapp/packages/sdk/src/core/config.ts` (`TESTNET_CONFIG`, `MAINNET_CONFIG`). Every other consumer (indexer, frontend env, scripts) imports from there.
+The single source of truth for contract addresses is [`webapp/packages/sdk/src/core/config.ts`](webapp/packages/sdk/src/core/config.ts). The indexer, scripts, and backfill all import from `@trionlabs/8004-sdk` - never hardcode addresses elsewhere.
 
 ### Testnet
 
@@ -19,6 +19,20 @@ The canonical source of truth for these addresses is `webapp/packages/sdk/src/co
 ### Mainnet
 
 TBD - will deploy after testnet validation.
+
+### After redeploying contracts
+
+Update these files with new addresses:
+
+1. `webapp/packages/sdk/src/core/config.ts` - `TESTNET_CONFIG` or `MAINNET_CONFIG` (the single source of truth - addresses + `deployLedger`)
+2. `webapp/packages/sdk/src/bindings/identity.ts` - `networks.testnet.contractId`
+3. `webapp/packages/sdk/src/bindings/reputation.ts` - same
+4. `webapp/packages/sdk/src/bindings/validation.ts` - same
+5. `webapp/packages/sdk/tests/config.test.ts` - test assertions for the config values
+6. `webapp/apps/web/.env.example` - example env for local dev
+7. `README.md` - the table above and the Global Agent Identifier example
+
+Then run `scripts/backfill-events.ts` from the new `deployLedger` and redeploy the indexer edge function.
 
 ## Architecture
 
