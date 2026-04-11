@@ -10,3 +10,11 @@
 # Env files
 .env
 .env.*
+
+# Supabase Studio user data (saved SQL snippets — may contain sensitive queries)
+snippets/
+
+# Database dumps
+*.sql.gz
+*.dump
+*.bak
