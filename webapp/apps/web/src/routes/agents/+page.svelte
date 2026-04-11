@@ -11,10 +11,17 @@
 
 	const baseAgentsPath = resolve('/agents');
 
+	// Initialized from server data, mutated by user interaction.
+	// goto() in applyFilters() remounts with fresh data so stale capture is safe.
+	/* svelte-ignore state_referenced_locally */
 	let trustReputation = $state(data.filters.trust.includes('reputation'));
+	/* svelte-ignore state_referenced_locally */
 	let trustCryptoEconomic = $state(data.filters.trust.includes('crypto-economic'));
+	/* svelte-ignore state_referenced_locally */
 	let trustTee = $state(data.filters.trust.includes('tee-attestation'));
-	let minScoreValue = $state(data.filters.minScore);
+	/* svelte-ignore state_referenced_locally */
+	let minScoreValue: number = $state(data.filters.minScore);
+	/* svelte-ignore state_referenced_locally */
 	let servicesOnly = $state(data.filters.hasServices);
 
 	function applyFilters() {
@@ -272,7 +279,7 @@
 					{#if data.filters.minScore > 0}<input type="hidden" name="min_score" value={data.filters.minScore} />{/if}
 					{#if data.filters.hasServices}<input type="hidden" name="services" value="true" />{/if}
 					{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
-					<button type="submit" class="pager">
+					<button type="submit" class="pager" aria-label="Previous page">
 						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
 					</button>
 				</form>
@@ -288,7 +295,7 @@
 					{#if data.filters.minScore > 0}<input type="hidden" name="min_score" value={data.filters.minScore} />{/if}
 					{#if data.filters.hasServices}<input type="hidden" name="services" value="true" />{/if}
 					{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
-					<button type="submit" class="pager">
+					<button type="submit" class="pager" aria-label="Next page">
 						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
 					</button>
 				</form>
