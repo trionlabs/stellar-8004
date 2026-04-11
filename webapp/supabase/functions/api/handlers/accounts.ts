@@ -1,9 +1,10 @@
+import { StrKey } from '@stellar/stellar-sdk';
 import { createSupabaseAdmin, successWithCache, errorResponse, formatAgent, parseIntParam } from '../lib/response.ts';
 
 const AGENTS_SELECT = 'id, owner, wallet, agent_uri, agent_uri_data, supported_trust, x402_enabled, services, created_at';
 
 export async function handleAccounts(address: string, url: URL): Promise<Response> {
-  if (!address.startsWith('G') || address.length < 10) {
+  if (!StrKey.isValidEd25519PublicKey(address) && !StrKey.isValidContract(address)) {
     return errorResponse('INVALID_ADDRESS', 'Invalid Stellar address', 400);
   }
 
