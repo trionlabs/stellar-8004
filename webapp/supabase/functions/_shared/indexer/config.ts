@@ -1,7 +1,7 @@
 // Single source of truth for contract addresses lives in the SDK at
 // `@trionlabs/8004-sdk/src/core/config.ts`. The indexer reads them from
 // there to avoid drift across packages.
-import { MAINNET_CONFIG, TESTNET_CONFIG } from '@trionlabs/8004-sdk';
+import { MAINNET_CONFIG, TESTNET_CONFIG } from './sdk-config.ts';
 
 import { env } from './env.ts';
 
