@@ -43,6 +43,7 @@ pub fn validation_requested(
     .publish(e);
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn validation_responded(
     e: &Env,
     validator_address: &Address,
