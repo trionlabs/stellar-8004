@@ -11,7 +11,7 @@
  *   SUPABASE_URL=http://... SUPABASE_SERVICE_KEY=... npx tsx scripts/backfill-events.ts
  *
  * On VPS (via docker exec):
- *   docker exec s8004-db psql -U postgres -c "..." to verify results
+ *   docker exec trionlabs8004-db psql -U postgres -c "..." to verify results
  */
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { MAINNET_CONFIG, TESTNET_CONFIG } from '@trionlabs/8004-sdk';
