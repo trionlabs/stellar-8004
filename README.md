@@ -35,6 +35,25 @@ make test     # 74 tests
 make fmt
 ```
 
+## Reproducible Builds
+
+The Rust toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml) to `nightly-2025-08-11` with `wasm32v1-none` target. Combined with a tracked `Cargo.lock` and a deterministic release profile (`opt-level=z`, LTO, `panic=abort`, `codegen-units=1`), a fresh checkout + `make build` produces byte-identical WASMs. The same binaries are deployed on both testnet and mainnet:
+
+| Contract | sha256 |
+|----------|--------|
+| `identity_registry.wasm` | `f25af88f3e26f603a6569b2554b3f85ccc8af9a88f3b904fba873637c64eb2ab` |
+| `reputation_registry.wasm` | `74af1a031934346260f7265dacb633209dba507c1416f1e37d52405b53478f71` |
+| `validation_registry.wasm` | `9e5d7dc78ca00fc7c7afc914a0b3ecbcec61b4e7b1893a84bf47c3b811c68aa1` |
+
+Verify against a live network:
+
+```bash
+make clean && make build
+sha256sum target/wasm32v1-none/release/*.wasm
+stellar contract fetch --network mainnet --id <CONTRACT_ID> -o fetched.wasm
+sha256sum fetched.wasm
+```
+
 ## Deploy
 
 ```bash
