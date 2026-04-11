@@ -30,10 +30,16 @@ describe('TESTNET_CONFIG', () => {
 });
 
 describe('MAINNET_CONFIG', () => {
-	it('exposes mainnet config with TBD contracts', () => {
+	it('exposes the pinned mainnet deployment config', () => {
 		expect(MAINNET_CONFIG).toMatchObject({
 			network: 'mainnet',
 			rpcUrl: 'https://mainnet.sorobanrpc.com',
+			deployVersion: '2026-04-11',
+			contracts: {
+				identity: 'CBGPDCJIHQ32G42BE7F2CIT3YW6XRN5ED6GQJHCRZSNAYH6TGMCL6X35',
+				reputation: 'CBOIAIMMWAXI57OATLX6BWVDQLCC4YU55HV6MZXFRP6CBSGAMXSTEPPA',
+				validation: 'CBT6WWEVEPT2UFGFGVJJ7ELYGLQAGRYSVGDTGMCJTRWXOH27MWUO7UJG'
+			}
 		});
 	});
 
