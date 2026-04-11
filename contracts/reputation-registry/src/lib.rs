@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(clippy::too_many_arguments)]
 
 use soroban_sdk::contractmeta;
 contractmeta!(key = "Description", val = "8004 Reputation Registry");

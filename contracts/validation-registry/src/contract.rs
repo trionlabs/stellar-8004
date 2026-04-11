@@ -163,7 +163,7 @@ impl ValidationRegistryContract {
                             continue;
                         }
                     }
-                    if tag.len() > 0 && status.tag != tag {
+                    if !tag.is_empty() && status.tag != tag {
                         continue;
                     }
                     total_response += status.response as u64;

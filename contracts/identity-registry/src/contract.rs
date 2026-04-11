@@ -122,7 +122,7 @@ impl IdentityRegistryContract {
         new_uri: String,
     ) -> Result<(), IdentityError> {
         caller.require_auth();
-        if new_uri.len() == 0 {
+        if new_uri.is_empty() {
             return Err(IdentityError::EmptyValue);
         }
         Self::require_owner_or_approved(e, &caller, agent_id)?;
@@ -145,7 +145,7 @@ impl IdentityRegistryContract {
         value: Bytes,
     ) -> Result<(), IdentityError> {
         caller.require_auth();
-        if key.len() == 0 {
+        if key.is_empty() {
             return Err(IdentityError::EmptyValue);
         }
         if key.len() > MAX_METADATA_KEY_LEN {
