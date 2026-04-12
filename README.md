@@ -88,6 +88,21 @@ Update these files with new addresses:
 
 Then run `scripts/backfill-events.ts` from the new deploy ledger and redeploy the indexer.
 
+## AI Agent Skills
+
+Claude Code skills for building on Stellar 8004 and x402:
+
+```bash
+# Install all skills
+npx skills add trionlabs/stellar-8004 --skill '*'
+
+# Or individually
+npx skills add trionlabs/stellar-8004 --skill 8004s    # Agent trust protocol
+npx skills add trionlabs/stellar-8004 --skill x402s    # HTTP micropayments
+```
+
+Then use `/8004s` and `/x402s` slash commands in Claude Code. See the [Developer Portal](https://stellar8004.com/developers) for full docs.
+
 ## Webapp
 
 See [`webapp/README.md`](webapp/README.md) for the explorer, SDK quick start, and local dev setup.

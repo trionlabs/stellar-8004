@@ -5,22 +5,22 @@
 		{
 			name: '8004s',
 			slash: '/8004s',
-			desc: 'ERC-8004 Agent Trust Protocol on Soroban. Covers IdentityRegistry (registerAgent, updateAgentUri), ReputationRegistry (submitFeedback, getFeedbackByAgent), and ValidationRegistry (requestValidation, submitValidation). Includes testnet contract addresses, nativeToScVal patterns, and Freighter transaction signing.',
-			install: 'claude install trionlabs/stellar-8004 --subpath skills/8004s',
+			desc: 'Full agent onboarding playbook for ERC-8004 on Stellar. Covers metadata preparation, on-chain registration (register, register_with_uri, register_full), indexer discovery, reputation system (give/read/revoke feedback, get_summary with running aggregates), validation workflow, trust verification, x402 integration, and storage vs event architecture.',
+			install: 'npx skills add trionlabs/stellar-8004 --skill 8004s',
 			repo: 'https://github.com/trionlabs/stellar-8004'
 		},
 		{
 			name: 'x402s',
 			slash: '/x402s',
-			desc: 'x402 HTTP-native micropayments on Stellar. Implements HTTP 402 Payment Required flows with USDC on Soroban - pay-per-call API monetization, Soroban authorization entries, facilitator configuration, and @trionlabs/x402-stellar client/server SDK.',
-			install: 'claude install trionlabs/stellar-8004 --subpath skills/x402s',
+			desc: 'x402 HTTP-native micropayments on Stellar. Implements HTTP 402 Payment Required flows with USDC on Soroban — server middleware (Express), client signing (private key and browser wallet), fee sponsorship, facilitator setup (Coinbase/OpenZeppelin), and Freighter 6.x integration.',
+			install: 'npx skills add trionlabs/stellar-8004 --skill x402s',
 			repo: 'https://github.com/trionlabs/stellar-8004'
 		},
 		{
 			name: 'stellar-dev',
 			slash: '/stellar-dev',
 			desc: 'End-to-end Stellar development playbook. Soroban smart contracts (Rust SDK), stellar-cli, JS/Python/Go SDKs, Stellar RPC and Horizon API, Assets vs Soroban tokens (SAC bridge), Freighter wallet integration, and testnet/mainnet deployment.',
-			install: 'claude install stellar/stellar-dev-skill',
+			install: 'npx skills add stellar/stellar-dev-skill --skill stellar-dev',
 			repo: 'https://github.com/stellar/stellar-dev-skill'
 		}
 	];
