@@ -8,6 +8,8 @@
 	let currentName = $state('');
 	let currentEndpoint = $state('');
 	let currentVersion = $state('');
+	let currentDescription = $state('');
+	let currentInputExample = $state('');
 
 	const MAX_SERVICES = 20;
 
@@ -20,11 +22,15 @@
 		services.push({
 			name: currentName.trim(),
 			endpoint: currentEndpoint.trim(),
-			version: currentVersion.trim() || undefined
+			version: currentVersion.trim() || undefined,
+			description: currentDescription.trim() || undefined,
+			inputExample: currentInputExample.trim() || undefined
 		});
 		currentName = activeTab === 'Custom' ? '' : activeTab;
 		currentEndpoint = '';
 		currentVersion = '';
+		currentDescription = '';
+		currentInputExample = '';
 	}
 
 	function removeService(index: number) {
@@ -95,6 +101,18 @@
 				placeholder="Version (e.g. 1.0.0)"
 				class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors"
 			/>
+			<textarea
+				bind:value={currentDescription}
+				placeholder="What does this service do? (optional)"
+				rows="2"
+				class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors resize-y"
+			></textarea>
+			<textarea
+				bind:value={currentInputExample}
+				placeholder={'Example input JSON (optional)\ne.g. { "url": "https://example.com" }'}
+				rows="2"
+				class="w-full rounded-xl border border-border bg-surface px-4 py-3 font-mono text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors resize-y"
+			></textarea>
 			<button
 				type="button"
 				onclick={saveService}
@@ -115,7 +133,12 @@
 			{#each services as service, i (service.endpoint)}
 				<div class="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
 					<span class="rounded-md bg-accent/8 px-2 py-0.5 text-[10px] font-medium text-accent">{service.name}</span>
-					<span class="flex-1 truncate font-mono text-[11px] text-text-muted">{service.endpoint}</span>
+					<div class="flex-1 min-w-0">
+						<span class="block truncate font-mono text-[11px] text-text-muted">{service.endpoint}</span>
+						{#if service.description}
+							<span class="block truncate text-[10px] text-text-dim">{service.description}</span>
+						{/if}
+					</div>
 					{#if service.version}
 						<span class="text-[10px] text-text-dim">v{service.version}</span>
 					{/if}
