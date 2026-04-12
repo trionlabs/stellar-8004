@@ -80,11 +80,11 @@ Host as IPFS, HTTPS, or inline data URI — passed to `register_with_uri()`:
   "description": "What your agent does",
   "image": "https://example.com/agent-logo.png",
   "services": [
-    { "name": "x402", "endpoint": "https://your-agent.example.com/task", "version": "1.0" },
+    { "name": "x402", "endpoint": "https://your-agent.example.com/task", "version": "1.0", "description": "Summarize documents for USDC", "inputExample": "{\"url\": \"https://example.com/doc.pdf\"}" },
     { "name": "mcp", "endpoint": "https://your-agent.example.com/mcp" },
     { "name": "a2a", "endpoint": "https://your-agent.example.com/.well-known/agent.json" }
   ],
-  "supportedTrust": ["reputation", "validation"],
+  "supportedTrust": ["reputation"],
   "x402": true
 }
 ```
@@ -101,6 +101,8 @@ Host as IPFS, HTTPS, or inline data URI — passed to `register_with_uri()`:
 | `mcp` | Model Context Protocol server | `https://agent.example.com/mcp` |
 | `a2a` | Agent-to-Agent protocol | `https://agent.example.com/.well-known/agent.json` |
 | custom | Any other protocol (e.g. `rest`, `oasf`, `xmtp`) | Your URL |
+
+Each service entry supports optional `description` (what the service does) and `inputExample` (example JSON input). These are displayed in the explorer's Try panel and help users understand your agent's capabilities.
 
 Service types affect discoverability — the explorer filters by `hasServices` and `x402`.
 
@@ -122,7 +124,7 @@ const metadata = buildMetadataJson({
   description: 'Summarizes documents and answers questions',
   imageUrl: 'https://example.com/logo.png',
   services: [
-    { name: 'x402', endpoint: 'https://my-agent.example.com/task', version: '1.0' },
+    { name: 'x402', endpoint: 'https://my-agent.example.com/task', version: '1.0', description: 'Summarize documents for USDC', inputExample: '{"url": "https://example.com/doc.pdf"}' },
     { name: 'mcp', endpoint: 'https://my-agent.example.com/mcp' },
   ],
   supportedTrust: ['reputation'],
