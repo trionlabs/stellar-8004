@@ -15,8 +15,6 @@ type AgentListItem = {
 	totalScore: number | null;
 	avgScore: number | null;
 	feedbackCount: number;
-	avgValidationScore: number | null;
-	validationCount: number;
 	uniqueClients: number;
 	supportedTrust: string[];
 	hasServices: boolean;
@@ -92,8 +90,6 @@ function normalizeAgentRow(agent: Pick<SearchAgentRow, 'id' | 'owner' | 'agent_u
 		totalScore: score?.total_score ?? null,
 		avgScore: score?.avg_score ?? null,
 		feedbackCount: score?.feedback_count ?? 0,
-		avgValidationScore: score?.avg_validation_score ?? null,
-		validationCount: score?.validation_count ?? 0,
 		uniqueClients: score?.unique_clients ?? 0,
 		supportedTrust: agent.supported_trust ?? [],
 		hasServices: Array.isArray(agent.services) ? agent.services.length > 0 : false
@@ -114,8 +110,6 @@ function normalizeLeaderboardRow(row: LeaderboardRow): AgentListItem | null {
 		totalScore: row.total_score,
 		avgScore: row.avg_score ?? null,
 		feedbackCount: row.feedback_count ?? 0,
-		avgValidationScore: row.avg_validation_score ?? null,
-		validationCount: row.validation_count ?? 0,
 		uniqueClients: row.unique_clients ?? 0,
 		supportedTrust: row.supported_trust ?? [],
 		hasServices: row.has_services ?? false
@@ -172,8 +166,6 @@ export const load: PageServerLoad = async ({ url }) => {
 			totalScore: row.total_score,
 			avgScore: row.avg_score ?? null,
 			feedbackCount: row.feedback_count ?? 0,
-			avgValidationScore: row.avg_validation_score ?? null,
-			validationCount: row.validation_count ?? 0,
 			uniqueClients: row.unique_clients ?? 0,
 			supportedTrust: row.supported_trust ?? [],
 			hasServices: row.has_services ?? false
