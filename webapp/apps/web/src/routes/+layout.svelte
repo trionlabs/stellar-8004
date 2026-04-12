@@ -49,7 +49,7 @@
 			</div>
 
 			<!-- Mobile top-right utilities -->
-			<div class="flex items-center gap-1 md:hidden">
+			<div class="flex items-center gap-2 md:hidden">
 				<ThemeToggle />
 				<ProfileBadge />
 			</div>
