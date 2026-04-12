@@ -400,12 +400,17 @@
 		<button
 			type="button"
 			onclick={() => wallet.connect()}
+			onmousemove={(e) => {
+				const rect = e.currentTarget.getBoundingClientRect();
+				e.currentTarget.style.setProperty('--mx', ((e.clientX - rect.left) / rect.width * 100) + '%');
+				e.currentTarget.style.setProperty('--my', ((e.clientY - rect.top) / rect.height * 100) + '%');
+			}}
 			class="try-connect-btn"
 		>
-			<svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+			<svg class="h-4 w-4 shrink-0 relative" style="z-index:1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
 			</svg>
-			Connect & Try
+			<span class="relative" style="z-index:1">Connect & Try</span>
 		</button>
 	{:else}
 		<div class="divide-y divide-border/30 rounded-xl border border-border/40 overflow-hidden">
@@ -706,7 +711,11 @@
 		padding: 1.25rem;
 		border-radius: 1rem;
 		border: 1px solid color-mix(in oklch, var(--color-accent) 15%, transparent);
-		background: linear-gradient(to bottom, color-mix(in oklch, var(--color-accent) 3%, transparent), transparent 60%);
+		background:
+			linear-gradient(to bottom, color-mix(in oklch, var(--color-accent) 3%, transparent), transparent 60%),
+			var(--color-glass);
+		backdrop-filter: var(--glass-blur);
+		-webkit-backdrop-filter: var(--glass-blur);
 	}
 
 	.try-section__icon {
@@ -721,68 +730,101 @@
 		color: var(--color-accent);
 	}
 
-	/* ── Connect & Try button — subtle inner lava ── */
+	/* ── Shared button base ── */
+	.try-connect-btn,
+	.try-service-btn {
+		position: relative;
+		overflow: hidden;
+		border: 1px solid oklch(0.5 0.12 265 / 0.25);
+		background: oklch(0.18 0.04 265);
+		color: oklch(0.93 0.03 265);
+		cursor: pointer;
+		transition: border-color 0.4s, box-shadow 0.4s;
+	}
+
+	.try-connect-btn::before,
+	.try-service-btn::before,
+	.try-connect-btn::after,
+	.try-service-btn::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		pointer-events: none;
+	}
+
+	/* ::before — mouse-tracking spotlight */
+	.try-connect-btn::before,
+	.try-service-btn::before {
+		background: radial-gradient(
+			circle 120px at var(--mx, 50%) var(--my, 50%),
+			oklch(0.62 0.20 265 / 0.55),
+			transparent 70%
+		);
+		opacity: 0;
+		transition: opacity 0.4s;
+	}
+
+	.try-connect-btn:hover::before,
+	.try-service-btn:hover::before {
+		opacity: 1;
+	}
+
+	/* ::after — idle ambient drift (always on, subtle) */
+	.try-connect-btn::after,
+	.try-service-btn::after {
+		background:
+			radial-gradient(ellipse 45% 65%, oklch(0.52 0.14 265 / 0.3), transparent 70%);
+		background-size: 200% 200%;
+		background-repeat: no-repeat;
+		animation: glow-idle 16s ease-in-out infinite;
+	}
+
+	.try-connect-btn:hover,
+	.try-service-btn:hover {
+		border-color: oklch(0.55 0.14 265 / 0.45);
+		box-shadow: 0 0 24px -8px oklch(0.5 0.16 265 / 0.35);
+	}
+
+	.try-connect-btn:hover::after,
+	.try-service-btn:hover::after {
+		animation-duration: 8s;
+	}
+
+	/* ── Connect & Try (wide) ── */
 	.try-connect-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.5rem;
+		gap: 0.625rem;
 		width: 100%;
-		padding: 0.75rem 1.25rem;
+		padding: 0.875rem 1.25rem;
 		border-radius: 0.75rem;
-		border: 1px solid color-mix(in oklch, var(--color-accent) 25%, transparent);
-		background:
-			radial-gradient(ellipse 80% 120% at 20% 50%, color-mix(in oklch, var(--color-accent) 18%, transparent), transparent 50%),
-			radial-gradient(ellipse 60% 100% at 80% 40%, color-mix(in oklch, var(--color-accent) 12%, transparent), transparent 45%),
-			var(--color-accent-fill);
-		background-size: 200% 200%, 200% 200%, 100% 100%;
-		animation: lava-slow 10s ease-in-out infinite;
-		color: var(--color-accent);
-		font-size: 13px;
-		font-weight: 500;
-		cursor: pointer;
-		transition: border-color 0.2s;
-	}
-
-	.try-connect-btn:hover {
-		border-color: color-mix(in oklch, var(--color-accent) 40%, transparent);
-		animation-duration: 5s;
+		font-size: 14px;
+		font-weight: 600;
+		letter-spacing: 0.02em;
 	}
 
 	.try-connect-btn:active {
 		transform: scale(0.98);
 	}
 
-	/* ── Small "Try" button on service rows ── */
+	/* ── Small "Try" (inline) ── */
 	.try-service-btn {
-		padding: 0.375rem 0.75rem;
+		padding: 0.4rem 0.875rem;
 		border-radius: 0.5rem;
-		border: 1px solid color-mix(in oklch, var(--color-accent) 30%, transparent);
-		background:
-			radial-gradient(ellipse 90% 130% at 25% 50%, color-mix(in oklch, var(--color-accent) 20%, transparent), transparent 50%),
-			radial-gradient(ellipse 70% 100% at 75% 45%, color-mix(in oklch, var(--color-accent) 14%, transparent), transparent 45%),
-			var(--color-accent-fill);
-		background-size: 200% 200%, 200% 200%, 100% 100%;
-		animation: lava-slow 10s ease-in-out infinite;
-		color: var(--color-accent);
 		font-size: 12px;
-		font-weight: 500;
-		cursor: pointer;
-		transition: border-color 0.2s;
-	}
-
-	.try-service-btn:hover {
-		border-color: color-mix(in oklch, var(--color-accent) 45%, transparent);
-		animation-duration: 5s;
+		font-weight: 600;
 	}
 
 	.try-service-btn:active {
 		transform: scale(0.96);
 	}
 
-	@keyframes lava-slow {
-		0%   { background-position: 0% 50%, 100% 50%, 0 0; }
-		50%  { background-position: 100% 50%, 0% 50%, 0 0; }
-		100% { background-position: 0% 50%, 100% 50%, 0 0; }
+	@keyframes glow-idle {
+		0%   { background-position: 15% 45%; }
+		33%  { background-position: 70% 60%; }
+		66%  { background-position: 45% 30%; }
+		100% { background-position: 15% 45%; }
 	}
 </style>
