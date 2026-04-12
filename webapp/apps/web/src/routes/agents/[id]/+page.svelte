@@ -8,10 +8,10 @@
 	import { explorerTxUrl } from '$lib/explorer.js';
 	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
 	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
-	import ValidationForm from '$lib/components/ValidationForm.svelte';
 	import ScoreBreakdown from '$lib/components/ScoreBreakdown.svelte';
 	import EvidenceViewer from '$lib/components/EvidenceViewer.svelte';
 	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -88,8 +88,7 @@
 
 	const tabs = [
 		{ id: 'metadata', label: 'Metadata' },
-		{ id: 'reputation', label: 'Reputation' },
-		{ id: 'validation', label: 'Validation' }
+		{ id: 'reputation', label: 'Reputation' }
 	] as const;
 
 	type TabId = (typeof tabs)[number]['id'];
@@ -120,7 +119,7 @@
 	<title>{data.agent.name} | Stellar8004</title>
 	<meta
 		name="description"
-		content="Inspect on-chain metadata, feedback, validation requests, and aggregate trust scores for a 8004 for Stellar agent."
+		content="Inspect on-chain metadata, feedback, and aggregate trust scores for a 8004 for Stellar agent."
 	/>
 </svelte:head>
 
@@ -286,11 +285,19 @@
 					<div>
 						<h1 class="text-xl font-light tracking-tight text-text">{data.agent.name}</h1>
 						<div class="mt-1 flex items-center gap-2 text-[11px]">
-							<span class="font-mono text-text-dim/50">{shortAddress(data.agent.owner)}</span>
+							<Tooltip text={copySuccess === data.agent.owner ? 'Copied!' : data.agent.owner}>
+								<button type="button" onclick={() => copyToClipboard(data.agent.owner)} class="font-mono text-text-dim/50 transition hover:text-text-muted cursor-pointer">
+									{shortAddress(data.agent.owner)}
+								</button>
+							</Tooltip>
 							<span class="text-text-dim/25">-</span>
 							<span class="text-text-dim/50">{dateFormatter.format(new Date(data.agent.createdAt))}</span>
 							<span class="text-text-dim/25">-</span>
-							<span class="text-accent/60">#{data.agent.id}</span>
+							<Tooltip text={copySuccess === String(data.agent.id) ? 'Copied!' : `Agent ID: ${data.agent.id}`}>
+								<button type="button" onclick={() => copyToClipboard(String(data.agent.id))} class="text-accent/60 transition hover:text-accent cursor-pointer">
+									#{data.agent.id}
+								</button>
+							</Tooltip>
 						</div>
 					</div>
 				</div>
@@ -302,10 +309,14 @@
 				{#if data.agent.supportedTrust.length > 0 || data.agent.x402Enabled}
 					<div class="flex flex-wrap gap-1.5">
 						{#each data.agent.supportedTrust as trust}
+							<Tooltip text={trust === 'reputation' ? 'Validated by peer feedback' : trust === 'crypto-economic' ? 'Validated by staked collateral' : trust === 'tee-attestation' ? 'Validated by hardware attestation' : trust}>
 							<span class="rounded-full border border-positive/15 bg-positive/4 px-2.5 py-0.5 text-[10px] text-positive">{trust}</span>
+							</Tooltip>
 						{/each}
 						{#if data.agent.x402Enabled}
+							<Tooltip text="Accepts x402 micropayments">
 							<span class="rounded-full border border-accent/15 bg-accent/4 px-2.5 py-0.5 text-[10px] text-accent">x402</span>
+							</Tooltip>
 						{/if}
 					</div>
 				{/if}
@@ -335,6 +346,7 @@
 			<!-- Stats -->
 			<div class="space-y-3 reveal reveal-d2">
 				<div class="stat-row grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border/30">
+					<Tooltip text="Aggregate trust score from feedback and volume" position="bottom">
 					<div class="stat-cell px-4 py-3.5">
 						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Score</p>
 						<p class="mt-1 text-lg font-light tabular-nums text-positive">
@@ -350,6 +362,8 @@
 							</p>
 						{/if}
 					</div>
+					</Tooltip>
+					<Tooltip text="Total feedback submissions from clients" position="bottom">
 					<div class="stat-cell px-4 py-3.5">
 						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
 						<p class="mt-1 text-lg font-light tabular-nums text-text">{data.scores?.feedbackCount ?? 0}</p>
@@ -365,18 +379,19 @@
 							<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>
 						{/if}
 					</div>
+					</Tooltip>
+					<Tooltip text="How complete the agent's on-chain metadata is" position="bottom">
 					<div class="stat-cell px-4 py-3.5">
 						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Metadata</p>
 						<p class="mt-1 text-lg font-light tabular-nums {data.metadataCompleteness >= 80 ? 'text-positive' : data.metadataCompleteness >= 40 ? 'text-warning' : 'text-negative'}">
 							{data.metadataCompleteness}%
 						</p>
 					</div>
+					</Tooltip>
 				</div>
 				{#if data.scores}
 					<ScoreBreakdown
-						avgScore={data.scores.avgScore ?? 0}
 						feedbackCount={data.scores.feedbackCount ?? 0}
-						avgValidationScore={data.scores.avgValidationScore ?? 0}
 						totalScore={data.scores.totalScore ?? 0}
 					/>
 				{/if}
@@ -691,99 +706,6 @@
 					</div>
 				</div>
 			{/if}
-		</section>
-	{:else}
-		<section class="space-y-8">
-			{#if wallet.connected && isOwner}
-				<ValidationForm agentId={data.agent.id} />
-			{/if}
-
-			<div class="overflow-hidden rounded-lg border border-border bg-surface">
-				<div class="border-b border-border/40 px-4 py-3">
-					<h2 class="text-sm font-medium text-text">Validation Requests</h2>
-				</div>
-
-				{#if data.validations.length > 0}
-					<div class="overflow-x-auto">
-						<table class="min-w-full text-sm">
-							<thead
-								class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase"
-							>
-								<tr>
-									<th class="px-4 py-2.5 font-medium">Validator</th>
-									<th class="px-4 py-2.5 font-medium">Tag</th>
-									<th class="px-4 py-2.5 text-right font-medium">Score</th>
-									<th class="px-4 py-2.5 font-medium">Status</th>
-									<th class="px-4 py-2.5 font-medium">Requested</th>
-									<th class="px-4 py-2.5 font-medium">Responded</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each data.validations as validation (`${validation.validatorAddress}:${validation.createdAt}`)}
-									<tr class="border-t border-border">
-										<td class="px-4 py-2.5 font-mono text-xs text-text-muted">
-											{shortAddress(validation.validatorAddress)}
-										</td>
-										<td class="px-4 py-2.5 text-text-muted">
-											{#if validation.tag}
-												<span
-													class="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent"
-												>
-													{validation.tag}
-												</span>
-											{:else}
-												<span class="text-text-dim">No tag</span>
-											{/if}
-										</td>
-										<td class="px-4 py-2.5 text-right font-medium">
-											{#if validation.hasResponse && validation.score != null}
-												<span class="text-positive">
-													{scoreFormatter.format(validation.score)} / 100
-												</span>
-											{:else}
-												<span class="text-text-dim">Pending</span>
-											{/if}
-										</td>
-										<td class="px-4 py-2.5 text-xs">
-											{#if validation.hasResponse}
-												<span
-													class="rounded-full bg-positive-soft px-2 py-0.5 text-positive"
-												>
-													Responded
-												</span>
-											{:else}
-												<span
-													class="rounded-full bg-warning-soft px-2 py-0.5 text-warning"
-												>
-													Pending
-												</span>
-											{/if}
-										</td>
-										<td class="px-4 py-2.5 text-xs text-text-dim">
-											{dateTimeFormatter.format(new Date(validation.createdAt))}
-										</td>
-										<td class="px-4 py-2.5 text-xs text-text-dim">
-											{#if validation.respondedAt}
-												{dateTimeFormatter.format(new Date(validation.respondedAt))}
-											{:else}
-												-
-											{/if}
-										</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-				{:else}
-					<div class="px-4 py-8 text-center text-sm text-text-dim">
-						{#if data.state === 'resolving'}
-							Validation requests can be submitted after the agent is fully indexed.
-						{:else}
-							No validation requests have been submitted for this agent yet.
-						{/if}
-					</div>
-				{/if}
-			</div>
 		</section>
 	{/if}
 </div>
