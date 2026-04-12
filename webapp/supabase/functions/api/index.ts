@@ -40,14 +40,11 @@ Deno.serve(async (req: Request) => {
   };
 
   if (!rateLimit.allowed) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: { code: 'RATE_LIMITED', message: 'Too many requests. Try again later.' },
-      meta: { version: '1.0.0', timestamp: new Date().toISOString(), requestId: crypto.randomUUID() },
-    }), {
-      status: 429,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', ...rateHeaders },
-    });
+    const resp = errorResponse('RATE_LIMITED', 'Too many requests. Try again later.', 429);
+    for (const [key, value] of Object.entries(rateHeaders)) {
+      resp.headers.set(key, value);
+    }
+    return resp;
   }
 
   const url = new URL(req.url);
