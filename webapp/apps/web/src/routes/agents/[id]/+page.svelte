@@ -87,24 +87,16 @@
 		}
 	}
 
-	const showTryTab = $derived(
+	const showTryPanel = $derived(
 		data.agent.x402Enabled && data.agent.services.length > 0 && data.state === 'ready'
 	);
 
-	const tabs = $derived(
-		showTryTab
-			? ([
-					{ id: 'metadata', label: 'Metadata' },
-					{ id: 'reputation', label: 'Reputation' },
-					{ id: 'try', label: 'Try' }
-				] as const)
-			: ([
-					{ id: 'metadata', label: 'Metadata' },
-					{ id: 'reputation', label: 'Reputation' }
-				] as const)
-	);
+	const tabs = [
+		{ id: 'metadata', label: 'Metadata' },
+		{ id: 'reputation', label: 'Reputation' }
+	] as const;
 
-	type TabId = 'metadata' | 'reputation' | 'try';
+	type TabId = 'metadata' | 'reputation';
 
 	let activeTab = $state<TabId>('reputation');
 
@@ -405,7 +397,20 @@
 			</div>
 		</div>
 
-		<!-- Tabs - full width -->
+	</section>
+
+	<!-- Try Panel — prominent, above tabs -->
+	{#if showTryPanel}
+		<section class="reveal reveal-d2">
+			<TryAgentPanel
+				services={data.agent.services}
+				x402Enabled={data.agent.x402Enabled}
+			/>
+		</section>
+	{/if}
+
+	<!-- Tabs -->
+	<section>
 		<nav class="flex gap-1 border-b border-border/30 pb-px">
 			{#each tabs as tab (tab.id)}
 				<button
@@ -714,11 +719,6 @@
 				</div>
 			{/if}
 		</section>
-	{:else if activeTab === 'try'}
-		<TryAgentPanel
-			services={data.agent.services}
-			x402Enabled={data.agent.x402Enabled}
-		/>
 	{/if}
 </div>
 {/if}
