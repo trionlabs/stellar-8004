@@ -220,15 +220,6 @@
 						{/if}
 					</div>
 
-					<div class="hidden w-14 text-right xl:block" title="Avg validation score ({agent.validationCount} validations)">
-						{#if agent.validationCount > 0}
-							<p class="tabular-nums text-xs text-text-muted">{scoreFormatter.format(agent.avgValidationScore ?? 0)}</p>
-							<p class="text-[9px] text-text-dim/40">{agent.validationCount}</p>
-						{:else}
-							<p class="text-text-dim/20">-</p>
-						{/if}
-					</div>
-
 					{#if wallet.connected && wallet.address?.toUpperCase() === agent.owner.toUpperCase()}
 						<button
 							type="button"

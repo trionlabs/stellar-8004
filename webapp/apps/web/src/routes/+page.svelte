@@ -22,7 +22,7 @@
 	<title>Stellar8004</title>
 	<meta
 		name="description"
-		content="Explorer for 8004 Agent Trust Protocol on Stellar. Browse agents, reputation scores, feedback, and validator endorsements."
+		content="Explorer for 8004 Agent Trust Protocol on Stellar. Browse agents, reputation scores, and feedback."
 	/>
 </svelte:head>
 
@@ -39,7 +39,7 @@
 					Explore AI agents on Stellar
 				</h1>
 				<p class="max-w-lg text-[15px] leading-relaxed text-text-muted font-light">
-					Browse registered agents, check reputation scores, and track validator endorsements &mdash; all indexed from <span class="bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent font-medium">8004 for Stellar</span> contracts.
+					Browse registered agents, check reputation scores, and track feedback &mdash; all indexed from <span class="bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent font-medium">8004 for Stellar</span> contracts.
 				</p>
 			</div>
 		</div>
@@ -61,12 +61,11 @@
 			</div>
 		</form>
 
-		<div class="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+		<div class="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">
 			{#each [
 				{ label: 'Total Agents', value: data.stats.totalAgents },
 				{ label: 'Active Feedback', value: data.stats.totalFeedback },
 				{ label: 'Unique Clients', value: data.stats.totalClients },
-				{ label: 'Validated Agents', value: data.stats.validatedAgents },
 			] as stat (stat.label)}
 				<div class="group/stat relative bg-surface p-6 transition-colors hover:bg-surface-raised">
 					<div class="absolute left-0 top-1/2 h-6 w-px -translate-y-1/2 bg-accent/0 transition-all duration-300 group-hover/stat:h-8 group-hover/stat:bg-accent/40"></div>
