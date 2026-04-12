@@ -15,7 +15,8 @@ export const load: PageServerLoad = async ({ url }) => {
 		.range(offset, offset + perPage - 1);
 
 	if (queryError) {
-		throw error(500, queryError.message);
+		console.error('[Leaderboard] query failed:', queryError.message);
+		throw error(500, 'Internal server error');
 	}
 
 	return {
