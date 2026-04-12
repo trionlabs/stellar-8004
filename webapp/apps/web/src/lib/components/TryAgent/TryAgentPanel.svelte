@@ -212,11 +212,13 @@
 					// Some agents have invalid JSON escapes (e.g. \$ instead of $) in descriptions
 					const raw = atob(paymentHeader).replace(/\\(?!["\\/bfnrtu])/g, '');
 					const decoded = JSON.parse(raw);
+					// x402 PaymentRequired wraps requirements in an accepts[] array
+					const req = decoded.accepts?.[0] ?? decoded;
 					pricingInfo = {
-						price: decoded.maxAmountRequired || decoded.price || decoded.amount || '?',
-						network: decoded.network || 'unknown',
-						payTo: decoded.payTo || decoded.payToAddress || '',
-						scheme: decoded.scheme || 'exact'
+						price: req.maxAmountRequired || req.amount || req.price || '?',
+						network: req.network || decoded.network || 'unknown',
+						payTo: req.payTo || req.payToAddress || '',
+						scheme: req.scheme || 'exact'
 					};
 					phase = 'price_confirm';
 				} catch {
@@ -288,7 +290,13 @@
 			}
 
 			// Step 3: Create payment payload — triggers Freighter signAuthEntry popup
-			const paymentPayload = await client.createPaymentPayload(paymentRequired);
+			// Timeout after 60s — Freighter may hang due to SES lockdown or popup not visible
+			const paymentPayload = await Promise.race([
+				client.createPaymentPayload(paymentRequired),
+				new Promise<never>((_, reject) =>
+					setTimeout(() => reject(new Error('Signing timed out. Freighter may not have opened — check for a popup or try again.')), 60_000)
+				)
+			]);
 
 			phase = 'waiting_response';
 
@@ -475,9 +483,10 @@
 								<button
 									type="button"
 									onclick={() => openTryPanel(idx)}
-									class="rounded-lg border border-accent/30 bg-accent-fill px-3 py-1.5 text-xs font-medium text-accent transition hover:bg-accent-fill-hover hover:border-accent/45"
+									class="try-lava-btn"
 								>
-									Try
+									<span class="try-lava-btn__bg"></span>
+									<span class="try-lava-btn__label">Try</span>
 								</button>
 							{/if}
 						{/if}
@@ -567,53 +576,39 @@
 								</div>
 
 							{:else if phase === 'signing'}
-								<div class="flex items-center gap-2 text-xs text-accent">
-									<svg
-										class="h-3.5 w-3.5 animate-spin"
-										viewBox="0 0 24 24"
-										fill="none"
-									>
-										<circle
-											cx="12"
-											cy="12"
-											r="10"
-											stroke="currentColor"
-											stroke-width="2"
-											opacity="0.25"
-										/>
-										<path
-											d="M12 2a10 10 0 019.95 9"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-										/>
-									</svg>
-									Confirm in Freighter...
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-2 text-xs text-accent">
+										<svg
+											class="h-3.5 w-3.5 animate-spin"
+											viewBox="0 0 24 24"
+											fill="none"
+										>
+											<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.25" />
+											<path d="M12 2a10 10 0 019.95 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+										</svg>
+										Confirm in Freighter...
+									</div>
+									<button type="button" onclick={resetToEditing} class="text-xs text-text-dim hover:text-text transition">
+										Cancel
+									</button>
 								</div>
 
 							{:else if phase === 'waiting_response'}
-								<div class="flex items-center gap-2 text-xs text-text-muted">
-									<svg
-										class="h-3.5 w-3.5 animate-spin"
-										viewBox="0 0 24 24"
-										fill="none"
-									>
-										<circle
-											cx="12"
-											cy="12"
-											r="10"
-											stroke="currentColor"
-											stroke-width="2"
-											opacity="0.25"
-										/>
-										<path
-											d="M12 2a10 10 0 019.95 9"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-										/>
-									</svg>
-									Waiting for response...
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-2 text-xs text-text-muted">
+										<svg
+											class="h-3.5 w-3.5 animate-spin"
+											viewBox="0 0 24 24"
+											fill="none"
+										>
+											<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.25" />
+											<path d="M12 2a10 10 0 019.95 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+										</svg>
+										Waiting for response...
+									</div>
+									<button type="button" onclick={resetToEditing} class="text-xs text-text-dim hover:text-text transition">
+										Cancel
+									</button>
 								</div>
 
 							{:else if phase === 'cors_error'}
@@ -716,3 +711,188 @@
 		</div>
 	{/if}
 </section>
+
+<style>
+	/* ── Lava-lamp Try button ── */
+	.try-lava-btn {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 6px 16px;
+		border-radius: 10px;
+		border: none;
+		cursor: pointer;
+		overflow: hidden;
+		isolation: isolate;
+		min-width: 56px;
+	}
+
+	/* Animated lava background layer */
+	.try-lava-btn__bg {
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		z-index: 0;
+
+		/* Multi-blob gradient – the "lava" */
+		background:
+			radial-gradient(ellipse 120% 80% at 20% 50%, oklch(0.65 0.18 260 / 0.9), transparent 60%),
+			radial-gradient(ellipse 100% 120% at 80% 30%, oklch(0.55 0.22 290 / 0.85), transparent 55%),
+			radial-gradient(ellipse 90% 100% at 50% 80%, oklch(0.60 0.16 230 / 0.8), transparent 50%),
+			radial-gradient(ellipse 80% 80% at 70% 60%, oklch(0.70 0.14 200 / 0.7), transparent 55%),
+			oklch(0.22 0.06 260);
+
+		background-size:
+			200% 200%,
+			180% 200%,
+			200% 180%,
+			160% 160%,
+			100% 100%;
+
+		animation: lava-morph 6s ease-in-out infinite;
+	}
+
+	/* Glow ring pulsing around button */
+	.try-lava-btn::before {
+		content: '';
+		position: absolute;
+		inset: -2px;
+		border-radius: 12px;
+		z-index: -1;
+		background: conic-gradient(
+			from 0deg,
+			oklch(0.65 0.18 260 / 0.5),
+			oklch(0.55 0.22 290 / 0.6),
+			oklch(0.70 0.14 200 / 0.5),
+			oklch(0.60 0.20 270 / 0.6),
+			oklch(0.65 0.18 260 / 0.5)
+		);
+		animation: glow-spin 4s linear infinite;
+		filter: blur(4px);
+		opacity: 0.6;
+		transition: opacity 0.3s;
+	}
+
+	.try-lava-btn:hover::before {
+		opacity: 1;
+		filter: blur(6px);
+	}
+
+	/* Floating blob overlay for depth */
+	.try-lava-btn::after {
+		content: '';
+		position: absolute;
+		inset: 1px;
+		border-radius: 9px;
+		z-index: 1;
+		background:
+			radial-gradient(circle at 30% 40%, oklch(1 0 0 / 0.12), transparent 40%),
+			radial-gradient(circle at 70% 70%, oklch(1 0 0 / 0.08), transparent 35%);
+		animation: blob-float 5s ease-in-out infinite alternate;
+		pointer-events: none;
+	}
+
+	.try-lava-btn__label {
+		position: relative;
+		z-index: 2;
+		font-size: 12px;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		color: oklch(0.95 0.02 260);
+		text-shadow: 0 0 12px oklch(0.7 0.15 260 / 0.6);
+		transition: text-shadow 0.3s;
+	}
+
+	.try-lava-btn:hover .try-lava-btn__label {
+		text-shadow:
+			0 0 16px oklch(0.8 0.18 260 / 0.8),
+			0 0 32px oklch(0.6 0.2 280 / 0.4);
+	}
+
+	.try-lava-btn:hover .try-lava-btn__bg {
+		animation-duration: 3s;
+	}
+
+	.try-lava-btn:active {
+		transform: scale(0.95);
+	}
+
+	/* ── Keyframes ── */
+
+	@keyframes lava-morph {
+		0% {
+			background-position:
+				0% 50%,
+				100% 0%,
+				50% 100%,
+				80% 50%,
+				0 0;
+		}
+		25% {
+			background-position:
+				50% 0%,
+				0% 80%,
+				100% 50%,
+				20% 100%,
+				0 0;
+		}
+		50% {
+			background-position:
+				100% 50%,
+				50% 100%,
+				0% 0%,
+				60% 20%,
+				0 0;
+		}
+		75% {
+			background-position:
+				50% 100%,
+				100% 20%,
+				50% 50%,
+				40% 80%,
+				0 0;
+		}
+		100% {
+			background-position:
+				0% 50%,
+				100% 0%,
+				50% 100%,
+				80% 50%,
+				0 0;
+		}
+	}
+
+	@keyframes glow-spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	@keyframes blob-float {
+		0% {
+			background-position: 30% 40%, 70% 70%;
+		}
+		100% {
+			background-position: 60% 30%, 40% 60%;
+		}
+	}
+
+	/* Light theme adjustments */
+	:global(.light) .try-lava-btn__bg,
+	:global([data-theme='light']) .try-lava-btn__bg {
+		background:
+			radial-gradient(ellipse 120% 80% at 20% 50%, oklch(0.55 0.20 260 / 0.9), transparent 60%),
+			radial-gradient(ellipse 100% 120% at 80% 30%, oklch(0.45 0.24 290 / 0.85), transparent 55%),
+			radial-gradient(ellipse 90% 100% at 50% 80%, oklch(0.50 0.18 230 / 0.8), transparent 50%),
+			radial-gradient(ellipse 80% 80% at 70% 60%, oklch(0.60 0.16 200 / 0.7), transparent 55%),
+			oklch(0.30 0.08 260);
+
+		background-size:
+			200% 200%,
+			180% 200%,
+			200% 180%,
+			160% 160%,
+			100% 100%;
+	}
+</style>
