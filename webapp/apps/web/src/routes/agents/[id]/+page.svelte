@@ -100,6 +100,15 @@
 
 	let activeTab = $state<TabId>('reputation');
 
+	const TAG_FILTER_OPTIONS = [
+		{ value: '', label: 'All' },
+		{ value: 'starred', label: 'General' },
+		{ value: 'uptime', label: 'Uptime' },
+		{ value: 'reachable', label: 'Reachable' },
+		{ value: 'successRate', label: 'Success Rate' },
+		{ value: 'responseTime', label: 'Response Time' }
+	] as const;
+
 	const isOwner = $derived.by(
 		() => wallet.address?.toUpperCase() === data.agent.owner.toUpperCase()
 	);
@@ -529,190 +538,112 @@
 			</div>
 		</section>
 	{:else if activeTab === 'reputation'}
-		<section class="space-y-8">
+		<section class="space-y-6">
+			<!-- Give Feedback -->
 			{#if wallet.connected}
 				{#if isOwner}
-					<div class="rounded-lg border border-border bg-surface p-5">
+					<div class="rounded-lg border border-border/40 bg-surface-raised/30 px-4 py-3">
 						<p class="text-sm text-text-dim">You cannot give feedback to your own agent.</p>
 					</div>
 				{:else}
 					<FeedbackForm agentId={data.agent.id} />
 				{/if}
+			{:else}
+				<FeedbackForm agentId={data.agent.id} />
 			{/if}
 
-			<div class="flex items-center gap-3">
-				<label for="tag-filter" class="text-xs text-text-dim">Filter by tag:</label>
-				<select
-					id="tag-filter"
-					value={data.tag}
-					onchange={(e) => {
-						const val = (e.target as HTMLSelectElement).value;
-						const url = new URL(window.location.href);
-						if (val) {
-							url.searchParams.set('tag', val);
-						} else {
-							url.searchParams.delete('tag');
-						}
-						goto(url.toString(), { replaceState: true, invalidateAll: true });
-					}}
-					class="rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-sm text-text-muted focus:border-accent/50 focus:outline-none"
-				>
-					<option value="">All</option>
-					<option value="starred">Starred</option>
-					<option value="uptime">Uptime</option>
-					<option value="reachable">Reachable</option>
-					<option value="successRate">Success Rate</option>
-					<option value="responseTime">Response Time</option>
-				</select>
-				{#if data.tag}
-					<span class="text-xs text-accent">Showing: {data.tag}</span>
-				{/if}
+			<!-- Tag filter pills -->
+			<div class="flex items-center gap-2">
+				<span class="text-[11px] text-text-dim/50 uppercase tracking-wider">Filter</span>
+				<div class="flex flex-wrap gap-1.5">
+					{#each TAG_FILTER_OPTIONS as tag}
+						<button
+							type="button"
+							onclick={() => {
+								const url = new URL(window.location.href);
+								if (tag.value) {
+									url.searchParams.set('tag', tag.value);
+								} else {
+									url.searchParams.delete('tag');
+								}
+								goto(url.toString(), { replaceState: true, invalidateAll: true });
+							}}
+							class="rounded-md px-2.5 py-1 text-[11px] transition
+								{data.tag === tag.value
+									? 'bg-accent/10 text-accent border border-accent/25'
+									: 'text-text-dim hover:text-text-muted border border-transparent hover:border-border/40'}"
+						>
+							{tag.label}
+						</button>
+					{/each}
+				</div>
 			</div>
 
-			<div class="overflow-hidden rounded-lg border border-border bg-surface">
-				<div class="border-b border-border/40 px-4 py-3">
-					<h2 class="text-sm font-medium text-text">Reputation Feed</h2>
-				</div>
-
+			<!-- Feedback cards -->
+			<div class="space-y-2">
 				{#if data.feedback.length > 0}
-					<div class="overflow-x-auto">
-						<table class="min-w-full text-sm">
-							<thead
-								class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase"
-							>
-								<tr>
-									<th class="px-4 py-2.5 font-medium">Client</th>
-									<th class="px-4 py-2.5 text-right font-medium">Score</th>
-									<th class="px-4 py-2.5 font-medium">Tag</th>
-									<th class="px-4 py-2.5 font-medium">Responses</th>
-									<th class="px-4 py-2.5 font-medium">Status</th>
-									<th class="px-4 py-2.5 font-medium">Evidence</th>
-									<th class="px-4 py-2.5 font-medium">Date</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each data.feedback as feedback (feedback.id)}
-									<tr class:opacity-40={feedback.isRevoked} class="border-t border-border">
-										<td class="px-4 py-2.5 font-mono text-xs text-text-muted">
-											{shortAddress(feedback.clientAddress)}
-										</td>
-										<td class="px-4 py-2.5 text-right font-medium text-positive">
-											{scoreFormatter.format(feedback.score)}
-										</td>
-										<td class="px-4 py-2.5 text-text-muted">
-											{#if feedback.tag1}
-												<div class="flex flex-wrap gap-1.5">
-													<span
-														class="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent"
-													>
-														{feedback.tag1}
-													</span>
-													{#if feedback.tag2}
-														<span
-															class="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent"
-														>
-															{feedback.tag2}
-														</span>
-													{/if}
-												</div>
-											{:else}
-												<span class="text-text-dim">No tags</span>
-											{/if}
-										</td>
-										<td class="px-4 py-2.5 text-xs text-text-muted">
-											{#if feedback.responses.length > 0}
-												<div class="flex flex-wrap gap-1.5">
-													{#each feedback.responses.slice(0, 2) as response (response.id)}
-														<span
-															class="rounded-md border border-border bg-surface-raised px-1.5 py-0.5 font-mono text-[11px]"
-														>
-															{shortAddress(response.responder)}
-														</span>
-													{/each}
-													{#if feedback.responses.length > 2}
-														<span
-															class="rounded-md border border-border bg-surface-raised px-1.5 py-0.5 text-[11px] text-text-dim"
-														>
-															+{feedback.responses.length - 2}
-														</span>
-													{/if}
-												</div>
-											{:else}
-												<span class="text-text-dim">None</span>
-											{/if}
-										</td>
-										<td class="px-4 py-2.5 text-xs">
-											{#if feedback.isRevoked}
-												<span
-													class="rounded-full bg-negative-soft px-2 py-0.5 text-negative"
-												>
-													Revoked
-												</span>
-											{:else}
-												<span
-													class="rounded-full bg-positive-soft px-2 py-0.5 text-positive"
-												>
-													Active
-												</span>
-											{/if}
-										</td>
-										<td class="px-4 py-2.5">
-										<EvidenceViewer
-											feedbackUri={feedback.feedbackUri}
-											feedbackHash={feedback.feedbackHash}
-										/>
-									</td>
-									<td class="px-4 py-2.5 text-xs text-text-dim">
-										{dateTimeFormatter.format(new Date(feedback.createdAt))}
-									</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
+					{#each data.feedback as feedback (feedback.id)}
+						<div class="feedback-card" class:feedback-card--revoked={feedback.isRevoked}>
+							<!-- Score -->
+							<div class="feedback-card__score {feedback.score >= 60 ? 'text-positive' : feedback.score >= 30 ? 'text-warning' : 'text-negative'}">
+								{scoreFormatter.format(feedback.score)}
+							</div>
+
+							<!-- Main content -->
+							<div class="min-w-0 flex-1">
+								<div class="flex items-center gap-2 flex-wrap">
+									<span class="font-mono text-xs text-text-muted">{shortAddress(feedback.clientAddress)}</span>
+									{#if feedback.tag1}
+										<span class="rounded-md bg-accent/6 px-1.5 py-0.5 text-[10px] text-accent">{feedback.tag1}</span>
+									{/if}
+									{#if feedback.tag2}
+										<span class="rounded-md bg-accent/6 px-1.5 py-0.5 text-[10px] text-accent">{feedback.tag2}</span>
+									{/if}
+									{#if feedback.isRevoked}
+										<span class="rounded-md bg-negative/8 px-1.5 py-0.5 text-[10px] text-negative">Revoked</span>
+									{/if}
+								</div>
+
+								<div class="mt-1 flex items-center gap-3 text-[11px] text-text-dim/50">
+									<span>{dateTimeFormatter.format(new Date(feedback.createdAt))}</span>
+									{#if feedback.responses.length > 0}
+										<span>{feedback.responses.length} response{feedback.responses.length !== 1 ? 's' : ''}</span>
+									{/if}
+								</div>
+
+								<!-- Evidence (inline) -->
+								<EvidenceViewer
+									feedbackUri={feedback.feedbackUri}
+									feedbackHash={feedback.feedbackHash}
+								/>
+							</div>
+						</div>
+					{/each}
 				{:else}
-					<div class="px-4 py-8 text-center text-sm text-text-dim">
+					<div class="rounded-lg border border-dashed border-border/40 px-4 py-8 text-center text-sm text-text-dim">
 						{#if data.state === 'resolving'}
-							This agent was recently registered. Reputation entries will appear here after clients submit feedback.
+							Reputation entries will appear after clients submit feedback.
 						{:else}
-							No reputation entries have been submitted for this agent yet.
+							No feedback submitted yet.
 						{/if}
 					</div>
 				{/if}
 			</div>
 
-			{#if data.clientBreakdown.length > 0}
-				<div class="overflow-hidden rounded-lg border border-border bg-surface">
-					<div class="border-b border-border/40 px-4 py-3">
-						<h2 class="text-sm font-medium text-text">By Client</h2>
-					</div>
-					<div class="overflow-x-auto">
-						<table class="min-w-full text-sm">
-							<thead class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase">
-								<tr>
-									<th class="px-4 py-2.5 font-medium">Client</th>
-									<th class="px-4 py-2.5 text-right font-medium">Count</th>
-									<th class="px-4 py-2.5 text-right font-medium">Avg Score</th>
-									<th class="px-4 py-2.5 font-medium">Last Feedback</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each data.clientBreakdown as client (client.clientAddress)}
-									<tr class="border-t border-border">
-										<td class="px-4 py-2.5 font-mono text-xs text-text-muted">
-											{shortAddress(client.clientAddress)}
-										</td>
-										<td class="px-4 py-2.5 text-right text-text">{client.feedbackCount}</td>
-										<td class="px-4 py-2.5 text-right font-medium text-positive">
-											{scoreFormatter.format(client.avgScore)}
-										</td>
-										<td class="px-4 py-2.5 text-xs text-text-dim">
-											{dateTimeFormatter.format(new Date(client.lastFeedback))}
-										</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
+			<!-- Client breakdown (only if 3+ feedbacks) -->
+			{#if data.clientBreakdown.length >= 2}
+				<div class="space-y-3">
+					<h3 class="text-[11px] text-text-dim/50 uppercase tracking-wider">By Client</h3>
+					<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+						{#each data.clientBreakdown as client (client.clientAddress)}
+							<div class="flex items-center gap-3 rounded-lg border border-border/30 bg-surface px-3 py-2.5">
+								<span class="text-sm font-medium tabular-nums text-positive">{scoreFormatter.format(client.avgScore)}</span>
+								<div class="min-w-0 flex-1">
+									<p class="truncate font-mono text-[11px] text-text-muted">{shortAddress(client.clientAddress)}</p>
+									<p class="text-[10px] text-text-dim/40">{client.feedbackCount} review{client.feedbackCount !== 1 ? 's' : ''}</p>
+								</div>
+							</div>
+						{/each}
 					</div>
 				</div>
 			{/if}
@@ -731,5 +662,32 @@
 	}
 	.stat-cell:hover {
 		background: var(--color-surface-overlay);
+	}
+
+	/* Feedback cards */
+	.feedback-card {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		border-radius: 0.5rem;
+		border: 1px solid var(--color-border, oklch(0.3 0 0 / 0.3));
+		transition: border-color 0.15s;
+	}
+	.feedback-card:hover {
+		border-color: color-mix(in oklch, var(--color-border) 100%, transparent);
+	}
+	.feedback-card--revoked {
+		opacity: 0.45;
+	}
+	.feedback-card__score {
+		font-size: 1.125rem;
+		font-weight: 500;
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
+		padding-top: 2px;
+		min-width: 2.5rem;
+		text-align: right;
+		flex-shrink: 0;
 	}
 </style>
