@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { scoreFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
+	import { scoreFormatter, shortAddress, sanitizeImageUrl, trustBlocks, handleRowMouse } from '$lib/formatters.js';
 	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -11,19 +10,6 @@
 
 	const lbPath = resolve('/leaderboard');
 
-	function trustBlocks(score: number | null): { filled: number; level: 'none' | 'low' | 'mid' | 'high' } {
-		if (score == null || score === 0) return { filled: 0, level: 'none' };
-		const filled = Math.min(5, Math.ceil(score / 20));
-		const level = score >= 70 ? 'high' : score >= 40 ? 'mid' : 'low';
-		return { filled, level };
-	}
-
-	function handleRowMouse(e: MouseEvent) {
-		const row = (e.currentTarget as HTMLElement);
-		const rect = row.getBoundingClientRect();
-		row.style.setProperty('--mx', `${e.clientX - rect.left}px`);
-		row.style.setProperty('--my', `${e.clientY - rect.top}px`);
-	}
 </script>
 
 <svelte:head>
@@ -79,15 +65,14 @@
 						<p class="truncate text-[13px] font-medium text-text transition-colors group-hover:text-accent">
 							{leader.agent_name ?? `Agent #${leader.agent_id}`}
 						</p>
-						{#if leader.owner}<Tooltip text={leader.owner}><p class="font-mono text-[10px] text-text-dim/50">{shortAddress(leader.owner)}</p></Tooltip>{/if}
+						{#if leader.owner}<p class="font-mono text-[10px] text-text-dim/50" title={leader.owner}>{shortAddress(leader.owner)}</p>{/if}
 					</div>
 
 					<!-- Trust bar + Score -->
-					<Tooltip text="Trust score: {fmt(leader.total_score)}/100" position="left">
-					<div class="flex items-center gap-2.5">
-						<div class="hidden w-16 md:flex gap-[2px]">
+					<div class="flex items-center gap-2.5" title="Trust score: {fmt(leader.total_score)}/100">
+						<div class="hidden w-16 md:flex gap-0.5">
 							{#each { length: 5 } as _, i}
-								<div class="h-[3px] flex-1 rounded-full {i < trust.filled
+								<div class="h-0.75 flex-1 rounded-full {i < trust.filled
 									? trust.level === 'high' ? 'bg-positive' : trust.level === 'mid' ? 'bg-accent' : 'bg-warning'
 									: 'bg-border/20'}"></div>
 							{/each}
@@ -97,7 +82,6 @@
 							{fmt(leader.total_score)}
 						</span>
 					</div>
-					</Tooltip>
 
 					<!-- Avg score -->
 					<div class="hidden w-14 text-right lg:block" title="Avg feedback score ({leader.feedback_count ?? 0} feedback)">
@@ -119,19 +103,15 @@
 	{#if data.page > 1 || data.hasMore}
 		<nav class="flex items-center justify-center gap-1">
 			{#if data.page > 1}
-				<Tooltip text="Previous page">
-				<a href="{lbPath}?page={data.page - 1}" class="pager" aria-label="Previous page">
+				<a href="{lbPath}?page={data.page - 1}" class="pager" aria-label="Previous page" title="Previous page">
 					<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
 				</a>
-				</Tooltip>
 			{/if}
 			<span class="px-3 font-mono text-[11px] tabular-nums text-text-dim/50">{data.page}</span>
 			{#if data.hasMore}
-				<Tooltip text="Next page">
-				<a href="{lbPath}?page={data.page + 1}" class="pager" aria-label="Next page">
+				<a href="{lbPath}?page={data.page + 1}" class="pager" aria-label="Next page" title="Next page">
 					<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
 				</a>
-				</Tooltip>
 			{/if}
 		</nav>
 	{/if}

@@ -6,7 +6,7 @@
 	import { validateAgentUri } from '@trionlabs/8004-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { explorerTxUrl } from '$lib/explorer.js';
-	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
+	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress, sanitizeImageUrl, TRUST_DESCRIPTIONS } from '$lib/formatters.js';
 	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
 	import ScoreBreakdown from '$lib/components/ScoreBreakdown.svelte';
 	import EvidenceViewer from '$lib/components/EvidenceViewer.svelte';
@@ -309,7 +309,7 @@
 				{#if data.agent.supportedTrust.length > 0 || data.agent.x402Enabled}
 					<div class="flex flex-wrap gap-1.5">
 						{#each data.agent.supportedTrust as trust}
-							<Tooltip text={trust === 'reputation' ? 'Validated by peer feedback' : trust === 'crypto-economic' ? 'Validated by staked collateral' : trust === 'tee-attestation' ? 'Validated by hardware attestation' : trust}>
+							<Tooltip text={TRUST_DESCRIPTIONS[trust] ?? trust}>
 							<span class="rounded-full border border-positive/15 bg-positive/4 px-2.5 py-0.5 text-[10px] text-positive">{trust}</span>
 							</Tooltip>
 						{/each}

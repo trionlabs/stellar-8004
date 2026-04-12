@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
-	import { scoreFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
+	import { scoreFormatter, shortAddress, sanitizeImageUrl, trustBlocks, handleRowMouse } from '$lib/formatters.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import CtaButton from '$lib/components/CtaButton.svelte';
 	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
@@ -65,22 +65,6 @@
 		(trustReputation ? 1 : 0) + (trustCryptoEconomic ? 1 : 0) + (trustTee ? 1 : 0) + (servicesOnly ? 1 : 0) + (minScoreValue > 0 ? 1 : 0)
 	);
 
-	function trustBlocks(score: number | null): { filled: number; level: 'none' | 'low' | 'mid' | 'high' } {
-		if (score == null || score === 0) return { filled: 0, level: 'none' };
-		const filled = Math.min(5, Math.ceil(score / 20));
-		const level = score >= 70 ? 'high' : score >= 40 ? 'mid' : 'low';
-		return { filled, level };
-	}
-
-	// Mouse-tracking glow for agent rows
-	function handleRowMouse(e: MouseEvent) {
-		const row = (e.currentTarget as HTMLElement);
-		const rect = row.getBoundingClientRect();
-		const x = e.clientX - rect.left;
-		const y = e.clientY - rect.top;
-		row.style.setProperty('--mx', `${x}px`);
-		row.style.setProperty('--my', `${y}px`);
-	}
 </script>
 
 <svelte:head>
@@ -204,17 +188,16 @@
 						<div class="flex items-center gap-1.5">
 							<p class="truncate text-[13px] font-medium text-text transition-colors group-hover:text-accent">{agent.name}</p>
 							{#if wallet.connected && wallet.address?.toUpperCase() === agent.owner.toUpperCase()}
-								<Tooltip text="You own this agent"><span class="shrink-0 rounded bg-positive/8 px-1 py-px text-[8px] font-semibold text-positive ring-1 ring-positive/12">YOU</span></Tooltip>
+								<span class="shrink-0 rounded bg-positive/8 px-1 py-px text-[8px] font-semibold text-positive ring-1 ring-positive/12" title="You own this agent">YOU</span>
 							{/if}
 						</div>
-						<Tooltip text={agent.owner}><p class="font-mono text-[10px] text-text-dim/50">{shortAddress(agent.owner)}</p></Tooltip>
+						<p class="font-mono text-[10px] text-text-dim/50" title={agent.owner}>{shortAddress(agent.owner)}</p>
 					</div>
 
-					<Tooltip text="Trust score: {agent.totalScore != null ? scoreFormatter.format(agent.totalScore) : '0'}/100" position="left">
-					<div class="flex items-center gap-2.5">
-						<div class="hidden w-16 md:flex gap-[2px]">
+					<div class="flex items-center gap-2.5" title="Trust score: {agent.totalScore != null ? scoreFormatter.format(agent.totalScore) : '0'}/100">
+						<div class="hidden w-16 md:flex gap-0.5">
 							{#each { length: 5 } as _, i}
-								<div class="h-[3px] flex-1 rounded-full {i < trust.filled
+								<div class="h-0.75 flex-1 rounded-full {i < trust.filled
 									? trust.level === 'high' ? 'bg-positive' : trust.level === 'mid' ? 'bg-accent' : 'bg-warning'
 									: 'bg-border/20'}"></div>
 							{/each}
@@ -224,7 +207,6 @@
 							{agent.totalScore != null ? scoreFormatter.format(agent.totalScore) : '-'}
 						</span>
 					</div>
-					</Tooltip>
 
 					<div class="hidden w-14 text-right lg:block" title="Avg feedback score ({agent.feedbackCount} feedback)">
 						{#if agent.feedbackCount > 0}
@@ -285,11 +267,9 @@
 					{#if data.filters.minScore > 0}<input type="hidden" name="min_score" value={data.filters.minScore} />{/if}
 					{#if data.filters.hasServices}<input type="hidden" name="services" value="true" />{/if}
 					{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
-					<Tooltip text="Previous page">
-					<button type="submit" class="pager" aria-label="Previous page">
+					<button type="submit" class="pager" aria-label="Previous page" title="Previous page">
 						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
 					</button>
-					</Tooltip>
 				</form>
 			{/if}
 			<span class="px-3 font-mono text-[11px] tabular-nums text-text-dim/50">{data.page}</span>
@@ -303,11 +283,9 @@
 					{#if data.filters.minScore > 0}<input type="hidden" name="min_score" value={data.filters.minScore} />{/if}
 					{#if data.filters.hasServices}<input type="hidden" name="services" value="true" />{/if}
 					{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
-					<Tooltip text="Next page">
-					<button type="submit" class="pager" aria-label="Next page">
+					<button type="submit" class="pager" aria-label="Next page" title="Next page">
 						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
 					</button>
-					</Tooltip>
 				</form>
 			{/if}
 		</nav>
