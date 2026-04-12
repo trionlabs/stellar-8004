@@ -36,8 +36,30 @@
 	let status = $state<'idle' | 'submitting' | 'success' | 'error'>('idle');
 	let errorMsg = $state('');
 	let txHash = $state('');
+	let dragging = $state(false);
 
 	const busy = $derived(status === 'submitting');
+
+	function handlePointerDown(stepValue: number, e: PointerEvent) {
+		dragging = true;
+		value = stepValue;
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+	}
+
+	function handlePointerMove(e: PointerEvent) {
+		if (!dragging) return;
+		const track = (e.currentTarget as HTMLElement).closest('.fb-score__track');
+		if (!track) return;
+		const rect = track.getBoundingClientRect();
+		const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+		const ratio = x / rect.width;
+		const idx = Math.min(Math.floor(ratio * SCORE_STEPS.length), SCORE_STEPS.length - 1);
+		value = SCORE_STEPS[idx].value;
+	}
+
+	function handlePointerUp() {
+		dragging = false;
+	}
 
 	async function sha256Hash(content: string): Promise<Uint8Array> {
 		const encoded = new TextEncoder().encode(content);
@@ -150,11 +172,18 @@
 						</span>
 					{/each}
 				</div>
-				<div class="fb-score__track">
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					class="fb-score__track"
+					class:fb-score__track--dragging={dragging}
+					onpointerup={handlePointerUp}
+					onpointercancel={handlePointerUp}
+				>
 					{#each SCORE_STEPS as step, i}
 						<button
 							type="button"
-							onclick={() => (value = step.value)}
+							onpointerdown={(e) => handlePointerDown(step.value, e)}
+							onpointermove={handlePointerMove}
 							class="fb-score__seg"
 							class:fb-score__seg--active={value === step.value}
 							class:fb-score__seg--filled={step.value <= value}
@@ -343,6 +372,12 @@
 		display: flex;
 		gap: 3px;
 		height: 44px;
+		touch-action: none;
+		user-select: none;
+	}
+
+	.fb-score__track--dragging {
+		cursor: grabbing;
 	}
 
 	.fb-score__seg {
