@@ -25,11 +25,11 @@ DECLARE
   window_start timestamptz := now() - interval '60 seconds';
   cnt bigint;
 BEGIN
-  INSERT INTO private.api_rate_limits (ip, requested_at) VALUES (p_ip, now());
+  INSERT INTO private.api_rate_limits (ip, requested_at) VALUES (p_ip::inet, now());
 
   SELECT count(*) INTO cnt
   FROM private.api_rate_limits
-  WHERE ip = p_ip AND requested_at >= window_start;
+  WHERE ip = p_ip::inet AND requested_at >= window_start;
 
   RETURN QUERY SELECT (cnt <= p_limit_per_minute), cnt;
 END;
