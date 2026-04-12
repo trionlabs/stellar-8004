@@ -174,17 +174,15 @@
 			try {
 				JSON.parse(body);
 			} catch {
-				// Detect if user pasted a raw URL and suggest wrapping it
 				const trimmed = body.trim();
 				if (/^https?:\/\//i.test(trimmed)) {
-					const suggestion = JSON.stringify({ url: trimmed }, null, 2);
-					errorMsg = `Looks like you entered a URL. Most agents expect JSON input:`;
-					body = suggestion;
+					// User pasted a raw URL — auto-wrap as JSON and continue
+					body = JSON.stringify({ url: trimmed });
 				} else {
 					errorMsg = 'Request body must be valid JSON.';
+					phase = 'error';
+					return;
 				}
-				phase = 'error';
-				return;
 			}
 		}
 
