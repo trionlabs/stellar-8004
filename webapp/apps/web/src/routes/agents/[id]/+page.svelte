@@ -12,6 +12,7 @@
 	import EvidenceViewer from '$lib/components/EvidenceViewer.svelte';
 	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
+	import TryAgentPanel from '$lib/components/TryAgent/TryAgentPanel.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -86,12 +87,24 @@
 		}
 	}
 
-	const tabs = [
-		{ id: 'metadata', label: 'Metadata' },
-		{ id: 'reputation', label: 'Reputation' }
-	] as const;
+	const showTryTab = $derived(
+		data.agent.x402Enabled && data.agent.services.length > 0 && data.state === 'ready'
+	);
 
-	type TabId = (typeof tabs)[number]['id'];
+	const tabs = $derived(
+		showTryTab
+			? ([
+					{ id: 'metadata', label: 'Metadata' },
+					{ id: 'reputation', label: 'Reputation' },
+					{ id: 'try', label: 'Try' }
+				] as const)
+			: ([
+					{ id: 'metadata', label: 'Metadata' },
+					{ id: 'reputation', label: 'Reputation' }
+				] as const)
+	);
+
+	type TabId = 'metadata' | 'reputation' | 'try';
 
 	let activeTab = $state<TabId>('reputation');
 
@@ -380,7 +393,7 @@
 						{/if}
 					</div>
 					</Tooltip>
-					<Tooltip text="How complete the agent's on-chain metadata is" position="bottom">
+					<Tooltip text={data.metadataMissing.length > 0 ? `Missing: ${data.metadataMissing.join(', ')}` : 'All metadata fields complete'} position="bottom">
 					<div class="stat-cell px-4 py-3.5">
 						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Metadata</p>
 						<p class="mt-1 text-lg font-light tabular-nums {data.metadataCompleteness >= 80 ? 'text-positive' : data.metadataCompleteness >= 40 ? 'text-warning' : 'text-negative'}">
@@ -707,6 +720,11 @@
 				</div>
 			{/if}
 		</section>
+	{:else if activeTab === 'try'}
+		<TryAgentPanel
+			services={data.agent.services}
+			x402Enabled={data.agent.x402Enabled}
+		/>
 	{/if}
 </div>
 {/if}
