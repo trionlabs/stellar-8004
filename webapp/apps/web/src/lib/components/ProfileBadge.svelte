@@ -5,7 +5,6 @@
 	import { fly, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { wallet } from '$lib/wallet.svelte.js';
-	import { createSupabase } from '$lib/supabase.js';
 	import StarIdenticon from './StarIdenticon.svelte';
 
 	let mounted = $state(false);
@@ -26,14 +25,12 @@
 	$effect(() => {
 		const currentAddress = wallet.address;
 		if (wallet.connected && currentAddress) {
-			createSupabase()
-				.from('agents')
-				.select('id', { count: 'exact', head: true })
-				.ilike('owner', currentAddress)
+			fetch(`/api/agents/count?owner=${encodeURIComponent(currentAddress)}`)
+				.then((res) => (res.ok ? res.json() : Promise.reject()))
 				.then(
-					({ count }) => {
+					(data) => {
 						if (currentAddress === wallet.address) {
-							agentCount = count;
+							agentCount = data.count;
 						}
 					},
 					() => {
