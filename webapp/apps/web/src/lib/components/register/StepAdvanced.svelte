@@ -25,7 +25,7 @@
 
 	<div class="space-y-3">
 		<h3 class="text-xs font-medium text-text-muted">Supported Trust Mechanisms</h3>
-		<p class="text-[11px] text-text-dim">Select the trust mechanisms your agent supports for validation and reputation</p>
+		<p class="text-[11px] text-text-dim">Select the trust mechanisms your agent supports</p>
 		{#each TRUST_OPTIONS as opt (opt.value)}
 			<label class="flex items-start gap-3 rounded-xl border border-border bg-surface p-4 cursor-pointer hover:bg-surface-raised transition-colors">
 				<input
