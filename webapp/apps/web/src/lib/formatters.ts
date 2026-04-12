@@ -38,3 +38,26 @@ export const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
 	minute: '2-digit',
 	timeZone: 'UTC'
 });
+
+export function trustBlocks(score: number | null): {
+	filled: number;
+	level: 'none' | 'low' | 'mid' | 'high';
+} {
+	if (score == null || score === 0) return { filled: 0, level: 'none' };
+	const filled = Math.min(5, Math.ceil(score / 20));
+	const level = score >= 70 ? 'high' : score >= 40 ? 'mid' : 'low';
+	return { filled, level };
+}
+
+export function handleRowMouse(e: MouseEvent) {
+	const row = e.currentTarget as HTMLElement;
+	const rect = row.getBoundingClientRect();
+	row.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+	row.style.setProperty('--my', `${e.clientY - rect.top}px`);
+}
+
+export const TRUST_DESCRIPTIONS: Record<string, string> = {
+	reputation: 'Validated by peer feedback',
+	'crypto-economic': 'Validated by staked collateral',
+	'tee-attestation': 'Validated by hardware attestation'
+};
