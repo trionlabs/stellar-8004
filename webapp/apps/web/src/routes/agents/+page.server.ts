@@ -124,7 +124,7 @@ function normalizeLeaderboardRow(row: LeaderboardRow): AgentListItem | null {
 
 export const load: PageServerLoad = async ({ url }) => {
 	const db = createServerSupabase();
-	const query = url.searchParams.get('q')?.trim() ?? '';
+	const query = (url.searchParams.get('q') ?? '').trim().slice(0, 500);
 	const sortParam = url.searchParams.get('sort');
 	const sort = SORT_OPTIONS.includes(sortParam as (typeof SORT_OPTIONS)[number])
 		? (sortParam as (typeof SORT_OPTIONS)[number])
@@ -233,7 +233,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			.range(offset, offset + perPage - 1);
 
 		if (ownerFilter) {
-			agentQuery = agentQuery.ilike('owner', ownerFilter);
+			agentQuery = agentQuery.eq('owner', ownerFilter);
 		}
 
 		const agentRows = assertSuccess(await agentQuery, 'Agent list') ?? [];
@@ -265,7 +265,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		.range(offset, offset + perPage - 1);
 
 	if (ownerFilter) {
-		lbQuery = lbQuery.ilike('owner', ownerFilter);
+		lbQuery = lbQuery.eq('owner', ownerFilter);
 	}
 
 	const leaderboardRows = assertSuccess(await lbQuery, 'Leaderboard list') ?? [];
