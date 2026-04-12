@@ -86,7 +86,7 @@ export function parseIntParam(value: string | null, defaultVal: number, min: num
   return Math.max(min, Math.min(max, n));
 }
 
-export function normalizeServices(raw: unknown): Array<{ name: string; endpoint: string; version?: string }> {
+export function normalizeServices(raw: unknown): Array<{ name: string; endpoint: string; version?: string; description?: string; inputExample?: string }> {
   if (!Array.isArray(raw)) return [];
   return raw
     .filter((s): s is Record<string, unknown> => s != null && typeof s === 'object')
@@ -94,6 +94,8 @@ export function normalizeServices(raw: unknown): Array<{ name: string; endpoint:
       name: typeof s.name === 'string' ? s.name : 'unknown',
       endpoint: typeof s.endpoint === 'string' ? s.endpoint : '',
       version: typeof s.version === 'string' ? s.version : undefined,
+      description: typeof s.description === 'string' ? s.description : undefined,
+      inputExample: typeof s.inputExample === 'string' ? s.inputExample : undefined,
     }))
     .filter((s) => s.endpoint.length > 0);
 }
