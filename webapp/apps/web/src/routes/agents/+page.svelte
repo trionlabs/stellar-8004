@@ -5,6 +5,7 @@
 	import { wallet } from '$lib/wallet.svelte.js';
 	import CtaButton from '$lib/components/CtaButton.svelte';
 	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -137,34 +138,46 @@
 			<input type="hidden" name="order" value={data.order === 'asc' ? 'desc' : 'asc'} />
 			{#if data.query}<input type="hidden" name="q" value={data.query} />{/if}
 			{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
+			<Tooltip text="Toggle sort direction" position="bottom">
 			<button type="submit" class="chip">
 				<svg class="h-3 w-3 transition-transform {data.order === 'asc' ? '' : 'rotate-180'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg>
 				{data.order === 'asc' ? 'Asc' : 'Desc'}
 			</button>
+			</Tooltip>
 		</form>
 
 		<span class="divider"></span>
 
+		<Tooltip text="Filter by peer feedback scores" position="bottom">
 		<button type="button" onclick={() => { trustReputation = !trustReputation; applyFilters(); }} class="chip" class:chip--on={trustReputation}>
 			{#if trustReputation}<span class="dot"></span>{/if}Reputation
 		</button>
+		</Tooltip>
+		<Tooltip text="Filter by staked collateral trust" position="bottom">
 		<button type="button" onclick={() => { trustCryptoEconomic = !trustCryptoEconomic; applyFilters(); }} class="chip" class:chip--on={trustCryptoEconomic}>
 			{#if trustCryptoEconomic}<span class="dot"></span>{/if}Crypto-economic
 		</button>
+		</Tooltip>
+		<Tooltip text="Filter by hardware attestation" position="bottom">
 		<button type="button" onclick={() => { trustTee = !trustTee; applyFilters(); }} class="chip" class:chip--on={trustTee}>
 			{#if trustTee}<span class="dot"></span>{/if}TEE
 		</button>
+		</Tooltip>
+		<Tooltip text="Show only agents with declared services" position="bottom">
 		<button type="button" onclick={() => { servicesOnly = !servicesOnly; applyFilters(); }} class="chip" class:chip--on-green={servicesOnly}>
 			{#if servicesOnly}<span class="dot dot--green"></span>{/if}Services
 		</button>
+		</Tooltip>
 
 		<span class="divider"></span>
 
+		<Tooltip text="Minimum trust score (0-100)" position="bottom">
 		<div class="chip focus-within:border-accent/25">
 			<span class="text-text-dim/50">&ge;</span>
 			<input type="number" min="0" max="100" bind:value={minScoreValue} onchange={applyFilters} placeholder="-"
 				class="w-7 border-0 bg-transparent p-0 text-center text-[11px] tabular-nums text-text-muted focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
 		</div>
+		</Tooltip>
 
 		{#if hasActiveFilters}
 			<button type="button" onclick={clearFilters} class="ml-auto text-[10px] text-text-dim/40 transition hover:text-negative">
@@ -191,12 +204,13 @@
 						<div class="flex items-center gap-1.5">
 							<p class="truncate text-[13px] font-medium text-text transition-colors group-hover:text-accent">{agent.name}</p>
 							{#if wallet.connected && wallet.address?.toUpperCase() === agent.owner.toUpperCase()}
-								<span class="shrink-0 rounded bg-positive/8 px-1 py-px text-[8px] font-semibold text-positive ring-1 ring-positive/12">YOU</span>
+								<Tooltip text="You own this agent"><span class="shrink-0 rounded bg-positive/8 px-1 py-px text-[8px] font-semibold text-positive ring-1 ring-positive/12">YOU</span></Tooltip>
 							{/if}
 						</div>
-						<p class="font-mono text-[10px] text-text-dim/50">{shortAddress(agent.owner)}</p>
+						<Tooltip text={agent.owner}><p class="font-mono text-[10px] text-text-dim/50">{shortAddress(agent.owner)}</p></Tooltip>
 					</div>
 
+					<Tooltip text="Trust score: {agent.totalScore != null ? scoreFormatter.format(agent.totalScore) : '0'}/100" position="left">
 					<div class="flex items-center gap-2.5">
 						<div class="hidden w-16 md:flex gap-[2px]">
 							{#each { length: 5 } as _, i}
@@ -210,6 +224,7 @@
 							{agent.totalScore != null ? scoreFormatter.format(agent.totalScore) : '-'}
 						</span>
 					</div>
+					</Tooltip>
 
 					<div class="hidden w-14 text-right lg:block" title="Avg feedback score ({agent.feedbackCount} feedback)">
 						{#if agent.feedbackCount > 0}
@@ -270,9 +285,11 @@
 					{#if data.filters.minScore > 0}<input type="hidden" name="min_score" value={data.filters.minScore} />{/if}
 					{#if data.filters.hasServices}<input type="hidden" name="services" value="true" />{/if}
 					{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
+					<Tooltip text="Previous page">
 					<button type="submit" class="pager" aria-label="Previous page">
 						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
 					</button>
+					</Tooltip>
 				</form>
 			{/if}
 			<span class="px-3 font-mono text-[11px] tabular-nums text-text-dim/50">{data.page}</span>
@@ -286,9 +303,11 @@
 					{#if data.filters.minScore > 0}<input type="hidden" name="min_score" value={data.filters.minScore} />{/if}
 					{#if data.filters.hasServices}<input type="hidden" name="services" value="true" />{/if}
 					{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
+					<Tooltip text="Next page">
 					<button type="submit" class="pager" aria-label="Next page">
 						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
 					</button>
+					</Tooltip>
 				</form>
 			{/if}
 		</nav>
