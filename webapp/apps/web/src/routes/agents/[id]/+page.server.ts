@@ -86,6 +86,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 					lastFeedback: string;
 				}>,
 				metadataCompleteness: 0,
+				metadataMissing: ['name', 'description', 'image', 'services', 'trust'],
 				recentFeedbackCount: 0
 			};
 		}
