@@ -10,14 +10,16 @@ function feedbackKey(agentId: number, clientAddress: string, feedbackIndex: numb
 	return `${agentId}:${clientAddress}:${feedbackIndex}`;
 }
 
-function normalizeServices(raw: unknown): Array<{ name: string; endpoint: string; version?: string }> {
+function normalizeServices(raw: unknown): Array<{ name: string; endpoint: string; version?: string; description?: string; inputExample?: string }> {
 	if (!Array.isArray(raw)) return [];
 	return raw
 		.filter((s): s is Record<string, unknown> => s != null && typeof s === 'object')
 		.map((s) => ({
 			name: typeof s.name === 'string' ? s.name : 'unknown',
 			endpoint: typeof s.endpoint === 'string' ? s.endpoint : '',
-			version: typeof s.version === 'string' ? s.version : undefined
+			version: typeof s.version === 'string' ? s.version : undefined,
+			description: typeof s.description === 'string' ? s.description : undefined,
+			inputExample: typeof s.inputExample === 'string' ? s.inputExample : undefined
 		}))
 		.filter((s) => s.endpoint.length > 0);
 }

@@ -2,6 +2,8 @@ export interface ServiceEntry {
 	name: string;
 	endpoint: string;
 	version?: string;
+	description?: string;
+	inputExample?: string;
 }
 
 export interface AgentFormData {
