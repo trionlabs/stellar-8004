@@ -195,7 +195,7 @@
 					</div>
 
 					<div class="flex items-center gap-2.5" title="Trust score: {agent.totalScore != null ? scoreFormatter.format(agent.totalScore) : '0'}/100">
-						<div class="hidden w-16 md:flex gap-0.5">
+						<div class="flex w-10 gap-0.5 md:w-16">
 							{#each { length: 5 } as _, i}
 								<div class="h-0.75 flex-1 rounded-full {i < trust.filled
 									? trust.level === 'high' ? 'bg-positive' : trust.level === 'mid' ? 'bg-accent' : 'bg-warning'
