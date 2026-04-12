@@ -12,10 +12,12 @@ const handler: RequestHandler = async ({ params, url, request, getClientAddress 
 
 	const target = `${kongUrl}/functions/v1/api/v1/${params.path}${url.search}`;
 
+	const anonKey = env.SUPABASE_ANON_KEY;
 	const resp = await fetch(target, {
 		method: request.method,
 		headers: {
 			'x-real-ip': getClientAddress(),
+			...(anonKey ? { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } : {}),
 		},
 	});
 
