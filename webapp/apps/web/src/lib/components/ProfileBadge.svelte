@@ -6,6 +6,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import StarIdenticon from './StarIdenticon.svelte';
+	import Tooltip from './Tooltip.svelte';
 
 	let mounted = $state(false);
 	let agentCount = $state<number | null>(null);
@@ -122,6 +123,7 @@
 								<span class="truncate font-mono text-xs text-text">
 									{wallet.truncatedAddress}
 								</span>
+								<Tooltip text={copied ? 'Copied!' : 'Copy full address'}>
 								<button
 									onclick={copyAddress}
 									class="shrink-0 rounded p-1 text-text-dim transition-colors hover:bg-surface-overlay hover:text-text
@@ -138,6 +140,7 @@
 										</svg>
 									{/if}
 								</button>
+								</Tooltip>
 							</div>
 							{#if wallet.network}
 								<span
