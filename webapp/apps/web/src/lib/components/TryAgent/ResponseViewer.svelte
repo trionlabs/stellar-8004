@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CodeBlock from '$lib/components/CodeBlock.svelte';
+	import { explorerTxUrl } from '$lib/explorer.js';
 
 	let {
 		status,
@@ -44,7 +45,9 @@
 	</div>
 
 	{#if formattedBody}
-		<CodeBlock code={formattedBody} lang={isJson ? 'json' : 'text'} />
+		<div class="max-h-80 overflow-y-auto">
+			<CodeBlock code={formattedBody} lang={isJson ? 'json' : 'text'} />
+		</div>
 	{:else}
 		<div class="rounded-lg border border-border bg-surface p-3 text-xs text-text-dim italic">
 			Empty response body
@@ -55,7 +58,7 @@
 		<div class="flex items-center gap-2 text-[10px] text-text-dim">
 			<span>Settlement:</span>
 			<a
-				href="https://stellar.expert/explorer/testnet/tx/{settlementTxHash}"
+				href={explorerTxUrl(settlementTxHash)}
 				target="_blank"
 				rel="noopener noreferrer"
 				class="font-mono text-accent hover:underline"

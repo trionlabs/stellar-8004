@@ -15,7 +15,7 @@
 		disabled?: boolean;
 	} = $props();
 
-	const methods = ['GET', 'POST', 'PUT', 'DELETE'] as const;
+	const methods = ['POST', 'GET', 'PUT', 'DELETE'] as const;
 	const showBody = $derived(method !== 'GET' && method !== 'HEAD');
 </script>
 
@@ -41,7 +41,7 @@
 				id="req-body"
 				bind:value={body}
 				disabled={busy}
-				placeholder={'{ "query": "..." }'}
+				placeholder={'Enter request body as JSON'}
 				rows="4"
 				class="w-full rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text placeholder:text-text-dim/40 focus:border-accent/50 focus:outline-none resize-y"
 			></textarea>

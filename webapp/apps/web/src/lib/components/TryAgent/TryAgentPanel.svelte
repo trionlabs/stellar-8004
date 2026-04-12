@@ -10,6 +10,8 @@
 		name: string;
 		endpoint: string;
 		version?: string;
+		description?: string;
+		inputExample?: string;
 	}
 
 	let {
@@ -44,7 +46,7 @@
 
 	let activeServiceIdx = $state<number | null>(null);
 	let phase = $state<Phase>('idle');
-	let method = $state('GET');
+	let method = $state('POST');
 	let body = $state('');
 	let errorMsg = $state('');
 
@@ -114,8 +116,8 @@
 	function openTryPanel(idx: number) {
 		activeServiceIdx = idx;
 		phase = 'idle';
-		method = 'GET';
-		body = '';
+		method = 'POST';
+		body = services[idx].inputExample || '';
 		errorMsg = '';
 		pricingInfo = null;
 		response = null;
@@ -288,12 +290,19 @@
 	}
 </script>
 
-<section class="space-y-3">
-	<div>
-		<h2 class="text-sm font-medium text-text">Try Services</h2>
-		<p class="mt-1 text-xs text-text-dim">
-			Send requests directly to this agent's x402-enabled endpoints
-		</p>
+<section class="space-y-4 rounded-2xl border border-accent/15 bg-linear-to-b from-accent/3 to-transparent p-5">
+	<div class="flex items-center gap-3">
+		<div class="flex h-9 w-9 items-center justify-center rounded-xl border border-accent/20 bg-accent/5">
+			<svg class="h-4.5 w-4.5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
+			</svg>
+		</div>
+		<div>
+			<h2 class="text-base font-medium text-text">Try this Agent</h2>
+			<p class="text-xs text-text-dim">
+				Send paid requests via x402 micropayments
+			</p>
+		</div>
 	</div>
 
 	{#if !wallet.connected}
@@ -301,7 +310,7 @@
 			<svg class="h-4 w-4 shrink-0 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
 			</svg>
-			<p class="text-xs text-text-muted">Connect your wallet to try this agent's services.</p>
+			<p class="text-xs text-text-muted">Connect your Freighter wallet to try this agent's services.</p>
 		</div>
 	{:else}
 		<div class="divide-y divide-border/30 rounded-xl border border-border/40 overflow-hidden">
@@ -332,6 +341,9 @@
 								{/if}
 							</div>
 							<p class="truncate font-mono text-[11px] text-text-muted">{service.endpoint}</p>
+							{#if service.description}
+								<p class="truncate text-[11px] text-text-dim">{service.description}</p>
+							{/if}
 						</div>
 
 						<!-- Price badge -->
