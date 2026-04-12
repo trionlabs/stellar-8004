@@ -373,15 +373,11 @@
 	}
 </script>
 
-<section
-	class="space-y-4 rounded-2xl border border-accent/15 bg-linear-to-b from-accent/3 to-transparent p-5"
->
+<section class="try-section">
 	<div class="flex items-center gap-3">
-		<div
-			class="flex h-9 w-9 items-center justify-center rounded-xl border border-accent/20 bg-accent/5"
-		>
+		<div class="try-section__icon">
 			<svg
-				class="h-4.5 w-4.5 text-accent"
+				class="h-4.5 w-4.5"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
@@ -408,20 +404,10 @@
 		>
 			<span class="try-lava-btn__bg"></span>
 			<span class="try-lava-btn__label try-lava-btn__label--wide">
-				<svg
-					class="h-4 w-4 shrink-0"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="1.5"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"
-					/>
+				<svg class="try-wallet-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
 				</svg>
-				Connect Freighter & Try
+				Connect & Try
 			</span>
 		</button>
 	{:else}
@@ -716,84 +702,152 @@
 </section>
 
 <style>
-	/* ── Lava-lamp Try button ── */
+	/* ── Section wrapper — stands out from page ── */
+	.try-section {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		padding: 1.5rem;
+		border-radius: 1rem;
+		border: 1px solid oklch(0.55 0.12 260 / 0.25);
+		background:
+			radial-gradient(ellipse 60% 50% at 50% 0%, oklch(0.5 0.1 260 / 0.08), transparent),
+			linear-gradient(to bottom, oklch(0.16 0.02 260 / 0.6), transparent 70%);
+		box-shadow:
+			0 0 40px -10px oklch(0.5 0.15 260 / 0.12),
+			inset 0 1px 0 oklch(0.6 0.1 260 / 0.08);
+	}
+
+	.try-section__icon {
+		display: flex;
+		height: 2.25rem;
+		width: 2.25rem;
+		align-items: center;
+		justify-content: center;
+		border-radius: 0.75rem;
+		border: 1px solid oklch(0.6 0.14 260 / 0.3);
+		background: oklch(0.5 0.12 260 / 0.1);
+		color: oklch(0.75 0.12 260);
+		animation: icon-pulse 3s ease-in-out infinite;
+	}
+
+	@keyframes icon-pulse {
+		0%, 100% { box-shadow: 0 0 0 0 oklch(0.6 0.14 260 / 0.15); }
+		50% { box-shadow: 0 0 12px 2px oklch(0.6 0.14 260 / 0.25); }
+	}
+
+	/* ── Aurora button base ── */
 	.try-lava-btn {
 		position: relative;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		padding: 6px 16px;
+		padding: 8px 18px;
 		border-radius: 10px;
-		border: none;
+		border: 1px solid oklch(0.6 0.14 260 / 0.2);
 		cursor: pointer;
 		overflow: hidden;
 		isolation: isolate;
-		min-width: 56px;
+		min-width: 60px;
+		transition: transform 0.15s ease, border-color 0.3s;
 	}
 
-	/* Animated lava background layer */
+	.try-lava-btn:hover {
+		border-color: oklch(0.6 0.14 260 / 0.4);
+	}
+
+	/* Aurora background — vertical curtain waves */
 	.try-lava-btn__bg {
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
 		z-index: 0;
-
-		/* Multi-blob gradient – the "lava" */
-		background:
-			radial-gradient(ellipse 120% 80% at 20% 50%, oklch(0.65 0.18 260 / 0.9), transparent 60%),
-			radial-gradient(ellipse 100% 120% at 80% 30%, oklch(0.55 0.22 290 / 0.85), transparent 55%),
-			radial-gradient(ellipse 90% 100% at 50% 80%, oklch(0.60 0.16 230 / 0.8), transparent 50%),
-			radial-gradient(ellipse 80% 80% at 70% 60%, oklch(0.70 0.14 200 / 0.7), transparent 55%),
-			oklch(0.22 0.06 260);
-
-		background-size:
-			200% 200%,
-			180% 200%,
-			200% 180%,
-			160% 160%,
-			100% 100%;
-
-		animation: lava-morph 6s ease-in-out infinite;
+		background: oklch(0.14 0.03 260);
+		overflow: hidden;
 	}
 
-	/* Glow ring pulsing around button */
+	.try-lava-btn__bg::before,
+	.try-lava-btn__bg::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+	}
+
+	/* Primary aurora curtain — vertical bands drifting left */
+	.try-lava-btn__bg::before {
+		background:
+			linear-gradient(
+				180deg,
+				transparent 0%,
+				oklch(0.50 0.20 280 / 0.6) 20%,
+				oklch(0.55 0.24 260 / 0.4) 40%,
+				transparent 60%
+			),
+			linear-gradient(
+				180deg,
+				transparent 15%,
+				oklch(0.45 0.18 300 / 0.5) 35%,
+				oklch(0.50 0.22 270 / 0.35) 55%,
+				transparent 75%
+			),
+			linear-gradient(
+				180deg,
+				transparent 30%,
+				oklch(0.55 0.16 220 / 0.45) 50%,
+				oklch(0.50 0.20 240 / 0.3) 70%,
+				transparent 85%
+			);
+		background-size: 300% 100%, 250% 100%, 350% 100%;
+		animation: aurora-drift 8s ease-in-out infinite;
+		opacity: 0.8;
+		mix-blend-mode: screen;
+	}
+
+	/* Secondary shimmer — slower, offset phase */
+	.try-lava-btn__bg::after {
+		background:
+			linear-gradient(
+				180deg,
+				transparent 5%,
+				oklch(0.60 0.14 200 / 0.3) 30%,
+				transparent 55%
+			),
+			linear-gradient(
+				180deg,
+				transparent 40%,
+				oklch(0.48 0.20 290 / 0.25) 60%,
+				transparent 80%
+			);
+		background-size: 200% 100%, 280% 100%;
+		animation: aurora-drift-alt 11s ease-in-out infinite;
+		opacity: 0.6;
+		mix-blend-mode: screen;
+	}
+
+	/* Soft edge glow — no spin, just a gentle pulse */
 	.try-lava-btn::before {
 		content: '';
 		position: absolute;
-		inset: -2px;
-		border-radius: 12px;
+		inset: -1px;
+		border-radius: 11px;
 		z-index: -1;
-		background: conic-gradient(
-			from 0deg,
-			oklch(0.65 0.18 260 / 0.5),
-			oklch(0.55 0.22 290 / 0.6),
-			oklch(0.70 0.14 200 / 0.5),
-			oklch(0.60 0.20 270 / 0.6),
-			oklch(0.65 0.18 260 / 0.5)
+		background: linear-gradient(
+			90deg,
+			oklch(0.50 0.18 280 / 0.3),
+			oklch(0.55 0.16 240 / 0.2),
+			oklch(0.45 0.20 300 / 0.3)
 		);
-		animation: glow-spin 4s linear infinite;
+		background-size: 200% 100%;
+		animation: glow-shift 6s ease-in-out infinite;
 		filter: blur(4px);
-		opacity: 0.6;
-		transition: opacity 0.3s;
+		opacity: 0.5;
+		transition: opacity 0.3s, filter 0.3s;
 	}
 
 	.try-lava-btn:hover::before {
-		opacity: 1;
+		opacity: 0.9;
 		filter: blur(6px);
-	}
-
-	/* Floating blob overlay for depth */
-	.try-lava-btn::after {
-		content: '';
-		position: absolute;
-		inset: 1px;
-		border-radius: 9px;
-		z-index: 1;
-		background:
-			radial-gradient(circle at 30% 40%, oklch(1 0 0 / 0.12), transparent 40%),
-			radial-gradient(circle at 70% 70%, oklch(1 0 0 / 0.08), transparent 35%);
-		animation: blob-float 5s ease-in-out infinite alternate;
-		pointer-events: none;
 	}
 
 	.try-lava-btn__label {
@@ -801,123 +855,108 @@
 		z-index: 2;
 		font-size: 12px;
 		font-weight: 600;
-		letter-spacing: 0.04em;
-		color: oklch(0.95 0.02 260);
-		text-shadow: 0 0 12px oklch(0.7 0.15 260 / 0.6);
+		letter-spacing: 0.05em;
+		color: oklch(0.92 0.04 260);
+		text-shadow: 0 0 10px oklch(0.6 0.14 260 / 0.5);
 		transition: text-shadow 0.3s;
 	}
 
 	.try-lava-btn:hover .try-lava-btn__label {
 		text-shadow:
-			0 0 16px oklch(0.8 0.18 260 / 0.8),
-			0 0 32px oklch(0.6 0.2 280 / 0.4);
+			0 0 14px oklch(0.7 0.18 260 / 0.7),
+			0 0 28px oklch(0.55 0.2 280 / 0.3);
 	}
 
-	.try-lava-btn:hover .try-lava-btn__bg {
-		animation-duration: 3s;
+	.try-lava-btn:hover .try-lava-btn__bg::before {
+		animation-duration: 5s;
 	}
 
 	.try-lava-btn:active {
-		transform: scale(0.95);
+		transform: scale(0.96);
 	}
 
-	/* Wide variant — full-width connect CTA */
+	/* ── Wide variant — full-width connect CTA ── */
 	.try-lava-btn--wide {
 		width: 100%;
-		padding: 12px 20px;
+		padding: 14px 24px;
 		border-radius: 12px;
 	}
 
 	.try-lava-btn--wide::before {
+		inset: -2px;
 		border-radius: 14px;
+		filter: blur(6px);
+		opacity: 0.6;
 	}
 
-	.try-lava-btn--wide::after {
-		border-radius: 11px;
+	.try-lava-btn--wide:hover::before {
+		filter: blur(8px);
+		opacity: 1;
 	}
 
 	.try-lava-btn__label--wide {
 		display: inline-flex;
 		align-items: center;
-		gap: 8px;
-		font-size: 13px;
+		gap: 10px;
+		font-size: 14px;
+		letter-spacing: 0.06em;
+	}
+
+	/* Wallet icon — gentle breathe */
+	.try-wallet-icon {
+		width: 18px;
+		height: 18px;
+		flex-shrink: 0;
+		animation: wallet-breathe 3s ease-in-out infinite;
+	}
+
+	@keyframes wallet-breathe {
+		0%, 100% { opacity: 0.75; transform: scale(1); }
+		50% { opacity: 1; transform: scale(1.06); }
 	}
 
 	/* ── Keyframes ── */
 
-	@keyframes lava-morph {
-		0% {
-			background-position:
-				0% 50%,
-				100% 0%,
-				50% 100%,
-				80% 50%,
-				0 0;
-		}
-		25% {
-			background-position:
-				50% 0%,
-				0% 80%,
-				100% 50%,
-				20% 100%,
-				0 0;
-		}
-		50% {
-			background-position:
-				100% 50%,
-				50% 100%,
-				0% 0%,
-				60% 20%,
-				0 0;
-		}
-		75% {
-			background-position:
-				50% 100%,
-				100% 20%,
-				50% 50%,
-				40% 80%,
-				0 0;
-		}
-		100% {
-			background-position:
-				0% 50%,
-				100% 0%,
-				50% 100%,
-				80% 50%,
-				0 0;
-		}
+	/* Vertical aurora bands drifting horizontally */
+	@keyframes aurora-drift {
+		0%   { background-position: 0% 0%, 30% 0%, 60% 0%; }
+		50%  { background-position: 100% 0%, 80% 0%, 20% 0%; }
+		100% { background-position: 0% 0%, 30% 0%, 60% 0%; }
 	}
 
-	@keyframes glow-spin {
-		to {
-			transform: rotate(360deg);
-		}
+	@keyframes aurora-drift-alt {
+		0%   { background-position: 100% 0%, 70% 0%; }
+		50%  { background-position: 0% 0%, 20% 0%; }
+		100% { background-position: 100% 0%, 70% 0%; }
 	}
 
-	@keyframes blob-float {
-		0% {
-			background-position: 30% 40%, 70% 70%;
-		}
-		100% {
-			background-position: 60% 30%, 40% 60%;
-		}
+	/* Edge glow shifts side to side */
+	@keyframes glow-shift {
+		0%, 100% { background-position: 0% 50%; }
+		50% { background-position: 100% 50%; }
 	}
 
-	/* Light theme adjustments */
+	/* ── Light theme ── */
+	:global(.light) .try-section,
+	:global([data-theme='light']) .try-section {
+		border-color: oklch(0.5 0.14 260 / 0.2);
+		background:
+			radial-gradient(ellipse 60% 50% at 50% 0%, oklch(0.6 0.12 260 / 0.06), transparent),
+			linear-gradient(to bottom, oklch(0.94 0.01 260 / 0.8), transparent 70%);
+		box-shadow:
+			0 0 30px -8px oklch(0.5 0.15 260 / 0.08),
+			inset 0 1px 0 oklch(1 0 0 / 0.5);
+	}
+
+	:global(.light) .try-section__icon,
+	:global([data-theme='light']) .try-section__icon {
+		border-color: oklch(0.5 0.16 260 / 0.25);
+		background: oklch(0.5 0.14 260 / 0.08);
+		color: oklch(0.45 0.16 260);
+	}
+
 	:global(.light) .try-lava-btn__bg,
 	:global([data-theme='light']) .try-lava-btn__bg {
-		background:
-			radial-gradient(ellipse 120% 80% at 20% 50%, oklch(0.55 0.20 260 / 0.9), transparent 60%),
-			radial-gradient(ellipse 100% 120% at 80% 30%, oklch(0.45 0.24 290 / 0.85), transparent 55%),
-			radial-gradient(ellipse 90% 100% at 50% 80%, oklch(0.50 0.18 230 / 0.8), transparent 50%),
-			radial-gradient(ellipse 80% 80% at 70% 60%, oklch(0.60 0.16 200 / 0.7), transparent 55%),
-			oklch(0.30 0.08 260);
-
-		background-size:
-			200% 200%,
-			180% 200%,
-			200% 180%,
-			160% 160%,
-			100% 100%;
+		background: oklch(0.24 0.05 270);
 	}
 </style>
