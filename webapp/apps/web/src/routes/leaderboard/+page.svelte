@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { scoreFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
 	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -78,10 +79,11 @@
 						<p class="truncate text-[13px] font-medium text-text transition-colors group-hover:text-accent">
 							{leader.agent_name ?? `Agent #${leader.agent_id}`}
 						</p>
-						<p class="font-mono text-[10px] text-text-dim/50">{leader.owner ? shortAddress(leader.owner) : ''}</p>
+						{#if leader.owner}<Tooltip text={leader.owner}><p class="font-mono text-[10px] text-text-dim/50">{shortAddress(leader.owner)}</p></Tooltip>{/if}
 					</div>
 
 					<!-- Trust bar + Score -->
+					<Tooltip text="Trust score: {fmt(leader.total_score)}/100" position="left">
 					<div class="flex items-center gap-2.5">
 						<div class="hidden w-16 md:flex gap-[2px]">
 							{#each { length: 5 } as _, i}
@@ -95,22 +97,13 @@
 							{fmt(leader.total_score)}
 						</span>
 					</div>
+					</Tooltip>
 
 					<!-- Avg score -->
 					<div class="hidden w-14 text-right lg:block" title="Avg feedback score ({leader.feedback_count ?? 0} feedback)">
 						{#if (leader.feedback_count ?? 0) > 0}
 							<p class="tabular-nums text-xs text-text-muted">{fmt(leader.avg_score)}</p>
 							<p class="text-[9px] text-text-dim/40">{leader.feedback_count}</p>
-						{:else}
-							<p class="text-text-dim/20">-</p>
-						{/if}
-					</div>
-
-					<!-- Validation score -->
-					<div class="hidden w-14 text-right xl:block" title="Avg validation score ({leader.validation_count ?? 0} validations)">
-						{#if (leader.validation_count ?? 0) > 0}
-							<p class="tabular-nums text-xs text-text-muted">{fmt(leader.avg_validation_score)}</p>
-							<p class="text-[9px] text-text-dim/40">{leader.validation_count}</p>
 						{:else}
 							<p class="text-text-dim/20">-</p>
 						{/if}
@@ -126,15 +119,19 @@
 	{#if data.page > 1 || data.hasMore}
 		<nav class="flex items-center justify-center gap-1">
 			{#if data.page > 1}
+				<Tooltip text="Previous page">
 				<a href="{lbPath}?page={data.page - 1}" class="pager" aria-label="Previous page">
 					<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
 				</a>
+				</Tooltip>
 			{/if}
 			<span class="px-3 font-mono text-[11px] tabular-nums text-text-dim/50">{data.page}</span>
 			{#if data.hasMore}
+				<Tooltip text="Next page">
 				<a href="{lbPath}?page={data.page + 1}" class="pager" aria-label="Next page">
 					<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
 				</a>
+				</Tooltip>
 			{/if}
 		</nav>
 	{/if}
