@@ -6,7 +6,7 @@
 
 	let { data }: PageProps = $props();
 
-	const skillCmd = 'claude install trionlabs/stellar-8004 --subpath skills/8004s';
+	const skillCmd = 'npx skills add trionlabs/stellar-8004 --skill 8004s';
 	let copied = $state(false);
 
 	const recentAgentPadding = $derived((3 - (data.recentAgents.length % 3)) % 3);
