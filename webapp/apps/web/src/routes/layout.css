@@ -249,7 +249,6 @@ textarea:focus {
   border: 0.5px solid color-mix(in oklch, var(--color-border) 60%, transparent);
   background: color-mix(in oklch, var(--color-surface) 38%, transparent);
   backdrop-filter: blur(20px) saturate(1.6);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
   box-shadow: 0 2px 16px color-mix(in oklch, var(--color-surface) 20%, transparent);
 }
 
@@ -306,7 +305,6 @@ textarea:focus {
   border-top: 0.5px solid var(--color-border);
   background: color-mix(in oklch, var(--color-surface) 55%, transparent);
   backdrop-filter: blur(20px) saturate(1.6);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
 }
 
 @media (max-width: 767px) {
