@@ -236,7 +236,7 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 24px;
+  padding: 6px 10px 6px 16px;
   border-radius: 14px;
   border: 0.5px solid var(--color-border);
   background: color-mix(in oklch, var(--color-surface) 72%, transparent);
@@ -282,7 +282,7 @@ textarea:focus {
     border-left: 0;
     border-right: 0;
     border-top: 0;
-    padding: 8px 16px;
+    padding: 6px 10px 6px 16px;
   }
 }
 
