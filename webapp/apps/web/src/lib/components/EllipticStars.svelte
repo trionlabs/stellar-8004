@@ -11,7 +11,7 @@
 	const SPACING = 44;
 	const GLOW_RADIUS = 140;
 	const GLOW_RADIUS_SQ = GLOW_RADIUS * GLOW_RADIUS;
-	const BASE_OPACITY = 0.015;
+	const BASE_OPACITY = 0.06;
 	const MAX_OPACITY = 0.35;
 	const FOLLOW_LERP = 0.1;
 	const T1 = 0.09; // 0.3^2
@@ -135,17 +135,29 @@
 			const ddy = sy[i] - my;
 			const distSq = ddx * ddx + ddy * ddy;
 
-			// Skip stars too far from cursor - nearly invisible
-			if (distSq > GLOW_RADIUS_SQ) continue;
-
-			const dist = Math.sqrt(distSq);
-			const prox = 1 - dist * invR;
-			const p2 = prox * prox;
-			const p3 = p2 * prox;
-
-			const sIdx = p2 > T2 ? 2 : p2 > T1 ? 1 : 0;
 			const breathe = 0.85 + 0.15 * Math.sin(t + phase[i]);
-			const opacity = BASE_OPACITY + range * p3 * breathe;
+
+			let opacity: number;
+			let sIdx: number;
+
+			if (distSq <= GLOW_RADIUS_SQ) {
+				// Near cursor — glow + blink
+				const dist = Math.sqrt(distSq);
+				const prox = 1 - dist * invR;
+				const p2 = prox * prox;
+				const p3 = p2 * prox;
+				sIdx = p2 > T2 ? 2 : p2 > T1 ? 1 : 0;
+				// blink: random per-star flicker layered on top of breathe
+				const blink = 0.7 + 0.3 * Math.sin(t * 1.8 + phase[i] * 5.3);
+				opacity = (BASE_OPACITY + range * p3 * breathe) * blink;
+			} else {
+				// Far from cursor — sparse ambient twinkle
+				// Use phase to make only ~30% of stars twinkle at any given time
+				const twinkle = Math.sin(t * 0.4 + phase[i] * 3.7);
+				if (twinkle < 0.4) continue; // skip most — only brightest twinkle
+				sIdx = 0; // smallest size
+				opacity = BASE_OPACITY * (0.5 + 0.5 * twinkle) * breathe;
+			}
 
 			const stamp = stamps[sIdx];
 			ctx.globalAlpha = opacity;
