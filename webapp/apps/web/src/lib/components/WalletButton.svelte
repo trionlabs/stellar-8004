@@ -2,7 +2,6 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { wallet } from '$lib/wallet.svelte.js';
-	import { createSupabase } from '$lib/supabase.js';
 
 	let mounted = $state(false);
 	let agentCount = $state<number | null>(null);
@@ -16,12 +15,13 @@
 		abortController?.abort();
 		abortController = new AbortController();
 		try {
-			const { count } = await createSupabase()
-				.from('agents')
-				.select('id', { count: 'exact', head: true })
-				.ilike('owner', address);
+			const res = await fetch(`/api/agents/count?owner=${encodeURIComponent(address)}`, {
+				signal: abortController.signal
+			});
+			if (!res.ok) throw new Error('fetch failed');
+			const data = await res.json();
 			if (address === wallet.address) {
-				agentCount = count;
+				agentCount = data.count;
 			}
 		} catch {
 			if (address === wallet.address) {
