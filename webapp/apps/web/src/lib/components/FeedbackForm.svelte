@@ -1,21 +1,45 @@
 <script lang="ts">
 	import { Buffer } from 'buffer';
+	import { slide } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { getClients } from '$lib/sdk-client.js';
 	import { validateTag, formatSorobanError } from '@trionlabs/8004-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
+	import { explorerTxUrl } from '$lib/explorer.js';
 
 	let { agentId }: { agentId: number } = $props();
 
-	let value = $state(50);
+	// Score steps: 6 discrete levels (0-100 in steps of 20)
+	const SCORE_STEPS = [
+		{ value: 0,   label: 'Terrible', color: 'var(--fb-negative)' },
+		{ value: 20,  label: 'Poor',     color: 'var(--fb-warning)' },
+		{ value: 40,  label: 'Okay',     color: 'var(--fb-caution)' },
+		{ value: 60,  label: 'Good',     color: 'var(--fb-moderate)' },
+		{ value: 80,  label: 'Great',    color: 'var(--fb-positive)' },
+		{ value: 100, label: 'Perfect',  color: 'var(--fb-excellent)' }
+	] as const;
+
+	const TAG_OPTIONS = [
+		{ value: 'starred',      label: 'General' },
+		{ value: 'uptime',       label: 'Uptime' },
+		{ value: 'reachable',    label: 'Reachable' },
+		{ value: 'successRate',  label: 'Success Rate' },
+		{ value: 'responseTime', label: 'Response Time' }
+	] as const;
+
+	let value = $state(60);
 	let tag1 = $state('starred');
 	let tag2 = $state('');
 	let endpoint = $state('');
 	let evidenceUri = $state('');
+	let showAdvanced = $state(false);
 	let status = $state<'idle' | 'submitting' | 'success' | 'error'>('idle');
 	let errorMsg = $state('');
 	let txHash = $state('');
 
 	const busy = $derived(status === 'submitting');
+	const selectedStep = $derived(SCORE_STEPS.find((s) => s.value === value) ?? SCORE_STEPS[3]);
+	const selectedIndex = $derived(SCORE_STEPS.findIndex((s) => s.value === value));
 
 	async function sha256Hash(content: string): Promise<Uint8Array> {
 		const encoded = new TextEncoder().encode(content);
@@ -38,10 +62,6 @@
 			validateTag(tag1, 'Tag 1');
 			if (tag2) validateTag(tag2, 'Tag 2');
 
-			// Evidence URI and hash come from the user, not from us.
-			// If the user provides an evidence URI, we hash the URI itself
-			// so the on-chain record links to it. The actual evidence content
-			// and its integrity are the user's responsibility.
 			let feedbackUri = evidenceUri.trim();
 			let feedbackHash: Uint8Array;
 
@@ -51,7 +71,7 @@
 				}
 				feedbackHash = await sha256Hash(feedbackUri);
 			} else {
-				feedbackHash = new Uint8Array(32); // bytes32(0) - no evidence
+				feedbackHash = new Uint8Array(32);
 			}
 
 			const { reputation } = getClients();
@@ -74,84 +94,394 @@
 			status = 'error';
 		}
 	}
+
+	function reset() {
+		value = 60;
+		tag1 = 'starred';
+		tag2 = '';
+		endpoint = '';
+		evidenceUri = '';
+		status = 'idle';
+		errorMsg = '';
+		txHash = '';
+		showAdvanced = false;
+	}
 </script>
 
-<div class="rounded-lg border border-border bg-surface p-5">
-	<h3 class="mb-4 text-sm font-medium text-text">Give Feedback</h3>
-
+<div class="fb-form">
 	{#if status === 'success'}
-		<div class="text-sm text-positive">
-			Feedback submitted. TX:
-			<code class="text-xs">{txHash.slice(0, 12)}...</code>
+		<div class="fb-success">
+			<div class="fb-success__icon">
+				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+				</svg>
+			</div>
+			<div>
+				<p class="text-sm font-medium text-positive">Feedback submitted on-chain</p>
+				{#if txHash}
+					<a
+						href={explorerTxUrl(txHash)}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="mt-1 block font-mono text-[11px] text-accent hover:underline"
+					>{txHash.slice(0, 16)}...</a>
+				{/if}
+			</div>
+			<button type="button" onclick={reset} class="ml-auto text-xs text-text-dim hover:text-text transition">
+				Submit another
+			</button>
 		</div>
 	{:else if !wallet.connected}
-		<p class="text-sm text-text-muted">Connect your wallet to submit feedback</p>
+		<div class="flex items-center gap-3 px-4 py-3">
+			<svg class="h-4 w-4 shrink-0 text-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+			</svg>
+			<p class="text-sm text-text-muted">Connect wallet to give feedback</p>
+		</div>
 	{:else}
-		<div class="space-y-4">
-			<div>
-				<label class="text-xs text-text-muted" for="feedback-score">Score: {value}</label>
-				<input id="feedback-score" type="range" min="0" max="100" bind:value class="w-full" />
+		<div class="fb-form__body">
+			<!-- Score selector -->
+			<div class="fb-score">
+				<div class="fb-score__header">
+					<span class="text-xs text-text-dim">Score</span>
+					<span class="fb-score__value" style="color: {selectedStep.color}">
+						{selectedStep.label}
+						<span class="fb-score__number">{value}</span>
+					</span>
+				</div>
+				<div class="fb-score__track">
+					{#each SCORE_STEPS as step, i}
+						<button
+							type="button"
+							onclick={() => (value = step.value)}
+							class="fb-score__step"
+							class:fb-score__step--active={value === step.value}
+							class:fb-score__step--filled={i <= selectedIndex}
+							style="--step-color: {step.color}"
+							title="{step.label} ({step.value})"
+						>
+							<span class="fb-score__bar"></span>
+						</button>
+					{/each}
+				</div>
+				<div class="fb-score__labels">
+					<span class="text-[10px] text-text-dim/40">Terrible</span>
+					<span class="text-[10px] text-text-dim/40">Perfect</span>
+				</div>
 			</div>
 
-			<div class="flex flex-col gap-3 md:flex-row">
-				<select
-					bind:value={tag1}
-					aria-label="Feedback category"
-					class="flex-1 rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text-muted"
+			<!-- Category -->
+			<div class="fb-tags">
+				<span class="text-xs text-text-dim">Category</span>
+				<div class="fb-tags__list">
+					{#each TAG_OPTIONS as tag}
+						<button
+							type="button"
+							onclick={() => (tag1 = tag.value)}
+							class="fb-tag"
+							class:fb-tag--active={tag1 === tag.value}
+						>
+							{tag.label}
+						</button>
+					{/each}
+				</div>
+			</div>
+
+			<!-- Advanced fields (collapsible) -->
+			<button
+				type="button"
+				onclick={() => (showAdvanced = !showAdvanced)}
+				class="fb-advanced-toggle"
+			>
+				<svg
+					class="h-3 w-3 transition-transform duration-200"
+					class:rotate-90={showAdvanced}
+					fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
 				>
-					<option value="starred">Starred</option>
-					<option value="uptime">Uptime</option>
-					<option value="successRate">Success Rate</option>
-					<option value="responseTime">Response Time</option>
-					<option value="reachable">Reachable</option>
-				</select>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+				</svg>
+				Advanced
+			</button>
 
-				<input
-					type="text"
-					bind:value={tag2}
-					aria-label="Secondary tag"
-					placeholder="Tag 2 (optional)"
-					maxlength="64"
-					class="flex-1 rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text-muted placeholder:text-text-dim"
-				/>
-			</div>
-
-			<input
-				type="text"
-				bind:value={endpoint}
-				aria-label="Endpoint tested"
-				placeholder="Endpoint tested (optional)"
-				maxlength="128"
-				class="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text-muted placeholder:text-text-dim"
-			/>
-
-			<input
-				type="text"
-				bind:value={evidenceUri}
-				aria-label="Evidence URI"
-				placeholder="Evidence URI (optional) - ipfs:// or https://"
-				maxlength="256"
-				class="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text-muted placeholder:text-text-dim"
-			/>
-			<p class="text-[11px] text-text-dim">
-				Link to off-chain evidence (interaction logs, payment proof). Leave empty for score-only feedback.
-			</p>
+			{#if showAdvanced}
+				<div class="fb-advanced" transition:slide={{ duration: 200, easing: cubicOut }}>
+					<input
+						type="text"
+						bind:value={tag2}
+						placeholder="Secondary tag (optional)"
+						maxlength="64"
+						class="fb-input"
+					/>
+					<input
+						type="text"
+						bind:value={endpoint}
+						placeholder="Endpoint tested (optional)"
+						maxlength="128"
+						class="fb-input"
+					/>
+					<div>
+						<input
+							type="text"
+							bind:value={evidenceUri}
+							placeholder="Evidence URI — ipfs:// or https://"
+							maxlength="256"
+							class="fb-input"
+						/>
+						<p class="mt-1 text-[10px] text-text-dim/50">
+							Link to off-chain evidence (logs, payment proof). Hashed on-chain for integrity.
+						</p>
+					</div>
+				</div>
+			{/if}
 
 			{#if wallet.networkMismatch}
-				<p class="text-xs text-warning">Switch Freighter to the correct network before submitting</p>
+				<p class="text-xs text-warning">Switch Freighter to the correct network</p>
+			{/if}
+
+			{#if status === 'error'}
+				<p class="text-xs text-negative">{errorMsg}</p>
 			{/if}
 
 			<button
 				onclick={submit}
 				disabled={busy || wallet.networkMismatch}
-				class="w-full rounded-lg bg-accent-soft py-2 text-sm text-accent transition hover:bg-accent-medium disabled:opacity-50"
+				class="fb-submit"
 			>
-				{status === 'submitting' ? 'Submitting...' : 'Submit Feedback'}
+				{#if busy}
+					<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+						<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.25" />
+						<path d="M12 2a10 10 0 019.95 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+					</svg>
+					Submitting...
+				{:else}
+					Submit Feedback
+				{/if}
 			</button>
-
-			{#if status === 'error'}
-				<p class="text-xs text-negative">{errorMsg}</p>
-			{/if}
 		</div>
 	{/if}
 </div>
+
+<style>
+	.fb-form {
+		--fb-negative: oklch(0.65 0.2 25);
+		--fb-warning: oklch(0.7 0.16 55);
+		--fb-caution: oklch(0.72 0.12 85);
+		--fb-moderate: oklch(0.68 0.1 160);
+		--fb-positive: oklch(0.65 0.14 145);
+		--fb-excellent: oklch(0.62 0.18 155);
+
+		border-radius: 0.75rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		overflow: hidden;
+	}
+
+	.fb-form__body {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		padding: 1.25rem;
+	}
+
+	.fb-success {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 1rem 1.25rem;
+	}
+
+	.fb-success__icon {
+		display: flex;
+		height: 2rem;
+		width: 2rem;
+		align-items: center;
+		justify-content: center;
+		border-radius: 0.5rem;
+		background: oklch(0.65 0.15 145 / 0.1);
+		color: var(--color-positive);
+		flex-shrink: 0;
+	}
+
+	/* Score selector */
+	.fb-score {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.fb-score__header {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+	}
+
+	.fb-score__value {
+		font-size: 13px;
+		font-weight: 600;
+		transition: color 0.2s;
+	}
+
+	.fb-score__number {
+		margin-left: 4px;
+		font-size: 11px;
+		font-weight: 400;
+		opacity: 0.5;
+	}
+
+	.fb-score__track {
+		display: flex;
+		gap: 4px;
+		padding: 2px 0;
+	}
+
+	.fb-score__step {
+		flex: 1;
+		display: flex;
+		align-items: flex-end;
+		cursor: pointer;
+		padding: 6px 0;
+		background: none;
+		border: none;
+	}
+
+	.fb-score__bar {
+		display: block;
+		width: 100%;
+		height: 6px;
+		border-radius: 3px;
+		background: var(--color-border);
+		transition: background 0.2s, height 0.2s, box-shadow 0.2s;
+	}
+
+	.fb-score__step--filled .fb-score__bar {
+		background: var(--step-color);
+		height: 8px;
+	}
+
+	.fb-score__step--active .fb-score__bar {
+		height: 12px;
+		box-shadow: 0 0 8px -2px var(--step-color);
+	}
+
+	.fb-score__step:hover .fb-score__bar {
+		height: 10px;
+		background: var(--step-color);
+		opacity: 0.7;
+	}
+
+	.fb-score__step--active:hover .fb-score__bar {
+		opacity: 1;
+	}
+
+	.fb-score__labels {
+		display: flex;
+		justify-content: space-between;
+	}
+
+	/* Tag pills */
+	.fb-tags {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.fb-tags__list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	.fb-tag {
+		padding: 4px 12px;
+		border-radius: 6px;
+		border: 1px solid var(--color-border);
+		background: transparent;
+		color: var(--color-text-muted);
+		font-size: 12px;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.fb-tag:hover {
+		border-color: color-mix(in oklch, var(--color-accent) 30%, transparent);
+		color: var(--color-text);
+	}
+
+	.fb-tag--active {
+		border-color: color-mix(in oklch, var(--color-accent) 40%, transparent);
+		background: color-mix(in oklch, var(--color-accent) 8%, transparent);
+		color: var(--color-accent);
+	}
+
+	/* Advanced toggle */
+	.fb-advanced-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 0;
+		border: none;
+		background: none;
+		font-size: 11px;
+		color: var(--color-text-dim);
+		cursor: pointer;
+		transition: color 0.15s;
+		align-self: flex-start;
+	}
+
+	.fb-advanced-toggle:hover {
+		color: var(--color-text-muted);
+	}
+
+	.fb-advanced {
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+	}
+
+	.fb-input {
+		width: 100%;
+		padding: 8px 12px;
+		border-radius: 8px;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface-raised);
+		font-size: 12px;
+		color: var(--color-text-muted);
+		transition: border-color 0.15s;
+	}
+
+	.fb-input::placeholder {
+		color: var(--color-text-dim);
+	}
+
+	.fb-input:focus {
+		border-color: color-mix(in oklch, var(--color-accent) 50%, transparent);
+		outline: none;
+	}
+
+	/* Submit */
+	.fb-submit {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		width: 100%;
+		padding: 10px;
+		border-radius: 8px;
+		border: none;
+		background: color-mix(in oklch, var(--color-accent) 10%, transparent);
+		color: var(--color-accent);
+		font-size: 13px;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+
+	.fb-submit:hover:not(:disabled) {
+		background: color-mix(in oklch, var(--color-accent) 16%, transparent);
+	}
+
+	.fb-submit:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+</style>
