@@ -105,7 +105,7 @@ const metadata = buildMetadataJson({
       version: 'v1'
     }
   ],
-  supportedTrust: ['crypto-economic'],
+  supportedTrust: ['reputation'],
   x402Enabled: true
 });
 
@@ -191,7 +191,7 @@ const metadata = buildMetadataJson({
       version: 'v1'
     }
   ],
-  supportedTrust: ['crypto-economic', 'tee-attestation'],
+  supportedTrust: ['reputation'],
   x402Enabled: false
 });
 
@@ -260,8 +260,7 @@ console.log('Indexer status:', health.data.status);`;
       "page": 1,
       "limit": 20,
       "total": 45,
-      "hasMore": true,
-      "nextPage": 2
+      "hasMore": true
     }
   }
 }`;
