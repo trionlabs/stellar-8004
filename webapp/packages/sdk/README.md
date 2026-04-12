@@ -5,10 +5,11 @@ TypeScript SDK for ERC-8004 agent registration, storage, signing, and explorer r
 ## Install
 
 ```bash
-pnpm add @trionlabs/8004-sdk @stellar/stellar-sdk
+npm install @trionlabs/8004-sdk @stellar/stellar-sdk
+# or: pnpm add @trionlabs/8004-sdk @stellar/stellar-sdk
 
-# Browser signer support
-pnpm add @stellar/freighter-api
+# Browser signer support (optional)
+npm install @stellar/freighter-api
 ```
 
 Node 18+ is supported.
@@ -105,9 +106,8 @@ import { AutoStorage } from '@trionlabs/8004-sdk/storage/auto';
 
 - Docs: https://stellar8004.com/developers
 - Explorer API: https://stellar8004.com/api/v1/agents
-- Repository: https://github.com/yamancan/stellar8004
-- Contract source: https://github.com/trionlabs/stellar-8004
-- Issues: https://github.com/yamancan/stellar8004/issues
+- Repository: https://github.com/trionlabs/stellar-8004
+- Issues: https://github.com/trionlabs/stellar-8004/issues
 
 ## License
 
