@@ -115,20 +115,28 @@ body {
   color: var(--color-text);
 }
 
-/* Subtle ambient glow at the bottom */
+/* Ambient glow — top + bottom for glassmorphism */
+body::before,
 body::after {
   content: '';
   position: fixed;
-  bottom: -160px;
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
-  height: 420px;
   border-radius: 50%;
-  background: radial-gradient(ellipse, color-mix(in oklch, var(--color-accent) 14%, transparent), transparent 65%);
   pointer-events: none;
   z-index: 0;
   filter: blur(50px);
+}
+body::before {
+  top: -280px;
+  height: 360px;
+  background: radial-gradient(ellipse, color-mix(in oklch, var(--color-accent) 10%, transparent), transparent 65%);
+}
+body::after {
+  bottom: -160px;
+  height: 420px;
+  background: radial-gradient(ellipse, color-mix(in oklch, var(--color-accent) 14%, transparent), transparent 65%);
 }
 
 ::selection {
@@ -249,6 +257,7 @@ textarea:focus {
   border: 0.5px solid color-mix(in oklch, var(--color-border) 60%, transparent);
   background: color-mix(in oklch, var(--color-surface) 38%, transparent);
   backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
   box-shadow: 0 2px 16px color-mix(in oklch, var(--color-surface) 20%, transparent);
 }
 
@@ -305,6 +314,7 @@ textarea:focus {
   border-top: 0.5px solid var(--color-border);
   background: color-mix(in oklch, var(--color-surface) 55%, transparent);
   backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
 }
 
 @media (max-width: 767px) {
