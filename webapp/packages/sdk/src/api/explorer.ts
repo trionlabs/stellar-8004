@@ -48,8 +48,6 @@ export interface AgentResponse {
 	totalScore?: number | null;
 	avgScore?: number | null;
 	feedbackCount?: number;
-	avgValidationScore?: number | null;
-	validationCount?: number;
 	uniqueClients?: number;
 	hasServices?: boolean;
 	[key: string]: unknown;

@@ -37,7 +37,6 @@ export async function handleSearch(url: URL): Promise<Response> {
     avgScore: row.avg_score ?? 0,
     feedbackCount: row.feedback_count ?? 0,
     uniqueClients: row.unique_clients ?? 0,
-    validationCount: row.validation_count ?? 0,
   }));
 
   return successWithCache(items, 30, 120);
