@@ -141,80 +141,83 @@ export const load: PageServerLoad = async ({ url }) => {
 	const hasFilters = trustFilter.length > 0 || minScore > 0 || hasServices !== null;
 
 	if (hasFilters) {
-		const advancedRows =
-			assertSuccess(
-				await db.rpc('search_agents_advanced', {
-					search_query: query,
-					trust_filter: trustFilter,
-					min_score: minScore,
-					has_services_filter: hasServices ?? undefined,
-					result_limit: perPage,
-					result_offset: offset,
-					owner_filter: ownerFilter || undefined,
-				}),
-				'Advanced search'
-			) ?? [];
+		const rpcResult = await db.rpc('search_agents_advanced', {
+			search_query: query,
+			trust_filter: trustFilter,
+			min_score: minScore,
+			has_services_filter: hasServices ?? undefined,
+			result_limit: perPage,
+			result_offset: offset,
+			owner_filter: ownerFilter || undefined,
+		});
 
-		const pagedResults = advancedRows;
+		if (rpcResult.error) {
+			console.error('[Advanced search] query failed:', rpcResult.error.message);
+			// Fall through to unfiltered listing instead of 500
+		} else {
+			const advancedRows = rpcResult.data ?? [];
 
-		const agents: AgentListItem[] = pagedResults.map((row) => ({
-			id: row.agent_id,
-			name: row.agent_name ?? `Agent #${row.agent_id}`,
-			image: row.agent_image,
-			owner: row.owner,
-			createdAt: null,
-			totalScore: row.total_score,
-			avgScore: row.avg_score ?? null,
-			feedbackCount: row.feedback_count ?? 0,
-			uniqueClients: row.unique_clients ?? 0,
-			supportedTrust: row.supported_trust ?? [],
-			hasServices: row.has_services ?? false
-		}));
+			const agents: AgentListItem[] = advancedRows.map((row) => ({
+				id: row.agent_id,
+				name: row.agent_name ?? `Agent #${row.agent_id}`,
+				image: row.agent_image,
+				owner: row.owner,
+				createdAt: null,
+				totalScore: row.total_score,
+				avgScore: row.avg_score ?? null,
+				feedbackCount: row.feedback_count ?? 0,
+				uniqueClients: row.unique_clients ?? 0,
+				supportedTrust: row.supported_trust ?? [],
+				hasServices: row.has_services ?? false
+			}));
 
-		return {
-			agents,
-			query,
-			sort,
-			order,
-			page,
-			hasMore: pagedResults.length === perPage,
-			filters: { trust: trustFilter, minScore, hasServices: hasServices ?? false },
-			ownerFilter
-		};
+			return {
+				agents,
+				query,
+				sort,
+				order,
+				page,
+				hasMore: advancedRows.length === perPage,
+				filters: { trust: trustFilter, minScore, hasServices: hasServices ?? false },
+				ownerFilter
+			};
+		}
 	}
 
 	if (query.length > 0) {
-		const searchRows =
-			assertSuccess(
-				await db.rpc('search_agents', {
-					search_query: query,
-					result_limit: perPage,
-					result_offset: offset,
-					owner_filter: ownerFilter || undefined,
-				}),
-				'Agent search'
-			) ?? [];
+		const searchResult = await db.rpc('search_agents', {
+			search_query: query,
+			result_limit: perPage,
+			result_offset: offset,
+			owner_filter: ownerFilter || undefined,
+		});
 
-		const scoreMap = await loadScoreMap(
-			db,
-			searchRows.map((agent) => agent.id)
-		);
-		const agents = sortAgents(
-			searchRows.map((agent) => normalizeAgentRow(agent, scoreMap.get(agent.id))),
-			sort,
-			order
-		);
+		if (!searchResult.error) {
+			const searchRows = searchResult.data ?? [];
+			const scoreMap = await loadScoreMap(
+				db,
+				searchRows.map((agent) => agent.id)
+			);
+			const agents = sortAgents(
+				searchRows.map((agent) => normalizeAgentRow(agent, scoreMap.get(agent.id))),
+				sort,
+				order
+			);
 
-		return {
-			agents,
-			query,
-			sort,
-			order,
-			page,
-			hasMore: searchRows.length === perPage,
-			filters: { trust: [] as string[], minScore: 0, hasServices: false },
-			ownerFilter
-		};
+			return {
+				agents,
+				query,
+				sort,
+				order,
+				page,
+				hasMore: searchRows.length === perPage,
+				filters: { trust: [] as string[], minScore: 0, hasServices: false },
+				ownerFilter
+			};
+		}
+
+		console.error('[Agent search] query failed:', searchResult.error.message);
+		// Fall through to unfiltered listing
 	}
 
 	if (sort === 'created_at') {
