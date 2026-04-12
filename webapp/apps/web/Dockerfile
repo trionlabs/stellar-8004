@@ -15,7 +15,7 @@ COPY . .
 RUN pnpm --filter @trionlabs/8004-sdk build
 RUN pnpm --filter @stellar8004/web build
 # Deploy creates a flat, self-contained node_modules without symlinks
-RUN pnpm --filter @stellar8004/web deploy --prod /prod
+RUN pnpm --filter @stellar8004/web deploy --legacy --prod /prod
 
 FROM node:22-slim AS runtime
 WORKDIR /app
