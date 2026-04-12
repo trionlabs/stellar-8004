@@ -1,6 +1,6 @@
 ---
 name: 8004s
-description: Use when building on Stellar/Soroban with ERC-8004 Agent Trust Protocol — agent identity registration, reputation feedback, validator endorsements. Stellar-specific counterpart of /8004 (Celo)
+description: Use when building on Stellar/Soroban with ERC-8004 Agent Trust Protocol — agent identity registration, reputation feedback, validator endorsements.
 ---
 
 # ERC-8004: Agent Trust Protocol on Stellar
@@ -8,8 +8,6 @@ description: Use when building on Stellar/Soroban with ERC-8004 Agent Trust Prot
 ERC-8004 establishes trust infrastructure for autonomous AI agents on Stellar/Soroban, enabling them to discover, identify, and evaluate other agents across organizational boundaries.
 
 > **Companion skill:** `/stellar-dev` for Soroban transaction patterns, Freighter integration, `nativeToScVal` reference, and testnet setup.
->
-> **EVM version:** See `/8004` for the Celo/EVM equivalent using viem.
 
 ## When to Use
 
@@ -64,7 +62,8 @@ ERC-8004 sits at the **Trust Layer** — you verify trust first, then enable pay
 npm install @trionlabs/8004-sdk @stellar/stellar-sdk
 ```
 
-- Stellar keypair (G.../S... format)
+- Stellar keypair (G.../S... format) — `Keypair.random()` for testnet, `Keypair.fromSecret(secret)` for existing wallets
+- Signer — `wrapBasicSigner(keypair, networkPassphrase)` for scripts, `FreighterSigner` for browser apps
 - Testnet: fund via `fundTestnet(address)` from SDK or [Friendbot](https://friendbot.stellar.org?addr=YOUR_KEY)
 - Companion skill `/stellar-dev` for Soroban transaction fundamentals
 
@@ -130,9 +129,8 @@ const metadata = buildMetadataJson({
   x402Enabled: true,
 });
 
-// Validate before registering
-const errors = validateMetadataJson(metadata);
-if (errors.length > 0) throw new Error(errors.join(', '));
+// Validate before registering (throws on invalid metadata)
+validateMetadataJson(metadata);
 
 // Convert to data URI (fails if > 8KB)
 const dataUri = toDataUri(metadata);
@@ -153,23 +151,30 @@ const dataUri = toDataUri(metadata);
 ### Using the SDK (recommended)
 
 ```typescript
-import { createClients, TESTNET_CONFIG } from '@trionlabs/8004-sdk';
+import { Keypair } from '@stellar/stellar-sdk';
+import { createClients, TESTNET_CONFIG, wrapBasicSigner } from '@trionlabs/8004-sdk';
 
+// Create a signer from a Stellar secret key (S-format)
+const keypair = Keypair.fromSecret(process.env.STELLAR_SECRET_KEY!);
+const signer = wrapBasicSigner(keypair, TESTNET_CONFIG.networkPassphrase);
 const { identity } = createClients(TESTNET_CONFIG, signer);
 
 // Register with metadata URI (recommended)
-const agentId = await identity.register_with_uri({
-  caller: signerAddress,
+const tx = await identity.register_with_uri({
+  caller: keypair.publicKey(),
   agent_uri: dataUri,  // from Step 1
 });
-// agentId is a u32 — save this, it's your agent's permanent ID
+const sent = await tx.signAndSend();
+const agentId = sent.result;  // u32 — save this, it's your agent's permanent ID
 
 // Or register with URI + metadata in one call
-const agentId = await identity.register_full({
-  caller: signerAddress,
+const tx2 = await identity.register_full({
+  caller: keypair.publicKey(),
   agent_uri: dataUri,
   metadata: [{ key: 'category', value: new TextEncoder().encode('defi') }],
 });
+const sent2 = await tx2.signAndSend();
+const agentId2 = sent2.result;
 ```
 
 ### Without the SDK
@@ -261,7 +266,7 @@ This extends TTL for: agent URI, wallet, all metadata keys + values, NFT owner, 
 4. Fetches your metadata URL → parses services, trust settings
 5. Exponential backoff retry: 2, 4, 8, 16, 32 minutes (max 5 attempts)
 6. On success: agent becomes searchable and visible in explorer
-7. Your agent page: https://stellar8004.trionlabs.dev/agents/{agentId}
+7. Your agent page: https://stellar8004.com/agents/{agentId}
 ```
 
 ### Verify Your Registration
@@ -288,7 +293,7 @@ const myAgents = await explorer.getAgentsByAddress(myAddress);
 | `GET /api/v1/stats` | — | Registry statistics (totalAgents, totalFeedbacks, etc.) |
 | `GET /api/v1/accounts/{address}/agents` | `page`, `limit` | Agents owned by address |
 
-Base URL: `https://stellar8004.trionlabs.dev`. Rate limit: 30 requests per IP.
+Base URL: `https://stellar8004.com`. Rate limit: 30 requests per IP.
 
 ### Troubleshooting
 
@@ -323,7 +328,7 @@ More feedback from more unique clients = higher score = better discoverability.
 Self-feedback is blocked. `value` is `i128` (supports negative). `value_decimals` max 18.
 
 ```typescript
-// Create feedback hash (SHA-256, not keccak256 like EVM)
+// Create feedback hash (SHA-256)
 const content = JSON.stringify({ quality: 'excellent', latency: '200ms' });
 const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content));
 
@@ -710,11 +715,11 @@ Understanding what's stored on-chain vs emitted as events is critical for readin
 
 ### Contract Error Codes
 
-**Identity Registry** (7 codes): not found, not authorized, URI too long, key too long, value too long, too many metadata keys, upgrade errors
+**Identity Registry** (11 codes): not found, not authorized, URI too long, key too long, value too long, too many metadata keys, reserved key, empty value, upgrade pending, upgrade not ready, no pending upgrade
 
-**Reputation Registry** (9 codes): agent not found, self-feedback blocked, feedback not found, already revoked, not feedback author, not agent owner/authorized, index out of range
+**Reputation Registry** (12 codes): agent not found, self-feedback blocked, feedback not found, already revoked, not feedback author, not agent owner/authorized, index out of range, invalid tag length, invalid value decimals, upgrade pending, upgrade not ready, no pending upgrade
 
-**Validation Registry** (3 codes): agent not found, request already exists, request not found
+**Validation Registry** (11 codes): agent not found, request already exists, request not found, not validator, already responded, invalid response, invalid tag, upgrade pending, upgrade not ready, no pending upgrade, not authorized
 
 Use `formatSorobanError(err)` from the SDK to convert error codes to readable messages.
 
@@ -821,26 +826,12 @@ for (const event of events.events) {
 }
 ```
 
-### Key Differences from EVM (/8004)
-
-| Aspect | `/8004` (Celo) | `/8004s` (Stellar) |
-|--------|---------------|-------------------|
-| SDK | `viem` + ABI | `@stellar/stellar-sdk` + XDR, or `@trionlabs/8004-sdk` |
-| Tx flow | `writeContract()` one-step | simulate → assemble → sign → poll |
-| Hash | `keccak256` (viem) | `SHA-256` (Web Crypto) |
-| Agent ID | Parse receipt logs | Direct from `scValToNative(result)` |
-| Read data | `readContract()` on-chain | On-chain (simulate) + Explorer API for event-only fields |
-| Pagination | `getClients()` returns all | `get_clients_paginated(start, limit)` — Soroban budget caps |
-| Data lifetime | Permanent | Requires `extend_ttl()` to prevent archival |
-| Mainnet | Deployed | Deployed |
-
 ## Additional Resources
 
 - [EIP-8004 Specification](https://eips.ethereum.org/EIPS/eip-8004) | [8004.org](https://www.8004.org)
-- [Stellar 8004 Contracts](https://github.com/trionlabs/stellar-8004) | [8004scan Explorer](https://stellar8004.trionlabs.dev)
+- [Stellar 8004 Contracts](https://github.com/trionlabs/stellar-8004) | [8004scan Explorer](https://stellar8004.com)
 
 ## Related Skills
 
 - [stellar-dev](https://github.com/stellar/stellar-dev-skill) — General Stellar/Soroban development (required companion)
-- [8004](../8004/SKILL.md) — ERC-8004 on Celo (EVM version)
 - [x402s](../x402s/SKILL.md) — x402 payment protocol on Stellar
