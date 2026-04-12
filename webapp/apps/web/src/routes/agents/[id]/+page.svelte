@@ -6,7 +6,6 @@
 	import { validateAgentUri } from '@trionlabs/8004-sdk';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { explorerTxUrl } from '$lib/explorer.js';
-	import { createSupabase } from '$lib/supabase.js';
 	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress, sanitizeImageUrl } from '$lib/formatters.js';
 	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
 	import ValidationForm from '$lib/components/ValidationForm.svelte';
@@ -17,8 +16,7 @@
 
 	let { data }: PageProps = $props();
 
-	// --- Realtime + polling for transitional states ---
-	let channel: ReturnType<ReturnType<typeof createSupabase>['channel']> | null = null;
+	// --- Polling for transitional states ---
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let pollCount = $state(0);
 	const MAX_POLLS = 18; // 18 x 10s = 3 minutes
@@ -26,21 +24,6 @@
 
 	onMount(() => {
 		if (data.state === 'indexing' || data.state === 'resolving') {
-			const supabase = createSupabase();
-			channel = supabase
-				.channel(`agent-${data.agent.id}`)
-				.on('postgres_changes', {
-					event: '*',
-					schema: 'public',
-					table: 'agents',
-					filter: `id=eq.${data.agent.id}`
-				}, () => {
-					invalidateAll();
-				})
-				.subscribe();
-		}
-
-		if (data.state === 'indexing') {
 			pollTimer = setInterval(() => {
 				pollCount++;
 				if (pollCount >= MAX_POLLS) {
@@ -53,10 +36,6 @@
 		}
 
 		return () => {
-			if (channel) {
-				createSupabase().removeChannel(channel);
-				channel = null;
-			}
 			if (pollTimer) {
 				clearInterval(pollTimer);
 				pollTimer = null;
@@ -67,10 +46,6 @@
 	$effect(() => {
 		if (data.state !== 'indexing' && data.state !== 'resolving') {
 			if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-			if (channel) {
-				createSupabase().removeChannel(channel);
-				channel = null;
-			}
 		}
 	});
 
