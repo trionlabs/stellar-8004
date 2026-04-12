@@ -18,7 +18,8 @@ export function assertSuccess<T>(
 	label: string
 ): T {
 	if (result.error) {
-		throw error(500, `${label} query failed: ${result.error.message}`);
+		console.error(`[${label}] query failed:`, result.error.message);
+		throw error(500, 'Internal server error');
 	}
 
 	return result.data;
