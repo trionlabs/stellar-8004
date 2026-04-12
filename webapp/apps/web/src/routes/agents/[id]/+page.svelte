@@ -359,8 +359,7 @@
 			<!-- Stats -->
 			<div class="space-y-3 reveal reveal-d2">
 				<div class="stat-row grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border/30">
-					<Tooltip text="Aggregate trust score from feedback and volume" position="bottom">
-					<div class="stat-cell px-4 py-3.5">
+					<div class="stat-cell px-4 py-3.5" title="Aggregate trust score from feedback and volume">
 						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Score</p>
 						<p class="mt-1 text-lg font-light tabular-nums text-positive">
 							{#if data.scores?.totalScore != null}
@@ -375,9 +374,7 @@
 							</p>
 						{/if}
 					</div>
-					</Tooltip>
-					<Tooltip text="Total feedback submissions from clients" position="bottom">
-					<div class="stat-cell px-4 py-3.5">
+					<div class="stat-cell px-4 py-3.5" title="Total feedback submissions from clients">
 						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
 						<p class="mt-1 text-lg font-light tabular-nums text-text">{data.scores?.feedbackCount ?? 0}</p>
 						{#if data.scores && data.scores.feedbackCount > 0}
@@ -392,15 +389,12 @@
 							<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>
 						{/if}
 					</div>
-					</Tooltip>
-					<Tooltip text={data.metadataMissing.length > 0 ? `Missing: ${data.metadataMissing.join(', ')}` : 'All metadata fields complete'} position="bottom">
-					<div class="stat-cell px-4 py-3.5">
+					<div class="stat-cell px-4 py-3.5" title={data.metadataMissing.length > 0 ? `Missing: ${data.metadataMissing.join(', ')}` : 'All metadata fields complete'}>
 						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Metadata</p>
 						<p class="mt-1 text-lg font-light tabular-nums {data.metadataCompleteness >= 80 ? 'text-positive' : data.metadataCompleteness >= 40 ? 'text-warning' : 'text-negative'}">
 							{data.metadataCompleteness}%
 						</p>
 					</div>
-					</Tooltip>
 				</div>
 				{#if data.scores}
 					<ScoreBreakdown
