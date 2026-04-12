@@ -138,21 +138,26 @@ type WorkerConfig = {
   workerTimeoutMs: number
 }
 
+// Edge-runtime v1.71.2 enforces an internal wall-clock limit (~4 min for busy
+// workers like indexer, ~15 min for lighter ones like resolve-uris) regardless
+// of the workerTimeoutMs we pass to userWorkers.create. We set workerTimeoutMs
+// to a short value so the pool's isFresh() check proactively retires workers
+// before the runtime force-kills them, avoiding fetch-fail-retry churn.
 const DEFAULT_WORKER_CONFIG: WorkerConfig = {
   memoryLimitMb: 256,
-  workerTimeoutMs: 30 * 60 * 1000, // 30 min
+  workerTimeoutMs: 5 * 60 * 1000, // 5 min
 }
 
 const WORKER_CONFIG: Record<string, WorkerConfig> = {
-  indexer: { memoryLimitMb: 256, workerTimeoutMs: 30 * 60 * 1000 },
-  'resolve-uris': { memoryLimitMb: 256, workerTimeoutMs: 30 * 60 * 1000 },
-  api: { memoryLimitMb: 256, workerTimeoutMs: 30 * 60 * 1000 },
-  'indexer-health': { memoryLimitMb: 128, workerTimeoutMs: 30 * 60 * 1000 },
+  indexer: { memoryLimitMb: 256, workerTimeoutMs: 3 * 60 * 1000 },
+  'resolve-uris': { memoryLimitMb: 256, workerTimeoutMs: 5 * 60 * 1000 },
+  api: { memoryLimitMb: 256, workerTimeoutMs: 5 * 60 * 1000 },
+  'indexer-health': { memoryLimitMb: 128, workerTimeoutMs: 5 * 60 * 1000 },
 }
 
 // Refresh worker once it has burned through this fraction of its TTL, so the
 // new isolate is ready before edge-runtime force-terminates the old one.
-const REFRESH_RATIO = 0.85
+const REFRESH_RATIO = 0.70
 
 type CachedWorker = { worker: unknown; createdAt: number; cfg: WorkerConfig }
 
