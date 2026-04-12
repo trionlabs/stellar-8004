@@ -4,6 +4,8 @@
 	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import TryAgentPanel from '$lib/components/TryAgent/TryAgentPanel.svelte';
+	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
+	import EvidenceViewer from '$lib/components/EvidenceViewer.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -14,7 +16,16 @@
 	] as const;
 
 	type TabId = 'metadata' | 'reputation';
-	let activeTab = $state<TabId>('reputation');
+	let activeTab = $state<TabId>('metadata');
+
+	const TAG_FILTER_OPTIONS = [
+		{ value: '', label: 'All' },
+		{ value: 'starred', label: 'General' },
+		{ value: 'uptime', label: 'Uptime' },
+		{ value: 'reachable', label: 'Reachable' },
+		{ value: 'successRate', label: 'Success Rate' },
+		{ value: 'responseTime', label: 'Response Time' }
+	] as const;
 
 	const PROTOCOL_ICONS: Record<string, string> = {
 		MCP: 'M',
@@ -32,6 +43,16 @@
 	}
 
 	const showTryPanel = $derived(data.agent.x402Enabled && data.agent.services.length > 0);
+
+	// Parse registration data for structured display
+	const parsedRegistration = $derived.by(() => {
+		if (!data.agent.registrationData) return null;
+		try {
+			return JSON.parse(data.agent.registrationData);
+		} catch {
+			return null;
+		}
+	});
 </script>
 
 <svelte:head>
@@ -39,7 +60,7 @@
 </svelte:head>
 
 <div class="space-y-10">
-	<!-- Compact Hero: identity + inline trust signals -->
+	<!-- Compact Hero -->
 	<section class="space-y-4 reveal">
 		<div class="flex items-start gap-4">
 			<div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/40 bg-surface-raised/50">
@@ -97,10 +118,10 @@
 		</div>
 	</section>
 
-	<!-- Trust stats — compact horizontal bar -->
+	<!-- Trust stats -->
 	<section class="reveal reveal-d1">
 		<div class="stat-row grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border/30">
-			<div class="stat-cell px-4 py-3" title="Aggregate trust score from feedback and volume">
+			<div class="stat-cell px-4 py-3">
 				<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Score</p>
 				<p class="mt-1 text-lg font-light tabular-nums text-positive">
 					{#if data.scores?.totalScore != null}
@@ -115,7 +136,7 @@
 					</p>
 				{/if}
 			</div>
-			<div class="stat-cell px-4 py-3" title="Total feedback submissions from clients">
+			<div class="stat-cell px-4 py-3">
 				<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
 				<p class="mt-1 text-lg font-light tabular-nums text-text">{data.scores?.feedbackCount ?? 0}</p>
 				{#if data.scores && data.scores.feedbackCount > 0}
@@ -127,7 +148,7 @@
 					<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>
 				{/if}
 			</div>
-			<div class="stat-cell px-4 py-3" title={data.metadataMissing.length > 0 ? `Missing: ${data.metadataMissing.join(', ')}` : 'All metadata fields complete'}>
+			<div class="stat-cell px-4 py-3">
 				<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Metadata</p>
 				<p class="mt-1 text-lg font-light tabular-nums {data.metadataCompleteness >= 80 ? 'text-positive' : data.metadataCompleteness >= 40 ? 'text-warning' : 'text-negative'}">
 					{data.metadataCompleteness}%
@@ -144,7 +165,7 @@
 		{/if}
 	</section>
 
-	<!-- TRY PANEL — after stats -->
+	<!-- TRY PANEL -->
 	{#if showTryPanel}
 		<section class="reveal reveal-d2">
 			<TryAgentPanel
@@ -174,6 +195,7 @@
 	</section>
 
 	{#if activeTab === 'metadata'}
+		<!-- Services -->
 		{#if data.agent.services.length > 0}
 			<section class="space-y-4">
 				<div>
@@ -182,7 +204,7 @@
 				</div>
 				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{#each data.agent.services as service}
-						<div class="rounded-lg border border-border bg-surface p-4 space-y-2.5">
+						<div class="rounded-lg border border-border bg-surface p-4 space-y-2.5 glass-card">
 							<div class="flex items-center justify-between">
 								<div class="flex items-center gap-2">
 									<span class="flex h-7 w-7 items-center justify-center rounded-md border border-accent/20 bg-accent/5 text-xs font-medium text-accent">
@@ -196,129 +218,200 @@
 									</span>
 								{/if}
 							</div>
-							<p class="truncate font-mono text-[11px] text-text-muted">{service.endpoint}</p>
+							<div class="flex items-center gap-1.5">
+								<p class="min-w-0 flex-1 truncate font-mono text-[11px] text-text-muted">{service.endpoint}</p>
+								<button
+									type="button"
+									onclick={() => copyToClipboard(service.endpoint)}
+									class="shrink-0 rounded-md border border-border bg-surface-raised p-1 text-text-dim transition hover:text-text"
+									title="Copy endpoint URL"
+								>
+									{#if copySuccess === service.endpoint}
+										<svg class="h-3.5 w-3.5 text-positive" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+									{:else}
+										<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+									{/if}
+								</button>
+							</div>
+							{#if service.description}
+								<p class="text-[11px] text-text-dim">{service.description}</p>
+							{/if}
 						</div>
 					{/each}
 				</div>
 			</section>
 		{/if}
 
-		<section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_20rem]">
-			<div class="space-y-4">
-				<div>
+		<!-- On-chain Metadata + Registration side by side -->
+		<section class="space-y-6">
+			<!-- On-chain metadata -->
+			{#if data.metadata.length > 0}
+				<div class="space-y-3">
 					<h2 class="text-sm font-medium text-text">On-chain Metadata</h2>
-					<p class="mt-1 text-xs text-text-dim">Additional key-value entries indexed for this agent</p>
-				</div>
-				{#if data.metadata.length > 0}
-					<div class="overflow-hidden rounded-lg border border-border bg-surface">
+					<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
 						{#each data.metadata as entry (entry.key)}
-							<div class="flex border-t border-border px-4 py-3 text-xs font-mono">
-								<span class="w-40 shrink-0 text-accent">{entry.key}</span>
-								<span class="text-text-muted">{entry.value ?? ''}</span>
+							<div class="rounded-lg border border-border/40 bg-surface px-3.5 py-2.5 glass-card">
+								<p class="text-[10px] text-text-dim/50 uppercase tracking-wider">{entry.key}</p>
+								<p class="mt-0.5 text-sm text-text-muted">{entry.value ?? ''}</p>
 							</div>
 						{/each}
 					</div>
-				{/if}
-			</div>
-			<div class="space-y-4">
-				<div>
-					<h2 class="text-sm font-medium text-text">Registration Payload</h2>
-					<p class="mt-1 text-xs text-text-dim">Decoded agent_uri_data payload</p>
 				</div>
-				{#if data.agent.agentUri}
-					<div class="rounded-lg border border-border bg-surface p-4">
-						<p class="text-xs text-text-dim">Agent URI</p>
-						<p class="mt-1.5 break-all font-mono text-xs text-text-muted">{data.agent.agentUri}</p>
+			{/if}
+
+			<!-- Registration payload — parsed fields + raw JSON toggle -->
+			<div class="space-y-3">
+				<div class="flex items-center justify-between">
+					<div>
+						<h2 class="text-sm font-medium text-text">Registration Payload</h2>
+						{#if data.agent.agentUri}
+							<p class="mt-0.5 truncate font-mono text-[11px] text-text-dim/50">{data.agent.agentUri}</p>
+						{/if}
 					</div>
-				{/if}
-				{#if data.agent.registrationData}
+					{#if data.agent.registrationData}
+						<button
+							type="button"
+							onclick={() => copyToClipboard(data.agent.registrationData ?? '')}
+							class="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text-dim transition hover:text-text hover:border-border"
+						>
+							{#if copySuccess === data.agent.registrationData}
+								<svg class="h-3 w-3 text-positive" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+								Copied
+							{:else}
+								<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+								Copy JSON
+							{/if}
+						</button>
+					{/if}
+				</div>
+
+				{#if parsedRegistration}
+					<div class="rounded-lg border border-border/40 bg-surface overflow-hidden glass-card">
+						<!-- Parsed key-value rows -->
+						{#each Object.entries(parsedRegistration) as [key, val]}
+							<div class="flex items-start gap-3 border-t border-border/30 px-4 py-2.5 first:border-t-0 {typeof val === 'object' ? '' : ''}">
+								<span class="w-32 shrink-0 text-[11px] font-medium text-accent/70 pt-0.5">{key}</span>
+								<div class="min-w-0 flex-1 text-[12px] text-text-muted">
+									{#if val === null}
+										<span class="text-text-dim/30">null</span>
+									{:else if typeof val === 'boolean'}
+										<span class="{val ? 'text-positive' : 'text-text-dim'}">{val}</span>
+									{:else if typeof val === 'string'}
+										{val}
+									{:else if Array.isArray(val)}
+										<div class="flex flex-wrap gap-1.5">
+											{#each val as item}
+												{#if typeof item === 'string'}
+													<span class="rounded-md border border-border/40 bg-surface-raised px-2 py-0.5 text-[11px]">{item}</span>
+												{:else if typeof item === 'object' && item !== null}
+													<div class="w-full rounded-md border border-border/30 bg-surface-raised px-3 py-2 mt-1 first:mt-0">
+														{#each Object.entries(item) as [k, v]}
+															<div class="flex gap-2 text-[11px] py-0.5">
+																<span class="text-text-dim/50 shrink-0">{k}:</span>
+																<span class="text-text-muted truncate">{typeof v === 'string' ? v : JSON.stringify(v)}</span>
+															</div>
+														{/each}
+													</div>
+												{:else}
+													<span class="rounded-md border border-border/40 bg-surface-raised px-2 py-0.5 text-[11px]">{JSON.stringify(item)}</span>
+												{/if}
+											{/each}
+										</div>
+									{:else}
+										{JSON.stringify(val)}
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				{:else if data.agent.registrationData}
 					<pre class="overflow-auto rounded-lg border border-border bg-surface p-4 text-xs leading-relaxed text-text-muted">{data.agent.registrationData}</pre>
+				{:else}
+					<div class="rounded-lg border border-dashed border-border/40 p-6 text-center text-sm text-text-dim">
+						No structured registration payload
+					</div>
 				{/if}
 			</div>
 		</section>
+
 	{:else if activeTab === 'reputation'}
-		<section class="space-y-8">
-			<div class="overflow-hidden rounded-lg border border-border bg-surface">
-				<div class="border-b border-border/40 px-4 py-3">
-					<h2 class="text-sm font-medium text-text">Reputation Feed</h2>
+		<section class="space-y-6">
+			<!-- Feedback form -->
+			<FeedbackForm agentId={data.agent.id} />
+
+			<!-- Tag filter pills -->
+			<div class="flex items-center gap-2">
+				<span class="text-[11px] text-text-dim/50 uppercase tracking-wider">Filter</span>
+				<div class="flex flex-wrap gap-1.5">
+					{#each TAG_FILTER_OPTIONS as tag}
+						<button
+							type="button"
+							class="rounded-md px-2.5 py-1 text-[11px] transition
+								{data.tag === tag.value
+									? 'bg-accent/10 text-accent border border-accent/25'
+									: 'text-text-dim hover:text-text-muted border border-transparent hover:border-border/40'}"
+						>
+							{tag.label}
+						</button>
+					{/each}
 				</div>
+			</div>
+
+			<!-- Feedback cards -->
+			<div class="space-y-2">
 				{#if data.feedback.length > 0}
-					<div class="overflow-x-auto">
-						<table class="min-w-full text-sm">
-							<thead class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase">
-								<tr>
-									<th class="px-4 py-2.5 font-medium">Client</th>
-									<th class="px-4 py-2.5 text-right font-medium">Score</th>
-									<th class="px-4 py-2.5 font-medium">Tag</th>
-									<th class="px-4 py-2.5 font-medium">Status</th>
-									<th class="px-4 py-2.5 font-medium">Date</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each data.feedback as feedback (feedback.id)}
-									<tr class:opacity-40={feedback.isRevoked} class="border-t border-border">
-										<td class="px-4 py-2.5 font-mono text-xs text-text-muted">
-											{shortAddress(feedback.clientAddress)}
-										</td>
-										<td class="px-4 py-2.5 text-right font-medium text-positive">
-											{scoreFormatter.format(feedback.score)}
-										</td>
-										<td class="px-4 py-2.5 text-text-muted">
-											{#if feedback.tag1}
-												<div class="flex flex-wrap gap-1.5">
-													<span class="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent">{feedback.tag1}</span>
-													{#if feedback.tag2}
-														<span class="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent">{feedback.tag2}</span>
-													{/if}
-												</div>
-											{:else}
-												<span class="text-text-dim">No tags</span>
-											{/if}
-										</td>
-										<td class="px-4 py-2.5 text-xs">
-											{#if feedback.isRevoked}
-												<span class="rounded-full bg-negative-soft px-2 py-0.5 text-negative">Revoked</span>
-											{:else}
-												<span class="rounded-full bg-positive-soft px-2 py-0.5 text-positive">Active</span>
-											{/if}
-										</td>
-										<td class="px-4 py-2.5 text-xs text-text-dim">
-											{dateTimeFormatter.format(new Date(feedback.createdAt))}
-										</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
+					{#each data.feedback as feedback (feedback.id)}
+						<div class="feedback-card" class:feedback-card--revoked={feedback.isRevoked}>
+							<div class="feedback-card__score {feedback.score >= 60 ? 'text-positive' : feedback.score >= 30 ? 'text-warning' : 'text-negative'}">
+								{scoreFormatter.format(feedback.score)}
+							</div>
+							<div class="min-w-0 flex-1">
+								<div class="flex items-center gap-2 flex-wrap">
+									<span class="font-mono text-xs text-text-muted">{shortAddress(feedback.clientAddress)}</span>
+									{#if feedback.tag1}
+										<span class="rounded-md bg-accent/6 px-1.5 py-0.5 text-[10px] text-accent">{feedback.tag1}</span>
+									{/if}
+									{#if feedback.tag2}
+										<span class="rounded-md bg-accent/6 px-1.5 py-0.5 text-[10px] text-accent">{feedback.tag2}</span>
+									{/if}
+									{#if feedback.isRevoked}
+										<span class="rounded-md bg-negative/8 px-1.5 py-0.5 text-[10px] text-negative">Revoked</span>
+									{/if}
+								</div>
+								<div class="mt-1 flex items-center gap-3 text-[11px] text-text-dim/50">
+									<span>{dateTimeFormatter.format(new Date(feedback.createdAt))}</span>
+									{#if feedback.responses.length > 0}
+										<span>{feedback.responses.length} response{feedback.responses.length !== 1 ? 's' : ''}</span>
+									{/if}
+								</div>
+								<EvidenceViewer
+									feedbackUri={feedback.feedbackUri}
+									feedbackHash={feedback.feedbackHash}
+								/>
+							</div>
+						</div>
+					{/each}
+				{:else}
+					<div class="rounded-lg border border-dashed border-border/40 px-4 py-8 text-center text-sm text-text-dim">
+						No feedback submitted yet.
 					</div>
 				{/if}
 			</div>
 
-			{#if data.clientBreakdown.length > 0}
-				<div class="overflow-hidden rounded-lg border border-border bg-surface">
-					<div class="border-b border-border/40 px-4 py-3">
-						<h2 class="text-sm font-medium text-text">By Client</h2>
-					</div>
-					<div class="overflow-x-auto">
-						<table class="min-w-full text-sm">
-							<thead class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase">
-								<tr>
-									<th class="px-4 py-2.5 font-medium">Client</th>
-									<th class="px-4 py-2.5 text-right font-medium">Count</th>
-									<th class="px-4 py-2.5 text-right font-medium">Avg Score</th>
-									<th class="px-4 py-2.5 font-medium">Last Feedback</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each data.clientBreakdown as client (client.clientAddress)}
-									<tr class="border-t border-border">
-										<td class="px-4 py-2.5 font-mono text-xs text-text-muted">{shortAddress(client.clientAddress)}</td>
-										<td class="px-4 py-2.5 text-right text-text">{client.feedbackCount}</td>
-										<td class="px-4 py-2.5 text-right font-medium text-positive">{scoreFormatter.format(client.avgScore)}</td>
-										<td class="px-4 py-2.5 text-xs text-text-dim">{dateTimeFormatter.format(new Date(client.lastFeedback))}</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
+			<!-- Client breakdown -->
+			{#if data.clientBreakdown.length >= 2}
+				<div class="space-y-3">
+					<h3 class="text-[11px] text-text-dim/50 uppercase tracking-wider">By Client</h3>
+					<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+						{#each data.clientBreakdown as client (client.clientAddress)}
+							<div class="flex items-center gap-3 rounded-lg border border-border/30 bg-surface px-3 py-2.5">
+								<span class="text-sm font-medium tabular-nums text-positive">{scoreFormatter.format(client.avgScore)}</span>
+								<div class="min-w-0 flex-1">
+									<p class="truncate font-mono text-[11px] text-text-muted">{shortAddress(client.clientAddress)}</p>
+									<p class="text-[10px] text-text-dim/40">{client.feedbackCount} review{client.feedbackCount !== 1 ? 's' : ''}</p>
+								</div>
+							</div>
+						{/each}
 					</div>
 				</div>
 			{/if}
@@ -331,10 +424,38 @@
 		background: var(--color-border-subtle);
 	}
 	.stat-cell {
-		background: var(--color-surface-raised);
+		background: var(--color-glass-raised);
+		backdrop-filter: var(--glass-blur);
+		-webkit-backdrop-filter: var(--glass-blur);
 		transition: background 0.2s ease;
 	}
 	.stat-cell:hover {
 		background: var(--color-surface-overlay);
+	}
+
+	.feedback-card {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		border-radius: 0.5rem;
+		border: 1px solid var(--color-border, oklch(0.3 0 0 / 0.3));
+		transition: border-color 0.15s;
+	}
+	.feedback-card:hover {
+		border-color: color-mix(in oklch, var(--color-border) 100%, transparent);
+	}
+	.feedback-card--revoked {
+		opacity: 0.45;
+	}
+	.feedback-card__score {
+		font-size: 1.125rem;
+		font-weight: 500;
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
+		padding-top: 2px;
+		min-width: 2.5rem;
+		text-align: right;
+		flex-shrink: 0;
 	}
 </style>
