@@ -100,6 +100,16 @@
 
 	let activeTab = $state<TabId>('reputation');
 
+	// Parse registration data for structured display
+	const parsedRegistration = $derived.by(() => {
+		if (!data.agent.registrationData) return null;
+		try {
+			return JSON.parse(data.agent.registrationData);
+		} catch {
+			return null;
+		}
+	});
+
 	const TAG_FILTER_OPTIONS = [
 		{ value: '', label: 'All' },
 		{ value: 'starred', label: 'General' },
@@ -443,7 +453,7 @@
 				</div>
 				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{#each data.agent.services as service}
-						<div class="rounded-lg border border-border bg-surface p-4 space-y-2.5">
+						<div class="rounded-lg border border-border bg-surface p-4 space-y-2.5 glass-card">
 							<div class="flex items-center justify-between">
 								<div class="flex items-center gap-2">
 									<span class="flex h-7 w-7 items-center justify-center rounded-md border border-accent/20 bg-accent/5 text-xs font-medium text-accent">
@@ -490,48 +500,90 @@
 			</section>
 		{/if}
 
-		<section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_20rem]">
-			<div class="space-y-4">
-				<div>
+		<section class="space-y-6">
+			<!-- On-chain metadata -->
+			{#if data.metadata.length > 0}
+				<div class="space-y-3">
 					<h2 class="text-sm font-medium text-text">On-chain Metadata</h2>
-					<p class="mt-1 text-xs text-text-dim">Additional key-value entries indexed for this agent</p>
-				</div>
-
-				{#if data.metadata.length > 0}
-					<div class="overflow-hidden rounded-lg border border-border bg-surface">
+					<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
 						{#each data.metadata as entry (entry.key)}
-							<div class="flex border-t border-border px-4 py-3 text-xs font-mono">
-								<span class="w-40 shrink-0 text-accent">{entry.key}</span>
-								<span class="text-text-muted">{entry.value ?? ''}</span>
+							<div class="rounded-lg border border-border/40 bg-surface px-3.5 py-2.5 glass-card">
+								<p class="text-[10px] text-text-dim/50 uppercase tracking-wider">{entry.key}</p>
+								<p class="mt-0.5 text-sm text-text-muted">{entry.value ?? ''}</p>
 							</div>
 						{/each}
 					</div>
-				{:else}
-					<div class="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-dim">
-						No extra metadata indexed
-					</div>
-				{/if}
-			</div>
+				</div>
+			{/if}
 
-			<div class="space-y-4">
-				<div>
-					<h2 class="text-sm font-medium text-text">Registration Payload</h2>
-					<p class="mt-1 text-xs text-text-dim">Decoded agent_uri_data payload</p>
+			<!-- Registration payload — parsed fields + copy JSON -->
+			<div class="space-y-3">
+				<div class="flex items-center justify-between">
+					<div>
+						<h2 class="text-sm font-medium text-text">Registration Payload</h2>
+						{#if data.agent.agentUri}
+							<p class="mt-0.5 truncate font-mono text-[11px] text-text-dim/50">{data.agent.agentUri}</p>
+						{/if}
+					</div>
+					{#if data.agent.registrationData}
+						<button
+							type="button"
+							onclick={() => copyToClipboard(data.agent.registrationData ?? '')}
+							class="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text-dim transition hover:text-text hover:border-border"
+						>
+							{#if copySuccess === data.agent.registrationData}
+								<svg class="h-3 w-3 text-positive" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+								Copied
+							{:else}
+								<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+								Copy JSON
+							{/if}
+						</button>
+					{/if}
 				</div>
 
-				{#if data.agent.agentUri}
-					<div class="rounded-lg border border-border bg-surface p-4">
-						<p class="text-xs text-text-dim">Agent URI</p>
-						<p class="mt-1.5 break-all font-mono text-xs text-text-muted">{data.agent.agentUri}</p>
+				{#if parsedRegistration}
+					<div class="rounded-lg border border-border/40 bg-surface overflow-hidden glass-card">
+						{#each Object.entries(parsedRegistration) as [key, val]}
+							<div class="flex items-start gap-3 border-t border-border/30 px-4 py-2.5 first:border-t-0">
+								<span class="w-32 shrink-0 text-[11px] font-medium text-accent/70 pt-0.5">{key}</span>
+								<div class="min-w-0 flex-1 text-[12px] text-text-muted">
+									{#if val === null}
+										<span class="text-text-dim/30">null</span>
+									{:else if typeof val === 'boolean'}
+										<span class="{val ? 'text-positive' : 'text-text-dim'}">{val}</span>
+									{:else if typeof val === 'string'}
+										{val}
+									{:else if Array.isArray(val)}
+										<div class="flex flex-wrap gap-1.5">
+											{#each val as item}
+												{#if typeof item === 'string'}
+													<span class="rounded-md border border-border/40 bg-surface-raised px-2 py-0.5 text-[11px]">{item}</span>
+												{:else if typeof item === 'object' && item !== null}
+													<div class="w-full rounded-md border border-border/30 bg-surface-raised px-3 py-2 mt-1 first:mt-0">
+														{#each Object.entries(item) as [k, v]}
+															<div class="flex gap-2 text-[11px] py-0.5">
+																<span class="text-text-dim/50 shrink-0">{k}:</span>
+																<span class="text-text-muted truncate">{typeof v === 'string' ? v : JSON.stringify(v)}</span>
+															</div>
+														{/each}
+													</div>
+												{:else}
+													<span class="rounded-md border border-border/40 bg-surface-raised px-2 py-0.5 text-[11px]">{JSON.stringify(item)}</span>
+												{/if}
+											{/each}
+										</div>
+									{:else}
+										{JSON.stringify(val)}
+									{/if}
+								</div>
+							</div>
+						{/each}
 					</div>
-				{/if}
-
-				{#if data.agent.registrationData}
-					<pre
-						class="overflow-auto rounded-lg border border-border bg-surface p-4 text-xs leading-relaxed text-text-muted">{data
-							.agent.registrationData}</pre>
+				{:else if data.agent.registrationData}
+					<pre class="overflow-auto rounded-lg border border-border bg-surface p-4 text-xs leading-relaxed text-text-muted">{data.agent.registrationData}</pre>
 				{:else}
-					<div class="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-dim">
+					<div class="rounded-lg border border-dashed border-border/40 p-6 text-center text-sm text-text-dim">
 						No structured registration payload
 					</div>
 				{/if}
@@ -657,7 +709,9 @@
 		background: var(--color-border-subtle);
 	}
 	.stat-cell {
-		background: var(--color-surface-raised);
+		background: var(--color-glass-raised);
+		backdrop-filter: var(--glass-blur);
+		-webkit-backdrop-filter: var(--glass-blur);
 		transition: background 0.2s ease;
 	}
 	.stat-cell:hover {
