@@ -128,7 +128,6 @@ export function formatAgent(row: Record<string, unknown>, scores?: Record<string
     (result as Record<string, unknown>).avgScore = scores.avg_score ?? 0;
     (result as Record<string, unknown>).feedbackCount = scores.feedback_count ?? 0;
     (result as Record<string, unknown>).uniqueClients = scores.unique_clients ?? 0;
-    (result as Record<string, unknown>).validationCount = scores.validation_count ?? 0;
   }
 
   return result;
@@ -150,8 +149,6 @@ export function formatAgentDetail(row: Record<string, unknown>, scores?: Record<
       average: scores.avg_score ?? 0,
       feedbackCount: scores.feedback_count ?? 0,
       uniqueClients: scores.unique_clients ?? 0,
-      validationCount: scores.validation_count ?? 0,
-      avgValidation: scores.avg_validation_score ?? 0,
     };
   }
 
