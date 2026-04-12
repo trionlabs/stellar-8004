@@ -8,6 +8,7 @@ export async function handleStats(): Promise<Response> {
   const [
     { count: totalAgents },
     { count: totalFeedbacks },
+    { count: totalValidationsCount },
     { data: scores },
     { count: servicesCount },
     { count: x402Count },
@@ -16,20 +17,20 @@ export async function handleStats(): Promise<Response> {
   ] = await Promise.all([
     db.from('agents').select('*', { count: 'exact', head: true }),
     db.from('feedback').select('*', { count: 'exact', head: true }),
-    db.from('leaderboard_scores').select('feedback_count, validation_count, avg_score, unique_clients').limit(STATS_SAMPLE_LIMIT),
+    db.from('validations').select('*', { count: 'exact', head: true }),
+    db.from('leaderboard_scores').select('feedback_count, avg_score, unique_clients').limit(STATS_SAMPLE_LIMIT),
     db.from('agents').select('id', { count: 'exact', head: true }).neq('services', '[]').neq('services', null),
     db.from('agents').select('id', { count: 'exact', head: true }).eq('x402_enabled', true),
     db.from('agents').select('services').limit(STATS_SAMPLE_LIMIT),
     db.from('agents').select('supported_trust').limit(STATS_SAMPLE_LIMIT),
   ]);
 
-  let totalValidations = 0;
+  const totalValidations = totalValidationsCount ?? 0;
   let totalUniqueClients = 0;
   let avgScoreSum = 0;
   let scoreCount = 0;
 
   for (const s of scores ?? []) {
-    totalValidations += s.validation_count ?? 0;
     totalUniqueClients += s.unique_clients ?? 0;
     if (s.avg_score != null) {
       avgScoreSum += s.avg_score;

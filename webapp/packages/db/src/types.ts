@@ -361,14 +361,12 @@ export type Database = {
           agent_image: string | null
           agent_name: string | null
           avg_score: number | null
-          avg_validation_score: number | null
           feedback_count: number | null
           has_services: boolean | null
           owner: string | null
           supported_trust: string[] | null
           total_score: number | null
           unique_clients: number | null
-          validation_count: number | null
         }
         Relationships: []
       }
@@ -392,6 +390,7 @@ export type Database = {
       release_indexer_lock: { Args: never; Returns: undefined }
       search_agents: {
         Args: {
+          owner_filter?: string
           result_limit?: number
           result_offset?: number
           search_query: string
@@ -423,6 +422,7 @@ export type Database = {
         Args: {
           has_services_filter?: boolean
           min_score?: number
+          owner_filter?: string
           result_limit?: number
           result_offset?: number
           search_query?: string
@@ -433,14 +433,12 @@ export type Database = {
           agent_image: string
           agent_name: string
           avg_score: number
-          avg_validation_score: number
           feedback_count: number
           has_services: boolean
           owner: string
           supported_trust: string[]
           total_score: number
           unique_clients: number
-          validation_count: number
         }[]
       }
     }
