@@ -280,7 +280,14 @@
 				phase = 'cors_error';
 				return;
 			}
-			const paymentRequired = decodePaymentRequiredHeader(paymentRequiredHeader);
+			let paymentRequired;
+			try {
+				paymentRequired = decodePaymentRequiredHeader(paymentRequiredHeader);
+			} catch {
+				// Fallback: fix invalid JSON escapes (e.g. \$ in agent descriptions)
+				const fixed = atob(paymentRequiredHeader).replace(/\\(?!["\\/bfnrtu])/g, '');
+				paymentRequired = JSON.parse(fixed);
+			}
 
 			// Step 3: Create payment payload — triggers Freighter signAuthEntry popup
 			const paymentPayload = await client.createPaymentPayload(paymentRequired);
