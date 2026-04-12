@@ -115,6 +115,8 @@ export function extractServices(uriData: unknown): unknown[] {
           name: ep.type ?? ep.name ?? 'unknown',
           endpoint: ep.url ?? ep.endpoint ?? '',
           version: ep.version ?? undefined,
+          description: typeof ep.description === 'string' ? ep.description : undefined,
+          inputExample: typeof ep.inputExample === 'string' ? ep.inputExample : undefined,
         };
       })
       .filter((s) => typeof s.endpoint === 'string' && s.endpoint.length > 0);
