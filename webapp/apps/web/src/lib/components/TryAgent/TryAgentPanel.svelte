@@ -170,11 +170,19 @@
 		if (!activeService || !wallet.address || busy) return;
 
 		// Client-side JSON validation before sending
-		if (method !== 'GET' && method !== 'HEAD' && body.trim()) {
+		if (method !== 'GET' && body.trim()) {
 			try {
 				JSON.parse(body);
 			} catch {
-				errorMsg = 'Invalid JSON in request body. Please fix and try again.';
+				// Detect if user pasted a raw URL and suggest wrapping it
+				const trimmed = body.trim();
+				if (/^https?:\/\//i.test(trimmed)) {
+					const suggestion = JSON.stringify({ url: trimmed }, null, 2);
+					errorMsg = `Looks like you entered a URL. Most agents expect JSON input:`;
+					body = suggestion;
+				} else {
+					errorMsg = 'Request body must be valid JSON.';
+				}
 				phase = 'error';
 				return;
 			}
@@ -203,7 +211,9 @@
 				}
 
 				try {
-					const decoded = JSON.parse(atob(paymentHeader));
+					// Some agents have invalid JSON escapes (e.g. \$ instead of $) in descriptions
+					const raw = atob(paymentHeader).replace(/\\(?!["\\/bfnrtu])/g, '');
+					const decoded = JSON.parse(raw);
 					pricingInfo = {
 						price: decoded.maxAmountRequired || decoded.price || decoded.amount || '?',
 						network: decoded.network || 'unknown',
@@ -244,7 +254,8 @@
 		errorMsg = '';
 
 		try {
-			const { client, httpClient } = x402Module.createX402Client(wallet.address);
+			const client = x402Module.createX402Client(wallet.address);
+			const { decodePaymentRequiredHeader, encodePaymentSignatureHeader } = x402Module;
 			const opts = buildFetchOptions();
 
 			// Step 1: Fresh 402 for nonce
@@ -262,10 +273,14 @@
 				return;
 			}
 
-			// Step 2: Parse payment requirement via x402 SDK
-			const paymentRequired = httpClient.getPaymentRequiredResponse((name: string) =>
-				preflightRes.headers.get(name)
-			);
+			// Step 2: Parse payment requirement from header
+			const paymentRequiredHeader = preflightRes.headers.get('PAYMENT-REQUIRED');
+			if (!paymentRequiredHeader) {
+				errorMsg = 'Payment header not accessible. The agent may need CORS headers.';
+				phase = 'cors_error';
+				return;
+			}
+			const paymentRequired = decodePaymentRequiredHeader(paymentRequiredHeader);
 
 			// Step 3: Create payment payload — triggers Freighter signAuthEntry popup
 			const paymentPayload = await client.createPaymentPayload(paymentRequired);
@@ -273,11 +288,11 @@
 			phase = 'waiting_response';
 
 			// Step 4: Encode payment signature header
-			const paymentHeaders = httpClient.encodePaymentSignatureHeader(paymentPayload);
+			const paymentHeader = encodePaymentSignatureHeader(paymentPayload);
 
 			// Step 5: Send actual request with payment
-			const paidHeaders: Record<string, string> = { ...paymentHeaders };
-			if (method !== 'GET' && method !== 'HEAD' && body) {
+			const paidHeaders: Record<string, string> = { 'PAYMENT-SIGNATURE': paymentHeader };
+			if (method !== 'GET' && body) {
 				paidHeaders['Content-Type'] = 'application/json';
 			}
 
@@ -293,11 +308,11 @@
 			// Step 6: Parse settlement response
 			let settlementTxHash: string | null = null;
 			try {
-				const settlementResponse = httpClient.getPaymentSettleResponse((name: string) =>
-					paidRes.headers.get(name)
-				);
-				settlementTxHash =
-					(settlementResponse as Record<string, unknown>)?.txHash as string | null;
+				const paymentResponseHeader = paidRes.headers.get('PAYMENT-RESPONSE');
+				if (paymentResponseHeader) {
+					const settlement = JSON.parse(atob(paymentResponseHeader));
+					settlementTxHash = settlement?.txHash ?? settlement?.transaction ?? null;
+				}
 			} catch {
 				// Settlement header may not be present — non-blocking
 			}

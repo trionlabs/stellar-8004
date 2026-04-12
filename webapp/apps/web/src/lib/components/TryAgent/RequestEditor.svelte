@@ -15,7 +15,7 @@
 		disabled?: boolean;
 	} = $props();
 
-	const methods = ['POST', 'GET', 'PUT', 'DELETE'] as const;
+	const methods = ['POST', 'GET'] as const;
 	const showBody = $derived(method !== 'GET' && method !== 'HEAD');
 </script>
 
