@@ -8,7 +8,7 @@ sources:
     # Talk to docker-socket-proxy instead of mounting the host docker socket.
     # The proxy whitelists CONTAINERS + INFO + VERSION (read-only), so a
     # vector container compromise cannot reach the full Docker API.
-    host: tcp://docker-socket-proxy:2375
+    docker_host: tcp://docker-socket-proxy:2375
     exclude_containers:
       - supabase-vector
 
