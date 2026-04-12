@@ -55,6 +55,8 @@ export function errorResponse(code: string, message: string, httpStatus: number)
     error: { code, message },
     meta: {
       version: '1.0.0',
+      chain: 'stellar',
+      network: Deno.env.get('STELLAR_NETWORK') ?? 'testnet',
       timestamp: new Date().toISOString(),
       requestId: crypto.randomUUID(),
     },
@@ -63,6 +65,7 @@ export function errorResponse(code: string, message: string, httpStatus: number)
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
     },
   });
 }
