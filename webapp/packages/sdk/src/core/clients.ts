@@ -24,8 +24,8 @@ export function createClients(
 		networkPassphrase: config.networkPassphrase,
 		rpcUrl: config.rpcUrl,
 		publicKey: signer.publicKey,
-		signTransaction: signer.signTransaction,
-		signAuthEntry: signer.signAuthEntry,
+		signTransaction: signer.signTransaction!.bind(signer),
+		signAuthEntry: signer.signAuthEntry?.bind(signer),
 	};
 
 	return {
