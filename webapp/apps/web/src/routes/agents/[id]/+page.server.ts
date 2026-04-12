@@ -78,16 +78,6 @@ export const load: PageServerLoad = async ({ params, url }) => {
 					createdAt: string;
 					responses: Array<{ id: number; responder: string; responseUri: string | null; createdAt: string }>;
 				}>,
-				validations: [] as Array<{
-					validatorAddress: string;
-					tag: string | null;
-					hasResponse: boolean;
-					score: number | null;
-					requestUri: string | null;
-					responseUri: string | null;
-					createdAt: string;
-					respondedAt: string | null;
-				}>,
 				scores: null,
 				clientBreakdown: [] as Array<{
 					clientAddress: string;
@@ -124,19 +114,12 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const [
 		metadataResult,
 		feedbackResult,
-		validationsResult,
 		leaderboardResult,
 		responsesResult,
 		totalAgentsResult
 	] = await Promise.all([
 		db.from('agent_metadata').select('*').eq('agent_id', agentId),
 		feedbackQuery,
-		db
-			.from('validations')
-			.select('*')
-			.eq('agent_id', agentId)
-			.order('created_at', { ascending: false })
-			.limit(50),
 		db.from('leaderboard_scores').select('*').eq('agent_id', agentId).maybeSingle(),
 		db
 			.from('feedback_responses')
@@ -151,7 +134,6 @@ export const load: PageServerLoad = async ({ params, url }) => {
 
 	const metadataRows = assertSuccess(metadataResult, 'Metadata') ?? [];
 	const feedbackRows = assertSuccess(feedbackResult, 'Feedback') ?? [];
-	const validationRows = assertSuccess(validationsResult, 'Validations') ?? [];
 	const leaderboard = assertSuccess(leaderboardResult, 'Leaderboard');
 	const responseRows = assertSuccess(
 		responsesResult,
@@ -271,24 +253,12 @@ export const load: PageServerLoad = async ({ params, url }) => {
 				createdAt: response.created_at
 			}))
 		})),
-		validations: validationRows.map((validation) => ({
-			validatorAddress: validation.validator_address,
-			tag: validation.tag,
-			hasResponse: validation.has_response,
-			score: validation.response,
-			requestUri: validation.request_uri,
-			responseUri: validation.response_uri,
-			createdAt: validation.created_at,
-			respondedAt: validation.responded_at
-		})),
 		scores: leaderboard
 			? {
 					totalScore: leaderboard.total_score,
 					avgScore: leaderboard.avg_score,
 					feedbackCount: leaderboard.feedback_count ?? 0,
 					uniqueClients: leaderboard.unique_clients ?? 0,
-					validationCount: leaderboard.validation_count ?? 0,
-					avgValidationScore: leaderboard.avg_validation_score,
 					rank,
 					totalAgents
 				}
