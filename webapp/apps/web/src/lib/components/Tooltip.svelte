@@ -19,7 +19,7 @@
 	};
 </script>
 
-<span class="group/tip relative inline-flex">
+<div class="group/tip relative inline-flex">
 	{@render children()}
 	<span
 		role="tooltip"
@@ -27,4 +27,4 @@
 	>
 		{text}
 	</span>
-</span>
+</div>
