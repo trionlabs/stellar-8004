@@ -38,8 +38,6 @@
 	let txHash = $state('');
 
 	const busy = $derived(status === 'submitting');
-	const selectedStep = $derived(SCORE_STEPS.find((s) => s.value === value) ?? SCORE_STEPS[3]);
-	const selectedIndex = $derived(SCORE_STEPS.findIndex((s) => s.value === value));
 
 	async function sha256Hash(content: string): Promise<Uint8Array> {
 		const encoded = new TextEncoder().encode(content);
@@ -144,29 +142,29 @@
 			<div class="fb-score">
 				<div class="fb-score__header">
 					<span class="text-xs text-text-dim">Score</span>
-					<span class="fb-score__value" style="color: {selectedStep.color}">
-						{selectedStep.label}
-						<span class="fb-score__number">{value}</span>
-					</span>
+					{#each SCORE_STEPS.filter(s => s.value === value) as activeStep}
+						<span class="fb-score__badge" style="--step-color: {activeStep.color}">
+							<span class="fb-score__badge-dot"></span>
+							{activeStep.label}
+							<span class="fb-score__badge-num">{activeStep.value}</span>
+						</span>
+					{/each}
 				</div>
 				<div class="fb-score__track">
 					{#each SCORE_STEPS as step, i}
 						<button
 							type="button"
 							onclick={() => (value = step.value)}
-							class="fb-score__step"
-							class:fb-score__step--active={value === step.value}
-							class:fb-score__step--filled={i <= selectedIndex}
-							style="--step-color: {step.color}"
-							title="{step.label} ({step.value})"
+							class="fb-score__seg"
+							class:fb-score__seg--active={value === step.value}
+							class:fb-score__seg--filled={step.value <= value}
+							style="--step-color: {step.color}; --seg-idx: {i}"
+							aria-label="{step.label} ({step.value})"
 						>
-							<span class="fb-score__bar"></span>
+							<span class="fb-score__seg-fill"></span>
+							<span class="fb-score__seg-label">{step.label}</span>
 						</button>
 					{/each}
-				</div>
-				<div class="fb-score__labels">
-					<span class="text-[10px] text-text-dim/40">Terrible</span>
-					<span class="text-[10px] text-text-dim/40">Perfect</span>
 				</div>
 			</div>
 
@@ -272,7 +270,9 @@
 
 		border-radius: 0.75rem;
 		border: 1px solid var(--color-border);
-		background: var(--color-surface);
+		background: var(--color-glass);
+		backdrop-filter: var(--glass-blur);
+		-webkit-backdrop-filter: var(--glass-blur);
 		overflow: hidden;
 	}
 
@@ -302,7 +302,7 @@
 		flex-shrink: 0;
 	}
 
-	/* Score selector */
+	/* Score selector — segmented track */
 	.fb-score {
 		display: flex;
 		flex-direction: column;
@@ -311,71 +311,104 @@
 
 	.fb-score__header {
 		display: flex;
-		align-items: baseline;
+		align-items: center;
 		justify-content: space-between;
 	}
 
-	.fb-score__value {
-		font-size: 13px;
+	.fb-score__badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 12px;
 		font-weight: 600;
-		transition: color 0.2s;
+		color: var(--step-color);
 	}
 
-	.fb-score__number {
-		margin-left: 4px;
+	.fb-score__badge-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--step-color);
+		box-shadow: 0 0 8px var(--step-color);
+	}
+
+	.fb-score__badge-num {
 		font-size: 11px;
-		font-weight: 400;
-		opacity: 0.5;
+		font-weight: 500;
+		opacity: 0.6;
+		font-variant-numeric: tabular-nums;
 	}
 
 	.fb-score__track {
 		display: flex;
-		gap: 4px;
-		padding: 2px 0;
+		gap: 3px;
+		height: 44px;
 	}
 
-	.fb-score__step {
+	.fb-score__seg {
 		flex: 1;
+		position: relative;
+		border: none;
+		border-radius: 6px;
+		background: var(--color-surface-raised);
+		cursor: pointer;
+		overflow: hidden;
+		transition: transform 0.12s, box-shadow 0.2s;
 		display: flex;
 		align-items: flex-end;
-		cursor: pointer;
-		padding: 6px 0;
-		background: none;
-		border: none;
+		justify-content: center;
+		padding-bottom: 5px;
 	}
 
-	.fb-score__bar {
-		display: block;
-		width: 100%;
-		height: 6px;
-		border-radius: 3px;
-		background: var(--color-border);
-		transition: background 0.2s, height 0.2s, box-shadow 0.2s;
+	.fb-score__seg:hover {
+		transform: scaleY(1.08);
+		transform-origin: bottom;
 	}
 
-	.fb-score__step--filled .fb-score__bar {
+	.fb-score__seg:active {
+		transform: scaleY(0.96);
+	}
+
+	.fb-score__seg-fill {
+		position: absolute;
+		inset: 0;
+		border-radius: 6px;
 		background: var(--step-color);
-		height: 8px;
+		opacity: 0;
+		transition: opacity 0.2s;
 	}
 
-	.fb-score__step--active .fb-score__bar {
-		height: 12px;
-		box-shadow: 0 0 8px -2px var(--step-color);
+	.fb-score__seg--filled .fb-score__seg-fill {
+		opacity: 0.15;
 	}
 
-	.fb-score__step:hover .fb-score__bar {
-		height: 10px;
-		background: var(--step-color);
-		opacity: 0.7;
+	.fb-score__seg--active .fb-score__seg-fill {
+		opacity: 0.35;
 	}
 
-	.fb-score__step--active:hover .fb-score__bar {
+	.fb-score__seg--active {
+		box-shadow: 0 0 14px -3px var(--step-color), inset 0 0 0 1.5px color-mix(in srgb, var(--step-color) 50%, transparent);
+	}
+
+	.fb-score__seg:hover .fb-score__seg-fill {
+		opacity: 0.22;
+	}
+
+	.fb-score__seg-label {
+		position: relative;
+		z-index: 1;
+		font-size: 9px;
+		font-weight: 500;
+		color: var(--color-text-dim);
+		opacity: 0;
+		transition: opacity 0.15s;
+		white-space: nowrap;
+	}
+
+	.fb-score__seg--active .fb-score__seg-label,
+	.fb-score__seg:hover .fb-score__seg-label {
 		opacity: 1;
-	}
-
-	.fb-score__labels {
-		display: flex;
-		justify-content: space-between;
+		color: var(--step-color);
 	}
 
 	/* Tag pills */
