@@ -165,18 +165,19 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		responsesByFeedback.set(key, entries);
 	}
 
-	// QW2: Metadata completeness (0-100)
-	const metadataCompleteness = (() => {
+	// QW2: Metadata completeness (0-100) + missing field names
+	const metadataDetail = (() => {
 		const uriData = agent.agent_uri_data;
-		if (!uriData || typeof uriData !== 'object' || Array.isArray(uriData)) return 0;
+		if (!uriData || typeof uriData !== 'object' || Array.isArray(uriData))
+			return { score: 0, missing: ['name', 'description', 'image', 'services', 'trust'] };
 		const record = uriData as Record<string, unknown>;
-		let score = 0;
-		if (typeof record.name === 'string' && record.name.length > 0) score += 20;
-		if (typeof record.description === 'string' && record.description.length > 0) score += 20;
-		if (typeof record.image === 'string' && record.image.length > 0) score += 20;
-		if (Array.isArray(record.services) && record.services.length > 0) score += 20;
-		if (Array.isArray(record.supportedTrust) && record.supportedTrust.length > 0) score += 20;
-		return score;
+		const missing: string[] = [];
+		if (!(typeof record.name === 'string' && record.name.length > 0)) missing.push('name');
+		if (!(typeof record.description === 'string' && record.description.length > 0)) missing.push('description');
+		if (!(typeof record.image === 'string' && record.image.length > 0)) missing.push('image');
+		if (!(Array.isArray(record.services) && record.services.length > 0)) missing.push('services');
+		if (!(Array.isArray(record.supportedTrust) && record.supportedTrust.length > 0)) missing.push('trust');
+		return { score: (5 - missing.length) * 20, missing };
 	})();
 
 	// QW3: Momentum - feedback in last 7 days vs total
@@ -264,7 +265,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 				}
 			: null,
 		clientBreakdown,
-		metadataCompleteness,
+		metadataCompleteness: metadataDetail.score,
+		metadataMissing: metadataDetail.missing,
 		recentFeedbackCount
 	};
 };
