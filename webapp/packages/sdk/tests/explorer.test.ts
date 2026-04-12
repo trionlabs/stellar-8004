@@ -82,8 +82,7 @@ describe('ExplorerClient', () => {
 			page: 1,
 			limit: 10,
 			total: 25,
-			hasMore: true,
-			nextPage: 2
+			hasMore: true
 		});
 	});
 

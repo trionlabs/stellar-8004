@@ -8,7 +8,6 @@ export interface PaginationMeta {
 	limit: number;
 	total: number;
 	hasMore: boolean;
-	nextPage: number | null;
 }
 
 export interface ApiMeta {
@@ -35,26 +34,32 @@ export interface AgentResponse {
 	owner: string;
 	wallet?: string | null;
 	agentUri?: string | null;
-	agentUriData?: Record<string, unknown> | null;
 	supportedTrust?: string[];
 	services?: ServiceEntry[];
 	x402Enabled?: boolean;
+	hasServices?: boolean;
 	createdAt?: string;
-	updatedAt?: string;
 	createdLedger?: number | null;
 	txHash?: string | null;
-	resolveUriPending?: boolean;
-	uriResolveAttempts?: number;
 	totalScore?: number | null;
 	avgScore?: number | null;
 	feedbackCount?: number;
 	uniqueClients?: number;
-	hasServices?: boolean;
+	/** Only present in detail responses (getAgent) */
+	metadata?: Record<string, string>;
+	/** Only present in detail responses (getAgent) */
+	scores?: {
+		total: number;
+		average: number;
+		feedbackCount: number;
+		uniqueClients: number;
+	};
+	/** Only present in detail responses (getAgent) */
+	resolveStatus?: 'ready' | 'resolving' | 'no-uri';
 	[key: string]: unknown;
 }
 
 export interface FeedbackReplyResponse {
-	id: number;
 	responder: string;
 	responseUri: string | null;
 	createdAt: string;
@@ -62,38 +67,47 @@ export interface FeedbackReplyResponse {
 }
 
 export interface FeedbackResponse {
-	id: number;
-	agentId: number;
+	feedbackIndex: number;
 	clientAddress: string;
-	score?: number;
-	value?: number | string | null;
+	value: number | string | null;
 	valueDecimals?: number;
-	feedbackIndex?: number;
 	tag1?: string | null;
 	tag2?: string | null;
 	endpoint?: string | null;
 	feedbackUri?: string | null;
-	feedbackHash?: string | null;
 	isRevoked?: boolean;
 	createdAt: string;
-	txHash?: string | null;
 	responses?: FeedbackReplyResponse[];
 	[key: string]: unknown;
 }
 
 export interface StatsResponse {
-	totalAgents?: number;
-	totalFeedback?: number;
-	totalClients?: number;
-	validatedAgents?: number;
+	totalAgents: number;
+	totalFeedbacks: number;
+	totalValidations: number;
+	totalUniqueClients: number;
+	averageFeedbackScore: number;
+	agentsWithServices: number;
+	agentsWithX402: number;
+	network: string;
+	protocolDistribution: { a2a: number; mcp: number; other: number };
+	trustDistribution: { reputation: number; validation: number; tee: number };
 	[key: string]: unknown;
+}
+
+export interface IndexerStatus {
+	lastLedger: number;
+	stale: boolean;
 }
 
 export interface HealthResponse {
 	status: string;
-	latestLedger?: number;
-	ledgerRetentionWindow?: number;
-	oldestLedger?: number;
+	indexer: {
+		identity: IndexerStatus;
+		reputation: IndexerStatus;
+		validation: IndexerStatus;
+	};
+	network: string;
 	[key: string]: unknown;
 }
 
@@ -228,8 +242,7 @@ function normalizePagination(meta: ApiMeta): ApiMeta {
 			page,
 			limit,
 			total,
-			hasMore,
-			nextPage: hasMore ? page + 1 : null
+			hasMore
 		}
 	};
 }
@@ -294,8 +307,13 @@ function buildSignal(timeoutMs: number): AbortSignal {
 		return AbortSignal.timeout(timeoutMs);
 	}
 
+	// Fallback for older runtimes — timer is cleaned up via AbortSignal.addEventListener
 	const controller = new AbortController();
-	setTimeout(() => controller.abort(), timeoutMs);
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	// Clear timer if the signal is aborted by another source (e.g., request completes)
+	if (typeof timer === 'object' && 'unref' in timer) {
+		(timer as NodeJS.Timeout).unref();
+	}
 	return controller.signal;
 }
 
@@ -313,7 +331,17 @@ export class ExplorerClient {
 		this.fetchImpl = options.fetch ?? fetch;
 	}
 
-	async getAgents(params?: { page?: number; limit?: number }) {
+	async getAgents(params?: {
+		page?: number;
+		limit?: number;
+		search?: string;
+		trust?: string;
+		minScore?: number;
+		hasServices?: boolean;
+		x402?: boolean;
+		sortBy?: 'created_at' | 'id';
+		sortOrder?: 'asc' | 'desc';
+	}) {
 		return this.request<AgentResponse[]>('/api/v1/agents', {
 			params,
 			resource: 'Agent list'
@@ -342,7 +370,7 @@ export class ExplorerClient {
 		);
 	}
 
-	async search(q: string, params?: { page?: number; limit?: number }) {
+	async search(q: string, params?: { limit?: number; trust?: string; minScore?: number }) {
 		return this.request<AgentResponse[]>('/api/v1/search', {
 			params: { ...params, q },
 			resource: `Search results for "${q}"`
@@ -379,7 +407,12 @@ export class ExplorerClient {
 				});
 
 				if (response.ok) {
-					const body = (await response.json()) as ApiResponse<T>;
+					let body: ApiResponse<T>;
+					try {
+						body = (await response.json()) as ApiResponse<T>;
+					} catch {
+						throw new ApiError(response.status, 'Invalid JSON in response');
+					}
 
 					if (body.success === false) {
 						throw new ApiError(
