@@ -150,7 +150,7 @@ export const load: PageServerLoad = async ({ url }) => {
 					has_services_filter: hasServices ?? undefined,
 					result_limit: perPage,
 					result_offset: offset,
-					owner_filter: ownerFilter || null,
+					owner_filter: ownerFilter || undefined,
 				}),
 				'Advanced search'
 			) ?? [];
@@ -190,7 +190,7 @@ export const load: PageServerLoad = async ({ url }) => {
 					search_query: query,
 					result_limit: perPage,
 					result_offset: offset,
-					owner_filter: ownerFilter || null,
+					owner_filter: ownerFilter || undefined,
 				}),
 				'Agent search'
 			) ?? [];
