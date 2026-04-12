@@ -1,8 +1,8 @@
 {
   "name": "@trionlabs/8004-sdk",
-  "version": "0.2.0",
+  "version": "0.0.1",
   "description": "TypeScript SDK for ERC-8004 agent registration, storage, signing, and explorer reads on Stellar.",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "author": {
     "name": "Trion Labs"
   },
@@ -28,11 +28,11 @@
   "homepage": "https://stellar8004.com/developers",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yamancan/stellar8004.git",
-    "directory": "packages/sdk"
+    "url": "https://github.com/trionlabs/stellar-8004.git",
+    "directory": "webapp/packages/sdk"
   },
   "bugs": {
-    "url": "https://github.com/yamancan/stellar8004/issues"
+    "url": "https://github.com/trionlabs/stellar-8004/issues"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -143,7 +143,6 @@
     },
     "./package.json": "./package.json"
   },
-  "packageManager": "pnpm@10.23.0",
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
