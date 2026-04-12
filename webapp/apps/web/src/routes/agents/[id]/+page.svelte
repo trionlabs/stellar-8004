@@ -275,136 +275,134 @@
 		</div>
 	{/if}
 
-	<section class="space-y-6 reveal">
-		<!-- Hero: identity + stats -->
-		<div class="space-y-6">
-			<div class="space-y-4">
-				<div class="flex items-center gap-4">
-					<div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/40 bg-surface-raised/50">
-						{#if data.agent.image}
-							<img src={sanitizeImageUrl(data.agent.image)} alt="" class="h-full w-full object-cover" />
-						{:else}
-							<StarIdenticon seed={String(data.agent.id)} size={48} />
-						{/if}
-					</div>
-					<div>
-						<h1 class="text-xl font-light tracking-tight text-text">{data.agent.name}</h1>
-						<div class="mt-1 flex items-center gap-2 text-[11px]">
-							<Tooltip text={copySuccess === data.agent.owner ? 'Copied!' : data.agent.owner}>
-								<button type="button" onclick={() => copyToClipboard(data.agent.owner)} class="font-mono text-text-dim/50 transition hover:text-text-muted cursor-pointer">
-									{shortAddress(data.agent.owner)}
-								</button>
-							</Tooltip>
-							<span class="text-text-dim/25">-</span>
-							<span class="text-text-dim/50">{dateFormatter.format(new Date(data.agent.createdAt))}</span>
-							<span class="text-text-dim/25">-</span>
-							<Tooltip text={copySuccess === String(data.agent.id) ? 'Copied!' : `Agent ID: ${data.agent.id}`}>
-								<button type="button" onclick={() => copyToClipboard(String(data.agent.id))} class="text-accent/60 transition hover:text-accent cursor-pointer">
-									#{data.agent.id}
-								</button>
-							</Tooltip>
-						</div>
-					</div>
-				</div>
-
-				{#if data.agent.description}
-					<p class="max-w-xl text-sm leading-relaxed text-text-muted">{data.agent.description}</p>
+	<!-- Compact Hero: identity + inline trust signals -->
+	<section class="space-y-4 reveal">
+		<div class="flex items-start gap-4">
+			<div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/40 bg-surface-raised/50">
+				{#if data.agent.image}
+					<img src={sanitizeImageUrl(data.agent.image)} alt="" class="h-full w-full object-cover" />
+				{:else}
+					<StarIdenticon seed={String(data.agent.id)} size={56} />
 				{/if}
-
+			</div>
+			<div class="min-w-0 flex-1">
+				<div class="flex items-center gap-3">
+					<h1 class="truncate text-xl font-light tracking-tight text-text">{data.agent.name}</h1>
+					{#if data.scores?.totalScore != null}
+						<Tooltip text={`Rank #${data.scores.rank ?? '?'} of ${data.scores.totalAgents ?? '?'} agents`}>
+							<span class="shrink-0 rounded-full border border-positive/20 bg-positive/5 px-2 py-0.5 text-xs font-medium tabular-nums text-positive">
+								{scoreFormatter.format(data.scores.totalScore)}
+							</span>
+						</Tooltip>
+					{/if}
+					{#if data.scores && data.scores.feedbackCount > 0}
+						<span class="shrink-0 text-[11px] tabular-nums text-text-dim">
+							{data.scores.feedbackCount} review{data.scores.feedbackCount !== 1 ? 's' : ''}
+						</span>
+					{/if}
+				</div>
+				<div class="mt-1 flex items-center gap-2 text-[11px]">
+					<Tooltip text={copySuccess === data.agent.owner ? 'Copied!' : data.agent.owner}>
+						<button type="button" onclick={() => copyToClipboard(data.agent.owner)} class="font-mono text-text-dim/50 transition hover:text-text-muted cursor-pointer">
+							{shortAddress(data.agent.owner)}
+						</button>
+					</Tooltip>
+					<span class="text-text-dim/25">-</span>
+					<span class="text-text-dim/50">{dateFormatter.format(new Date(data.agent.createdAt))}</span>
+					<span class="text-text-dim/25">-</span>
+					<Tooltip text={copySuccess === String(data.agent.id) ? 'Copied!' : `Agent ID: ${data.agent.id}`}>
+						<button type="button" onclick={() => copyToClipboard(String(data.agent.id))} class="text-accent/60 transition hover:text-accent cursor-pointer">
+							#{data.agent.id}
+						</button>
+					</Tooltip>
+				</div>
+				{#if data.agent.description}
+					<p class="mt-2 line-clamp-2 text-sm leading-relaxed text-text-muted">{data.agent.description}</p>
+				{/if}
 				{#if data.agent.supportedTrust.length > 0 || data.agent.x402Enabled}
-					<div class="flex flex-wrap gap-1.5">
+					<div class="mt-2 flex flex-wrap gap-1.5">
 						{#each data.agent.supportedTrust as trust}
 							<Tooltip text={TRUST_DESCRIPTIONS[trust] ?? trust}>
-							<span class="rounded-full border border-positive/15 bg-positive/4 px-2.5 py-0.5 text-[10px] text-positive">{trust}</span>
+							<span class="rounded-full border border-positive/15 bg-positive/4 px-2 py-0.5 text-[10px] text-positive">{trust}</span>
 							</Tooltip>
 						{/each}
 						{#if data.agent.x402Enabled}
 							<Tooltip text="Accepts x402 micropayments">
-							<span class="rounded-full border border-accent/15 bg-accent/4 px-2.5 py-0.5 text-[10px] text-accent">x402</span>
+							<span class="rounded-full border border-accent/15 bg-accent/4 px-2 py-0.5 text-[10px] text-accent">x402</span>
 							</Tooltip>
 						{/if}
 					</div>
 				{/if}
-
-				{#if wallet.connected && isOwner}
-					<div class="flex items-center gap-3 rounded-xl border border-accent/15 bg-accent-fill px-4 py-3">
-						<span class="h-1.5 w-1.5 rounded-full bg-positive animate-pulse"></span>
-						<p class="flex-1 text-[11px] text-text-muted">You own this agent</p>
-						{#if data.state === 'ready' || data.state === 'no-uri' || data.state === 'failed'}
-							<a href={resolve(`/agents/${data.agent.id}/edit`)}
-								class="flex items-center gap-1.5 rounded-lg bg-accent-fill-hover px-4 py-2
-								       border border-accent/25 text-xs font-medium text-accent
-								       shadow-accent-sm
-								       hover:border-accent/40 hover:shadow-accent-md
-								       transition-all">
-								<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-									<path stroke-linecap="round" stroke-linejoin="round"
-										d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-								</svg>
-								Edit Agent
-							</a>
-						{/if}
-					</div>
-				{/if}
 			</div>
-
-			<!-- Stats -->
-			<div class="space-y-3 reveal reveal-d2">
-				<div class="stat-row grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border/30">
-					<div class="stat-cell px-4 py-3.5" title="Aggregate trust score from feedback and volume">
-						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Score</p>
-						<p class="mt-1 text-lg font-light tabular-nums text-positive">
-							{#if data.scores?.totalScore != null}
-								{scoreFormatter.format(data.scores.totalScore)}
-							{:else}
-								<span class="text-text-dim/30">--</span>
-							{/if}
-						</p>
-						{#if data.scores?.rank != null}
-							<p class="mt-0.5 text-[10px] text-text-dim/40">
-								#{data.scores.rank}{data.scores.totalAgents ? ` / ${data.scores.totalAgents}` : ''}
-							</p>
-						{/if}
-					</div>
-					<div class="stat-cell px-4 py-3.5" title="Total feedback submissions from clients">
-						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
-						<p class="mt-1 text-lg font-light tabular-nums text-text">{data.scores?.feedbackCount ?? 0}</p>
-						{#if data.scores && data.scores.feedbackCount > 0}
-							<p class="mt-0.5 text-[10px] text-text-dim/40">
-								{data.scores.uniqueClients} client{data.scores.uniqueClients !== 1 ? 's' : ''}
-							</p>
-							<p class="text-[10px] {data.scores.uniqueClients / data.scores.feedbackCount >= 0.5 ? 'text-positive/60' : 'text-warning/60'}">
-								{Math.round(data.scores.uniqueClients / data.scores.feedbackCount * 100)}% diverse
-							</p>
-						{/if}
-						{#if data.recentFeedbackCount > 0}
-							<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>
-						{/if}
-					</div>
-					<div class="stat-cell px-4 py-3.5" title={data.metadataMissing.length > 0 ? `Missing: ${data.metadataMissing.join(', ')}` : 'All metadata fields complete'}>
-						<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Metadata</p>
-						<p class="mt-1 text-lg font-light tabular-nums {data.metadataCompleteness >= 80 ? 'text-positive' : data.metadataCompleteness >= 40 ? 'text-warning' : 'text-negative'}">
-							{data.metadataCompleteness}%
-						</p>
-					</div>
-				</div>
-				{#if data.scores}
-					<ScoreBreakdown
-						feedbackCount={data.scores.feedbackCount ?? 0}
-						totalScore={data.scores.totalScore ?? 0}
-					/>
-				{/if}
-			</div>
+			{#if wallet.connected && isOwner && (data.state === 'ready' || data.state === 'no-uri' || data.state === 'failed')}
+				<a href={resolve(`/agents/${data.agent.id}/edit`)}
+					class="flex shrink-0 items-center gap-1.5 rounded-lg bg-accent-fill-hover px-3 py-1.5
+					       border border-accent/25 text-xs font-medium text-accent
+					       hover:border-accent/40 transition-all">
+					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+						<path stroke-linecap="round" stroke-linejoin="round"
+							d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+					</svg>
+					Edit
+				</a>
+			{/if}
 		</div>
-
 	</section>
 
-	<!-- Try Panel — prominent, above tabs -->
+	<!-- Trust stats — compact horizontal bar -->
+	<section class="reveal reveal-d1">
+		<div class="stat-row grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border/30">
+			<div class="stat-cell px-4 py-3" title="Aggregate trust score from feedback and volume">
+				<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Score</p>
+				<p class="mt-1 text-lg font-light tabular-nums text-positive">
+					{#if data.scores?.totalScore != null}
+						{scoreFormatter.format(data.scores.totalScore)}
+					{:else}
+						<span class="text-text-dim/30">--</span>
+					{/if}
+				</p>
+				{#if data.scores?.rank != null}
+					<p class="mt-0.5 text-[10px] text-text-dim/40">
+						#{data.scores.rank}{data.scores.totalAgents ? ` / ${data.scores.totalAgents}` : ''}
+					</p>
+				{/if}
+			</div>
+			<div class="stat-cell px-4 py-3" title="Total feedback submissions from clients">
+				<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
+				<p class="mt-1 text-lg font-light tabular-nums text-text">{data.scores?.feedbackCount ?? 0}</p>
+				{#if data.scores && data.scores.feedbackCount > 0}
+					<p class="mt-0.5 text-[10px] text-text-dim/40">
+						{data.scores.uniqueClients} client{data.scores.uniqueClients !== 1 ? 's' : ''}
+					</p>
+				{/if}
+				{#if data.recentFeedbackCount > 0}
+					<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>
+				{/if}
+			</div>
+			<div class="stat-cell px-4 py-3" title={data.metadataMissing.length > 0 ? `Missing: ${data.metadataMissing.join(', ')}` : 'All metadata fields complete'}>
+				<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Metadata</p>
+				<p class="mt-1 text-lg font-light tabular-nums {data.metadataCompleteness >= 80 ? 'text-positive' : data.metadataCompleteness >= 40 ? 'text-warning' : 'text-negative'}">
+					{data.metadataCompleteness}%
+				</p>
+			</div>
+		</div>
+		{#if data.scores}
+			<div class="mt-3">
+				<ScoreBreakdown
+					feedbackCount={data.scores.feedbackCount ?? 0}
+					totalScore={data.scores.totalScore ?? 0}
+				/>
+			</div>
+		{/if}
+	</section>
+
+	<!-- TRY PANEL — after stats -->
 	{#if showTryPanel}
 		<section class="reveal reveal-d2">
 			<TryAgentPanel
 				services={data.agent.services}
 				x402Enabled={data.agent.x402Enabled}
+				autoOpen={true}
 			/>
 		</section>
 	{/if}
