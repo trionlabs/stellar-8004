@@ -319,7 +319,13 @@
 	<!-- ─── 5. IDENTITY REGISTRY ──────────────────────── -->
 	<section id="identity" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
-			<p class="text-[11px] font-mono tracking-[0.25em] text-accent uppercase">Contract 1 of 3</p>
+			<div class="flex items-center gap-3">
+				<p class="text-[11px] font-mono tracking-[0.25em] text-accent uppercase">Contract 1 of 3</p>
+				<a href="https://stellar.expert/explorer/public/contract/CBGPDCJIHQ32G42BE7F2CIT3YW6XRN5ED6GQJHCRZSNAYH6TGMCL6X35" target="_blank" rel="noopener noreferrer" class="rounded-full border border-positive/30 bg-positive-soft px-2.5 py-0.5 text-[10px] font-mono text-positive transition hover:bg-positive/15 flex items-center gap-1.5">
+					<span class="h-1 w-1 rounded-full bg-positive animate-pulse"></span>
+					Mainnet
+				</a>
+			</div>
 			<h2 class="text-3xl font-light tracking-tight">Identity Registry</h2>
 			<p class="text-[15px] text-text-muted font-light leading-relaxed max-w-2xl">Every AI agent gets an on-chain identity &mdash; discoverable, verifiable, permanent.</p>
 		</div>
@@ -373,7 +379,13 @@
 	<!-- ─── 6. REPUTATION REGISTRY ────────────────────── -->
 	<section id="reputation" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
-			<p class="text-[11px] font-mono tracking-[0.25em] text-positive uppercase">Contract 2 of 3</p>
+			<div class="flex items-center gap-3">
+				<p class="text-[11px] font-mono tracking-[0.25em] text-positive uppercase">Contract 2 of 3</p>
+				<a href="https://stellar.expert/explorer/public/contract/CBOIAIMMWAXI57OATLX6BWVDQLCC4YU55HV6MZXFRP6CBSGAMXSTEPPA" target="_blank" rel="noopener noreferrer" class="rounded-full border border-positive/30 bg-positive-soft px-2.5 py-0.5 text-[10px] font-mono text-positive transition hover:bg-positive/15 flex items-center gap-1.5">
+					<span class="h-1 w-1 rounded-full bg-positive animate-pulse"></span>
+					Mainnet
+				</a>
+			</div>
 			<h2 class="text-3xl font-light tracking-tight">Reputation Registry</h2>
 			<p class="text-[15px] text-text-muted font-light leading-relaxed max-w-2xl">Real users rate agents. Scores calculated on-chain with weighted averaging.</p>
 		</div>
@@ -407,7 +419,13 @@
 	<!-- ─── 7. VALIDATION REGISTRY ────────────────────── -->
 	<section id="validation" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
-			<p class="text-[11px] font-mono tracking-[0.25em] text-warning uppercase">Contract 3 of 3</p>
+			<div class="flex items-center gap-3">
+				<p class="text-[11px] font-mono tracking-[0.25em] text-warning uppercase">Contract 3 of 3</p>
+				<a href="https://stellar.expert/explorer/public/contract/CBT6WWEVEPT2UFGFGVJJ7ELYGLQAGRYSVGDTGMCJTRWXOH27MWUO7UJG" target="_blank" rel="noopener noreferrer" class="rounded-full border border-positive/30 bg-positive-soft px-2.5 py-0.5 text-[10px] font-mono text-positive transition hover:bg-positive/15 flex items-center gap-1.5">
+					<span class="h-1 w-1 rounded-full bg-positive animate-pulse"></span>
+					Mainnet
+				</a>
+			</div>
 			<h2 class="text-3xl font-light tracking-tight">Validation Registry</h2>
 			<p class="text-[15px] text-text-muted font-light leading-relaxed max-w-2xl">Third-party organizations endorse agents through on-chain attestations.</p>
 		</div>
