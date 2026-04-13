@@ -66,7 +66,7 @@ agent = requests.get('https://stellar8004.com/api/v1/agents/1').json()`
 		py: 'python'
 	} as const;
 
-	const sdkInstallCommand = `pnpm add @trionlabs/8004-sdk @stellar/stellar-sdk
+	const sdkInstallCommand = `pnpm add @trionlabs/stellar8004 @stellar/stellar-sdk
 pnpm add -D tsx
 
 # Optional: browser signer support
@@ -81,7 +81,7 @@ import {
   fundTestnet,
   getMetadataSize,
   wrapBasicSigner
-} from '@trionlabs/8004-sdk';
+} from '@trionlabs/stellar8004';
 
 const secret = process.env.STELLAR_SECRET_KEY;
 if (!secret) {
@@ -168,7 +168,7 @@ import {
   fundTestnet,
   getMetadataSize,
   wrapBasicSigner
-} from '@trionlabs/8004-sdk';
+} from '@trionlabs/stellar8004';
 
 const secret = process.env.STELLAR_SECRET_KEY;
 if (!secret) {
@@ -231,7 +231,7 @@ for (let attempt = 1; attempt <= 12; attempt += 1) {
   }
 }`;
 
-	const apiClientExample = `import { ExplorerClient } from '@trionlabs/8004-sdk';
+	const apiClientExample = `import { ExplorerClient } from '@trionlabs/stellar8004';
 
 const explorer = new ExplorerClient('https://stellar8004.com');
 
