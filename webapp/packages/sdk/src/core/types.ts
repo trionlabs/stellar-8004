@@ -13,4 +13,5 @@ export interface AgentFormData {
 	services: ServiceEntry[];
 	supportedTrust: string[];
 	x402Enabled: boolean;
+	mppEnabled: boolean;
 }

@@ -124,6 +124,7 @@ export function formatAgent(row: Record<string, unknown>, scores?: Record<string
     image: sanitizeString(readUriData(row, 'image'), 4096) ?? null,
     supportedTrust: row.supported_trust ?? [],
     x402Enabled: row.x402_enabled ?? false,
+    mppEnabled: row.mpp_enabled ?? false,
     hasServices: (row.services && Array.isArray(row.services) && (row.services as unknown[]).length > 0) ?? false,
     createdAt: row.created_at,
   };

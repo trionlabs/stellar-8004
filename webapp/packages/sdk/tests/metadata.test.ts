@@ -21,7 +21,8 @@ const formData: AgentFormData = {
 		}
 	],
 	supportedTrust: ['reputation'],
-	x402Enabled: true
+	x402Enabled: true,
+	mppEnabled: false
 };
 
 describe('metadata helpers', () => {
@@ -41,6 +42,18 @@ describe('metadata helpers', () => {
 			supportedTrust: ['reputation'],
 			x402: true
 		});
+	});
+
+	it('includes mpp field when mppEnabled is true', () => {
+		const mppForm = { ...formData, mppEnabled: true };
+		const metadata = buildMetadataJson(mppForm);
+		expect(metadata.mpp).toBe(true);
+		expect(metadata.x402).toBe(true);
+	});
+
+	it('omits mpp field when mppEnabled is false', () => {
+		const metadata = buildMetadataJson(formData);
+		expect('mpp' in metadata).toBe(false);
 	});
 
 	it('preserves unknown keys when rebuilding edit metadata', () => {

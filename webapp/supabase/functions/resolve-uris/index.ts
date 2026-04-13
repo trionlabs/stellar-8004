@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { resolveUri, extractSupportedTrust, extractServices, extractX402 } from '../_shared/uri.ts';
+import { resolveUri, extractSupportedTrust, extractServices, extractX402, extractMpp } from '../_shared/uri.ts';
 
 const BATCH_SIZE = 5;
 const MAX_ATTEMPTS = 5;
@@ -116,6 +116,7 @@ Deno.serve(async (request: Request) => {
         const supportedTrust = extractSupportedTrust(uriData);
         const services = extractServices(uriData);
         const x402Enabled = extractX402(uriData);
+        const mppEnabled = extractMpp(uriData);
 
         const { error: updateError } = await db
           .from('agents')
@@ -124,6 +125,7 @@ Deno.serve(async (request: Request) => {
             supported_trust: supportedTrust,
             services: services,
             x402_enabled: x402Enabled,
+            mpp_enabled: mppEnabled,
             uri_resolve_attempts: 0,
             resolve_uri_pending: false,
           })
