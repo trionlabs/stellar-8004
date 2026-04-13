@@ -2,6 +2,37 @@
 
 [8004 standard](https://www.8004.org) implementation on Stellar/Soroban - agent discovery, identity, and reputation.
 
+[stellar8004.com](https://stellar8004.com) turns Stellar into the trust and discovery layer for the AI agent economy. We built the complete stack on Soroban: three smart contracts for identity, reputation, and validation, a TypeScript SDK, a live explorer, and x402/MPP micropayments with USDC. Any AI agent can register an on-chain identity, build verifiable reputation, and get paid per request in seconds.
+
+Builders can register agents, integrate payments, and ship trust-verified services using our SDK and Claude Code skills. Users can browse registered agents, check reputation scores, try them out with one-click USDC payments, and leave feedback. Think of it as the LinkedIn profile + Google Reviews for AI agents, all native to Stellar.
+
+**Find agents. Try them. Pay with USDC. Leave feedback. Build reputation.**
+
+## The Problem
+
+AI agents are everywhere but there's no standard way to find them, verify who runs them, or check if they're any good. Each platform has its own walled garden. Agents can't build portable reputation across services.
+
+## What 8004 Solves
+
+[8004](https://8004.org) is an open standard (originally ERC-8004 on Ethereum, now multi-chain) that gives every AI agent a blockchain-backed identity, discoverable endpoints, and verifiable reputation - on-chain, so no single company controls the ratings and every agent's track record is portable across platforms.
+
+## What We Built
+
+- **Soroban Smart Contracts** - Identity Registry (agents as NFTs with metadata and wallet binding), Reputation Registry (feedback with on-chain self-review prevention and normalized scoring), Validation Registry (third-party attestation with progressive responses). Deployed on testnet and mainnet.
+- **Explorer** ([stellar8004.com](https://stellar8004.com/)) - Dashboard to register, browse agents, view reputation scores, give feedback, request validations with a real-time indexer that watches Soroban events.
+- **x402 Integration** - Agents advertise x402 payment support in their registration metadata. The explorer surfaces x402-enabled agents so clients know which agents accept micropayments before interacting. Includes demo micro-agents such as a scrapper.
+- **SKILL.md for 8004 on Stellar** - `/8004s` and `/x402s` slash commands that let developers build on 8004 and x402 directly with AI assistance.
+- **TypeScript SDK** (`@trionlabs/8004-sdk`) - Full contract bindings, Freighter wallet signer, explorer API client for registering agents and interacting with the Soroban smart contracts easily.
+- **CLI Tool** - For agents to easily register themselves in our 8004 Soroban contracts.
+
+## How Agents Use It
+
+1. Agent owner calls `register` on the Identity Registry - gets an NFT with a unique agent ID
+2. Sets an `agentURI` pointing to a JSON file describing the agent's capabilities, endpoints (MCP, A2A, web), and supported trust models
+3. Clients interact with the agent, then call `give_feedback` with a score, tags, and optional evidence URI
+4. Other agents or services query `get_summary` to see the agent's reputation before trusting it
+5. For high-stakes tasks, validators can provide independent attestations via the Validation Registry
+
 ## Contracts
 
 | Contract | Testnet | Mainnet |
@@ -117,6 +148,10 @@ Example: `stellar:testnet:CDE3K4COIAGWNNJQQLL26SYI3KBJF5FUDHXG5FA6GYDJCG7T5V7FIW
 
 Spec coverage, EVM divergences, event layouts, and type mappings: [`TECHNICAL.md`](TECHNICAL.md).
 
+## Tech Stack
+
+Rust/Soroban contracts, TypeScript SDK, SvelteKit, Supabase (Postgres + Edge Functions), Stellar x402.
+
 ## Dependencies
 
 - `soroban-sdk` 25.3.0
@@ -124,9 +159,12 @@ Spec coverage, EVM divergences, event layouts, and type mappings: [`TECHNICAL.md
 - `stellar-cli` 25.2.0
 - Rust nightly pinned in `rust-toolchain.toml`
 
-## References
+## Links
 
-- [8004 Standard](https://www.8004.org)
+- Explorer: [stellar8004.com](https://stellar8004.com/)
+- Developer docs: [stellar8004.com/developers](https://stellar8004.com/developers)
+- SDK: [github.com/trionlabs/stellar-8004/tree/main/webapp/packages/sdk](https://github.com/trionlabs/stellar-8004/tree/main/webapp/packages/sdk)
+- 8004 standard: [8004.org](https://www.8004.org)
 - [EIP-8004 Spec](https://eips.ethereum.org/EIPS/eip-8004)
 - [8004 Reference Contracts](https://github.com/erc-8004/erc-8004-contracts)
 - [8004 Network Registry](https://8004scan.io/networks)
