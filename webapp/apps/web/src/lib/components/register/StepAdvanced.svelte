@@ -5,7 +5,7 @@
 		{ value: 'tee-attestation', label: 'TEE Attestation Trust', desc: 'Trusted Execution Environment provides cryptographic proof of agent code and execution integrity' }
 	];
 
-	let { supportedTrust, x402Enabled = $bindable() }: { supportedTrust: string[]; x402Enabled: boolean } = $props();
+	let { supportedTrust, x402Enabled = $bindable(), mppEnabled = $bindable() }: { supportedTrust: string[]; x402Enabled: boolean; mppEnabled: boolean } = $props();
 
 	function toggleTrust(value: string) {
 		const idx = supportedTrust.indexOf(value);
@@ -55,7 +55,18 @@
 			/>
 			<div>
 				<span class="text-sm font-medium text-text">HTTP 402 Payment Support (x402)</span>
-				<p class="text-[11px] text-text-dim">Enable if your agent implements the HTTP 402 standard for paid services (microtransactions, per-request billing)</p>
+				<p class="text-[11px] text-text-dim">Enable if your agent uses x402 with a facilitator (OZ Channels / Coinbase) for paid services</p>
+			</div>
+		</label>
+		<label class="flex items-start gap-3 rounded-xl border border-border bg-surface p-4 cursor-pointer hover:bg-surface-raised transition-colors">
+			<input
+				type="checkbox"
+				bind:checked={mppEnabled}
+				class="mt-0.5 h-4 w-4 rounded border-border text-accent focus:ring-accent/20"
+			/>
+			<div>
+				<span class="text-sm font-medium text-text">HTTP 402 Payment Support (MPP Charge)</span>
+				<p class="text-[11px] text-text-dim">Enable if your agent uses the Machine Payments Protocol for direct on-chain settlement (no facilitator required)</p>
 			</div>
 		</label>
 	</div>
