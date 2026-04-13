@@ -17,25 +17,35 @@
 	let {
 		services,
 		x402Enabled,
+		mppEnabled = false,
 		autoOpen = false
 	}: {
 		services: ServiceEntry[];
 		x402Enabled: boolean;
+		mppEnabled?: boolean;
 		autoOpen?: boolean;
 	} = $props();
 
-	// x402 client (browser-only, lazy loaded)
+	// Payment clients (browser-only, lazy loaded to avoid SSR crashes)
 	let x402Module: typeof import('$lib/x402-client') | null = $state(null);
+	let mppModule: typeof import('$lib/mpp-client') | null = $state(null);
 
 	onMount(async () => {
-		try {
-			x402Module = await import('$lib/x402-client.js');
-		} catch (err) {
-			console.error('Failed to load x402 client:', err);
-		}
+		const loads: Promise<void>[] = [];
+		loads.push(
+			import('$lib/x402-client.js').then((m) => { x402Module = m; }).catch((err) => {
+				console.error('Failed to load x402 client:', err);
+			})
+		);
+		loads.push(
+			import('$lib/mpp-client.js').then((m) => { mppModule = m; }).catch((err) => {
+				console.error('Failed to load mpp client:', err);
+			})
+		);
+		await Promise.all(loads);
 
 		if (autoOpen && wallet.connected) {
-			const idx = services.findIndex((s) => isX402Service(s));
+			const idx = services.findIndex((s) => isPayableService(s));
 			if (idx !== -1) openTryPanel(idx);
 		}
 	});
@@ -57,6 +67,10 @@
 	let method = $state('POST');
 	let body = $state('');
 	let errorMsg = $state('');
+	let detectedProtocol = $state<'x402' | 'mpp' | null>(null);
+
+	// Store the raw MPP challenge for use in sendPaidRequest
+	let mppChallenge = $state<import('mppx').Challenge.Challenge | null>(null);
 
 	let pricingInfo = $state<{
 		price: string;
@@ -107,9 +121,9 @@
 		web: 'W'
 	};
 
-	function isX402Service(service: ServiceEntry): boolean {
+	function isPayableService(service: ServiceEntry): boolean {
 		return (
-			x402Enabled &&
+			(x402Enabled || mppEnabled) &&
 			service.endpoint.startsWith('http') &&
 			(service.name.toLowerCase() === 'x402' ||
 				service.name.toLowerCase() === 'web' ||
@@ -134,6 +148,8 @@
 		pricingInfo = null;
 		response = null;
 		errorMsg = '';
+		detectedProtocol = null;
+		mppChallenge = null;
 	}
 
 	function resetToEditing() {
@@ -141,6 +157,8 @@
 		response = null;
 		pricingInfo = null;
 		errorMsg = '';
+		detectedProtocol = null;
+		mppChallenge = null;
 	}
 
 	let copySuccess = $state(false);
@@ -199,31 +217,58 @@
 			});
 
 			if (res.status === 402) {
-				const paymentHeader =
-					res.headers.get('PAYMENT-REQUIRED') || res.headers.get('X-PAYMENT');
-				if (!paymentHeader) {
-					errorMsg =
-						'Endpoint returned 402 but the payment header is not accessible. The agent may need CORS headers.';
-					phase = 'cors_error';
-					return;
+				// Try MPP first (preferred — no facilitator dependency)
+				let parsed = false;
+				if (mppModule) {
+					try {
+						const challenge = mppModule.parseMppChallenge(res);
+						if (challenge) {
+							detectedProtocol = 'mpp';
+							mppChallenge = challenge;
+							const pricing = mppModule.extractMppPricing(challenge);
+							pricingInfo = {
+								price: pricing.displayPrice,
+								network: pricing.network,
+								payTo: pricing.recipient,
+								scheme: pricing.feePayer ? 'mpp-sponsored' : 'mpp-charge'
+							};
+							phase = 'price_confirm';
+							parsed = true;
+						}
+					} catch {
+						// Not MPP — fall through to x402
+					}
 				}
 
-				try {
-					// Some agents have invalid JSON escapes (e.g. \$ instead of $) in descriptions
-					const raw = atob(paymentHeader).replace(/\\(?!["\\/bfnrtu])/g, '');
-					const decoded = JSON.parse(raw);
-					// x402 PaymentRequired wraps requirements in an accepts[] array
-					const req = decoded.accepts?.[0] ?? decoded;
-					pricingInfo = {
-						price: req.maxAmountRequired || req.amount || req.price || '?',
-						network: req.network || decoded.network || 'unknown',
-						payTo: req.payTo || req.payToAddress || '',
-						scheme: req.scheme || 'exact'
-					};
-					phase = 'price_confirm';
-				} catch {
-					errorMsg = 'Could not parse payment header.';
-					phase = 'error';
+				// Fall back to x402
+				if (!parsed) {
+					const paymentHeader =
+						res.headers.get('PAYMENT-REQUIRED') || res.headers.get('X-PAYMENT');
+					if (!paymentHeader) {
+						errorMsg =
+							'Endpoint returned 402 but the payment header is not accessible. The agent may need CORS headers.';
+						phase = 'cors_error';
+						return;
+					}
+
+					try {
+						detectedProtocol = 'x402';
+						// Some agents have invalid JSON escapes (e.g. \$ instead of $) in descriptions
+						const raw = atob(paymentHeader).replace(/\\(?!["\\/bfnrtu])/g, '');
+						const decoded = JSON.parse(raw);
+						// x402 PaymentRequired wraps requirements in an accepts[] array
+						const req = decoded.accepts?.[0] ?? decoded;
+						pricingInfo = {
+							price: req.maxAmountRequired || req.amount || req.price || '?',
+							network: req.network || decoded.network || 'unknown',
+							payTo: req.payTo || req.payToAddress || '',
+							scheme: req.scheme || 'exact'
+						};
+						phase = 'price_confirm';
+					} catch {
+						errorMsg = 'Could not parse payment header.';
+						phase = 'error';
+					}
 				}
 			} else {
 				const text = await res.text();
@@ -238,14 +283,8 @@
 	async function sendPaidRequest() {
 		if (!activeService || !wallet.address || !pricingInfo) return;
 
-		if (!x402Module) {
-			errorMsg = 'Payment module failed to load. Please refresh the page.';
-			phase = 'error';
-			return;
-		}
-
 		if (wallet.networkMismatch) {
-			errorMsg = `Switch Freighter to ${pricingInfo.network.includes('mainnet') ? 'Mainnet' : 'Testnet'} to continue.`;
+			errorMsg = `Switch Freighter to ${pricingInfo.network.includes('mainnet') || pricingInfo.network.includes('pubnet') ? 'Mainnet' : 'Testnet'} to continue.`;
 			phase = 'error';
 			return;
 		}
@@ -254,84 +293,12 @@
 		errorMsg = '';
 
 		try {
-			const client = x402Module.createX402Client(wallet.address);
-			const { decodePaymentRequiredHeader, encodePaymentSignatureHeader } = x402Module;
-			const opts = buildFetchOptions();
-
-			// Step 1: Fresh 402 for nonce
-			const preflightRes = await fetch(activeService.endpoint, {
-				method,
-				headers: opts.headers,
-				body: opts.body,
-				signal: AbortSignal.timeout(15_000)
-			});
-
-			if (preflightRes.status !== 402) {
-				const text = await preflightRes.text();
-				response = { status: preflightRes.status, body: text, settlementTxHash: null };
-				phase = 'done';
-				return;
+			if (detectedProtocol === 'mpp') {
+				await sendMppPaidRequest();
+			} else {
+				await sendX402PaidRequest();
 			}
 
-			// Step 2: Parse payment requirement from header
-			const paymentRequiredHeader = preflightRes.headers.get('PAYMENT-REQUIRED');
-			if (!paymentRequiredHeader) {
-				errorMsg = 'Payment header not accessible. The agent may need CORS headers.';
-				phase = 'cors_error';
-				return;
-			}
-			let paymentRequired;
-			try {
-				paymentRequired = decodePaymentRequiredHeader(paymentRequiredHeader);
-			} catch {
-				// Fallback: fix invalid JSON escapes (e.g. \$ in agent descriptions)
-				const fixed = atob(paymentRequiredHeader).replace(/\\(?!["\\/bfnrtu])/g, '');
-				paymentRequired = JSON.parse(fixed);
-			}
-
-			// Step 3: Create payment payload — triggers Freighter signAuthEntry popup
-			// Timeout after 60s — Freighter may hang due to SES lockdown or popup not visible
-			const paymentPayload = await Promise.race([
-				client.createPaymentPayload(paymentRequired),
-				new Promise<never>((_, reject) =>
-					setTimeout(() => reject(new Error('Signing timed out. Freighter may not have opened — check for a popup or try again.')), 60_000)
-				)
-			]);
-
-			phase = 'waiting_response';
-
-			// Step 4: Encode payment signature header
-			const paymentHeader = encodePaymentSignatureHeader(paymentPayload);
-
-			// Step 5: Send actual request with payment
-			const paidHeaders: Record<string, string> = { 'PAYMENT-SIGNATURE': paymentHeader };
-			if (method !== 'GET' && body) {
-				paidHeaders['Content-Type'] = 'application/json';
-			}
-
-			const paidRes = await fetch(activeService.endpoint, {
-				method,
-				headers: paidHeaders,
-				body: method !== 'GET' && method !== 'HEAD' ? body || undefined : undefined,
-				signal: AbortSignal.timeout(30_000)
-			});
-
-			const paidBody = await paidRes.text();
-
-			// Step 6: Parse settlement response
-			let settlementTxHash: string | null = null;
-			try {
-				const paymentResponseHeader = paidRes.headers.get('PAYMENT-RESPONSE');
-				if (paymentResponseHeader) {
-					const settlement = JSON.parse(atob(paymentResponseHeader));
-					settlementTxHash = settlement?.txHash ?? settlement?.transaction ?? null;
-				}
-			} catch {
-				// Settlement header may not be present — non-blocking
-			}
-
-			response = { status: paidRes.status, body: paidBody, settlementTxHash };
-			phase = 'done';
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : 'Payment failed';
 			if (msg.includes('rejected') || msg.includes('denied') || msg.includes('cancelled')) {
@@ -353,6 +320,145 @@
 				phase = 'error';
 			}
 		}
+	}
+
+	async function sendX402PaidRequest() {
+		if (!activeService || !wallet.address) return;
+
+		if (!x402Module) {
+			errorMsg = 'Payment module failed to load. Please refresh the page.';
+			phase = 'error';
+			return;
+		}
+
+		const client = x402Module.createX402Client(wallet.address);
+		const { decodePaymentRequiredHeader, encodePaymentSignatureHeader } = x402Module;
+		const opts = buildFetchOptions();
+
+		// Step 1: Fresh 402 for nonce
+		const preflightRes = await fetch(activeService.endpoint, {
+			method,
+			headers: opts.headers,
+			body: opts.body,
+			signal: AbortSignal.timeout(15_000)
+		});
+
+		if (preflightRes.status !== 402) {
+			const text = await preflightRes.text();
+			response = { status: preflightRes.status, body: text, settlementTxHash: null };
+			phase = 'done';
+			return;
+		}
+
+		// Step 2: Parse payment requirement from header
+		const paymentRequiredHeader = preflightRes.headers.get('PAYMENT-REQUIRED');
+		if (!paymentRequiredHeader) {
+			errorMsg = 'Payment header not accessible. The agent may need CORS headers.';
+			phase = 'cors_error';
+			return;
+		}
+		let paymentRequired;
+		try {
+			paymentRequired = decodePaymentRequiredHeader(paymentRequiredHeader);
+		} catch {
+			const fixed = atob(paymentRequiredHeader).replace(/\\(?!["\\/bfnrtu])/g, '');
+			paymentRequired = JSON.parse(fixed);
+		}
+
+		// Step 3: Create payment payload — triggers Freighter signAuthEntry popup
+		const paymentPayload = await Promise.race([
+			client.createPaymentPayload(paymentRequired),
+			new Promise<never>((_, reject) =>
+				setTimeout(() => reject(new Error('Signing timed out. Freighter may not have opened — check for a popup or try again.')), 60_000)
+			)
+		]);
+
+		phase = 'waiting_response';
+
+		// Step 4: Encode and send
+		const paymentHeader = encodePaymentSignatureHeader(paymentPayload);
+		const paidHeaders: Record<string, string> = { 'PAYMENT-SIGNATURE': paymentHeader };
+		if (method !== 'GET' && body) {
+			paidHeaders['Content-Type'] = 'application/json';
+		}
+
+		const paidRes = await fetch(activeService.endpoint, {
+			method,
+			headers: paidHeaders,
+			body: method !== 'GET' && method !== 'HEAD' ? body || undefined : undefined,
+			signal: AbortSignal.timeout(30_000)
+		});
+
+		const paidBody = await paidRes.text();
+
+		// Step 5: Parse settlement
+		let settlementTxHash: string | null = null;
+		try {
+			const paymentResponseHeader = paidRes.headers.get('PAYMENT-RESPONSE');
+			if (paymentResponseHeader) {
+				const settlement = JSON.parse(atob(paymentResponseHeader));
+				settlementTxHash = settlement?.txHash ?? settlement?.transaction ?? null;
+			}
+		} catch {
+			// Settlement header may not be present — non-blocking
+		}
+
+		response = { status: paidRes.status, body: paidBody, settlementTxHash };
+		phase = 'done';
+	}
+
+	async function sendMppPaidRequest() {
+		if (!activeService || !wallet.address || !mppModule || !mppChallenge) {
+			errorMsg = 'MPP payment module not available. Please refresh the page.';
+			phase = 'error';
+			return;
+		}
+
+		// Check challenge expiry before signing
+		if (mppChallenge.expires && new Date(mppChallenge.expires).getTime() < Date.now()) {
+			errorMsg = 'Payment challenge expired. Please try again.';
+			phase = 'error';
+			return;
+		}
+
+		// MPP challenges have built-in id + expires — no fresh 402 needed.
+		// Build and sign the credential with Freighter.
+		const credential = await Promise.race([
+			mppModule.createMppCredential(mppChallenge, wallet.address),
+			new Promise<never>((_, reject) =>
+				setTimeout(() => reject(new Error('Signing timed out. Freighter may not have opened — check for a popup or try again.')), 60_000)
+			)
+		]);
+
+		phase = 'waiting_response';
+
+		// Send request with Authorization header
+		const paidHeaders: Record<string, string> = { 'Authorization': credential };
+		if (method !== 'GET' && body) {
+			paidHeaders['Content-Type'] = 'application/json';
+		}
+
+		const opts = buildFetchOptions();
+		const paidRes = await fetch(activeService.endpoint, {
+			method,
+			headers: paidHeaders,
+			body: method !== 'GET' && method !== 'HEAD' ? opts.body || undefined : undefined,
+			signal: AbortSignal.timeout(30_000)
+		});
+
+		const paidBody = await paidRes.text();
+
+		// Parse Payment-Receipt header
+		let settlementTxHash: string | null = null;
+		try {
+			const receipt = mppModule.parseMppReceipt(paidRes);
+			settlementTxHash = receipt.reference;
+		} catch {
+			// Receipt header may not be present — non-blocking
+		}
+
+		response = { status: paidRes.status, body: paidBody, settlementTxHash };
+		phase = 'done';
 	}
 
 	function handleFetchError(err: unknown) {
@@ -392,7 +498,7 @@
 		</div>
 		<div>
 			<h2 class="text-base font-medium text-text">Try this Agent</h2>
-			<p class="text-xs text-text-dim">Send paid requests via x402 micropayments</p>
+			<p class="text-xs text-text-dim">Send paid requests via micropayments</p>
 		</div>
 	</div>
 
@@ -415,7 +521,7 @@
 	{:else}
 		<div class="divide-y divide-border/30 rounded-xl border border-border/40 overflow-hidden">
 			{#each services as service, idx}
-				{@const tryable = isX402Service(service)}
+				{@const tryable = isPayableService(service)}
 				{@const isActive = activeServiceIdx === idx}
 
 				<div class={isActive ? 'bg-accent/3' : ''}>
@@ -544,6 +650,10 @@
 									</div>
 								{/if}
 
+								{#if pricingInfo?.scheme === 'mpp-charge'}
+									<p class="text-[11px] text-warning">This agent uses direct settlement (no fee sponsor). Your wallet needs XLM for network fees.</p>
+								{/if}
+
 								{#if errorMsg}
 									<p class="text-xs text-warning">{errorMsg}</p>
 								{/if}
@@ -644,7 +754,8 @@
 										Agent developers: add <code
 											class="rounded bg-surface-raised px-1 py-0.5"
 											>cors({'{'} exposedHeaders: ["PAYMENT-REQUIRED",
-											"PAYMENT-RESPONSE"] {'}'})</code
+											"PAYMENT-RESPONSE", "WWW-Authenticate",
+											"Payment-Receipt"] {'}'})</code
 										> to your Express server to enable browser access.
 									</p>
 								</div>
@@ -753,16 +864,17 @@
 		pointer-events: none;
 	}
 
-	/* ::before — mouse-tracking spotlight */
+	/* ::before — mouse-tracking spotlight (soft, wide) */
 	.try-connect-btn::before,
 	.try-service-btn::before {
 		background: radial-gradient(
-			circle 120px at var(--mx, 50%) var(--my, 50%),
-			oklch(0.62 0.20 265 / 0.55),
-			transparent 70%
+			ellipse 200px 140px at var(--mx, 50%) var(--my, 50%),
+			oklch(0.58 0.14 265 / 0.25),
+			oklch(0.50 0.10 265 / 0.08) 50%,
+			transparent 80%
 		);
 		opacity: 0;
-		transition: opacity 0.4s;
+		transition: opacity 0.5s ease;
 	}
 
 	.try-connect-btn:hover::before,
@@ -770,28 +882,28 @@
 		opacity: 1;
 	}
 
-	/* ::after — idle ambient drift (always on, subtle) */
+	/* ::after — idle ambient drift (always on, whisper-level) */
 	.try-connect-btn::after,
 	.try-service-btn::after {
 		background:
-			radial-gradient(ellipse 45% 65%, oklch(0.52 0.14 265 / 0.3), transparent 70%);
+			radial-gradient(ellipse 60% 80% at 25% 50%, oklch(0.50 0.10 265 / 0.12), transparent 70%),
+			radial-gradient(ellipse 50% 70% at 75% 45%, oklch(0.48 0.08 265 / 0.08), transparent 70%);
 		background-size: 200% 200%;
 		background-repeat: no-repeat;
-		animation: glow-idle 16s ease-in-out infinite;
+		animation: glow-idle 20s ease-in-out infinite;
 	}
 
 	.try-connect-btn:hover,
 	.try-service-btn:hover {
-		border-color: oklch(0.55 0.14 265 / 0.35);
+		border-color: oklch(0.50 0.10 265 / 0.30);
 		box-shadow:
-			0 0 48px -6px oklch(0.5 0.14 265 / 0.18),
-			0 0 80px -10px oklch(0.55 0.12 265 / 0.10),
-			inset 0 0 20px -4px oklch(0.6 0.16 265 / 0.12);
+			0 0 60px -12px oklch(0.50 0.12 265 / 0.12),
+			0 0 100px -20px oklch(0.52 0.10 265 / 0.06);
 	}
 
 	.try-connect-btn:hover::after,
 	.try-service-btn:hover::after {
-		animation-duration: 8s;
+		animation-duration: 10s;
 	}
 
 	/* ── Connect & Try (wide) ── */
