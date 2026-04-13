@@ -34,6 +34,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			services: agent.services ?? [],
 			supportedTrust: agent.supported_trust ?? [],
 			x402Enabled: agent.x402_enabled ?? false,
+			mppEnabled: agent.mpp_enabled ?? false,
 			rawUriData: parsedUriData
 		}
 	};
