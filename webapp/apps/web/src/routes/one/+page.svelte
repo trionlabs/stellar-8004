@@ -1169,7 +1169,7 @@
 					{#each trustLoop as s}
 						<div
 							class="absolute text-center space-y-1"
-							style={{
+							style={style({
 								top: s.pos === 'top' ? '0' : s.pos === 'bottom' ? 'auto' : '50%',
 								bottom: s.pos === 'bottom' ? '0' : 'auto',
 								left: s.pos === 'left' ? '0' : s.pos === 'right' ? 'auto' : '50%',
@@ -1178,7 +1178,7 @@
 									s.pos === 'top' || s.pos === 'bottom'
 										? 'translateX(-50%)'
 										: 'translateY(-50%)',
-							}}
+							})}
 						>
 							<div
 								class="mx-auto h-10 w-10 rounded-lg flex items-center justify-center font-mono text-sm font-bold"
