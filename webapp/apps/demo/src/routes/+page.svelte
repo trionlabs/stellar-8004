@@ -589,17 +589,17 @@
 			{/each}
 		</div>
 
-		<!-- Built by + hackathon badge -->
+		<!-- Attribution badges -->
 		<div class="w-20 h-px bg-border"></div>
-		<div class="flex flex-col items-center gap-3">
-			<a href="https://x.com/trionlabs" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 text-[13px] text-text-muted transition hover:text-text">
-				Built by
-				<span class="font-medium text-text">Trionlabs</span>
-				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+		<div class="flex items-center justify-center gap-3 flex-wrap">
+			<a href="https://x.com/trionlabs" target="_blank" rel="noopener noreferrer"
+				class="inline-flex items-center gap-2 rounded-full border border-border bg-surface-raised px-4 py-1.5 text-[11px] font-mono text-text-muted transition hover:border-accent/30 hover:text-text">
+				<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+				Built by Trionlabs
 			</a>
 			<div class="inline-flex items-center gap-2 rounded-full border border-warning/20 bg-warning-soft px-4 py-1.5 text-[11px] font-mono text-warning">
 				<span class="h-1.5 w-1.5 rounded-full bg-warning animate-pulse"></span>
-				Built for Stellar Agentic Hack
+				Stellar Agentic Hack
 			</div>
 		</div>
 	</section>
