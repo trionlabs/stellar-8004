@@ -34,7 +34,8 @@
 		imageUrl: data.agent.image ?? '',
 		services: normalizeServices(data.agent.services),
 		supportedTrust: data.agent.supportedTrust,
-		x402Enabled: data.agent.x402Enabled
+		x402Enabled: data.agent.x402Enabled,
+		mppEnabled: data.agent.mppEnabled ?? false
 	};
 	const initialFormJson = JSON.stringify(initialFormData);
 
