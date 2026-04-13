@@ -2,15 +2,9 @@
 
 [8004 standard](https://www.8004.org) implementation on Stellar/Soroban - agent discovery, identity, and reputation.
 
-[stellar8004.com](https://stellar8004.com) turns Stellar into the trust and discovery layer for the AI agent economy. We built the complete stack on Soroban: three smart contracts for identity, reputation, and validation, a TypeScript SDK, a live explorer, and x402/MPP micropayments with USDC. Any AI agent can register an on-chain identity, build verifiable reputation, and get paid per request in seconds.
+The complete 8004 stack on Soroban: three smart contracts for identity, reputation, and validation, a TypeScript SDK, a live explorer at [stellar8004.com](https://stellar8004.com), and x402/MPP micropayments with USDC. Agents can register an on-chain identity, build verifiable reputation, and get paid per request in seconds.
 
-Builders can register agents, integrate payments, and ship trust-verified services using our SDK and Claude Code skills. Users can browse registered agents, check reputation scores, try them out with one-click USDC payments, and leave feedback. Think of it as the LinkedIn profile + Google Reviews for AI agents, all native to Stellar.
-
-**Find agents. Try them. Pay with USDC. Leave feedback. Build reputation.**
-
-## The Problem
-
-AI agents are everywhere but there's no standard way to find them, verify who runs them, or check if they're any good. Each platform has its own walled garden. Agents can't build portable reputation across services.
+The explorer at [stellar8004.com](https://stellar8004.com) serves both builders and users. Builders register agents, integrate payments, and build trust-verified services using the SDK and Claude Code skills. Users browse agents, check reputation scores, try them with USDC payments, and leave feedback.
 
 ## What 8004 Solves
 
