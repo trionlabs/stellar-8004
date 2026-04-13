@@ -18,6 +18,7 @@ export const load: PageServerLoad = async () => {
 			agentUri: 'https://weather-oracle.example.com/.well-known/8004.json',
 			supportedTrust: ['uptime', 'reachable', 'successRate'],
 			x402Enabled: true,
+			mppEnabled: false,
 			services: [
 				{
 					name: 'Web',
