@@ -12,6 +12,7 @@ export async function handleStats(): Promise<Response> {
     { data: scores },
     { count: servicesCount },
     { count: x402Count },
+    { count: mppCount },
     { data: protocolData },
     { data: trustData },
   ] = await Promise.all([
@@ -21,6 +22,7 @@ export async function handleStats(): Promise<Response> {
     db.from('leaderboard_scores').select('feedback_count, avg_score, unique_clients').limit(STATS_SAMPLE_LIMIT),
     db.from('agents').select('id', { count: 'exact', head: true }).neq('services', '[]').neq('services', null),
     db.from('agents').select('id', { count: 'exact', head: true }).eq('x402_enabled', true),
+    db.from('agents').select('id', { count: 'exact', head: true }).eq('mpp_enabled', true),
     db.from('agents').select('services').limit(STATS_SAMPLE_LIMIT),
     db.from('agents').select('supported_trust').limit(STATS_SAMPLE_LIMIT),
   ]);
@@ -74,6 +76,7 @@ export async function handleStats(): Promise<Response> {
     averageFeedbackScore: avgFeedbackScore,
     agentsWithServices: servicesCount ?? 0,
     agentsWithX402: x402Count ?? 0,
+    agentsWithMpp: mppCount ?? 0,
     network: Deno.env.get('STELLAR_NETWORK') ?? 'testnet',
     protocolDistribution: protocolDist,
     trustDistribution: trustDist,

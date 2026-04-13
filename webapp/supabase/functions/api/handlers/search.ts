@@ -33,6 +33,8 @@ export async function handleSearch(url: URL): Promise<Response> {
     owner: row.owner,
     supportedTrust: row.supported_trust ?? [],
     hasServices: row.has_services ?? false,
+    x402Enabled: row.x402_enabled ?? false,
+    mppEnabled: row.mpp_enabled ?? false,
     totalScore: row.total_score ?? 0,
     avgScore: row.avg_score ?? 0,
     feedbackCount: row.feedback_count ?? 0,
