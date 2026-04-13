@@ -255,6 +255,30 @@ textarea:focus {
 .reveal-d3 { animation-delay: 180ms; }
 .reveal-d4 { animation-delay: 240ms; }
 
+/* -- Scroll-triggered reveals (intro page) -- */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal-on-scroll.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-on-scroll > * {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal-on-scroll.revealed > * { opacity: 1; transform: translateY(0); }
+.reveal-on-scroll.revealed > *:nth-child(1) { transition-delay: 0ms; }
+.reveal-on-scroll.revealed > *:nth-child(2) { transition-delay: 60ms; }
+.reveal-on-scroll.revealed > *:nth-child(3) { transition-delay: 120ms; }
+.reveal-on-scroll.revealed > *:nth-child(4) { transition-delay: 180ms; }
+.reveal-on-scroll.revealed > *:nth-child(5) { transition-delay: 240ms; }
+
 /* -- Floating navbar -- */
 .navbar {
   position: sticky;
@@ -276,7 +300,7 @@ textarea:focus {
   background: var(--color-glass);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 1px 8px oklch(0 0 0 / 0.06);
+  box-shadow: none;
 }
 
 .nav-link {
