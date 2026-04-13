@@ -84,6 +84,7 @@ export type Database = {
           uri_resolve_attempts: number
           wallet: string | null
           x402_enabled: boolean
+          mpp_enabled: boolean
         }
         Insert: {
           agent_uri?: string | null
@@ -101,6 +102,7 @@ export type Database = {
           uri_resolve_attempts?: number
           wallet?: string | null
           x402_enabled?: boolean
+          mpp_enabled?: boolean
         }
         Update: {
           agent_uri?: string | null
@@ -118,6 +120,7 @@ export type Database = {
           uri_resolve_attempts?: number
           wallet?: string | null
           x402_enabled?: boolean
+          mpp_enabled?: boolean
         }
         Relationships: []
       }

@@ -86,6 +86,11 @@ export function extractX402(uriData: unknown): boolean {
   return (uriData as Record<string, unknown>).x402 === true;
 }
 
+export function extractMpp(uriData: unknown): boolean {
+  if (!uriData || typeof uriData !== 'object' || Array.isArray(uriData)) return false;
+  return (uriData as Record<string, unknown>).mpp === true;
+}
+
 export function extractSupportedTrust(uriData: unknown): string[] {
   if (!uriData || typeof uriData !== 'object' || Array.isArray(uriData)) return [];
   const record = uriData as Record<string, unknown>;
