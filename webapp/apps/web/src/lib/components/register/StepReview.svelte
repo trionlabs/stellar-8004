@@ -77,6 +77,7 @@
 					<p class="text-xs text-text-dim">No trust mechanisms selected</p>
 				{/if}
 				<p class="text-xs text-text-dim">x402 Payment: {formData.x402Enabled ? 'Enabled' : 'Disabled'}</p>
+				<p class="text-xs text-text-dim">MPP Charge: {formData.mppEnabled ? 'Enabled' : 'Disabled'}</p>
 			</div>
 
 			<div class="rounded-xl border border-border bg-surface p-4 space-y-2">
