@@ -325,8 +325,8 @@
 		width: 2rem;
 		align-items: center;
 		justify-content: center;
-		border-radius: 0.5rem;
-		background: oklch(0.65 0.15 145 / 0.1);
+		border-radius: 50%;
+		background: oklch(0.65 0.15 145 / 0.08);
 		color: var(--color-positive);
 		flex-shrink: 0;
 	}
@@ -351,27 +351,28 @@
 		font-size: 12px;
 		font-weight: 600;
 		color: var(--step-color);
+		transition: color 0.3s ease;
 	}
 
 	.fb-score__badge-dot {
-		width: 8px;
-		height: 8px;
+		width: 6px;
+		height: 6px;
 		border-radius: 50%;
 		background: var(--step-color);
-		box-shadow: 0 0 8px var(--step-color);
+		transition: background 0.3s ease;
 	}
 
 	.fb-score__badge-num {
 		font-size: 11px;
 		font-weight: 500;
-		opacity: 0.6;
+		opacity: 0.5;
 		font-variant-numeric: tabular-nums;
 	}
 
 	.fb-score__track {
 		display: flex;
-		gap: 3px;
-		height: 44px;
+		gap: 4px;
+		height: 42px;
 		touch-action: none;
 		user-select: none;
 	}
@@ -388,45 +389,46 @@
 		background: var(--color-surface-raised);
 		cursor: pointer;
 		overflow: hidden;
-		transition: transform 0.12s, box-shadow 0.2s;
+		transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s;
 		display: flex;
 		align-items: flex-end;
 		justify-content: center;
 		padding-bottom: 5px;
+		border: 1px solid transparent;
 	}
 
 	.fb-score__seg:hover {
-		transform: scaleY(1.08);
+		transform: scaleY(1.06);
 		transform-origin: bottom;
 	}
 
 	.fb-score__seg:active {
-		transform: scaleY(0.96);
+		transform: scaleY(0.97);
 	}
 
 	.fb-score__seg-fill {
 		position: absolute;
 		inset: 0;
-		border-radius: 6px;
+		border-radius: 5px;
 		background: var(--step-color);
 		opacity: 0;
-		transition: opacity 0.2s;
+		transition: opacity 0.3s ease;
 	}
 
 	.fb-score__seg--filled .fb-score__seg-fill {
-		opacity: 0.15;
+		opacity: 0.1;
 	}
 
 	.fb-score__seg--active .fb-score__seg-fill {
-		opacity: 0.35;
+		opacity: 0.2;
 	}
 
 	.fb-score__seg--active {
-		box-shadow: 0 0 14px -3px var(--step-color), inset 0 0 0 1.5px color-mix(in srgb, var(--step-color) 50%, transparent);
+		border-color: color-mix(in oklch, var(--step-color) 35%, transparent);
 	}
 
 	.fb-score__seg:hover .fb-score__seg-fill {
-		opacity: 0.22;
+		opacity: 0.14;
 	}
 
 	.fb-score__seg-label {
@@ -434,9 +436,11 @@
 		z-index: 1;
 		font-size: 9px;
 		font-weight: 500;
+		letter-spacing: 0.02em;
 		color: var(--color-text-dim);
 		opacity: 0;
-		transition: opacity 0.15s;
+		transition: opacity 0.2s ease, transform 0.2s ease;
+		transform: translateY(2px);
 		white-space: nowrap;
 	}
 
@@ -444,6 +448,7 @@
 	.fb-score__seg:hover .fb-score__seg-label {
 		opacity: 1;
 		color: var(--step-color);
+		transform: translateY(0);
 	}
 
 	/* Tag pills */
@@ -460,24 +465,26 @@
 	}
 
 	.fb-tag {
-		padding: 4px 12px;
-		border-radius: 6px;
+		padding: 5px 12px;
+		border-radius: 100px;
 		border: 1px solid var(--color-border);
 		background: transparent;
 		color: var(--color-text-muted);
-		font-size: 12px;
+		font-size: 11px;
+		font-weight: 500;
+		letter-spacing: 0.01em;
 		cursor: pointer;
-		transition: all 0.15s;
+		transition: border-color 0.2s, color 0.2s, background 0.2s;
 	}
 
 	.fb-tag:hover {
-		border-color: color-mix(in oklch, var(--color-accent) 30%, transparent);
+		border-color: color-mix(in oklch, var(--color-accent) 25%, transparent);
 		color: var(--color-text);
 	}
 
 	.fb-tag--active {
-		border-color: color-mix(in oklch, var(--color-accent) 40%, transparent);
-		background: color-mix(in oklch, var(--color-accent) 8%, transparent);
+		border-color: color-mix(in oklch, var(--color-accent) 35%, transparent);
+		background: color-mix(in oklch, var(--color-accent) 6%, transparent);
 		color: var(--color-accent);
 	}
 
@@ -514,7 +521,7 @@
 		background: var(--color-surface-raised);
 		font-size: 12px;
 		color: var(--color-text-muted);
-		transition: border-color 0.15s;
+		transition: border-color 0.25s, background 0.25s;
 	}
 
 	.fb-input::placeholder {
@@ -522,7 +529,8 @@
 	}
 
 	.fb-input:focus {
-		border-color: color-mix(in oklch, var(--color-accent) 50%, transparent);
+		border-color: color-mix(in oklch, var(--color-accent) 35%, transparent);
+		background: color-mix(in oklch, var(--color-accent) 3%, var(--color-surface-raised));
 		outline: none;
 	}
 
@@ -535,21 +543,27 @@
 		width: 100%;
 		padding: 10px;
 		border-radius: 8px;
-		border: none;
-		background: color-mix(in oklch, var(--color-accent) 10%, transparent);
+		border: 1px solid color-mix(in oklch, var(--color-accent) 20%, transparent);
+		background: color-mix(in oklch, var(--color-accent) 6%, transparent);
 		color: var(--color-accent);
 		font-size: 13px;
 		font-weight: 500;
+		letter-spacing: 0.01em;
 		cursor: pointer;
-		transition: background 0.15s;
+		transition: background 0.2s, border-color 0.2s, transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
 	}
 
 	.fb-submit:hover:not(:disabled) {
-		background: color-mix(in oklch, var(--color-accent) 16%, transparent);
+		background: color-mix(in oklch, var(--color-accent) 12%, transparent);
+		border-color: color-mix(in oklch, var(--color-accent) 35%, transparent);
+	}
+
+	.fb-submit:active:not(:disabled) {
+		transform: scale(0.985);
 	}
 
 	.fb-submit:disabled {
-		opacity: 0.4;
+		opacity: 0.35;
 		cursor: not-allowed;
 	}
 </style>
