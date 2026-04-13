@@ -36,6 +36,11 @@
 			return false;
 		}
 	});
+
+	// Validate tx hash is a hex string (prevents path traversal in explorer URL)
+	const validTxHash = $derived(
+		settlementTxHash && /^[a-f0-9]{64}$/i.test(settlementTxHash) ? settlementTxHash : null
+	);
 </script>
 
 <div class="space-y-2">
@@ -54,16 +59,16 @@
 		</div>
 	{/if}
 
-	{#if settlementTxHash}
+	{#if validTxHash}
 		<div class="flex items-center gap-2 text-[10px] text-text-dim">
 			<span>Settlement:</span>
 			<a
-				href={explorerTxUrl(settlementTxHash)}
+				href={explorerTxUrl(validTxHash)}
 				target="_blank"
 				rel="noopener noreferrer"
 				class="font-mono text-accent hover:underline"
 			>
-				{settlementTxHash.slice(0, 8)}...{settlementTxHash.slice(-8)}
+				{validTxHash.slice(0, 8)}...{validTxHash.slice(-8)}
 			</a>
 		</div>
 	{/if}
