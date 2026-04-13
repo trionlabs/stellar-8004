@@ -59,7 +59,7 @@ ERC-8004 sits at the **Trust Layer** — you verify trust first, then enable pay
 ## Prerequisites
 
 ```bash
-npm install @trionlabs/8004-sdk @stellar/stellar-sdk
+npm install @trionlabs/stellar8004 @stellar/stellar-sdk
 ```
 
 - Stellar keypair (G.../S... format) — `Keypair.random()` for testnet, `Keypair.fromSecret(secret)` for existing wallets
@@ -117,7 +117,7 @@ Service types affect discoverability — the explorer filters by `hasServices` a
 ### Using the SDK
 
 ```typescript
-import { buildMetadataJson, toDataUri, validateMetadataJson } from '@trionlabs/8004-sdk';
+import { buildMetadataJson, toDataUri, validateMetadataJson } from '@trionlabs/stellar8004';
 
 const metadata = buildMetadataJson({
   name: 'My AI Agent',
@@ -154,7 +154,7 @@ const dataUri = toDataUri(metadata);
 
 ```typescript
 import { Keypair } from '@stellar/stellar-sdk';
-import { createClients, TESTNET_CONFIG, wrapBasicSigner } from '@trionlabs/8004-sdk';
+import { createClients, TESTNET_CONFIG, wrapBasicSigner } from '@trionlabs/stellar8004';
 
 // Create a signer from a Stellar secret key (S-format)
 const keypair = Keypair.fromSecret(process.env.STELLAR_SECRET_KEY!);
@@ -274,7 +274,7 @@ This extends TTL for: agent URI, wallet, all metadata keys + values, NFT owner, 
 ### Verify Your Registration
 
 ```typescript
-import { ExplorerClient } from '@trionlabs/8004-sdk';
+import { ExplorerClient } from '@trionlabs/stellar8004';
 
 const explorer = new ExplorerClient(); // defaults to mainnet explorer
 const agent = await explorer.getAgent(agentId);
@@ -473,7 +473,7 @@ const responseCount = StellarSdk.scValToNative(countResult) as number;
 For bulk reads, the explorer API is more efficient than on-chain calls:
 
 ```typescript
-import { ExplorerClient } from '@trionlabs/8004-sdk';
+import { ExplorerClient } from '@trionlabs/stellar8004';
 
 const explorer = new ExplorerClient();
 const feedback = await explorer.getFeedback(agentId, { tag: 'starred', limit: 50 });
@@ -528,7 +528,7 @@ await buildAndSign('validation_request', VALIDATION_REGISTRY, [
 Or with the SDK:
 
 ```typescript
-import { generateRequestNonce } from '@trionlabs/8004-sdk';
+import { generateRequestNonce } from '@trionlabs/stellar8004';
 const requestHash = generateRequestNonce(agentId, validatorAddr);
 ```
 
@@ -609,7 +609,7 @@ Full end-to-end: verify identity → check reputation → interact → pay via x
 
 ```typescript
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { ExplorerClient } from '@trionlabs/8004-sdk';
+import { ExplorerClient } from '@trionlabs/stellar8004';
 
 async function verifyAndInteract(targetAgentId: number, minScore = 70) {
   const explorer = new ExplorerClient();

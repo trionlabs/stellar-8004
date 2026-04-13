@@ -28,9 +28,9 @@
 	<header class="navbar">
 		<div class="mx-auto w-full max-w-5xl px-0 md:px-6">
 			<nav class="navbar-inner">
-			<a href={resolve('/')} class="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-text">
+			<a href={resolve('/')} class="flex items-center gap-2 text-[15px] tracking-tight text-text">
 				<img src={favicon} alt="" class="h-5 w-5" />
-				<span>Stellar<span class="text-accent">8004</span></span>
+				<span>Stellar<span class="bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">8004</span></span>
 			</a>
 
 			<!-- Desktop nav -->

@@ -11,7 +11,7 @@ importers:
       '@stellar/stellar-sdk':
         specifier: ^15.0.1
         version: 15.0.1
-      '@trionlabs/8004-sdk':
+      '@trionlabs/stellar8004':
         specifier: workspace:*
         version: link:packages/sdk
       tsx:
@@ -35,7 +35,7 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.49.0
         version: 2.101.1
-      '@trionlabs/8004-sdk':
+      '@trionlabs/stellar8004':
         specifier: workspace:*
         version: link:../../packages/sdk
       '@x402/core':
@@ -123,7 +123,7 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.49.0
         version: 2.101.1
-      '@trionlabs/8004-sdk':
+      '@trionlabs/stellar8004':
         specifier: workspace:*
         version: link:../sdk
     devDependencies:

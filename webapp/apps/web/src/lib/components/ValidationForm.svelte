@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Buffer } from 'buffer';
 	import { getClients } from '$lib/sdk-client.js';
-	import { generateRequestNonce, validateStellarAddress, formatSorobanError } from '@trionlabs/8004-sdk';
+	import { generateRequestNonce, validateStellarAddress, formatSorobanError } from '@trionlabs/stellar8004';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
