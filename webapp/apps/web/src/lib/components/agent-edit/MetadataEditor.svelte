@@ -110,7 +110,7 @@
 		{#if openSections.has('advanced')}
 			<div class="h-px bg-linear-to-r from-transparent via-accent/20 to-transparent"></div>
 			<div class="px-5 py-5">
-				<StepAdvanced supportedTrust={formData.supportedTrust} bind:x402Enabled={formData.x402Enabled} />
+				<StepAdvanced supportedTrust={formData.supportedTrust} bind:x402Enabled={formData.x402Enabled} bind:mppEnabled={formData.mppEnabled} />
 			</div>
 		{/if}
 	</div>
