@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { getClients, stellarConfig } from '$lib/sdk-client.js';
-	import { buildMetadataJson, toDataUri, validateAgentUri, formatSorobanError } from '@trionlabs/8004-sdk';
+	import { buildMetadataJson, toDataUri, validateAgentUri, formatSorobanError } from '@trionlabs/stellar8004';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
 	import CtaButton from '$lib/components/CtaButton.svelte';
 	import Stepper from '$lib/components/Stepper.svelte';

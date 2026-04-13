@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { validateStellarAddress } from '@trionlabs/8004-sdk';
+	import { validateStellarAddress } from '@trionlabs/stellar8004';
 	import { getClients } from '$lib/sdk-client.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 

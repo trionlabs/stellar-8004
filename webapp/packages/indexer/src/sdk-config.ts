@@ -1,5 +1,5 @@
 // Vendored from webapp/packages/sdk/src/core/config.ts so the indexer can be
-// consumed by the Deno edge runtime without resolving the @trionlabs/8004-sdk
+// consumed by the Deno edge runtime without resolving the @trionlabs/stellar8004
 // workspace package. Keep in sync with the SDK after every contract redeploy.
 
 export interface StellarConfig {
