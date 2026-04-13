@@ -23,6 +23,7 @@
 		"@x402/core": "~2.9.0",
 		"@x402/stellar": "~2.9.0",
 		"buffer": "^6.0.3",
+		"mppx": "^0.5.12",
 		"shiki": "^4.0.2"
 	},
 	"devDependencies": {
