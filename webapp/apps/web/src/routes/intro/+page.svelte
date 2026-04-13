@@ -132,10 +132,9 @@
 
 	<!-- ─── 1. HERO ───────────────────────────────────── -->
 	<section id="hero" class="reveal-on-scroll space-y-10 text-center flex flex-col items-center pt-8">
-		<!-- Hackathon badge -->
-		<div class="inline-flex items-center gap-2 rounded-full border border-warning/20 bg-warning-soft px-4 py-1.5 text-[11px] font-mono text-warning">
-			<span class="h-1.5 w-1.5 rounded-full bg-warning animate-pulse"></span>
-			Built for Stellar Agentic Hack
+		<div class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-soft px-4 py-1.5 text-[11px] font-mono text-accent">
+			<span class="h-1.5 w-1.5 rounded-full bg-accent animate-pulse"></span>
+			Agent Trust Protocol on Stellar
 		</div>
 
 		<div class="flex items-center gap-3">
@@ -742,9 +741,9 @@
 				<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
 				Built by Trionlabs
 			</a>
-			<div class="inline-flex items-center gap-2 rounded-full border border-warning/20 bg-warning-soft px-4 py-1.5 text-[11px] font-mono text-warning">
-				<span class="h-1.5 w-1.5 rounded-full bg-warning animate-pulse"></span>
-				Stellar Agentic Hack
+			<div class="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-soft px-4 py-1.5 text-[11px] font-mono text-accent">
+				<span class="h-1.5 w-1.5 rounded-full bg-accent animate-pulse"></span>
+				Agent Trust Protocol on Stellar
 			</div>
 		</div>
 	</section>
