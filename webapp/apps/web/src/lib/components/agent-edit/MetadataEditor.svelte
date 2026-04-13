@@ -3,7 +3,7 @@
 	import {
 		buildMetadataJsonForEdit,
 		getMetadataSize
-	} from '@trionlabs/8004-sdk';
+	} from '@trionlabs/stellar8004';
 	import StepBasicInfo from '$lib/components/register/StepBasicInfo.svelte';
 	import StepServices from '$lib/components/register/StepServices.svelte';
 	import StepAdvanced from '$lib/components/register/StepAdvanced.svelte';
