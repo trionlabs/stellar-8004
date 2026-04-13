@@ -20,11 +20,33 @@
 
 	let activeIdx = $state(0);
 
+	let showKbdHint = $state(true);
+
+	function navigateTo(/** @type {number} */ idx) {
+		const clamped = Math.max(0, Math.min(idx, sections.length - 1));
+		const el = document.getElementById(sections[clamped].id);
+		if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+
 	function scrollTo(/** @type {string} */ id) {
 		document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
+	function handleKeydown(/** @type {KeyboardEvent} */ e) {
+		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+		switch (e.key) {
+			case 'ArrowDown': case 'ArrowRight': case 'j':
+				e.preventDefault(); navigateTo(activeIdx + 1); break;
+			case 'ArrowUp': case 'ArrowLeft': case 'k':
+				e.preventDefault(); navigateTo(activeIdx - 1); break;
+			case 'Home': e.preventDefault(); navigateTo(0); break;
+			case 'End': e.preventDefault(); navigateTo(sections.length - 1); break;
+		}
+	}
+
 	onMount(() => {
+		window.addEventListener('keydown', handleKeydown);
+		setTimeout(() => { showKbdHint = false; }, 6000);
 		tick().then(() => {
 			// Reveal observer
 			const revealObs = new IntersectionObserver(
@@ -59,7 +81,7 @@
 
 			cleanupRef = () => { revealObs.disconnect(); sectionObs.disconnect(); };
 		});
-		return () => cleanupRef?.();
+		return () => { cleanupRef?.(); window.removeEventListener('keydown', handleKeydown); };
 	});
 
 	/** @type {(() => void) | undefined} */
@@ -95,6 +117,17 @@
 	{/each}
 </nav>
 
+<!-- Keyboard hint -->
+{#if showKbdHint}
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-fade-out">
+	<div class="flex items-center gap-3 rounded-lg border border-border bg-surface/90 backdrop-blur-sm px-4 py-2 text-[10px] font-mono text-text-dim">
+		<span><kbd class="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded border border-border bg-surface-raised font-mono text-[9px]">↑</kbd><kbd class="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded border border-border bg-surface-raised font-mono text-[9px]">↓</kbd> navigate</span>
+		<span class="text-border">·</span>
+		<span><kbd class="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded border border-border bg-surface-raised font-mono text-[9px]">j</kbd><kbd class="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded border border-border bg-surface-raised font-mono text-[9px]">k</kbd> vim-style</span>
+	</div>
+</div>
+{/if}
+
 <div class="mx-auto max-w-4xl px-6 py-20 xl:pl-24 sections-container">
 
 	<!-- ─── 1. HERO ───────────────────────────────────── -->
@@ -107,7 +140,7 @@
 
 		<div class="flex items-center gap-3">
 			<div class="h-12 w-12 rounded-xl bg-accent-fill flex items-center justify-center text-xl font-bold text-accent">8</div>
-			<span class="text-4xl font-light tracking-tight">stellar<span class="font-semibold bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">8004</span>.com</span>
+			<a href="https://stellar8004.com" class="text-4xl font-light tracking-tight hover:opacity-80 transition">stellar<span class="font-semibold bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">8004</span>.com</a>
 		</div>
 
 		<div class="space-y-5">
@@ -121,11 +154,14 @@
 		</div>
 
 		<div class="flex items-center gap-3 text-[11px] font-mono text-text-dim flex-wrap justify-center">
-			<span class="rounded-full border border-border px-3 py-1">EIP-8004</span>
+			<a href="https://www.8004.org" target="_blank" rel="noopener noreferrer" class="rounded-full border border-border px-3 py-1 transition hover:border-accent/30 hover:text-accent">EIP-8004</a>
 			<span class="rounded-full border border-border px-3 py-1">Stellar / Soroban</span>
 			<span class="rounded-full border border-border px-3 py-1">74 Tests</span>
 			<span class="rounded-full border border-positive/30 text-positive px-3 py-1">Mainnet Live</span>
-			<span class="rounded-full border border-border px-3 py-1">Open Source</span>
+			<a href="https://github.com/trionlabs/stellar-8004" target="_blank" rel="noopener noreferrer" class="rounded-full border border-border px-3 py-1 transition hover:border-accent/30 hover:text-accent flex items-center gap-1.5">
+				<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+				Open Source
+			</a>
 		</div>
 	</section>
 
@@ -317,6 +353,18 @@
 				</div>
 				<div class="rounded-xl border border-border bg-surface-raised px-5 py-3 font-mono text-[13px]">
 					<span class="text-text-dim">ID: </span><span class="text-accent">stellar</span><span class="text-text-dim">:</span><span class="text-positive">mainnet</span><span class="text-text-dim">:</span><span class="text-warning">CBGPDCJI...6X35</span><span class="text-text-dim">#</span><span class="font-bold">1</span>
+				</div>
+				<div class="space-y-1 text-[11px] font-mono">
+					<p class="text-text-dim uppercase tracking-wide mb-2">Mainnet Contracts</p>
+					<a href="https://stellar.expert/explorer/public/contract/CBGPDCJIHQ32G42BE7F2CIT3YW6XRN5ED6GQJHCRZSNAYH6TGMCL6X35" target="_blank" rel="noopener noreferrer" class="flex justify-between rounded-lg border border-border bg-surface px-3 py-1.5 transition hover:border-accent/30">
+						<span class="text-text-muted">Identity</span><span class="text-accent">CBGP...6X35</span>
+					</a>
+					<a href="https://stellar.expert/explorer/public/contract/CBOIAIMMWAXI57OATLX6BWVDQLCC4YU55HV6MZXFRP6CBSGAMXSTEPPA" target="_blank" rel="noopener noreferrer" class="flex justify-between rounded-lg border border-border bg-surface px-3 py-1.5 transition hover:border-positive/30">
+						<span class="text-text-muted">Reputation</span><span class="text-positive">CBOI...EPPA</span>
+					</a>
+					<a href="https://stellar.expert/explorer/public/contract/CBT6WWEVEPT2UFGFGVJJ7ELYGLQAGRYSVGDTGMCJTRWXOH27MWUO7UJG" target="_blank" rel="noopener noreferrer" class="flex justify-between rounded-lg border border-border bg-surface px-3 py-1.5 transition hover:border-warning/30">
+						<span class="text-text-muted">Validation</span><span class="text-warning">CBT6...7UJG</span>
+					</a>
 				</div>
 			</div>
 		</div>
@@ -587,7 +635,7 @@
 		</div>
 		<div class="grid sm:grid-cols-2 gap-4">
 			<div class="rounded-xl border border-border bg-surface p-5 space-y-3">
-				<div class="flex justify-between items-center"><p class="text-[11px] font-mono tracking-[0.18em] text-accent uppercase">TypeScript SDK</p><span class="rounded-full bg-accent-soft border border-accent/20 px-2 py-0.5 text-[10px] font-mono text-accent">@trionlabs/stellar8004</span></div>
+				<div class="flex justify-between items-center"><p class="text-[11px] font-mono tracking-[0.18em] text-accent uppercase">TypeScript SDK</p><a href="https://www.npmjs.com/package/@trionlabs/stellar8004" target="_blank" rel="noopener noreferrer" class="rounded-full bg-accent-soft border border-accent/20 px-2 py-0.5 text-[10px] font-mono text-accent transition hover:bg-accent/15">@trionlabs/stellar8004</a></div>
 				<div class="rounded-lg bg-surface-overlay border border-border p-3 font-mono text-[11px] leading-relaxed">
 					<p><span class="text-accent">import</span> {'{'} IdentityRegistryClient {'}'}</p>
 					<p class="pl-2 text-text-dim"><span class="text-accent">from</span> <span class="text-positive">'@trionlabs/stellar8004'</span>;</p>
@@ -598,7 +646,7 @@
 				</div>
 			</div>
 			<div class="rounded-xl border border-border bg-surface p-5 space-y-3">
-				<div class="flex justify-between items-center"><p class="text-[11px] font-mono tracking-[0.18em] text-accent uppercase">Claude Code Skills</p><span class="rounded-full bg-accent-soft border border-accent/20 px-2 py-0.5 text-[10px] font-mono text-accent">AI-native DX</span></div>
+				<div class="flex justify-between items-center"><p class="text-[11px] font-mono tracking-[0.18em] text-accent uppercase">Claude Code Skills</p><a href="https://github.com/trionlabs/stellar-8004/tree/main/skills" target="_blank" rel="noopener noreferrer" class="rounded-full bg-accent-soft border border-accent/20 px-2 py-0.5 text-[10px] font-mono text-accent transition hover:bg-accent/15">GitHub</a></div>
 				<div class="rounded-lg bg-surface-overlay border border-border p-3 font-mono text-[11px] leading-relaxed space-y-2">
 					<div><p class="text-text-dim"># Install skills</p><p><span class="text-positive">$</span> npx skills add trionlabs/stellar-8004 --skill '*'</p></div>
 					<div><p><span class="text-positive">$</span> /8004stellar <span class="text-text-dim">&mdash; agent trust protocol</span></p></div>
@@ -686,6 +734,14 @@
 </div>
 
 <style>
+	.animate-fade-out {
+		animation: fade-out 6s ease forwards;
+	}
+	@keyframes fade-out {
+		0%, 70% { opacity: 1; }
+		100% { opacity: 0; }
+	}
+
 	.sections-container > :global(section) {
 		padding-block: 4rem;
 	}
