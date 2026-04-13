@@ -360,7 +360,7 @@
 		<div class="grid gap-4 sm:grid-cols-3">
 			{#each solutionPillars as p}
 				<div class="p-5 space-y-3" style={cardStyle}>
-					<div class="h-1.5 w-10 rounded-full" style={style({ background: p.color }) />
+					<div class="h-1.5 w-10 rounded-full" style={style({ background: p.color })} />
 					<h3 class="text-lg font-medium">{p.label}</h3>
 					<p class="text-[13px] text-text-muted leading-relaxed">{p.desc}</p>
 				</div>
@@ -437,7 +437,7 @@
 				border: `1px solid color-mix(in oklch, ${c.positive} 15%, transparent)`,
 			}}
 		>
-			<span style={style({ color: c.positive }) class="font-medium">+ Real Working Agent</span>
+			<span style={style({ color: c.positive })} class="font-medium">+ Real Working Agent</span>
 			<span class="text-text-muted"> — Web Scraper on 8004, accepting x402 + MPP, earning USDC</span>
 		</div>
 	</section>
@@ -538,7 +538,7 @@
 						<div class="flex items-center gap-3">
 							<span
 								class="font-mono text-[13px] w-4 text-right"
-								style={i === 0 ? { color: c.gold, fontWeight: 700 } : { color: c.dim })}
+								style={style(i === 0 ? { color: c.gold, fontWeight: 700 } : { color: c.dim })}
 							>
 								{i + 1}
 							</span>
@@ -581,7 +581,7 @@
 				class="rounded-lg px-5 py-2 font-mono text-[13px] text-text-muted"
 				style={style({ background: c.overlay, border: `1px solid ${c.border}` })}
 			>
-				score = <span style={style({ color: c.accent })}>WAD</span>(feedback[].value) → stored as{' '}
+				score = <span style={style({ color: c.accent })}> WAD</span>(feedback[].value) → stored as{' '}
 				<span style={style({ color: c.positive })}>u64</span> on-chain
 			</div>
 		</div>
@@ -799,7 +799,7 @@
 				>
 					<div class="flex gap-1">
 						{#each ['oklch(0.45 0.10 25/0.5)', 'oklch(0.48 0.08 70/0.5)', 'oklch(0.42 0.08 162/0.5)'] as bg}
-							<div class="h-2 w-2 rounded-full" style={style({ background: bg }) />
+							<div class="h-2 w-2 rounded-full" style={style({ background: bg })} />
 						{/each}
 					</div>
 					<div class="flex-1 mx-2">
@@ -813,7 +813,7 @@
 				</div>
 				<div class="p-3 space-y-2.5" style={style({ background: c.surface })}>
 					<div class="flex items-center gap-1.5">
-						<div class="h-1 w-1 rounded-full" style={style({ background: c.positive }) />
+						<div class="h-1 w-1 rounded-full" style={style({ background: c.positive })} />
 						<span class="text-[8px] tracking-wider text-text-dim uppercase">Agent Trust Explorer</span>
 					</div>
 					<p class="text-sm font-light">Explore AI agents on Stellar</p>
@@ -1062,7 +1062,7 @@
 				>
 					<div class="flex gap-1">
 						{#each ['oklch(0.45 0.10 25/0.5)', 'oklch(0.48 0.08 70/0.5)', 'oklch(0.42 0.08 162/0.5)'] as bg}
-							<div class="h-2 w-2 rounded-full" style={style({ background: bg }) />
+							<div class="h-2 w-2 rounded-full" style={style({ background: bg })} />
 						{/each}
 					</div>
 					<div class="flex-1 mx-2">
@@ -1208,7 +1208,7 @@
 							<span class="font-mono" style={style({ color: c.accent })}>4.2</span>
 						</div>
 						<div class="h-2.5 rounded-full overflow-hidden" style={style({ background: c.overlay })}>
-							<div class="h-full rounded-full" style={style({ width: '84%', background: c.accent }) />
+							<div class="h-full rounded-full" style={style({ width: '84%', background: c.accent })} />
 						</div>
 					</div>
 					<p class="text-center text-[10px] text-text-dim font-mono">+ feedback: 5/6 "Success Rate"</p>
@@ -1218,7 +1218,7 @@
 							<span class="font-mono" style={style({ color: c.positive })}>4.3</span>
 						</div>
 						<div class="h-2.5 rounded-full overflow-hidden" style={style({ background: c.overlay })}>
-							<div class="h-full rounded-full" style={style({ width: '86%', background: c.positive }) />
+							<div class="h-full rounded-full" style={style({ width: '86%', background: c.positive })} />
 						</div>
 					</div>
 				</div>
@@ -1358,7 +1358,7 @@
 				<div class="space-y-1.5 font-mono text-[11px]">
 					{#each restEndpoints as e}
 						<div class="flex items-center gap-2.5">
-							<span style={style({ color: c.positive }) class="w-7">
+							<span style={style({ color: c.positive })} class="w-7">
 								{e.method}
 							</span>
 							<span class="flex-1">{e.path}</span>
