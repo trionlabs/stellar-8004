@@ -1,24 +1,67 @@
 <script>
 	import { onMount, tick } from 'svelte';
 
+	const sections = [
+		{ id: 'hero', label: 'Intro' },
+		{ id: 'audiences', label: 'For You' },
+		{ id: 'problem', label: 'Problem' },
+		{ id: 'solution', label: 'Solution' },
+		{ id: 'built', label: 'What We Built' },
+		{ id: 'identity', label: 'Identity' },
+		{ id: 'reputation', label: 'Reputation' },
+		{ id: 'validation', label: 'Validation' },
+		{ id: 'architecture', label: 'Architecture' },
+		{ id: 'payments', label: 'x402 + MPP' },
+		{ id: 'scraper', label: 'Scraper Agent' },
+		{ id: 'feedback', label: 'Feedback Loop' },
+		{ id: 'devtools', label: 'Dev Tools' },
+		{ id: 'closing', label: 'stellar8004.com' },
+	];
+
+	let activeIdx = $state(0);
+
+	function scrollTo(/** @type {string} */ id) {
+		document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+
 	onMount(() => {
 		tick().then(() => {
-			const observer = new IntersectionObserver(
+			// Reveal observer
+			const revealObs = new IntersectionObserver(
 				(entries) => {
 					for (const entry of entries) {
 						if (entry.isIntersecting) {
 							entry.target.classList.add('revealed');
-							observer.unobserve(entry.target);
+							revealObs.unobserve(entry.target);
 						}
 					}
 				},
 				{ rootMargin: '0px 0px -60px 0px', threshold: 0.05 }
 			);
-			document.querySelectorAll('.reveal-on-scroll').forEach(el => observer.observe(el));
-			cleanupRef = () => observer.disconnect();
+			document.querySelectorAll('.reveal-on-scroll').forEach(el => revealObs.observe(el));
+
+			// Section tracking observer
+			const sectionObs = new IntersectionObserver(
+				(entries) => {
+					for (const entry of entries) {
+						if (entry.isIntersecting) {
+							const idx = sections.findIndex(s => s.id === entry.target.id);
+							if (idx !== -1) activeIdx = idx;
+						}
+					}
+				},
+				{ rootMargin: '-20% 0px -60% 0px' }
+			);
+			for (const s of sections) {
+				const el = document.getElementById(s.id);
+				if (el) sectionObs.observe(el);
+			}
+
+			cleanupRef = () => { revealObs.disconnect(); sectionObs.disconnect(); };
 		});
 		return () => cleanupRef?.();
 	});
+
 	/** @type {(() => void) | undefined} */
 	let cleanupRef;
 
@@ -38,6 +81,19 @@
 		{ k: 'x402', v: 'true' },
 	];
 </script>
+
+<!-- Sidebar nav -->
+<nav class="fixed left-5 top-1/2 -translate-y-1/2 z-50 hidden xl:flex flex-col gap-0.5" aria-label="Section navigation">
+	{#each sections as s, i}
+		<button
+			onclick={() => scrollTo(s.id)}
+			class="group flex items-center gap-2.5 text-left py-0.5"
+		>
+			<div class="h-1 rounded-full transition-all duration-300 {activeIdx === i ? 'w-5 bg-accent' : 'w-1.5 bg-border group-hover:bg-text-dim'}"></div>
+			<span class="text-[10px] font-mono whitespace-nowrap transition-all duration-300 {activeIdx === i ? 'text-accent opacity-100 translate-x-0' : 'text-text-dim opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0'}">{s.label}</span>
+		</button>
+	{/each}
+</nav>
 
 <div class="mx-auto max-w-4xl px-6 py-20 xl:pl-24 sections-container">
 
