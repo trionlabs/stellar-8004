@@ -88,7 +88,7 @@
 	}
 
 	const showTryPanel = $derived(
-		data.agent.x402Enabled && data.agent.services.length > 0 && data.state === 'ready'
+		(data.agent.x402Enabled || data.agent.mppEnabled) && data.agent.services.length > 0 && data.state === 'ready'
 	);
 
 	const tabs = [
@@ -338,7 +338,7 @@
 				{#if data.agent.description}
 					<p class="mt-2 line-clamp-2 text-sm leading-relaxed text-text-muted">{data.agent.description}</p>
 				{/if}
-				{#if data.agent.supportedTrust.length > 0 || data.agent.x402Enabled}
+				{#if data.agent.supportedTrust.length > 0 || data.agent.x402Enabled || data.agent.mppEnabled}
 					<div class="mt-2 flex flex-wrap gap-1.5">
 						{#each data.agent.supportedTrust as trust}
 							<Tooltip text={TRUST_DESCRIPTIONS[trust] ?? trust}>
@@ -348,6 +348,11 @@
 						{#if data.agent.x402Enabled}
 							<Tooltip text="Accepts x402 micropayments">
 							<span class="rounded-full border border-accent/15 bg-accent/4 px-2 py-0.5 text-[10px] text-accent">x402</span>
+							</Tooltip>
+						{/if}
+						{#if data.agent.mppEnabled}
+							<Tooltip text="Accepts MPP Charge payments (direct settlement)">
+							<span class="rounded-full border border-accent/15 bg-accent/4 px-2 py-0.5 text-[10px] text-accent">mpp</span>
 							</Tooltip>
 						{/if}
 					</div>
@@ -421,6 +426,7 @@
 			<TryAgentPanel
 				services={data.agent.services}
 				x402Enabled={data.agent.x402Enabled}
+				mppEnabled={data.agent.mppEnabled}
 				autoOpen={true}
 			/>
 		</section>
