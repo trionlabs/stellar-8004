@@ -12,8 +12,8 @@ The system is composed of three main layers:
 ```mermaid
 graph TD
     subgraph Frontend Layer
-        Web[SvelteKit Web App]
-        SDK[@trionlabs/stellar8004 SDK]
+        Web["SvelteKit Web App"]
+        SDK["@trionlabs/stellar8004 SDK"]
         
         Web -->|Uses| SDK
     end
