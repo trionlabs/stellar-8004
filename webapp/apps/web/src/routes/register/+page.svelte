@@ -39,7 +39,8 @@
 		imageUrl: '',
 		services: [],
 		supportedTrust: [],
-		x402Enabled: false
+		x402Enabled: false,
+		mppEnabled: false
 	});
 
 	let uriMode = $state<UriMode>('auto');
@@ -228,7 +229,8 @@
 								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">description</code>,
 								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">image</code>,
 								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">services</code>,
-								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">x402</code>
+								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">x402</code>,
+								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">mpp</code>
 							</p>
 						</div>
 
@@ -265,7 +267,7 @@
 				{:else if currentStep === 1}
 					<StepServices services={formData.services} />
 				{:else if currentStep === 2}
-					<StepAdvanced supportedTrust={formData.supportedTrust} bind:x402Enabled={formData.x402Enabled} />
+					<StepAdvanced supportedTrust={formData.supportedTrust} bind:x402Enabled={formData.x402Enabled} bind:mppEnabled={formData.mppEnabled} />
 				{:else if currentStep === 3}
 					<StepUri {formData} bind:uriMode bind:manualUri />
 				{:else if currentStep === 4}
