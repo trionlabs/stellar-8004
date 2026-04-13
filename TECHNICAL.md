@@ -1,6 +1,63 @@
 # Technical Reference
 
-Detailed spec coverage, EVM divergences, event layouts, and type mappings for the Stellar 8004 contracts.
+Architecture, spec coverage, EVM divergences, and event layouts for the Stellar 8004 contracts.
+
+## Architecture
+
+Three layers: on-chain contracts, off-chain indexer, and client-side SDK/frontend.
+
+```mermaid
+graph TD
+    subgraph Frontend [Frontend Layer]
+        Web["SvelteKit Web App"]
+        SDK["@trionlabs/stellar8004 SDK"]
+        CLI["CLI Tool"]
+
+        Web -->|Uses| SDK
+        CLI -->|Uses| SDK
+    end
+
+    subgraph Backend [Backend Layer]
+        Idx["Soroban Event Indexer"]
+        DB[("Supabase Database")]
+
+        Idx -->|Stores Extracted Data| DB
+    end
+
+    subgraph Stellar [Stellar Network / Soroban]
+        ID["Identity Registry"]
+        REP["Reputation Registry"]
+        VAL["Validation Registry"]
+
+        REP -.->|Cross-contract auth| ID
+        VAL -.->|Cross-contract auth| ID
+    end
+
+    SDK ==>|Submits Transactions| ID
+    SDK -.->|Reads Data| REP
+    Web -.->|Fast Queries| DB
+    Idx -->|Listens to Events| ID
+```
+
+### Smart Contracts
+
+Written in Rust for Soroban. All three have timelocked upgrades (3-day delay) and OZ 2-step ownership transfer.
+
+- **Identity Registry** - Agent NFTs, metadata key-value storage, wallet binding. The `agentWallet` reserved key is initialized on register, exposed via `get_metadata`, and flows through `MetadataSet` events. Transfer clears wallet and all metadata.
+- **Reputation Registry** - Feedback with on-chain self-feedback prevention via `is_authorized_or_owner`. Stores value, decimals, and two filter tags. `get_summary` returns the normalized average over an explicit client list. Empty list reverts (Sybil prevention).
+- **Validation Registry** - Third-party attestation. Validators respond with 0-100 scores and can issue progressive updates.
+
+### Backend
+
+- **Event Indexer** - Supabase Edge Function that watches Soroban contract events, parses them, and writes to Postgres. Handles both current and legacy event formats.
+- **Supabase** - Postgres with materialized views for leaderboard scoring, RPC functions for search with owner filtering, and atomic rate limiting.
+
+### Frontend and SDK
+
+- **SDK** (`@trionlabs/stellar8004`) - TypeScript library with contract bindings, Freighter wallet signer, and explorer API client. Single source of truth for contract addresses in `config.ts`.
+- **Web App** (`stellar8004.com`) - SvelteKit explorer for browsing agents, submitting feedback, requesting validations, and managing agent registrations.
+- **CLI** - Command-line tool for agents to register themselves directly.
+- **Skills** - `/8004s` and `/x402s` for AI-assisted development.
 
 ## Spec Coverage
 
@@ -12,7 +69,7 @@ Compared against the [8004 reference contracts](https://github.com/erc-8004/erc-
 | Reputation | 10 | 8 | `readAllFeedback` off-chain only (explorer HTTP endpoint). `getResponseCount` no `responders[]` filter. `getClients` paginated. |
 | Validation | 7 | All 7 | `getAgentValidations` and `getValidatorRequests` paginated. |
 
-Soroban-only additions: `extend_ttl`, `propose_upgrade` / `execute_upgrade` / `cancel_upgrade` / `pending_upgrade` (3-day timelocked upgrades), `version`, `find_owner`, `agent_exists`, `total_agents`, `request_exists`, `token_uri` override, metadata size caps (64B key / 4KB value / 100 keys). OZ 2-step ownership exposed: `get_owner`, `transfer_ownership`, `accept_ownership`, `renounce_ownership`.
+Soroban-only additions: `extend_ttl`, `propose_upgrade` / `execute_upgrade` / `cancel_upgrade` / `pending_upgrade` (3-day timelocked upgrades), `version`, `find_owner`, `agent_exists`, `total_agents`, `request_exists`, `token_uri` override, metadata size caps (64B key / 4KB value / 100 keys). OZ 2-step ownership: `get_owner`, `transfer_ownership`, `accept_ownership`, `renounce_ownership`.
 
 ## Differences from the EVM Reference
 
@@ -45,7 +102,7 @@ All spec functions are implemented with equivalent behavior. Differences are inh
 | `uint256 lastUpdate` | `u64` | Ledger sequence |
 | `address` | `Address` | Covers both G-accounts and C-contracts |
 | `abi.encodePacked(address)` | StrKey ASCII (56 bytes) | `agentWallet` metadata encoding |
-| `int256` WAD intermediate | `i128` | Overflow at \|value\| > ~1.7e20 with decimals=0; returns `AggregateOverflow` cleanly |
+| `int256` intermediate | `i128` | Overflow at \|value\| > ~1.7e20 with decimals=0; returns `AggregateOverflow` cleanly |
 
 **Naming:** All functions are snake_case per Rust convention. Event indexed string topics are literal Soroban strings (not keccak256 hashes as in Solidity).
 
