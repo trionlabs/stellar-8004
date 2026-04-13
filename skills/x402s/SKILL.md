@@ -14,6 +14,8 @@ x402 is an open protocol from Coinbase that activates the HTTP 402 "Payment Requ
 
 > **Companion skills:** `/stellar-dev` for Soroban transaction patterns and Freighter integration. `/8004s` for agent identity and reputation.
 >
+> **Alternative protocol:** See `/stellar-dev` → `mpp.md` for MPP (Machine Payments Protocol) — direct on-chain settlement without a facilitator, plus payment channels for high-frequency agents. Agents can support both x402 and MPP simultaneously.
+>
 > **EVM version:** See `/x402` for the Celo equivalent using thirdweb.
 
 ## When to Use
