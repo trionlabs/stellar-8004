@@ -1,6 +1,6 @@
 export type {
 	AgentFormData,
 	ServiceEntry
-} from '@trionlabs/8004-sdk';
+} from '@trionlabs/stellar8004';
 
 export type UriMode = 'auto' | 'manual';

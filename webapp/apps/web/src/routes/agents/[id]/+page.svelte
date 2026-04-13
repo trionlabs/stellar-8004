@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { getClients } from '$lib/sdk-client.js';
-	import { validateAgentUri } from '@trionlabs/8004-sdk';
+	import { validateAgentUri } from '@trionlabs/stellar8004';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { explorerTxUrl } from '$lib/explorer.js';
 	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress, sanitizeImageUrl, TRUST_DESCRIPTIONS } from '$lib/formatters.js';

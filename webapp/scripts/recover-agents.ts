@@ -12,9 +12,9 @@
  *   npx tsx scripts/recover-agents.ts 31 33       # recover specific range
  */
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { MAINNET_CONFIG, TESTNET_CONFIG } from '@trionlabs/8004-sdk';
+import { MAINNET_CONFIG, TESTNET_CONFIG } from '@trionlabs/stellar8004';
 
-// Single source of truth for addresses lives in @trionlabs/8004-sdk.
+// Single source of truth for addresses lives in @trionlabs/stellar8004.
 const SDK_CONFIG = process.env.STELLAR_NETWORK === 'mainnet' ? MAINNET_CONFIG : TESTNET_CONFIG;
 
 const RPC_URL = process.env.STELLAR_RPC_URL || SDK_CONFIG.rpcUrl;
