@@ -62,6 +62,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 					agentUri: null,
 					supportedTrust: [] as string[],
 					x402Enabled: false,
+					mppEnabled: false,
 					services: [] as Array<{ name: string; endpoint: string; version?: string }>,
 					createdAt: new Date().toISOString(),
 					updatedAt: new Date().toISOString(),
@@ -233,6 +234,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			createdAt: agent.created_at,
 			updatedAt: agent.updated_at,
 			x402Enabled: agent.x402_enabled ?? false,
+			mppEnabled: agent.mpp_enabled ?? false,
 				registrationData: agent.agent_uri_data ? JSON.stringify(agent.agent_uri_data, null, 2) : null
 		},
 		metadata: metadataRows,
