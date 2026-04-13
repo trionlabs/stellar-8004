@@ -25,7 +25,7 @@ jobs:
           command_timeout: 5m
           script: |
             set -e
-            REPO=/etc/dokploy/compose/stellar8004-supabase-q75szz/code
+            REPO=/etc/dokploy/compose/trionlabs8004-supabase-ei13uw/code
 
             echo "=== Pulling latest code ==="
             cd "$REPO"
