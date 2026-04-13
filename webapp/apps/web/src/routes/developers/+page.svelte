@@ -5,7 +5,7 @@
 		{
 			name: '8004s',
 			slash: '/8004s',
-			desc: 'Full agent onboarding playbook for ERC-8004 on Stellar. Covers metadata preparation, on-chain registration (register, register_with_uri, register_full), indexer discovery, reputation system (give/read/revoke feedback, get_summary with running aggregates), validation workflow, trust verification, x402 integration, and storage vs event architecture.',
+			desc: 'Full agent onboarding playbook for ERC-8004 on Stellar. Covers metadata preparation, on-chain registration (register, register_with_uri, register_full), indexer discovery, reputation system (give/read/revoke feedback, get_summary with running aggregates), validation workflow, trust verification, x402 and MPP payment integration, and storage vs event architecture.',
 			install: 'npx skills add trionlabs/stellar-8004 --skill 8004s',
 			repo: 'https://github.com/trionlabs/stellar-8004'
 		},
@@ -106,7 +106,8 @@ const metadata = buildMetadataJson({
     }
   ],
   supportedTrust: ['reputation'],
-  x402Enabled: true
+  x402Enabled: true,
+  mppEnabled: false
 });
 
 console.log('Metadata bytes:', getMetadataSize(metadata));
@@ -192,7 +193,8 @@ const metadata = buildMetadataJson({
     }
   ],
   supportedTrust: ['reputation'],
-  x402Enabled: false
+  x402Enabled: false,
+  mppEnabled: false
 });
 
 console.log('Metadata bytes:', getMetadataSize(metadata));
