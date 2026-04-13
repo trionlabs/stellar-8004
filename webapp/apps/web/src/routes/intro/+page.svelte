@@ -204,7 +204,7 @@
 				{ n: '03', t: 'TypeScript SDK', c: 'positive', items: ['@trionlabs/stellar8004', 'Full contract client wrappers', 'Metadata builder & auto-storage'], f: 'Query, register, feedback, validate' },
 				{ n: '04', t: 'Explorer Web App', c: 'accent', items: ['Search & advanced filtering', 'Agent profiles with scores', 'TryAgent: pay agents in-browser'], f: 'SvelteKit · stellar8004.com' },
 				{ n: '05', t: 'Event Indexer', c: 'accent', items: ['Real-time Soroban event indexing', 'URI resolution & metadata extraction', 'REST API — 7 public endpoints'], f: 'Supabase · PostgreSQL' },
-				{ n: '06', t: 'Claude Code Skills', c: 'accent', items: ['/8004stellar — trust playbook', '/x402stellar — payment integration', '/stellar-dev — full Stellar guide'], f: 'AI-native DX' },
+				{ n: '06', t: 'Claude Code Skills', c: 'accent', items: ['/8004stellar — agent trust protocol', '/x402stellar — HTTP micropayments', 'Install via npx skills add'], f: 'AI-native developer experience' },
 			] as d}
 				<div class="rounded-xl border border-border bg-surface p-4 space-y-2">
 					<div class="flex items-center gap-2">
@@ -544,9 +544,9 @@
 			<div class="rounded-xl border border-border bg-surface p-5 space-y-3">
 				<div class="flex justify-between items-center"><p class="text-[11px] font-mono tracking-[0.18em] text-accent uppercase">Claude Code Skills</p><span class="rounded-full bg-accent-soft border border-accent/20 px-2 py-0.5 text-[10px] font-mono text-accent">AI-native DX</span></div>
 				<div class="rounded-lg bg-surface-overlay border border-border p-3 font-mono text-[11px] leading-relaxed space-y-2">
-					<div><p class="text-text-dim"># Install</p><p><span class="text-positive">$</span> npx skills add trionlabs/stellar-8004 --skill '*'</p></div>
-					<div><p><span class="text-positive">$</span> /8004stellar <span class="text-text-dim">&mdash; agent trust playbook</span></p></div>
-					<div><p><span class="text-positive">$</span> /x402stellar <span class="text-text-dim">&mdash; payment integration</span></p></div>
+					<div><p class="text-text-dim"># Install skills</p><p><span class="text-positive">$</span> npx skills add trionlabs/stellar-8004 --skill '*'</p></div>
+					<div><p><span class="text-positive">$</span> /8004stellar <span class="text-text-dim">&mdash; agent trust protocol</span></p></div>
+					<div><p><span class="text-positive">$</span> /x402stellar <span class="text-text-dim">&mdash; HTTP micropayments</span></p></div>
 				</div>
 			</div>
 			<div class="rounded-xl border border-border bg-surface p-5 space-y-3">
@@ -643,28 +643,4 @@
 	.sections-container > :global(section:last-child) {
 		padding-bottom: 6rem;
 	}
-
-	/* Reveal animations */
-	:global(.reveal-on-scroll) {
-		opacity: 0;
-		transform: translateY(20px);
-		transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-		            transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-	}
-	:global(.reveal-on-scroll.revealed) {
-		opacity: 1;
-		transform: translateY(0);
-	}
-	:global(.reveal-on-scroll > *) {
-		opacity: 0;
-		transform: translateY(12px);
-		transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-		            transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-	}
-	:global(.reveal-on-scroll.revealed > *) { opacity: 1; transform: translateY(0); }
-	:global(.reveal-on-scroll.revealed > *:nth-child(1)) { transition-delay: 0ms; }
-	:global(.reveal-on-scroll.revealed > *:nth-child(2)) { transition-delay: 60ms; }
-	:global(.reveal-on-scroll.revealed > *:nth-child(3)) { transition-delay: 120ms; }
-	:global(.reveal-on-scroll.revealed > *:nth-child(4)) { transition-delay: 180ms; }
-	:global(.reveal-on-scroll.revealed > *:nth-child(5)) { transition-delay: 240ms; }
 </style>
