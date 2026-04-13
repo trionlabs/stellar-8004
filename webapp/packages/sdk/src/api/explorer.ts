@@ -37,6 +37,7 @@ export interface AgentResponse {
 	supportedTrust?: string[];
 	services?: ServiceEntry[];
 	x402Enabled?: boolean;
+	mppEnabled?: boolean;
 	hasServices?: boolean;
 	createdAt?: string;
 	createdLedger?: number | null;
@@ -89,6 +90,7 @@ export interface StatsResponse {
 	averageFeedbackScore: number;
 	agentsWithServices: number;
 	agentsWithX402: number;
+	agentsWithMpp: number;
 	network: string;
 	protocolDistribution: { a2a: number; mcp: number; other: number };
 	trustDistribution: { reputation: number; validation: number; tee: number };
@@ -339,6 +341,7 @@ export class ExplorerClient {
 		minScore?: number;
 		hasServices?: boolean;
 		x402?: boolean;
+		mpp?: boolean;
 		sortBy?: 'created_at' | 'id';
 		sortOrder?: 'asc' | 'desc';
 	}) {
