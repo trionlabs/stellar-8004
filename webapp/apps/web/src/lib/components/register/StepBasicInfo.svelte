@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { AgentFormData } from '$lib/types.js';
-	import { validateUrl } from '@trionlabs/8004-sdk';
+	import { validateUrl } from '@trionlabs/stellar8004';
 
 	let { formData }: { formData: AgentFormData } = $props();
 

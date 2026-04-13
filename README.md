@@ -21,7 +21,7 @@ contracts/
   validation-registry/  - Third-party attestation requests/responses
 webapp/
   apps/web/             - SvelteKit frontend (stellar8004.com)
-  packages/sdk/         - @trionlabs/8004-sdk
+  packages/sdk/         - @trionlabs/stellar8004
   packages/indexer/     - Soroban event indexer
   supabase/             - Migrations, edge functions, schema
 ```
