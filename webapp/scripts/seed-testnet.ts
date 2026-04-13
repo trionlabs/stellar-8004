@@ -7,7 +7,7 @@
  * registers 10 agents with data URIs, and submits 20 feedback entries.
  */
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { TESTNET_CONFIG } from '@trionlabs/8004-sdk';
+import { TESTNET_CONFIG } from '@trionlabs/stellar8004';
 
 const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET;
 const RPC_URL = TESTNET_CONFIG.rpcUrl;

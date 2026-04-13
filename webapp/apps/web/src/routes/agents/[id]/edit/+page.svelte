@@ -5,10 +5,10 @@
 		buildMetadataJsonForEdit,
 		getMetadataSize,
 		toDataUri
-	} from '@trionlabs/8004-sdk';
+	} from '@trionlabs/stellar8004';
 	import { getClients } from '$lib/sdk-client.js';
 	import { explorerTxUrl } from '$lib/explorer.js';
-	import { validateAgentUri, formatSorobanError } from '@trionlabs/8004-sdk';
+	import { validateAgentUri, formatSorobanError } from '@trionlabs/stellar8004';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
 	import type { PageProps } from './$types';

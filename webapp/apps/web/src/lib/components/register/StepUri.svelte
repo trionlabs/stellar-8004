@@ -5,7 +5,7 @@
 		downloadMetadataJson,
 		getMetadataSize,
 		toDataUri
-	} from '@trionlabs/8004-sdk';
+	} from '@trionlabs/stellar8004';
 
 	let { formData, uriMode = $bindable(), manualUri = $bindable() }: { formData: AgentFormData; uriMode?: UriMode; manualUri?: string } = $props();
 

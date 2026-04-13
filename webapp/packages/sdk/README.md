@@ -1,12 +1,12 @@
-# @trionlabs/8004-sdk
+# @trionlabs/stellar8004
 
 TypeScript SDK for ERC-8004 agent registration, storage, signing, and explorer reads on Stellar.
 
 ## Install
 
 ```bash
-npm install @trionlabs/8004-sdk @stellar/stellar-sdk
-# or: pnpm add @trionlabs/8004-sdk @stellar/stellar-sdk
+npm install @trionlabs/stellar8004 @stellar/stellar-sdk
+# or: pnpm add @trionlabs/stellar8004 @stellar/stellar-sdk
 
 # Browser signer support (optional)
 npm install @stellar/freighter-api
@@ -25,7 +25,7 @@ import {
   buildMetadataJson,
   fundTestnet,
   wrapBasicSigner
-} from '@trionlabs/8004-sdk';
+} from '@trionlabs/stellar8004';
 
 const secret = process.env.STELLAR_SECRET_KEY;
 if (!secret) throw new Error('Missing STELLAR_SECRET_KEY');
@@ -75,7 +75,7 @@ Write client for on-chain contract actions:
 Read-only wrapper for the public explorer API:
 
 ```ts
-import { ExplorerClient } from '@trionlabs/8004-sdk';
+import { ExplorerClient } from '@trionlabs/stellar8004';
 
 const explorer = new ExplorerClient('https://stellar8004.com');
 const agents = await explorer.getAgents({ page: 1, limit: 10 });
@@ -97,9 +97,9 @@ const stats = await explorer.getStats();
 ## Subpath Imports
 
 ```ts
-import { FreighterSigner } from '@trionlabs/8004-sdk/signers/freighter';
-import { wrapBasicSigner } from '@trionlabs/8004-sdk/signers/basic';
-import { AutoStorage } from '@trionlabs/8004-sdk/storage/auto';
+import { FreighterSigner } from '@trionlabs/stellar8004/signers/freighter';
+import { wrapBasicSigner } from '@trionlabs/stellar8004/signers/basic';
+import { AutoStorage } from '@trionlabs/stellar8004/storage/auto';
 ```
 
 ## Links

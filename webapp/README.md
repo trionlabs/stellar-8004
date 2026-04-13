@@ -6,7 +6,7 @@ The frontend, indexer, and SDK that power [stellar8004.com](https://stellar8004.
 
 ```
 apps/web/         SvelteKit 5 frontend (Tailwind, Svelte runes, adapter-node)
-packages/sdk/     @trionlabs/8004-sdk - canonical TS SDK + auto-generated bindings
+packages/sdk/     @trionlabs/stellar8004 - canonical TS SDK + auto-generated bindings
 packages/indexer/ Soroban event indexer that writes to Supabase
 packages/db/      Supabase-generated TypeScript types
 supabase/         migrations, edge functions (api, indexer, resolve-uris, indexer-health)
@@ -22,7 +22,7 @@ indexer, scripts, and frontend env all import from there.
 
 ```bash
 pnpm install
-pnpm --filter @trionlabs/8004-sdk build   # build SDK once before web
+pnpm --filter @trionlabs/stellar8004 build   # build SDK once before web
 pnpm dev                                   # http://localhost:5173
 ```
 
@@ -34,7 +34,7 @@ spin up your own with `docker compose -f docker/docker-compose.supabase.yml up`
 ## Tests and checks
 
 ```bash
-pnpm --filter @trionlabs/8004-sdk test     # SDK unit tests (vitest)
+pnpm --filter @trionlabs/stellar8004 test     # SDK unit tests (vitest)
 pnpm --filter @stellar8004/indexer test    # indexer + parser tests
 pnpm --filter @stellar8004/web check       # svelte-check + tsc
 ```
@@ -55,7 +55,7 @@ import {
   TESTNET_CONFIG,
   createClients,
   FreighterSigner,
-} from '@trionlabs/8004-sdk';
+} from '@trionlabs/stellar8004';
 
 const signer = new FreighterSigner();
 await signer.connect();

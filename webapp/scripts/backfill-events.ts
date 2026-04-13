@@ -14,12 +14,12 @@
  *   docker exec trionlabs8004-db psql -U postgres -c "..." to verify results
  */
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { MAINNET_CONFIG, TESTNET_CONFIG } from '@trionlabs/8004-sdk';
+import { MAINNET_CONFIG, TESTNET_CONFIG } from '@trionlabs/stellar8004';
 
 // --- Config ---------------------------------------------------------
 
 // Single source of truth for contract addresses lives in
-// `@trionlabs/8004-sdk/src/core/config.ts`. Env vars override per-deployment.
+// `@trionlabs/stellar8004/src/core/config.ts`. Env vars override per-deployment.
 const NETWORK = process.env.STELLAR_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
 const SDK_CONFIG = NETWORK === 'mainnet' ? MAINNET_CONFIG : TESTNET_CONFIG;
 
