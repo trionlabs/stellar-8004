@@ -1,6 +1,6 @@
 import { createSupabaseAdmin, successWithCache, errorResponse, paginate, formatAgent, formatAgentDetail, normalizeServices, parseIntParam } from '../lib/response.ts';
 
-const AGENTS_SELECT = 'id, owner, wallet, agent_uri, agent_uri_data, supported_trust, x402_enabled, services, created_at, created_ledger, tx_hash';
+const AGENTS_SELECT = 'id, owner, wallet, agent_uri, agent_uri_data, supported_trust, x402_enabled, mpp_enabled, services, created_at, created_ledger, tx_hash';
 
 export async function handleAgentsList(url: URL): Promise<Response> {
   const db = createSupabaseAdmin();
@@ -11,6 +11,7 @@ export async function handleAgentsList(url: URL): Promise<Response> {
   const minScore = url.searchParams.get('minScore');
   const hasServices = url.searchParams.get('hasServices');
   const x402 = url.searchParams.get('x402');
+  const mpp = url.searchParams.get('mpp');
   const sortBy = url.searchParams.get('sortBy') ?? 'created_at';
   const sortOrder = url.searchParams.get('sortOrder') ?? 'desc';
 
@@ -34,6 +35,9 @@ export async function handleAgentsList(url: URL): Promise<Response> {
   if (x402 === 'true') {
     query = query.eq('x402_enabled', true);
   }
+  if (mpp === 'true') {
+    query = query.eq('mpp_enabled', true);
+  }
 
   const { count } = await query;
   const total = count ?? 0;
@@ -52,6 +56,9 @@ export async function handleAgentsList(url: URL): Promise<Response> {
   }
   if (x402 === 'true') {
     dataQuery = dataQuery.eq('x402_enabled', true);
+  }
+  if (mpp === 'true') {
+    dataQuery = dataQuery.eq('mpp_enabled', true);
   }
 
   const { data: agents, error } = await dataQuery.range((page - 1) * limit, page * limit - 1);
