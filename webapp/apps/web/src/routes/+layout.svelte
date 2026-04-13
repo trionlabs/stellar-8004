@@ -92,7 +92,7 @@
 	<footer class="relative z-10 mt-auto border-t border-border/40">
 		<div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-6 text-[11px] text-text-dim">
 			<div class="flex items-center gap-3">
-				<span>Stellar<span class="text-accent/60">8004</span></span>
+				<span>Stellar<span class="bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">8004</span></span>
 				<span class="text-text-dim/40">&middot;</span>
 				<a href="https://trionlabs.dev" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 transition hover:text-text-muted">
 					<svg class="h-3.5 w-3.5" viewBox="0 0 491 491" fill="currentColor"><path d="M490.94 0V490.94H0V0H490.94ZM70.6396 70.7695V140.77H140.64V210.47H70.7598V350.17H140.64V420.17H210.64V350.17H140.76V210.77H210.53V280.47H280.53V210.77H350.29V350.17H280.41V420.17H350.41V350.17H420.29V210.47H350.41V140.77H420.29V70.7695H280.41V140.77H210.64V70.7695H70.6396Z"/></svg>
