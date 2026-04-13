@@ -34,12 +34,13 @@ export function buildMetadataJson(form: AgentFormData): Record<string, unknown> 
 	if (form.services.length > 0) metadata.services = form.services;
 	if (form.supportedTrust.length > 0) metadata.supportedTrust = form.supportedTrust;
 	if (form.x402Enabled) metadata.x402 = true;
+	if (form.mppEnabled) metadata.mpp = true;
 
 	validateMetadataJson(metadata);
 	return metadata;
 }
 
-const KNOWN_FIELDS = ['type', 'name', 'description', 'image', 'services', 'supportedTrust', 'x402', 'endpoints'];
+const KNOWN_FIELDS = ['type', 'name', 'description', 'image', 'services', 'supportedTrust', 'x402', 'mpp', 'endpoints'];
 
 /**
  * Translate the legacy `endpoints: [{type, url}]` schema to the spec
@@ -102,6 +103,7 @@ export function buildMetadataJsonForEdit(
 	}
 	if (form.supportedTrust.length > 0) metadata.supportedTrust = form.supportedTrust;
 	if (form.x402Enabled) metadata.x402 = true;
+	if (form.mppEnabled) metadata.mpp = true;
 
 	// Preserved fields go first, form fields override
 	return { ...preserved, ...metadata };
