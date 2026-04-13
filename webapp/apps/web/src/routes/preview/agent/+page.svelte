@@ -145,9 +145,11 @@
 				<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
 				<p class="mt-1 text-lg font-light tabular-nums text-text">{data.scores?.feedbackCount ?? 0}</p>
 				{#if data.scores && data.scores.feedbackCount > 0}
-					<p class="mt-0.5 text-[10px] text-text-dim/40">
-						{data.scores.uniqueClients} client{data.scores.uniqueClients !== 1 ? 's' : ''}
-					</p>
+					<Tooltip text="Unique wallets that submitted feedback" position="bottom">
+						<p class="mt-0.5 text-[10px] text-text-dim/40 cursor-help border-b border-dashed border-text-dim/20">
+							{data.scores.uniqueClients} user{data.scores.uniqueClients !== 1 ? 's' : ''}
+						</p>
+					</Tooltip>
 				{/if}
 				{#if data.recentFeedbackCount > 0}
 					<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>

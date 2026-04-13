@@ -391,13 +391,15 @@
 					</p>
 				{/if}
 			</div>
-			<div class="stat-cell px-4 py-3" title="Total feedback submissions from clients">
+			<div class="stat-cell px-4 py-3" title="Total feedback submissions">
 				<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
 				<p class="mt-1 text-lg font-light tabular-nums text-text">{data.scores?.feedbackCount ?? 0}</p>
 				{#if data.scores && data.scores.feedbackCount > 0}
-					<p class="mt-0.5 text-[10px] text-text-dim/40">
-						{data.scores.uniqueClients} client{data.scores.uniqueClients !== 1 ? 's' : ''}
-					</p>
+					<Tooltip text="Unique wallets that submitted feedback" position="bottom">
+						<p class="mt-0.5 text-[10px] text-text-dim/40 cursor-help border-b border-dashed border-text-dim/20">
+							{data.scores.uniqueClients} user{data.scores.uniqueClients !== 1 ? 's' : ''}
+						</p>
+					</Tooltip>
 				{/if}
 				{#if data.recentFeedbackCount > 0}
 					<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>
@@ -680,7 +682,7 @@
 				{:else}
 					<div class="rounded-lg border border-dashed border-border/40 px-4 py-8 text-center text-sm text-text-dim">
 						{#if data.state === 'resolving'}
-							Reputation entries will appear after clients submit feedback.
+							Reputation entries will appear after users submit feedback.
 						{:else}
 							No feedback submitted yet.
 						{/if}
