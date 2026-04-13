@@ -24,6 +24,14 @@
 		name="description"
 		content="Explorer for 8004 Agent Trust Protocol on Stellar. Browse agents, reputation scores, and feedback."
 	/>
+	<meta property="og:title" content="Stellar8004" />
+	<meta property="og:description" content="Agent Trust Protocol on Stellar. Browse agents, reputation scores, and feedback." />
+	<meta property="og:image" content="/og-image.png" />
+	<meta property="og:type" content="website" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Stellar8004" />
+	<meta name="twitter:description" content="Agent Trust Protocol on Stellar." />
+	<meta name="twitter:image" content="/og-image.png" />
 </svelte:head>
 
 <div class="space-y-20">
