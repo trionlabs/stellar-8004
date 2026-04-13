@@ -782,8 +782,11 @@
 
 	.try-connect-btn:hover,
 	.try-service-btn:hover {
-		border-color: oklch(0.55 0.14 265 / 0.45);
-		box-shadow: 0 0 24px -8px oklch(0.5 0.16 265 / 0.35);
+		border-color: oklch(0.55 0.14 265 / 0.35);
+		box-shadow:
+			0 0 48px -6px oklch(0.5 0.14 265 / 0.18),
+			0 0 80px -10px oklch(0.55 0.12 265 / 0.10),
+			inset 0 0 20px -4px oklch(0.6 0.16 265 / 0.12);
 	}
 
 	.try-connect-btn:hover::after,
