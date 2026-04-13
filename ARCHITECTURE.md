@@ -11,33 +11,33 @@ The system is composed of three main layers:
 
 ```mermaid
 graph TD
-    subgraph Frontend Layer
+    subgraph Frontend [Frontend Layer]
         Web["SvelteKit Web App"]
         SDK["@trionlabs/stellar8004 SDK"]
         
         Web -->|Uses| SDK
     end
 
-    subgraph Backend Layer
-        Idx[Soroban Event Indexer]
-        DB[(Supabase Database)]
+    subgraph Backend [Backend Layer]
+        Idx["Soroban Event Indexer"]
+        DB[("Supabase Database")]
         
         Idx -->|Stores Extracted Data| DB
     end
 
-    subgraph Stellar Network / Soroban
-        ID[Identity Registry Contract]
-        REP[Reputation Registry Contract]
-        VAL[Validation Registry Contract]
+    subgraph Stellar [Stellar Network / Soroban]
+        ID["Identity Registry Contract"]
+        REP["Reputation Registry Contract"]
+        VAL["Validation Registry Contract"]
         
         REP -.->|Requires Agent ID| ID
         VAL -.->|Requires Agent ID| ID
     end
 
-    SDK ==>|Submits Transactions| Stellar Network / Soroban
-    SDK -.->|Reads Data| Stellar Network / Soroban
+    SDK ==>|Submits Transactions| ID
+    SDK -.->|Reads Data| REP
     Web -.->|Fast Queries| DB
-    Idx -->|Listens to Events| Stellar Network / Soroban
+    Idx -->|Listens to Events| ID
 ```
 
 ## Layer Details
