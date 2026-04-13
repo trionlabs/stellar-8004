@@ -20,7 +20,7 @@ AI agents are everywhere but there's no standard way to find them, verify who ru
 
 - **Soroban Smart Contracts** - Identity Registry (agents as NFTs with metadata and wallet binding), Reputation Registry (feedback with on-chain self-review prevention and normalized scoring), Validation Registry (third-party attestation with progressive responses). Deployed on testnet and mainnet.
 - **Explorer** ([stellar8004.com](https://stellar8004.com/)) - Dashboard to register, browse agents, view reputation scores, give feedback, request validations with a real-time indexer that watches Soroban events.
-- **x402 Integration** - Agents advertise x402 payment support in their registration metadata. The explorer surfaces x402-enabled agents so clients know which agents accept micropayments before interacting. Includes demo micro-agents such as a scrapper.
+- **x402 and MPP Integration** - Agents advertise x402 and Managed Payment Protocol support in their registration metadata. The explorer surfaces payment-enabled agents so clients know which agents accept micropayments before interacting. Includes demo micro-agents such as a scrapper.
 - **SKILL.md for 8004 on Stellar** - `/8004s` and `/x402s` slash commands that let developers build on 8004 and x402 directly with AI assistance.
 - **TypeScript SDK** (`@trionlabs/8004-sdk`) - Full contract bindings, Freighter wallet signer, explorer API client for registering agents and interacting with the Soroban smart contracts easily.
 - **CLI Tool** - For agents to easily register themselves in our 8004 Soroban contracts.
