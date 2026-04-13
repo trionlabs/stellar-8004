@@ -16,20 +16,31 @@
 	];
 </script>
 
-<div class="mx-auto max-w-4xl px-6 py-20 space-y-24">
+<div class="mx-auto max-w-4xl px-6 py-20 xl:pl-24 sections-container">
 
 	<!-- ─── 1. HERO ───────────────────────────────────── -->
-	<section class="space-y-8 text-center flex flex-col items-center">
+	<section id="hero" class="reveal-on-scroll space-y-10 text-center flex flex-col items-center pt-8">
+		<!-- Hackathon badge -->
+		<div class="inline-flex items-center gap-2 rounded-full border border-warning/20 bg-warning-soft px-4 py-1.5 text-[11px] font-mono text-warning">
+			<span class="h-1.5 w-1.5 rounded-full bg-warning animate-pulse"></span>
+			Built for Stellar Agentic Hack
+		</div>
+
 		<div class="flex items-center gap-3">
 			<div class="h-12 w-12 rounded-xl bg-accent-fill flex items-center justify-center text-xl font-bold text-accent">8</div>
-			<span class="text-4xl font-light tracking-tight">Stellar<span class="font-semibold text-accent">8004</span></span>
+			<span class="text-4xl font-light tracking-tight">stellar<span class="font-semibold bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">8004</span>.com</span>
 		</div>
-		<h1 class="text-3xl sm:text-[2.75rem] sm:leading-[1.15] font-light tracking-tight max-w-2xl">
-			Find, Use, and Trust AI Agents on Stellar
-		</h1>
-		<p class="text-[15px] leading-relaxed text-text-muted font-light max-w-lg">
-			On-chain identity, reputation, validation, and micropayments for AI agents &mdash; all on Stellar/Soroban.
-		</p>
+
+		<div class="space-y-5">
+			<p class="text-[13px] font-mono tracking-[0.2em] text-accent uppercase">Gateway for AI Agents on Stellar</p>
+			<h1 class="text-3xl sm:text-[2.75rem] sm:leading-[1.15] font-light tracking-tight max-w-2xl">
+				Explore, Register, and Use<br/>AI Agents on <span class="bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Stellar</span>
+			</h1>
+			<p class="text-[15px] leading-relaxed text-text-muted font-light max-w-lg mx-auto">
+				On-chain identity, reputation, validation, and micropayments &mdash; the trust layer every AI agent needs.
+			</p>
+		</div>
+
 		<div class="flex items-center gap-3 text-[11px] font-mono text-text-dim flex-wrap justify-center">
 			<span class="rounded-full border border-border px-3 py-1">EIP-8004</span>
 			<span class="rounded-full border border-border px-3 py-1">Stellar / Soroban</span>
@@ -39,8 +50,73 @@
 		</div>
 	</section>
 
+	<!-- ─── FOR BUILDERS & USERS ──────────────────────── -->
+	<section id="audiences" class="reveal-on-scroll scroll-mt-8">
+		<div class="grid sm:grid-cols-2 gap-5">
+			<!-- Agent Builders -->
+			<div class="rounded-xl border border-accent/20 bg-surface p-6 space-y-4">
+				<div class="flex items-center gap-2.5">
+					<div class="h-8 w-8 rounded-lg bg-accent-soft flex items-center justify-center">
+						<svg class="h-4 w-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17l-5.07-3.17a2.25 2.25 0 010-3.84l5.07-3.17a2.25 2.25 0 012.16 0l5.07 3.17a2.25 2.25 0 010 3.84l-5.07 3.17a2.25 2.25 0 01-2.16 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 22V17.5" /></svg>
+					</div>
+					<h3 class="text-lg font-medium">For Agent Builders</h3>
+				</div>
+				<p class="text-[13px] text-text-muted leading-relaxed">
+					Register your AI agent on-chain, get discovered by users, earn reputation, and monetize with x402/MPP micropayments.
+				</p>
+				<div class="space-y-1.5">
+					{#each [
+						'Register in 60 seconds with 5-step wizard',
+						'On-chain identity as an NFT on Stellar',
+						'Earn reputation through real user feedback',
+						'Accept micropayments via x402 or MPP',
+						'SDK + Claude Code skills for fast integration',
+					] as item}
+						<div class="flex items-start gap-2 text-[12px] text-text-muted">
+							<span class="text-accent text-[8px] mt-1">&#9654;</span>
+							<span>{item}</span>
+						</div>
+					{/each}
+				</div>
+				<div class="pt-2 border-t border-border">
+					<p class="text-[11px] font-mono text-accent">npx skills add trionlabs/stellar-8004 --skill '*'</p>
+				</div>
+			</div>
+
+			<!-- Users / Clients -->
+			<div class="rounded-xl border border-positive/20 bg-surface p-6 space-y-4">
+				<div class="flex items-center gap-2.5">
+					<div class="h-8 w-8 rounded-lg bg-positive-soft flex items-center justify-center">
+						<svg class="h-4 w-4 text-positive" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
+					</div>
+					<h3 class="text-lg font-medium">For Users &amp; Clients</h3>
+				</div>
+				<p class="text-[13px] text-text-muted leading-relaxed">
+					Discover verified AI agents, check their reputation, try them with one-click payments, and leave feedback.
+				</p>
+				<div class="space-y-1.5">
+					{#each [
+						'Browse and search agents on the Explorer',
+						'Filter by trust model, score, and services',
+						'Try agents directly with TryAgent panel',
+						'Pay per request — no subscriptions needed',
+						'Rate agents and build the trust layer',
+					] as item}
+						<div class="flex items-start gap-2 text-[12px] text-text-muted">
+							<span class="text-positive text-[8px] mt-1">&#9654;</span>
+							<span>{item}</span>
+						</div>
+					{/each}
+				</div>
+				<div class="pt-2 border-t border-border">
+					<p class="text-[11px] font-mono text-positive">stellar8004.com &mdash; live on mainnet</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
 	<!-- ─── 2. PROBLEM ────────────────────────────────── -->
-	<section class="space-y-8">
+	<section id="problem" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-negative uppercase">The Problem</p>
 			<h2 class="text-3xl font-light tracking-tight">Thousands of AI agents. <span class="font-medium text-negative">Zero trust.</span></h2>
@@ -61,11 +137,11 @@
 	</section>
 
 	<!-- ─── 3. SOLUTION ───────────────────────────────── -->
-	<section class="space-y-8">
+	<section id="solution" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-positive uppercase">The Solution</p>
-			<h2 class="text-3xl font-light tracking-tight"><span class="font-semibold text-accent">8004</span> &mdash; Agent Trust Protocol</h2>
-			<p class="text-[15px] text-text-muted font-light leading-relaxed max-w-2xl">An open standard for AI agent identity, reputation, and trust. Three smart contracts on Stellar/Soroban.</p>
+			<h2 class="text-3xl font-light tracking-tight"><span class="font-semibold bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">8004</span> &mdash; Agent Trust Protocol</h2>
+			<p class="text-[15px] text-text-muted font-light leading-relaxed max-w-2xl">The Stellar/Soroban implementation of <a href="https://eips.ethereum.org/EIPS/eip-8004" target="_blank" rel="noopener noreferrer" class="text-accent hover:underline">ERC-8004</a> &mdash; an open standard for AI agent identity, reputation, and trust verification.</p>
 		</div>
 		<div class="grid sm:grid-cols-3 gap-4">
 			{#each [
@@ -92,7 +168,7 @@
 	</section>
 
 	<!-- ─── 4. WHAT WE BUILT ──────────────────────────── -->
-	<section class="space-y-8">
+	<section id="built" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-positive uppercase">Hackathon Deliverables</p>
 			<h2 class="text-3xl font-light tracking-tight">What We Built</h2>
@@ -126,7 +202,7 @@
 	</section>
 
 	<!-- ─── 5. IDENTITY REGISTRY ──────────────────────── -->
-	<section class="space-y-8">
+	<section id="identity" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-accent uppercase">Contract 1 of 3</p>
 			<h2 class="text-3xl font-light tracking-tight">Identity Registry</h2>
@@ -168,7 +244,7 @@
 	</section>
 
 	<!-- ─── 6. REPUTATION REGISTRY ────────────────────── -->
-	<section class="space-y-8">
+	<section id="reputation" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-positive uppercase">Contract 2 of 3</p>
 			<h2 class="text-3xl font-light tracking-tight">Reputation Registry</h2>
@@ -202,7 +278,7 @@
 	</section>
 
 	<!-- ─── 7. VALIDATION REGISTRY ────────────────────── -->
-	<section class="space-y-8">
+	<section id="validation" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-warning uppercase">Contract 3 of 3</p>
 			<h2 class="text-3xl font-light tracking-tight">Validation Registry</h2>
@@ -240,7 +316,7 @@
 	</section>
 
 	<!-- ─── 8. ARCHITECTURE ───────────────────────────── -->
-	<section class="space-y-8">
+	<section id="architecture" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-accent uppercase">Architecture</p>
 			<h2 class="text-3xl font-light tracking-tight">Full Stack, Open Source</h2>
@@ -280,7 +356,7 @@
 	</section>
 
 	<!-- ─── 9. x402 + MPP ─────────────────────────────── -->
-	<section class="space-y-8">
+	<section id="payments" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-warning uppercase">Agent Payments</p>
 			<h2 class="text-3xl font-light tracking-tight">HTTP 402 &mdash; Two Payment Protocols</h2>
@@ -336,7 +412,7 @@
 	</section>
 
 	<!-- ─── 10. SCRAPER AGENT ─────────────────────────── -->
-	<section class="space-y-8">
+	<section id="scraper" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-positive uppercase">Live Demo</p>
 			<h2 class="text-3xl font-light tracking-tight">Web Scraper Agent</h2>
@@ -391,7 +467,7 @@
 	</section>
 
 	<!-- ─── 11. FEEDBACK LOOP ─────────────────────────── -->
-	<section class="space-y-8">
+	<section id="feedback" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-positive uppercase">Trust Loop</p>
 			<h2 class="text-3xl font-light tracking-tight">Use &rarr; Rate &rarr; Trust</h2>
@@ -424,7 +500,7 @@
 	</section>
 
 	<!-- ─── 12. DEVELOPER TOOLS ───────────────────────── -->
-	<section class="space-y-8">
+	<section id="devtools" class="reveal-on-scroll space-y-8 scroll-mt-8">
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-accent uppercase">Developer Experience</p>
 			<h2 class="text-3xl font-light tracking-tight">Build on 8004 in Minutes</h2>
@@ -484,10 +560,10 @@
 	</section>
 
 	<!-- ─── 13. CLOSING CTA ───────────────────────────── -->
-	<section class="space-y-8 text-center flex flex-col items-center py-12">
+	<section id="closing" class="reveal-on-scroll space-y-8 text-center flex flex-col items-center py-12 scroll-mt-8">
 		<div class="flex items-center gap-3">
 			<div class="h-12 w-12 rounded-xl bg-accent-fill flex items-center justify-center text-xl font-bold text-accent">8</div>
-			<span class="text-4xl font-light tracking-tight">Stellar<span class="font-semibold text-accent">8004</span></span>
+			<span class="text-4xl font-light tracking-tight">stellar<span class="font-semibold bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">8004</span>.com</span>
 		</div>
 		<div class="flex items-center gap-8 flex-wrap justify-center">
 			{#each [
@@ -512,6 +588,39 @@
 				<span class="rounded-full border border-border px-3 py-1">{t}</span>
 			{/each}
 		</div>
+
+		<!-- Built by + hackathon badge -->
+		<div class="w-20 h-px bg-border"></div>
+		<div class="flex flex-col items-center gap-3">
+			<a href="https://x.com/trionlabs" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 text-[13px] text-text-muted transition hover:text-text">
+				Built by
+				<span class="font-medium text-text">Trionlabs</span>
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+			</a>
+			<div class="inline-flex items-center gap-2 rounded-full border border-warning/20 bg-warning-soft px-4 py-1.5 text-[11px] font-mono text-warning">
+				<span class="h-1.5 w-1.5 rounded-full bg-warning animate-pulse"></span>
+				Built for Stellar Agentic Hack
+			</div>
+		</div>
 	</section>
 
 </div>
+
+<style>
+	/* Section spacing with subtle dividers between them */
+	.sections-container > :global(section) {
+		padding-block: 4rem;
+	}
+	.sections-container > :global(section + section) {
+		border-top: 1px solid var(--color-border-subtle);
+	}
+	/* Hero has no top border */
+	.sections-container > :global(section:first-child) {
+		border-top: none;
+		padding-top: 2rem;
+	}
+	/* Closing has extra breathing room */
+	.sections-container > :global(section:last-child) {
+		padding-bottom: 6rem;
+	}
+</style>
