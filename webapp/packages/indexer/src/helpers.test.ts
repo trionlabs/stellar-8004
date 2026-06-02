@@ -1,6 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
-import { isValidStellarAddress } from './helpers.js';
+import { isValidStellarAddress, toText } from './helpers.js';
+
+describe('toText', () => {
+  it('returns strings unchanged', () => {
+    expect(toText('https://example.com')).toBe('https://example.com');
+  });
+
+  it('returns empty string for null/undefined', () => {
+    expect(toText(null)).toBe('');
+    expect(toText(undefined)).toBe('');
+  });
+
+  it('UTF-8 decodes a Uint8Array instead of comma-joining bytes', () => {
+    // The bug guard: String(new Uint8Array([104,105])) === "104,105".
+    const bytes = new TextEncoder().encode('hi');
+    expect(toText(bytes)).toBe('hi');
+    expect(toText(bytes)).not.toBe('104,105');
+  });
+});
 
 describe('isValidStellarAddress', () => {
   it('accepts a real ed25519 account address (G...)', () => {
