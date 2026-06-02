@@ -12,7 +12,7 @@ metadata:
 
 x402 is an open protocol from Coinbase that activates the HTTP 402 "Payment Required" status code for programmatic per-request payments. On Stellar, it uses Soroban authorization entries and USDC for near-instant micropayments — ideal for AI agent commerce.
 
-> **Companion skills:** `/stellar-dev` for Soroban transaction patterns and Freighter integration. `/8004s` for agent identity and reputation.
+> **Companion skills:** `/stellar-dev` for Soroban transaction patterns and Freighter integration. `/8004stellar` for agent identity and reputation.
 >
 > **Alternative protocol:** See `/stellar-dev` → `mpp.md` for MPP (Machine Payments Protocol) — direct on-chain settlement without a facilitator, plus payment channels for high-frequency agents. Agents can support both x402 and MPP simultaneously.
 >
@@ -411,7 +411,7 @@ The `PAYMENT-SIGNATURE` header requires Soroban auth entry signing — use the c
 
 ## Integration with ERC-8004
 
-Combine agent trust (`/8004s`) with payments (`/x402s`):
+Combine agent trust (`/8004stellar`) with payments (`/x402s`):
 
 ```typescript
 // 1. Check agent reputation before paying
@@ -452,5 +452,5 @@ STELLAR_RPC_URL=https://soroban-testnet.stellar.org
 ## Related Skills
 
 - [stellar-dev](https://github.com/stellar/stellar-dev-skill) — General Stellar/Soroban development (required companion)
-- [8004s](../8004s/SKILL.md) — ERC-8004 Agent Trust Protocol on Stellar
+- [8004stellar](../8004stellar/SKILL.md) — ERC-8004 Agent Trust Protocol on Stellar
 - [x402](../x402/SKILL.md) — x402 on Celo (EVM version)

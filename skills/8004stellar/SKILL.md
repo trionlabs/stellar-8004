@@ -1,5 +1,5 @@
 ---
-name: 8004s
+name: 8004stellar
 description: Use when building on Stellar/Soroban with ERC-8004 Agent Trust Protocol — agent identity registration, reputation feedback, validator endorsements.
 ---
 
@@ -656,7 +656,7 @@ async function verifyAndInteract(targetAgentId: number, minScore = 70) {
 
 ## x402 Integration
 
-Combine agent trust (`/8004s`) with payments (`/x402s`):
+Combine agent trust (`/8004stellar`) with payments (`/x402s`):
 
 ```typescript
 async function payTrustedAgent(agentId: number, serviceUrl: string) {
