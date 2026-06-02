@@ -4,26 +4,34 @@ type EnvRuntime = typeof globalThis & {
 };
 
 /**
- * Reads env vars in both Node and Deno runtimes.
- * Deno access is guarded because env permissions may be denied.
+ * Reads env vars in both Node and Deno runtimes. Deno is checked FIRST: the
+ * deployed edge copy runs under Deno, and its npm-compat layer can expose a
+ * partial `process.env` that would otherwise shadow the real `Deno.env` value.
+ * Under Node there is no `Deno` global, so it falls through to `process.env`.
+ * An empty string is treated as "not set" so a polyfilled blank does not mask
+ * a real value in the other runtime.
  */
 export function env(key: string): string | undefined {
   const runtime = globalThis as EnvRuntime;
 
   try {
-    if (runtime.process?.env?.[key] !== undefined) {
-      return runtime.process.env[key];
-    }
-  } catch {
-    // Ignore missing Node globals.
-  }
-
-  try {
     if (typeof runtime.Deno?.env?.get === 'function') {
-      return runtime.Deno.env.get(key);
+      const value = runtime.Deno.env.get(key);
+      if (value !== undefined && value !== '') {
+        return value;
+      }
     }
   } catch {
     // Ignore missing Deno globals or denied env permissions.
+  }
+
+  try {
+    const value = runtime.process?.env?.[key];
+    if (value !== undefined && value !== '') {
+      return value;
+    }
+  } catch {
+    // Ignore missing Node globals.
   }
 
   return undefined;
