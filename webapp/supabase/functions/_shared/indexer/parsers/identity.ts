@@ -1,3 +1,6 @@
+// AUTO-GENERATED from packages/indexer/src/parsers/identity.ts — DO NOT EDIT.
+// Regenerate with: pnpm --filter @stellar8004/indexer sync:shared
+
 import { scValToNative } from '@stellar/stellar-sdk';
 import type { rpc } from '@stellar/stellar-sdk';
 
