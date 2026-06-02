@@ -78,6 +78,7 @@ function extractContractEvents(
 	ledger: number;
 	ledgerClosedAt: string;
 	txHash: string;
+	eventId: string;
 }> {
 	const events: Array<{
 		contractId: string;
@@ -87,7 +88,9 @@ function extractContractEvents(
 		ledger: number;
 		ledgerClosedAt: string;
 		txHash: string;
+		eventId: string;
 	}> = [];
+	let eventIndex = 0;
 
 	if (tx.status !== 'SUCCESS') return events;
 	if (!tx.resultMetaXdr) return events;
@@ -127,6 +130,11 @@ function extractContractEvents(
 			ledger: tx.ledger,
 			ledgerClosedAt: tx.createdAt,
 			txHash: tx.txHash,
+			// Deterministic per-event id (txHash + intra-tx index) so re-running
+			// the backfill is idempotent via insert_feedback_response's event_id
+			// dedupe. Distinct from the live RPC paging token, so backfill and
+			// the live indexer should not be run over overlapping ranges.
+			eventId: `${tx.txHash}:${eventIndex++}`,
 		});
 	}
 
@@ -148,14 +156,14 @@ function parseEventData(raw: any): Record<string, any> {
 }
 
 function parseEvent(event: ReturnType<typeof extractContractEvents>[number]): ParsedEvent | null {
-	const { contractName, topic, value, ledger, ledgerClosedAt, txHash } = event;
+	const { contractName, topic, value, ledger, ledgerClosedAt, txHash, eventId } = event;
 
 	if (!topic || topic.length < 1) return null;
 
 	const eventName = StellarSdk.scValToNative(topic[0]) as string;
 	const data = parseEventData(StellarSdk.scValToNative(value));
 
-	const base = { ledger, ledgerClosedAt, txHash };
+	const base = { ledger, ledgerClosedAt, txHash, eventId };
 
 	switch (contractName) {
 		case 'identity':
@@ -536,6 +544,7 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 				p_response_hash: d.responseHash,
 				p_created_at: d.ledgerClosedAt,
 				p_tx_hash: d.txHash,
+				p_event_id: d.eventId,
 			});
 			break;
 	}
@@ -560,13 +569,17 @@ async function callRpc(name: string, body: unknown = {}): Promise<unknown> {
 	return res.json().catch(() => null);
 }
 
+// Owner token so this script's lock release is fenced: it can only delete the
+// lock row it acquired, never a concurrently-held cron indexer lock.
+const LOCK_OWNER = `backfill:${crypto.randomUUID()}`;
+
 async function acquireIndexerLock(): Promise<boolean> {
-	const result = await callRpc('acquire_indexer_lock');
+	const result = await callRpc('acquire_indexer_lock', { p_owner: LOCK_OWNER });
 	return result === true;
 }
 
 async function releaseIndexerLock(): Promise<void> {
-	await callRpc('release_indexer_lock').catch((err) => {
+	await callRpc('release_indexer_lock', { p_owner: LOCK_OWNER }).catch((err) => {
 		console.error(`Warning: release_indexer_lock failed: ${err}`);
 	});
 }
