@@ -7,14 +7,40 @@ import type { ReputationEvent } from './parsers/reputation.js';
 import type { ValidationEvent } from './parsers/validation.js';
 
 type SupabaseResult = {
-  error: { message: string } | null;
+  error: { message: string; code?: string } | null;
 };
 
 const utf8Decoder = new TextDecoder('utf-8', { fatal: false });
 
+// PostgreSQL SQLSTATE for foreign_key_violation. A write that hits this is not
+// corrupt data - it means a referenced parent row (e.g. the agent a feedback
+// row points at) has not been indexed yet this run. The indexer treats it as
+// retryable and defers the batch rather than dropping the event.
+const PG_FOREIGN_KEY_VIOLATION = '23503';
+
+/**
+ * Thrown by writers when a Supabase operation fails. `retryable` marks
+ * failures the indexer should defer (re-process next run) instead of counting
+ * as a permanent per-event error.
+ */
+export class IndexerWriteError extends Error {
+  readonly retryable: boolean;
+
+  constructor(message: string, retryable: boolean) {
+    super(message);
+    this.name = 'IndexerWriteError';
+    this.retryable = retryable;
+  }
+}
+
+export function isRetryableWriteError(error: unknown): boolean {
+  return error instanceof IndexerWriteError && error.retryable;
+}
+
 function assertNoError(result: SupabaseResult, context: string): void {
   if (result.error) {
-    throw new Error(`${context}: ${result.error.message}`);
+    const retryable = result.error.code === PG_FOREIGN_KEY_VIOLATION;
+    throw new IndexerWriteError(`${context}: ${result.error.message}`, retryable);
   }
 }
 
@@ -105,6 +131,11 @@ export async function writeIdentityEvent(
 
       const shouldResolveUri =
         typeof event.agentUri === 'string' && event.agentUri.length > 0;
+      // Registration is a one-time on-chain event per agent id, so re-seeing a
+      // `Registered` event only happens on at-least-once replay (a deferred or
+      // re-scanned batch). Use ignoreDuplicates so a replay does NOT clobber
+      // async URI-resolution state (agent_uri_data, resolve_uri_pending, ...)
+      // that the resolver populated after the first insert.
       const result = await db.from('agents').upsert(
         {
           id: event.agentId,
@@ -117,7 +148,7 @@ export async function writeIdentityEvent(
           created_ledger: event.ledger,
           tx_hash: event.txHash,
         },
-        { onConflict: 'id' },
+        { onConflict: 'id', ignoreDuplicates: true },
       );
 
       assertNoError(result, `[identity] failed to upsert Registered agent ${event.agentId}`);
