@@ -1,3 +1,6 @@
+// AUTO-GENERATED from packages/indexer/src/retry.ts — DO NOT EDIT.
+// Regenerate with: pnpm --filter @stellar8004/indexer sync:shared
+
 import { log } from './logger.ts';
 
 export interface RetryOptions {
