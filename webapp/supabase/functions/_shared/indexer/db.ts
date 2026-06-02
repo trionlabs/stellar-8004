@@ -87,54 +87,50 @@ export async function getLastLedger(
   return Number(result.data?.last_ledger ?? 0);
 }
 
-export async function getExpectedNextLedger(
-  db: SupabaseClient,
-  contractName: string,
-): Promise<number | null> {
-  const result = await db
-    .from('indexer_state')
-    .select('expected_next_ledger')
-    .eq('id', contractName)
-    .maybeSingle();
-
-  assertNoError(result, `[indexer_state] failed to read expected_next_ledger for ${contractName}`);
-
-  const val = result.data?.expected_next_ledger;
-  return val != null ? Number(val) : null;
+export interface CheckpointState {
+  /** Last fully-processed ledger; 0 means cold start. */
+  lastLedger: number;
+  /** Ledger the previous run expected to resume from (gap detection); null if unset. */
+  expectedNext: number | null;
+  /** Consecutive runs that deferred this contract on a retryable write failure. */
+  deferAttempts: number;
 }
 
 /**
- * Number of consecutive runs that have deferred this contract's batch because
- * of a retryable (foreign-key) write failure. Drives the escape hatch that
- * eventually skips a permanently-unresolvable event so the stream can advance.
+ * Reads all checkpoint columns for a contract in a single round-trip.
+ * `defer_attempts` drives the escape hatch that eventually skips a
+ * permanently-unresolvable event so the stream can advance.
  */
-export async function getDeferAttempts(
+export async function getCheckpointState(
   db: SupabaseClient,
   contractName: string,
-): Promise<number> {
+): Promise<CheckpointState> {
   const result = await db
     .from('indexer_state')
-    .select('defer_attempts')
+    .select('last_ledger, expected_next_ledger, defer_attempts')
     .eq('id', contractName)
     .maybeSingle();
 
-  assertNoError(result, `[indexer_state] failed to read defer_attempts for ${contractName}`);
+  assertNoError(result, `[indexer_state] failed to read checkpoint for ${contractName}`);
 
-  return Number(result.data?.defer_attempts ?? 0);
+  const row = result.data;
+  return {
+    lastLedger: Number(row?.last_ledger ?? 0),
+    expectedNext: row?.expected_next_ledger != null ? Number(row.expected_next_ledger) : null,
+    deferAttempts: Number(row?.defer_attempts ?? 0),
+  };
 }
 
 export async function updateCheckpoint(
   db: SupabaseClient,
   contractName: string,
   ledger: number,
-  cursor?: string,
   expectedNextLedger?: number,
   deferAttempts = 0,
 ): Promise<void> {
   const result = await db.from('indexer_state').upsert({
     id: contractName,
     last_ledger: ledger,
-    last_cursor: cursor ?? null,
     expected_next_ledger: expectedNextLedger ?? null,
     defer_attempts: deferAttempts,
     updated_at: new Date().toISOString(),
