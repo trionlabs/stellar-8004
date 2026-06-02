@@ -5,9 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getConfig } from './config.js';
 import {
   createSupabaseAdmin,
-  getDeferAttempts,
-  getExpectedNextLedger,
-  getLastLedger,
+  getCheckpointState,
   isRetryableWriteError,
   refreshLeaderboard,
   updateCheckpoint,
@@ -64,11 +62,19 @@ function defineContract<E extends { type: string }>(cfg: {
 interface ContractIndexerResult {
   processed: number;
   errors: number;
+  /** Events dropped by the escape hatch after exceeding MAX_DEFER_ATTEMPTS. */
+  skipped: number;
   lastLedger: number;
   events: Record<string, number>;
 }
 
 const GAP_THRESHOLD = 100;
+
+// Per-page event cap. Soroban RPC defaults to 100 and allows up to 10000;
+// requesting the max cuts pagination round-trips ~100x on busy contracts and
+// cold-start catch-up with no change in correctness (cursor pagination still
+// walks the full window).
+const EVENTS_PAGE_LIMIT = 10000;
 
 // After this many consecutive runs deferring a contract's batch on a retryable
 // (foreign-key) write failure, give up deferring and skip the offending event
@@ -79,9 +85,23 @@ const MAX_DEFER_ATTEMPTS = 5;
 export interface IndexerResult {
   processed: number;
   errors: number;
+  /** Total events dropped by the escape hatch across all contracts. */
+  skippedEvents: number;
   contracts: Record<string, ContractIndexerResult & { expectedNextLedger?: number }>;
+  /** True when another instance held the lock and this run did nothing. */
   skipped?: boolean;
+  /** True when the run stopped early because it hit its soft time budget. */
+  timedOut?: boolean;
   gaps: Array<{ contract: string; expectedLedger: number; actualLedger: number; gapSize: number }>;
+}
+
+export interface RunIndexerOptions {
+  /**
+   * Absolute epoch-ms deadline. When reached, the loop stops cleanly between
+   * pages/contracts (leaving un-scanned contracts for the next run) so the
+   * lock is released before the edge function's hard timeout kills the isolate.
+   */
+  deadlineMs?: number;
 }
 
 function assertIndexerConfig(config: ReturnType<typeof getConfig>): void {
@@ -96,7 +116,7 @@ function assertIndexerConfig(config: ReturnType<typeof getConfig>): void {
   }
 }
 
-export async function runIndexer(): Promise<IndexerResult> {
+export async function runIndexer(options: RunIndexerOptions = {}): Promise<IndexerResult> {
   const config = getConfig();
   assertIndexerConfig(config);
 
@@ -112,11 +132,11 @@ export async function runIndexer(): Promise<IndexerResult> {
   const lockResult = await db.rpc('acquire_indexer_lock', { p_owner: lockOwner });
   if (!lockResult.data) {
     log({ level: 'warn', msg: 'Another instance is running, skipping' });
-    return { processed: 0, errors: 0, contracts: {}, skipped: true, gaps: [] };
+    return { processed: 0, errors: 0, skippedEvents: 0, contracts: {}, skipped: true, gaps: [] };
   }
 
   try {
-    return await runIndexerLoop(rpcServer, db, config);
+    return await runIndexerLoop(rpcServer, db, config, options);
   } finally {
     await db.rpc('release_indexer_lock', { p_owner: lockOwner });
   }
@@ -126,7 +146,16 @@ async function runIndexerLoop(
   rpcServer: StellarSdk.rpc.Server,
   db: SupabaseClient,
   config: ReturnType<typeof getConfig>,
+  options: RunIndexerOptions,
 ): Promise<IndexerResult> {
+  const deadlineMs = options.deadlineMs;
+  const deadlineReached = (): boolean => deadlineMs != null && Date.now() >= deadlineMs;
+
+  // Lazily probed once (only when a contract cold-starts) to clamp a deploy
+  // ledger that has aged out of the RPC retention window — otherwise
+  // getEvents(startLedger=deployLedger) errors with "start is before oldest
+  // ledger" and the contract makes zero forward progress every run.
+  let cachedOldestLedger: number | null = null;
 
   // Identity is processed first so that an agent's `Registered` row exists
   // before any feedback/validation row that references it via foreign key.
@@ -157,23 +186,46 @@ async function runIndexerLoop(
   const result: IndexerResult = {
     processed: 0,
     errors: 0,
+    skippedEvents: 0,
     contracts: {},
     gaps: [],
   };
   let needsLeaderboardRefresh = false;
   const { sequence: latestLedger } = await rpcServer.getLatestLedger();
 
+  // Probe the oldest retained ledger via a head-anchored getEvents (always
+  // in range), memoized for the run. Used to clamp cold-start scans.
+  const getOldestLedger = async (contractId: string): Promise<number> => {
+    if (cachedOldestLedger != null) return cachedOldestLedger;
+    const probe = await withRetry(
+      () =>
+        rpcServer.getEvents({
+          startLedger: latestLedger,
+          filters: [{ type: 'contract', contractIds: [contractId] }],
+          limit: 1,
+        }),
+      { maxAttempts: 3, baseDelayMs: 1000 },
+    );
+    cachedOldestLedger = probe.oldestLedger;
+    return cachedOldestLedger;
+  };
+
   for (const contract of contracts) {
+    if (deadlineReached()) {
+      result.timedOut = true;
+      log({ level: 'warn', msg: 'Soft time budget reached, deferring remaining contracts', contract: contract.name });
+      break;
+    }
+
     const contractResult: ContractIndexerResult = {
       processed: 0,
       errors: 0,
+      skipped: 0,
       lastLedger: 0,
       events: {},
     };
 
-    const lastLedger = await getLastLedger(db, contract.name);
-    const expectedNext = await getExpectedNextLedger(db, contract.name);
-    const deferAttempts = await getDeferAttempts(db, contract.name);
+    const { lastLedger, expectedNext, deferAttempts } = await getCheckpointState(db, contract.name);
     // Once we have deferred this batch too many times, the failure is almost
     // certainly not transient. Switch to skip mode so the checkpoint can move
     // past the offending event instead of stalling the stream indefinitely.
@@ -185,8 +237,24 @@ async function runIndexerLoop(
       continue;
     }
 
-    const startLedger =
-      lastLedger === 0 ? config.deployLedger : lastLedger + 1;
+    let startLedger = lastLedger === 0 ? config.deployLedger : lastLedger + 1;
+
+    // Cold start: the deploy ledger may predate the RPC retention window.
+    // Clamp to the oldest retained ledger so the scan doesn't hard-fail; older
+    // events are recoverable only via the backfill script, not the live RPC.
+    if (lastLedger === 0) {
+      const oldest = await getOldestLedger(contract.contractId);
+      if (oldest > startLedger) {
+        log({
+          level: 'warn',
+          msg: 'Cold-start clamped to oldest retained ledger',
+          contract: contract.name,
+          deployLedger: startLedger,
+          oldestLedger: oldest,
+        });
+        startLedger = oldest;
+      }
+    }
 
     if (expectedNext != null && startLedger > expectedNext + GAP_THRESHOLD) {
       const gapSize = startLedger - expectedNext;
@@ -225,14 +293,25 @@ async function runIndexerLoop(
     });
 
     while (true) {
+      if (deadlineReached()) {
+        // Stop cleanly mid-scan; leave the checkpoint un-advanced so the next
+        // run resumes from here. Treated like a partial scan.
+        scanCompleted = false;
+        result.timedOut = true;
+        log({ level: 'warn', msg: 'Soft time budget reached mid-scan', contract: contract.name });
+        break;
+      }
+
       const request: rpc.Api.GetEventsRequest = cursor
         ? {
             filters: [{ type: 'contract', contractIds: [contract.contractId] }],
             cursor,
+            limit: EVENTS_PAGE_LIMIT,
           }
         : {
             filters: [{ type: 'contract', contractIds: [contract.contractId] }],
             startLedger,
+            limit: EVENTS_PAGE_LIMIT,
           };
 
       let response: rpc.Api.GetEventsResponse;
@@ -284,6 +363,7 @@ async function runIndexerLoop(
               // times, so treat the failure as permanent and skip the event
               // (the checkpoint will advance past it). Logged at error level so
               // monitoring can surface the dropped event.
+              contractResult.skipped++;
               log({
                 level: 'error',
                 msg: 'Retryable write failure exceeded max defer attempts - skipping event',
@@ -358,13 +438,18 @@ async function runIndexerLoop(
       ? latestLedger + 1
       : expectedNext ?? undefined;
     // Reset the defer counter on a completed scan; increment it when we leave
-    // the checkpoint un-advanced because of a retryable write failure.
-    const nextDeferAttempts = scanCompleted ? 0 : deferAttempts + 1;
+    // the checkpoint un-advanced because of a retryable write failure. A
+    // deadline-triggered stop is a clean partial scan, not a defer, so it
+    // preserves the counter unchanged.
+    const nextDeferAttempts = scanCompleted
+      ? 0
+      : result.timedOut
+        ? deferAttempts
+        : deferAttempts + 1;
     await updateCheckpoint(
       db,
       contract.name,
       contractResult.lastLedger,
-      cursor,
       nextExpected,
       nextDeferAttempts,
     );
@@ -375,12 +460,14 @@ async function runIndexerLoop(
       contract: contract.name,
       processed: contractResult.processed,
       errors: contractResult.errors,
+      skipped: contractResult.skipped,
       lastLedger: contractResult.lastLedger,
       events: contractResult.events,
     });
 
     result.processed += contractResult.processed;
     result.errors += contractResult.errors;
+    result.skippedEvents += contractResult.skipped;
     result.contracts[contract.name] = { ...contractResult, expectedNextLedger: nextExpected };
   }
 
