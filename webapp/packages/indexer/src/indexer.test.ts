@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   createSupabaseAdmin: vi.fn(),
   getLastLedger: vi.fn(),
   getExpectedNextLedger: vi.fn(),
+  getDeferAttempts: vi.fn(),
   updateCheckpoint: vi.fn(),
   refreshLeaderboard: vi.fn(),
   writeIdentityEvent: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock('./db.js', () => ({
   createSupabaseAdmin: mocks.createSupabaseAdmin,
   getLastLedger: mocks.getLastLedger,
   getExpectedNextLedger: mocks.getExpectedNextLedger,
+  getDeferAttempts: mocks.getDeferAttempts,
   updateCheckpoint: mocks.updateCheckpoint,
   refreshLeaderboard: mocks.refreshLeaderboard,
   writeIdentityEvent: mocks.writeIdentityEvent,
@@ -78,6 +80,7 @@ describe('runIndexer', () => {
     mocks.getLatestLedger.mockResolvedValue({ sequence: 20 });
     mocks.getLastLedger.mockResolvedValue(10);
     mocks.getExpectedNextLedger.mockResolvedValue(null);
+    mocks.getDeferAttempts.mockResolvedValue(0);
     mocks.getEvents.mockResolvedValue({ events: [], cursor: undefined });
 
     mocks.parseIdentityEvent.mockReturnValue({ id: 'identity' });
@@ -118,6 +121,7 @@ describe('runIndexer', () => {
       20,
       undefined,
       21,
+      0,
     );
     expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       2,
@@ -126,6 +130,7 @@ describe('runIndexer', () => {
       20,
       undefined,
       21,
+      0,
     );
     expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       3,
@@ -134,6 +139,7 @@ describe('runIndexer', () => {
       20,
       undefined,
       21,
+      0,
     );
     expect(mocks.refreshLeaderboard).not.toHaveBeenCalled();
   });
@@ -163,6 +169,7 @@ describe('runIndexer', () => {
       20,
       undefined,
       21,
+      0,
     );
   });
 
@@ -257,6 +264,7 @@ describe('runIndexer', () => {
       10,
       'cursor-1',
       undefined,
+      1,
     );
   });
 
@@ -290,12 +298,58 @@ describe('runIndexer', () => {
       10,
       undefined,
       undefined,
+      1,
     );
 
     const warnings = (console.warn as ReturnType<typeof vi.fn>).mock.calls.map(
       ([line]) => JSON.parse(line).msg,
     );
     expect(warnings).toContain('Retryable write failure - deferring batch to next run');
+  });
+
+  it('skips the event and advances once defer attempts exceed the max', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // identity has already been deferred too many times; reputation/validation
+    // are caught up. The escape hatch should skip the failing event so the
+    // checkpoint advances instead of deferring forever.
+    mocks.getLastLedger.mockImplementation((_db: unknown, contractName: string) =>
+      Promise.resolve(contractName === 'identity' ? 10 : 20),
+    );
+    mocks.getDeferAttempts.mockImplementation((_db: unknown, contractName: string) =>
+      Promise.resolve(contractName === 'identity' ? 5 : 0),
+    );
+    mocks.getEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true }],
+      cursor: undefined,
+    });
+    mocks.parseIdentityEvent.mockReturnValue({ type: 'Registered' });
+    mocks.writeIdentityEvent.mockRejectedValue(
+      Object.assign(new Error('fk violation'), { retryable: true }),
+    );
+
+    const result = await runIndexer();
+
+    expect(result.errors).toBe(1);
+    // Scan is treated as complete: the checkpoint advances past the bad event
+    // and the defer counter resets to 0.
+    expect(result.contracts.identity.lastLedger).toBe(20);
+    expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
+      1,
+      mocks.db,
+      'identity',
+      20,
+      undefined,
+      21,
+      0,
+    );
+
+    const errors = (console.error as ReturnType<typeof vi.fn>).mock.calls.map(
+      ([line]) => JSON.parse(line).msg,
+    );
+    expect(errors).toContain(
+      'Retryable write failure exceeded max defer attempts - skipping event',
+    );
   });
 
   it('releases lock even when an error occurs', async () => {
