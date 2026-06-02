@@ -138,7 +138,18 @@ export async function runIndexer(options: RunIndexerOptions = {}): Promise<Index
   try {
     return await runIndexerLoop(rpcServer, db, config, options);
   } finally {
-    await db.rpc('release_indexer_lock', { p_owner: lockOwner });
+    // Never let a release blip mask the run's outcome: the indexing work is
+    // already committed, and a lock left behind is reaped by acquire's 180s
+    // stale-sweep. Throwing here would turn a successful run into a 500.
+    try {
+      await db.rpc('release_indexer_lock', { p_owner: lockOwner });
+    } catch (error) {
+      log({
+        level: 'error',
+        msg: 'Failed to release indexer lock (will be reaped as stale)',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }
 
@@ -151,10 +162,11 @@ async function runIndexerLoop(
   const deadlineMs = options.deadlineMs;
   const deadlineReached = (): boolean => deadlineMs != null && Date.now() >= deadlineMs;
 
-  // Lazily probed once (only when a contract cold-starts) to clamp a deploy
-  // ledger that has aged out of the RPC retention window — otherwise
-  // getEvents(startLedger=deployLedger) errors with "start is before oldest
-  // ledger" and the contract makes zero forward progress every run.
+  // Probed once per run (the first time any contract has work) to clamp a start
+  // ledger that has aged out of the RPC retention window. Without the clamp,
+  // getEvents(startLedger < oldestLedger) errors with "start is before oldest
+  // ledger", the scan aborts, the checkpoint never advances, and the contract
+  // makes zero forward progress on every subsequent run — a permanent wedge.
   let cachedOldestLedger: number | null = null;
 
   // Identity is processed first so that an agent's `Registered` row exists
@@ -239,21 +251,27 @@ async function runIndexerLoop(
 
     let startLedger = lastLedger === 0 ? config.deployLedger : lastLedger + 1;
 
-    // Cold start: the deploy ledger may predate the RPC retention window.
-    // Clamp to the oldest retained ledger so the scan doesn't hard-fail; older
-    // events are recoverable only via the backfill script, not the live RPC.
-    if (lastLedger === 0) {
-      const oldest = await getOldestLedger(contract.contractId);
-      if (oldest > startLedger) {
-        log({
-          level: 'warn',
-          msg: 'Cold-start clamped to oldest retained ledger',
-          contract: contract.name,
-          deployLedger: startLedger,
-          oldestLedger: oldest,
-        });
-        startLedger = oldest;
-      }
+    // The start ledger may predate the RPC retention window in two cases:
+    //   - cold start: the deploy ledger is weeks old, far past retention;
+    //   - resume after downtime: the indexer was stopped longer than the
+    //     retention window, so the saved checkpoint (lastLedger) has aged out.
+    // In BOTH cases getEvents(startLedger < oldestLedger) hard-fails and the
+    // checkpoint never advances, wedging the contract forever. Probe the oldest
+    // retained ledger and clamp forward unconditionally — we deliberately do
+    // NOT assume retention is long enough to make the resume case impossible.
+    // The skipped range is recoverable only via the backfill script; the gap
+    // detector below logs the jump so the skip is observable.
+    const oldestRetained = await getOldestLedger(contract.contractId);
+    if (oldestRetained > startLedger) {
+      log({
+        level: 'warn',
+        msg: 'Start ledger predates RPC retention - clamping to oldest retained',
+        contract: contract.name,
+        requestedStartLedger: startLedger,
+        oldestLedger: oldestRetained,
+        coldStart: lastLedger === 0,
+      });
+      startLedger = oldestRetained;
     }
 
     if (expectedNext != null && startLedger > expectedNext + GAP_THRESHOLD) {
