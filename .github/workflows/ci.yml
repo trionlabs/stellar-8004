@@ -72,4 +72,12 @@ jobs:
       # Fail if the committed Deno edge copy has drifted from the indexer
       # source. The copy is the deployed artifact, so drift = shipping stale code.
       - run: node scripts/sync-indexer-to-shared.js --check
+      # tsc uses Node module resolution and cannot see Deno-only failures (a
+      # relative specifier that resolves under Node but 404s under Deno, npm:
+      # specifiers, Deno.* APIs). Type-check the real edge entrypoint with Deno
+      # — the only faithful pre-deploy gate for the deployed artifact.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check --config supabase/functions/indexer/deno.json supabase/functions/indexer/index.ts
       - run: pnpm --filter @stellar8004/web check

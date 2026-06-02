@@ -456,10 +456,11 @@ services:
       CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
 
   # -- stellar8004: auto-rebuild indexer on every container start --
-  # Delegates to the single canonical generator (scripts/sync-indexer-to-shared.js)
-  # so the container produces exactly the same edge copy as `pnpm indexer:build`
-  # and CI's drift check — and never copies test files / the package barrel into
-  # the Deno runtime.
+  # Local-dev convenience: regenerates the edge copy from packages/indexer/src
+  # via the single canonical generator so edits are picked up without a manual
+  # sync. This WRITES the working tree (it is a regenerate, not CI's read-only
+  # `--check`), so after iterating, commit the regenerated _shared output; CI's
+  # drift check is the authority that the committed copy matches source.
   functions-init:
     container_name: trionlabs8004-edge-init
     image: node:22-alpine
