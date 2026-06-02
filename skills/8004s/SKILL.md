@@ -1,5 +1,5 @@
 ---
-name: 8004s
+name: 8004stellar
 description: Use when building on Stellar/Soroban with ERC-8004 Agent Trust Protocol — agent identity registration, reputation feedback, validator endorsements.
 ---
 
