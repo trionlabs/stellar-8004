@@ -135,7 +135,10 @@ function parseIdentityEventInner(
       // table. Empty bytes value -> Unset; non-empty -> Set with the
       // StrKey-decoded address.
       if (event.topic.length < 3) return null;
-      const key = String(scValToNative(event.topic[2]));
+      // Route through toText: scValToNative returns a Uint8Array for a non-UTF-8
+      // String topic, and String(uint8array) would persist a comma-joined byte
+      // list ("104,105") into the metadata key column instead of text.
+      const key = toText(scValToNative(event.topic[2]));
       const data = parseEventData(scValToNative(event.value));
 
       if (key === AGENT_WALLET_KEY) {
