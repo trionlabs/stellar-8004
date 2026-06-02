@@ -15,11 +15,13 @@ type SupabaseResult = {
 
 const utf8Decoder = new TextDecoder('utf-8', { fatal: false });
 
-// PostgreSQL SQLSTATE for foreign_key_violation. A write that hits this is not
-// corrupt data - it means a referenced parent row (e.g. the agent a feedback
-// row points at) has not been indexed yet this run. The indexer treats it as
-// retryable and defers the batch rather than dropping the event.
-const PG_FOREIGN_KEY_VIOLATION = '23503';
+// PostgreSQL SQLSTATEs the indexer treats as transient: the write should be
+// deferred and retried next run rather than dropped as corrupt data.
+//   23503 foreign_key_violation  - referenced parent row not indexed yet
+//   55P03 lock_not_available     - insert_feedback_response lock_timeout fired
+//   40001 serialization_failure  - concurrent passes serialized
+//   40P01 deadlock_detected      - concurrent passes deadlocked
+const RETRYABLE_PG_CODES = new Set(['23503', '55P03', '40001', '40P01']);
 
 /**
  * Thrown by writers when a Supabase operation fails. `retryable` marks
@@ -42,7 +44,7 @@ export function isRetryableWriteError(error: unknown): boolean {
 
 function assertNoError(result: SupabaseResult, context: string): void {
   if (result.error) {
-    const retryable = result.error.code === PG_FOREIGN_KEY_VIOLATION;
+    const retryable = result.error.code != null && RETRYABLE_PG_CODES.has(result.error.code);
     throw new IndexerWriteError(`${context}: ${result.error.message}`, retryable);
   }
 }
@@ -177,6 +179,12 @@ export async function writeIdentityEvent(
     }
 
     case 'UriUpdated': {
+      // Unlike Registered, this UPDATE is intentionally destructive: a URI
+      // change must invalidate previously-resolved data. It is replay-safe by
+      // construction - re-applying the same newUri reset yields the same state
+      // and the resolver re-populates - because events within a contract are
+      // processed in ledger order, so an older UriUpdated never lands after a
+      // newer one.
       if (event.agentId == null || !event.newUri) {
         logMalformedEvent('identity', 'UriUpdated', event);
         return;
@@ -344,6 +352,7 @@ export async function writeReputationEvent(
         p_response_hash: event.responseHash || null,
         p_created_at: event.ledgerClosedAt,
         p_tx_hash: event.txHash,
+        p_event_id: event.eventId,
       });
 
       assertNoError(

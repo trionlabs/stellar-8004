@@ -152,9 +152,35 @@ describe('writeReputationEvent', () => {
       feedbackIndex: 2n,
       responseUri: '',
       responseHash: '',
+      eventId: '1000-0-0',
     });
 
-    expect(calls.some((c) => c.op === 'rpc:insert_feedback_response')).toBe(true);
+    const rpc = calls.find((c) => c.op === 'rpc:insert_feedback_response');
+    expect(rpc).toBeDefined();
+    // The event id is forwarded as the idempotency key.
+    expect((rpc?.payload as { p_event_id?: string }).p_event_id).toBe('1000-0-0');
+  });
+});
+
+describe('retryable error classification', () => {
+  it('maps lock_not_available (55P03) to a retryable IndexerWriteError', async () => {
+    const { db } = fakeDb({ message: 'canceling statement due to lock timeout', code: '55P03' });
+    const error = await writeIdentityEvent(db, { type: 'AgentWalletUnset', ...base }).catch((e) => e);
+    expect(isRetryableWriteError(error)).toBe(true);
+  });
+
+  it('maps deadlock_detected (40P01) and serialization_failure (40001) to retryable', async () => {
+    for (const code of ['40P01', '40001']) {
+      const { db } = fakeDb({ message: 'transient', code });
+      const error = await writeIdentityEvent(db, { type: 'AgentWalletUnset', ...base }).catch((e) => e);
+      expect(isRetryableWriteError(error)).toBe(true);
+    }
+  });
+
+  it('treats an unknown error code as non-retryable', async () => {
+    const { db } = fakeDb({ message: 'syntax error', code: '42601' });
+    const error = await writeIdentityEvent(db, { type: 'AgentWalletUnset', ...base }).catch((e) => e);
+    expect(isRetryableWriteError(error)).toBe(false);
   });
 });
 
