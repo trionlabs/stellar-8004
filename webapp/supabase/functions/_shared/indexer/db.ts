@@ -103,18 +103,40 @@ export async function getExpectedNextLedger(
   return val != null ? Number(val) : null;
 }
 
+/**
+ * Number of consecutive runs that have deferred this contract's batch because
+ * of a retryable (foreign-key) write failure. Drives the escape hatch that
+ * eventually skips a permanently-unresolvable event so the stream can advance.
+ */
+export async function getDeferAttempts(
+  db: SupabaseClient,
+  contractName: string,
+): Promise<number> {
+  const result = await db
+    .from('indexer_state')
+    .select('defer_attempts')
+    .eq('id', contractName)
+    .maybeSingle();
+
+  assertNoError(result, `[indexer_state] failed to read defer_attempts for ${contractName}`);
+
+  return Number(result.data?.defer_attempts ?? 0);
+}
+
 export async function updateCheckpoint(
   db: SupabaseClient,
   contractName: string,
   ledger: number,
   cursor?: string,
   expectedNextLedger?: number,
+  deferAttempts = 0,
 ): Promise<void> {
   const result = await db.from('indexer_state').upsert({
     id: contractName,
     last_ledger: ledger,
     last_cursor: cursor ?? null,
     expected_next_ledger: expectedNextLedger ?? null,
+    defer_attempts: deferAttempts,
     updated_at: new Date().toISOString(),
   });
 
