@@ -410,6 +410,42 @@ describe('runIndexer', () => {
     expect(result.contracts.identity.lastLedger).toBe(20000);
   });
 
+  it('does not abort the run when the oldest-ledger probe fails transiently', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    // All three contracts are behind (default checkpoint lastLedger 10 < 20), so
+    // all three scan. The first getEvents calls are the identity oldest-ledger
+    // probe; make its 3 retry attempts all reject so the probe throws. The run
+    // must NOT abort: identity proceeds un-clamped and every contract advances.
+    mocks.getEvents
+      .mockRejectedValueOnce(new Error('probe rpc error'))
+      .mockRejectedValueOnce(new Error('probe rpc error'))
+      .mockRejectedValueOnce(new Error('probe rpc error'))
+      .mockResolvedValue({ events: [], cursor: undefined, oldestLedger: 1 });
+
+    const promise = runIndexer();
+
+    await vi.runAllTimersAsync();
+
+    const result = await promise;
+
+    const warnings = (console.warn as ReturnType<typeof vi.fn>).mock.calls.map(
+      ([line]) => JSON.parse(line).msg,
+    );
+    expect(warnings).toContain(
+      'Oldest-ledger probe failed - skipping retention clamp for this contract',
+    );
+    // Every contract still advanced to the latest ledger despite the probe blip,
+    // and the failure was not counted as a contract error.
+    expect(result.errors).toBe(0);
+    expect(result.contracts.identity.lastLedger).toBe(20);
+    expect(result.contracts.reputation.lastLedger).toBe(20);
+    expect(result.contracts.validation.lastLedger).toBe(20);
+    expect(mocks.updateCheckpoint).toHaveBeenCalledTimes(3);
+  });
+
   it('stops early and marks timedOut when the soft deadline is reached', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
