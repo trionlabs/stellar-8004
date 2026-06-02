@@ -456,21 +456,17 @@ services:
       CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
 
   # -- stellar8004: auto-rebuild indexer on every container start --
+  # Delegates to the single canonical generator (scripts/sync-indexer-to-shared.js)
+  # so the container produces exactly the same edge copy as `pnpm indexer:build`
+  # and CI's drift check — and never copies test files / the package barrel into
+  # the Deno runtime.
   functions-init:
     container_name: trionlabs8004-edge-init
-    image: alpine:3.20
+    image: node:22-alpine
+    working_dir: /webapp
     volumes:
-      - ../packages/indexer/src:/src:ro
-      - ../supabase/functions/_shared/indexer:/dest
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -e
-        rm -rf /dest/* && cp -R /src/. /dest/
-        find /dest -name '*.ts' | while read f; do
-          sed -i -E "s/(['\"]\.\.?\/[^'\"]*)\\.js(['\"])/\1.ts\2/g" "$$f"
-        done
-        echo "Edge function indexer rebuilt: $$(find /dest -name '*.ts' | wc -l) files"
+      - ..:/webapp
+    entrypoint: ["node", "scripts/sync-indexer-to-shared.js"]
     restart: "no"
 
   functions:
