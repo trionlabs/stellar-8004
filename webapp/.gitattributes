@@ -1,0 +1,4 @@
+# The generated Deno edge copy of the indexer is compared byte-for-byte by the
+# CI drift check (scripts/sync-indexer-to-shared.js --check). Pin it to LF so a
+# CRLF checkout on Windows can't produce phantom drift failures.
+supabase/functions/_shared/indexer/** text eol=lf
