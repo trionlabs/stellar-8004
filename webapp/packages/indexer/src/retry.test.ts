@@ -71,6 +71,34 @@ describe('withRetry', () => {
 
     expect(setTimeoutSpy.mock.calls.map(([, delay]) => delay)).toEqual([1000, 2000]);
   });
+
+  it('clamps a server Retry-After to maxDelayMs', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    // A 429 asking for a 120s wait must not override the 10s budget: without
+    // the clamp the loop would sleep 120s and blow the function time budget.
+    const tooLong = {
+      response: { status: 429, headers: new Headers({ 'retry-after': '120' }) },
+    };
+    const fn = vi
+      .fn<() => Promise<string>>()
+      .mockRejectedValueOnce(tooLong)
+      .mockResolvedValueOnce('ok');
+
+    const promise = withRetry(fn, {
+      maxAttempts: 3,
+      baseDelayMs: 1000,
+      maxDelayMs: 10000,
+      jitter: false,
+    });
+
+    await vi.runAllTimersAsync();
+    await expect(promise).resolves.toBe('ok');
+
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10000);
+  });
 });
 
 describe('extractRetryAfter', () => {
