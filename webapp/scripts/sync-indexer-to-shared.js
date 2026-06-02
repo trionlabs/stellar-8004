@@ -39,8 +39,31 @@ function banner(relPath) {
 }
 
 function transform(content, relPath) {
-  const body = content.replace(/from\s+(['"])(\.[^'"]*?)\.js\1/g, 'from $1$2.ts$1');
+  // Rewrite relative `.js` specifiers to `.ts`. Covers static `import ... from`
+  // / `export ... from` and dynamic `import('./x.js')`. Assumes the source has
+  // no `.js` relative specifiers inside string/comment content (asserted below).
+  const body = content
+    .replace(/(\bfrom\s+|\bimport\s*\(\s*)(['"])(\.[^'"]*?)\.js\2/g, '$1$2$3.ts$2');
   return banner(relPath) + body;
+}
+
+/** Recursively list every .ts file under `dir` as DEST-relative POSIX paths. */
+function listTsFiles(dir, out = []) {
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return out; // DEST does not exist yet
+  }
+  for (const entry of entries) {
+    const p = join(dir, entry);
+    if (statSync(p).isDirectory()) {
+      listTsFiles(p, out);
+    } else if (entry.endsWith('.ts')) {
+      out.push(relative(DEST, p).split(/[\\/]/).join('/'));
+    }
+  }
+  return out;
 }
 
 function collect(srcDir, destDir, out) {
@@ -66,20 +89,34 @@ const files = [];
 collect(SRC, DEST, files);
 
 if (checkOnly) {
+  const expectedRelPaths = new Set();
   for (const { destPath, relPath, srcPath } of files) {
-    const expected = transform(readFileSync(srcPath, 'utf-8'), relPath);
-    let actual = '';
+    // Compare normalized (LF) content so a CRLF checkout doesn't false-fail.
+    const expected = transform(readFileSync(srcPath, 'utf-8'), relPath).replace(/\r\n/g, '\n');
+    let actual = null;
     try {
-      actual = readFileSync(destPath, 'utf-8');
+      actual = readFileSync(destPath, 'utf-8').replace(/\r\n/g, '\n');
     } catch {
       // missing file -> mismatch
     }
     if (actual !== expected) mismatches.push(relPath);
+    expectedRelPaths.add(relPath);
   }
 
-  if (mismatches.length > 0) {
-    console.error('Edge indexer copy is out of sync with packages/indexer/src:');
-    for (const m of mismatches) console.error(`  - ${m}`);
+  // Orphan detection: a renamed/deleted source file (or a stale committed file)
+  // would otherwise linger in the edge copy and ship to Deno while --check
+  // stayed green, because the loop above only validates files we WOULD emit.
+  const orphans = listTsFiles(DEST).filter((p) => !expectedRelPaths.has(p));
+
+  if (mismatches.length > 0 || orphans.length > 0) {
+    if (mismatches.length > 0) {
+      console.error('Edge indexer copy is out of sync with packages/indexer/src:');
+      for (const m of mismatches) console.error(`  - changed: ${m}`);
+    }
+    if (orphans.length > 0) {
+      console.error('Edge indexer copy contains files the generator would not emit:');
+      for (const o of orphans) console.error(`  - orphan: ${o}`);
+    }
     console.error('\nRun: pnpm --filter @stellar8004/indexer sync:shared');
     process.exit(1);
   }
