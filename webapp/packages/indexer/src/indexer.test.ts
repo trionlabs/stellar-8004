@@ -143,7 +143,7 @@ describe('runIndexer', () => {
 
     mocks.getEvents
       .mockRejectedValueOnce(new Error('temporary rpc error'))
-      .mockResolvedValue({ events: [], cursor: undefined });
+      .mockResolvedValue({ events: [], cursor: undefined, oldestLedger: 1 });
 
     const promise = runIndexer();
 
@@ -153,7 +153,9 @@ describe('runIndexer', () => {
 
     expect(result.errors).toBe(0);
     expect(result.gaps).toEqual([]);
-    expect(mocks.getEvents).toHaveBeenCalledTimes(4);
+    // 1 rejected + 1 retried-ok oldest-ledger probe (memoized for the run),
+    // then one scan per contract = 5 calls.
+    expect(mocks.getEvents).toHaveBeenCalledTimes(5);
     expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       1,
       mocks.db,
@@ -233,6 +235,8 @@ describe('runIndexer', () => {
       }),
     );
     mocks.getEvents
+      // First call is the oldest-ledger probe; keep it in range so no clamp.
+      .mockResolvedValueOnce({ events: [], cursor: undefined, oldestLedger: 1 })
       .mockResolvedValueOnce({
         events: [
           { id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true },
@@ -364,12 +368,45 @@ describe('runIndexer', () => {
     const warnings = (console.warn as ReturnType<typeof vi.fn>).mock.calls.map(
       ([line]) => JSON.parse(line).msg,
     );
-    expect(warnings).toContain('Cold-start clamped to oldest retained ledger');
+    expect(warnings).toContain('Start ledger predates RPC retention - clamping to oldest retained');
     // The scan request after the probe must use startLedger = 5000.
     const scanCall = mocks.getEvents.mock.calls.find(
       ([req]) => req.startLedger === 5000,
     );
     expect(scanCall).toBeDefined();
+    expect(result.contracts.identity.lastLedger).toBe(20000);
+  });
+
+  it('clamps a resumed checkpoint that has aged out of the retention window', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // The indexer was down longer than the RPC retention window: the saved
+    // checkpoint (1000) is now older than the oldest retained ledger (5000).
+    // Without clamping, getEvents(startLedger=1001) would hard-fail forever.
+    // Only identity has fallen behind; reputation/validation are caught up.
+    mocks.getLatestLedger.mockResolvedValue({ sequence: 20000 });
+    mocks.getCheckpointState.mockImplementation((_db: unknown, contractName: string) =>
+      Promise.resolve({
+        lastLedger: contractName === 'identity' ? 1000 : 20000,
+        expectedNext: 1001,
+        deferAttempts: 0,
+      }),
+    );
+    mocks.getEvents.mockResolvedValue({ events: [], cursor: undefined, oldestLedger: 5000 });
+
+    const result = await runIndexer();
+
+    const warnings = (console.warn as ReturnType<typeof vi.fn>).mock.calls.map(
+      ([line]) => JSON.parse(line).msg,
+    );
+    expect(warnings).toContain('Start ledger predates RPC retention - clamping to oldest retained');
+    // The scan resumes from the oldest retained ledger, not the stale checkpoint+1.
+    const scanCall = mocks.getEvents.mock.calls.find(
+      ([req]) => req.startLedger === 5000,
+    );
+    expect(scanCall).toBeDefined();
+    // The forced-forward jump past the retained window is surfaced as a gap.
+    expect(result.gaps.some((g) => g.contract === 'identity')).toBe(true);
     expect(result.contracts.identity.lastLedger).toBe(20000);
   });
 
