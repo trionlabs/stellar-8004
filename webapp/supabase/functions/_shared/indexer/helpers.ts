@@ -46,6 +46,21 @@ export function bytesToUtf8(buf: unknown): string {
 }
 
 /**
+ * Coerces a Soroban `String`/`Symbol` event field to text. `scValToNative`
+ * returns a JS string for valid UTF-8 but a `Uint8Array` for non-UTF-8 bytes;
+ * `String(uint8array)` would yield a comma-joined byte list ("104,105"), so we
+ * route Uint8Array through the UTF-8 decoder instead. Absent fields (null /
+ * undefined) become the empty string, replacing the scattered
+ * `String(data.x ?? '')` pattern.
+ */
+export function toText(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (value instanceof Uint8Array) return utf8Decoder.decode(value);
+  return String(value);
+}
+
+/**
  * Converts event payloads into a safe object shape.
  * scValToNative(scvVoid) returns null, which would crash property access.
  */
