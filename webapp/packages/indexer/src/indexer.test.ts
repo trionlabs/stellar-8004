@@ -9,15 +9,14 @@ const mocks = vi.hoisted(() => ({
       reputation: 'CREPUTATION',
       validation: 'CVALIDATION',
     },
+    deployLedger: 100,
   },
   db: {} as Record<string, unknown>,
   serverCtor: vi.fn(),
   getLatestLedger: vi.fn(),
   getEvents: vi.fn(),
   createSupabaseAdmin: vi.fn(),
-  getLastLedger: vi.fn(),
-  getExpectedNextLedger: vi.fn(),
-  getDeferAttempts: vi.fn(),
+  getCheckpointState: vi.fn(),
   updateCheckpoint: vi.fn(),
   refreshLeaderboard: vi.fn(),
   writeIdentityEvent: vi.fn(),
@@ -40,9 +39,7 @@ vi.mock('./config.js', () => ({
 
 vi.mock('./db.js', () => ({
   createSupabaseAdmin: mocks.createSupabaseAdmin,
-  getLastLedger: mocks.getLastLedger,
-  getExpectedNextLedger: mocks.getExpectedNextLedger,
-  getDeferAttempts: mocks.getDeferAttempts,
+  getCheckpointState: mocks.getCheckpointState,
   updateCheckpoint: mocks.updateCheckpoint,
   refreshLeaderboard: mocks.refreshLeaderboard,
   writeIdentityEvent: mocks.writeIdentityEvent,
@@ -78,10 +75,8 @@ describe('runIndexer', () => {
 
     mocks.createSupabaseAdmin.mockReturnValue(mocks.db);
     mocks.getLatestLedger.mockResolvedValue({ sequence: 20 });
-    mocks.getLastLedger.mockResolvedValue(10);
-    mocks.getExpectedNextLedger.mockResolvedValue(null);
-    mocks.getDeferAttempts.mockResolvedValue(0);
-    mocks.getEvents.mockResolvedValue({ events: [], cursor: undefined });
+    mocks.getCheckpointState.mockResolvedValue({ lastLedger: 10, expectedNext: null, deferAttempts: 0 });
+    mocks.getEvents.mockResolvedValue({ events: [], cursor: undefined, oldestLedger: 1 });
 
     mocks.parseIdentityEvent.mockReturnValue({ id: 'identity' });
     mocks.parseReputationEvent.mockReturnValue({ id: 'reputation' });
@@ -119,7 +114,6 @@ describe('runIndexer', () => {
       mocks.db,
       'identity',
       20,
-      undefined,
       21,
       0,
     );
@@ -128,7 +122,6 @@ describe('runIndexer', () => {
       mocks.db,
       'reputation',
       20,
-      undefined,
       21,
       0,
     );
@@ -137,7 +130,6 @@ describe('runIndexer', () => {
       mocks.db,
       'validation',
       20,
-      undefined,
       21,
       0,
     );
@@ -167,7 +159,6 @@ describe('runIndexer', () => {
       mocks.db,
       'identity',
       20,
-      undefined,
       21,
       0,
     );
@@ -196,8 +187,7 @@ describe('runIndexer', () => {
 
   it('detects ledger gaps when startLedger exceeds expectedNextLedger + GAP_THRESHOLD', async () => {
     mocks.getLatestLedger.mockResolvedValue({ sequence: 2000 });
-    mocks.getLastLedger.mockResolvedValue(1000);
-    mocks.getExpectedNextLedger.mockResolvedValue(800);
+    mocks.getCheckpointState.mockResolvedValue({ lastLedger: 1000, expectedNext: 800, deferAttempts: 0 });
 
     const result = await runIndexer();
 
@@ -235,8 +225,12 @@ describe('runIndexer', () => {
     vi.useFakeTimers();
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    mocks.getLastLedger.mockImplementation((_db: unknown, contractName: string) =>
-      Promise.resolve(contractName === 'identity' ? 10 : 20),
+    mocks.getCheckpointState.mockImplementation((_db: unknown, contractName: string) =>
+      Promise.resolve({
+        lastLedger: contractName === 'identity' ? 10 : 20,
+        expectedNext: null,
+        deferAttempts: 0,
+      }),
     );
     mocks.getEvents
       .mockResolvedValueOnce({
@@ -262,7 +256,6 @@ describe('runIndexer', () => {
       mocks.db,
       'identity',
       10,
-      'cursor-1',
       undefined,
       1,
     );
@@ -273,8 +266,12 @@ describe('runIndexer', () => {
 
     // identity is at ledger 10; reputation/validation are caught up so only
     // identity scans. The writer fails with a retryable (FK) error.
-    mocks.getLastLedger.mockImplementation((_db: unknown, contractName: string) =>
-      Promise.resolve(contractName === 'identity' ? 10 : 20),
+    mocks.getCheckpointState.mockImplementation((_db: unknown, contractName: string) =>
+      Promise.resolve({
+        lastLedger: contractName === 'identity' ? 10 : 20,
+        expectedNext: null,
+        deferAttempts: 0,
+      }),
     );
     mocks.getEvents.mockResolvedValue({
       events: [{ id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true }],
@@ -297,7 +294,6 @@ describe('runIndexer', () => {
       'identity',
       10,
       undefined,
-      undefined,
       1,
     );
 
@@ -313,11 +309,12 @@ describe('runIndexer', () => {
     // identity has already been deferred too many times; reputation/validation
     // are caught up. The escape hatch should skip the failing event so the
     // checkpoint advances instead of deferring forever.
-    mocks.getLastLedger.mockImplementation((_db: unknown, contractName: string) =>
-      Promise.resolve(contractName === 'identity' ? 10 : 20),
-    );
-    mocks.getDeferAttempts.mockImplementation((_db: unknown, contractName: string) =>
-      Promise.resolve(contractName === 'identity' ? 5 : 0),
+    mocks.getCheckpointState.mockImplementation((_db: unknown, contractName: string) =>
+      Promise.resolve({
+        lastLedger: contractName === 'identity' ? 10 : 20,
+        expectedNext: null,
+        deferAttempts: contractName === 'identity' ? 5 : 0,
+      }),
     );
     mocks.getEvents.mockResolvedValue({
       events: [{ id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true }],
@@ -331,6 +328,7 @@ describe('runIndexer', () => {
     const result = await runIndexer();
 
     expect(result.errors).toBe(1);
+    expect(result.skippedEvents).toBe(1);
     // Scan is treated as complete: the checkpoint advances past the bad event
     // and the defer counter resets to 0.
     expect(result.contracts.identity.lastLedger).toBe(20);
@@ -339,7 +337,6 @@ describe('runIndexer', () => {
       mocks.db,
       'identity',
       20,
-      undefined,
       21,
       0,
     );
@@ -350,6 +347,40 @@ describe('runIndexer', () => {
     expect(errors).toContain(
       'Retryable write failure exceeded max defer attempts - skipping event',
     );
+  });
+
+  it('clamps a cold-start scan to the oldest retained ledger', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // Fresh checkpoint: deployLedger (100) predates the retention window, whose
+    // oldest retained ledger is 5000. The first getEvents (the oldest-ledger
+    // probe) reports oldestLedger; the scan must start there, not at 100.
+    mocks.getLatestLedger.mockResolvedValue({ sequence: 20000 });
+    mocks.getCheckpointState.mockResolvedValue({ lastLedger: 0, expectedNext: null, deferAttempts: 0 });
+    mocks.getEvents.mockResolvedValue({ events: [], cursor: undefined, oldestLedger: 5000 });
+
+    const result = await runIndexer();
+
+    const warnings = (console.warn as ReturnType<typeof vi.fn>).mock.calls.map(
+      ([line]) => JSON.parse(line).msg,
+    );
+    expect(warnings).toContain('Cold-start clamped to oldest retained ledger');
+    // The scan request after the probe must use startLedger = 5000.
+    const scanCall = mocks.getEvents.mock.calls.find(
+      ([req]) => req.startLedger === 5000,
+    );
+    expect(scanCall).toBeDefined();
+    expect(result.contracts.identity.lastLedger).toBe(20000);
+  });
+
+  it('stops early and marks timedOut when the soft deadline is reached', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await runIndexer({ deadlineMs: Date.now() - 1 });
+
+    expect(result.timedOut).toBe(true);
+    // No contract should have been scanned past the deadline.
+    expect(mocks.updateCheckpoint).not.toHaveBeenCalled();
   });
 
   it('releases lock even when an error occurs', async () => {

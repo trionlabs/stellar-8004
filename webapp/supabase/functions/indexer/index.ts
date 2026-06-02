@@ -2,6 +2,10 @@ import { runIndexer } from '../_shared/indexer/indexer.ts';
 import { log } from '../_shared/indexer/logger.ts';
 
 const INDEXER_TIMEOUT_MS = 120_000;
+// Soft budget: the loop stops cleanly between pages/contracts before the hard
+// timeout below fires, so the lock is released and the checkpoint is consistent
+// rather than the isolate being killed mid-write.
+const INDEXER_SOFT_BUDGET_MS = 110_000;
 
 function json(body: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(body), {
@@ -28,7 +32,7 @@ Deno.serve(async (request: Request) => {
   try {
     const startedAt = Date.now();
     const result = await Promise.race([
-      runIndexer(),
+      runIndexer({ deadlineMs: startedAt + INDEXER_SOFT_BUDGET_MS }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Indexer timeout')), INDEXER_TIMEOUT_MS),
       ),
@@ -41,7 +45,9 @@ Deno.serve(async (request: Request) => {
       durationMs,
       processed: result.processed,
       errors: result.errors,
-      skipped: result.skipped ?? false,
+      skippedEvents: result.skippedEvents,
+      lockSkipped: result.skipped ?? false,
+      timedOut: result.timedOut ?? false,
       gapCount: result.gaps.length,
     });
 
