@@ -82,7 +82,10 @@ export async function withRetry<T>(
       const retryAfter = extractRetryAfter(error);
 
       if (retryAfter) {
-        delay = Math.max(delay, retryAfter * 1000);
+        // Honor a server Retry-After, but keep the final delay bounded by
+        // maxDelayMs. Without this clamp a `Retry-After: 120` would sleep 120s,
+        // overriding maxDelayMs and consuming the whole function time budget.
+        delay = Math.min(Math.max(delay, retryAfter * 1000), maxDelayMs);
       }
 
       log({

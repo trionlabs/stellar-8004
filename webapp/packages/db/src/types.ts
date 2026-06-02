@@ -271,23 +271,23 @@ export type Database = {
       }
       indexer_state: {
         Row: {
+          defer_attempts: number
           expected_next_ledger: number | null
           id: string
-          last_cursor: string | null
           last_ledger: number
           updated_at: string
         }
         Insert: {
+          defer_attempts?: number
           expected_next_ledger?: number | null
           id: string
-          last_cursor?: string | null
           last_ledger?: number
           updated_at?: string
         }
         Update: {
+          defer_attempts?: number
           expected_next_ledger?: number | null
           id?: string
-          last_cursor?: string | null
           last_ledger?: number
           updated_at?: string
         }
