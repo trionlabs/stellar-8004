@@ -7,6 +7,7 @@ import {
   createSupabaseAdmin,
   getExpectedNextLedger,
   getLastLedger,
+  isRetryableWriteError,
   refreshLeaderboard,
   updateCheckpoint,
   writeIdentityEvent,
@@ -19,12 +20,44 @@ import { parseReputationEvent } from './parsers/reputation.js';
 import { parseValidationEvent } from './parsers/validation.js';
 import { withRetry } from './retry.js';
 
-interface ContractIndexConfig {
+/**
+ * Runtime handler for a single contract. `process` parses one raw RPC event
+ * and persists it, returning the event's discriminant `type` for counting (or
+ * `null` when the event was unparseable and skipped). The parser→writer type
+ * linkage is bound inside {@link defineContract}, so a handler whose writer
+ * does not accept its parser's output fails to compile.
+ */
+interface ContractHandler {
   name: string;
   contractId: string;
-  parser: (event: rpc.Api.EventResponse) => unknown;
-  writer: (db: SupabaseClient, event: any) => Promise<void>;
   affectsLeaderboard: boolean;
+  process: (db: SupabaseClient, event: rpc.Api.EventResponse) => Promise<string | null>;
+}
+
+/**
+ * Binds a contract's parser output type `E` to its writer input type at the
+ * definition site. Erases `E` from the returned {@link ContractHandler} so the
+ * indexer loop can iterate a heterogeneous registry without the correlated-union
+ * problem — while still rejecting a mismatched parser/writer pair at compile time.
+ */
+function defineContract<E extends { type: string }>(cfg: {
+  name: string;
+  contractId: string;
+  affectsLeaderboard: boolean;
+  parser: (event: rpc.Api.EventResponse) => E | null;
+  writer: (db: SupabaseClient, event: E) => Promise<void>;
+}): ContractHandler {
+  return {
+    name: cfg.name,
+    contractId: cfg.contractId,
+    affectsLeaderboard: cfg.affectsLeaderboard,
+    async process(db, event) {
+      const parsed = cfg.parser(event);
+      if (parsed == null) return null;
+      await cfg.writer(db, parsed);
+      return parsed.type;
+    },
+  };
 }
 
 interface ContractIndexerResult {
@@ -65,8 +98,11 @@ export async function runIndexer(): Promise<IndexerResult> {
   });
   const db = createSupabaseAdmin();
 
-  // Concurrent run guard (table-based lock, pgBouncer-safe)
-  const lockResult = await db.rpc('acquire_indexer_lock');
+  // Concurrent run guard (table-based lock, pgBouncer-safe). The owner token
+  // fences the release: a run whose lock was reaped as stale cannot delete a
+  // successor's freshly-acquired lock when it eventually finishes.
+  const lockOwner = crypto.randomUUID();
+  const lockResult = await db.rpc('acquire_indexer_lock', { p_owner: lockOwner });
   if (!lockResult.data) {
     log({ level: 'warn', msg: 'Another instance is running, skipping' });
     return { processed: 0, errors: 0, contracts: {}, skipped: true, gaps: [] };
@@ -75,7 +111,7 @@ export async function runIndexer(): Promise<IndexerResult> {
   try {
     return await runIndexerLoop(rpcServer, db, config);
   } finally {
-    await db.rpc('release_indexer_lock');
+    await db.rpc('release_indexer_lock', { p_owner: lockOwner });
   }
 }
 
@@ -85,28 +121,30 @@ async function runIndexerLoop(
   config: ReturnType<typeof getConfig>,
 ): Promise<IndexerResult> {
 
-  const contracts: ContractIndexConfig[] = [
-    {
+  // Identity is processed first so that an agent's `Registered` row exists
+  // before any feedback/validation row that references it via foreign key.
+  const contracts: ContractHandler[] = [
+    defineContract({
       name: 'identity',
       contractId: config.contracts.identity,
+      affectsLeaderboard: false,
       parser: parseIdentityEvent,
       writer: writeIdentityEvent,
-      affectsLeaderboard: false,
-    },
-    {
+    }),
+    defineContract({
       name: 'reputation',
       contractId: config.contracts.reputation,
+      affectsLeaderboard: true,
       parser: parseReputationEvent,
       writer: writeReputationEvent,
-      affectsLeaderboard: true,
-    },
-    {
+    }),
+    defineContract({
       name: 'validation',
       contractId: config.contracts.validation,
+      affectsLeaderboard: true,
       parser: parseValidationEvent,
       writer: writeValidationEvent,
-      affectsLeaderboard: true,
-    },
+    }),
   ];
 
   const result: IndexerResult = {
@@ -159,6 +197,12 @@ async function runIndexerLoop(
     let cursor: string | undefined;
     let maxLedger = startLedger;
     let scanCompleted = true;
+    // Set when a write fails because a referenced parent row (e.g. an agent
+    // that identity has not indexed yet this run) does not exist. We stop and
+    // leave the checkpoint un-advanced so the batch is retried next run, by
+    // which point the prerequisite contract will have caught up. Writes are
+    // idempotent upserts, so re-processing is safe.
+    let retryableWriteFailure = false;
 
     log({
       level: 'info',
@@ -200,13 +244,10 @@ async function runIndexerLoop(
 
       for (const event of response.events) {
         try {
-          const parsed = contract.parser(event);
+          const eventType = await contract.process(db, event);
 
-          if (parsed != null) {
-            await contract.writer(db, parsed);
+          if (eventType != null) {
             contractResult.processed++;
-
-            const eventType = (parsed as { type?: string })?.type ?? 'unknown';
             contractResult.events[eventType] = (contractResult.events[eventType] ?? 0) + 1;
 
             if (contract.affectsLeaderboard) {
@@ -223,6 +264,23 @@ async function runIndexerLoop(
             });
           }
         } catch (error) {
+          contractResult.errors++;
+
+          if (isRetryableWriteError(error)) {
+            // A referenced parent row is not present yet (e.g. feedback for an
+            // agent identity has not indexed). Abandon this batch without
+            // advancing the checkpoint so it is retried on the next run.
+            log({
+              level: 'warn',
+              msg: 'Retryable write failure - deferring batch to next run',
+              contract: contract.name,
+              eventId: event.id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            retryableWriteFailure = true;
+            break;
+          }
+
           log({
             level: 'error',
             msg: 'Event processing error',
@@ -230,7 +288,6 @@ async function runIndexerLoop(
             eventId: event.id,
             error: error instanceof Error ? error.message : String(error),
           });
-          contractResult.errors++;
         }
 
         if (event.ledger > maxLedger) {
@@ -250,6 +307,12 @@ async function runIndexerLoop(
             maxLedger,
           });
         }
+      }
+
+      if (retryableWriteFailure) {
+        // Leave the checkpoint where it was so the deferred events are retried.
+        scanCompleted = false;
+        break;
       }
 
       if (response.events.length > 0 && response.cursor) {

@@ -69,4 +69,7 @@ jobs:
       - run: pnpm --filter @trionlabs/stellar8004 check
       - run: pnpm --filter @stellar8004/indexer test
       - run: pnpm --filter @stellar8004/indexer check
+      # Fail if the committed Deno edge copy has drifted from the indexer
+      # source. The copy is the deployed artifact, so drift = shipping stale code.
+      - run: node scripts/sync-indexer-to-shared.js --check
       - run: pnpm --filter @stellar8004/web check
