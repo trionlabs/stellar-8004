@@ -375,12 +375,13 @@ export type Database = {
       }
     }
     Functions: {
-      acquire_indexer_lock: { Args: never; Returns: boolean }
+      acquire_indexer_lock: { Args: { p_owner?: string }; Returns: boolean }
       insert_feedback_response: {
         Args: {
           p_agent_id: number
           p_client_address: string
           p_created_at: string
+          p_event_id?: string
           p_feedback_index: number
           p_responder: string
           p_response_hash: string
@@ -390,7 +391,7 @@ export type Database = {
         Returns: number
       }
       refresh_leaderboard: { Args: never; Returns: undefined }
-      release_indexer_lock: { Args: never; Returns: undefined }
+      release_indexer_lock: { Args: { p_owner?: string }; Returns: undefined }
       search_agents: {
         Args: {
           owner_filter?: string

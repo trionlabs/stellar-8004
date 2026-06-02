@@ -59,6 +59,13 @@ export interface ResponseAppendedEvent {
   ledger: number;
   ledgerClosedAt: string;
   txHash: string;
+  /**
+   * Globally-unique Soroban event paging token (ledger-tx-op-event). Used as
+   * the idempotency key for response inserts: unlike txHash, it is unique per
+   * on-chain event, so a replay or concurrent pass cannot double-count a
+   * response, and two responses appended in one transaction stay distinct.
+   */
+  eventId: string;
 }
 
 export type ReputationEvent =
@@ -156,6 +163,7 @@ function parseReputationEventInner(
         feedbackIndex,
         responseUri: toText(data.response_uri),
         responseHash: toHex(data.response_hash),
+        eventId: event.id,
       };
     }
 
