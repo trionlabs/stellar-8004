@@ -9,12 +9,13 @@ import {
   parseEventData,
   toBigInt,
   toHex,
+  toText,
 } from '../helpers.ts';
 
-// scValToNative coerces scvU64 / scvI64 / scvU32 to JS number when the
-// value fits in MAX_SAFE_INTEGER and to bigint otherwise. The reputation
-// indexer feedback_index is u64 in Rust so we accept either at the parser
-// boundary.
+// scValToNative returns a JS bigint for scvU64/scvI64/scvU128/scvI128 (always,
+// regardless of magnitude) and a JS number for scvU32/scvI32. The reputation
+// feedback_index is u64 in Rust, so it arrives as a bigint; toBigInt also
+// accepts the number form defensively for u32-typed callers.
 function topicToBigInt(topic: unknown, fieldName: string): bigint {
   const native = scValToNative(topic as never);
   return toBigInt(native, fieldName);
@@ -100,7 +101,7 @@ function parseReputationEventInner(
     case 'new_feedback': {
       // Spec compliance pass: `tag1` is now an indexed topic at index 3.
       if (event.topic.length < 4) return null;
-      const tag1 = String(scValToNative(event.topic[3]));
+      const tag1 = toText(scValToNative(event.topic[3]));
       const data = parseEventData(scValToNative(event.value));
       const feedbackIndex = toBigInt(data.feedback_index, 'feedback_index');
       if (feedbackIndex < 1n) return null;
@@ -116,9 +117,9 @@ function parseReputationEventInner(
         value: toBigInt(data.value, 'value'),
         valueDecimals,
         tag1,
-        tag2: String(data.tag2 ?? ''),
-        endpoint: String(data.endpoint ?? ''),
-        feedbackUri: String(data.feedback_uri ?? ''),
+        tag2: toText(data.tag2),
+        endpoint: toText(data.endpoint),
+        feedbackUri: toText(data.feedback_uri),
         feedbackHash: toHex(data.feedback_hash),
       };
     }
@@ -153,7 +154,7 @@ function parseReputationEventInner(
         ...base,
         responder,
         feedbackIndex,
-        responseUri: String(data.response_uri ?? ''),
+        responseUri: toText(data.response_uri),
         responseHash: toHex(data.response_hash),
       };
     }

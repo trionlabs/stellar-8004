@@ -1,7 +1,7 @@
 import { scValToNative } from '@stellar/stellar-sdk';
 import type { rpc } from '@stellar/stellar-sdk';
 
-import { isValidStellarAddress, parseEventData, toHex } from '../helpers.js';
+import { isValidStellarAddress, parseEventData, toHex, toText } from '../helpers.js';
 
 // Spec compliance pass: ERC-8004 spec event names are `ValidationRequest` and
 // `ValidationResponse` (no past-tense suffix). Renamed from the previous
@@ -77,16 +77,16 @@ function parseValidationEventInner(
       return {
         type: 'ValidationRequest',
         ...base,
-        requestUri: String(data.request_uri ?? ''),
+        requestUri: toText(data.request_uri),
       };
     }
 
     case 'validation_response': {
       const data = parseEventData(scValToNative(event.value));
 
-      if (data.response == null) {
-        throw new TypeError('ValidationResponse: response field missing');
-      }
+      // A missing response field and an out-of-range one are both treated as
+      // unparseable (drop the event). The caller logs the skip.
+      if (data.response == null) return null;
 
       const response = Number(data.response);
       if (!Number.isInteger(response) || response < 0 || response > 100) {
@@ -97,9 +97,9 @@ function parseValidationEventInner(
         type: 'ValidationResponse',
         ...base,
         response,
-        responseUri: String(data.response_uri ?? ''),
+        responseUri: toText(data.response_uri),
         responseHash: toHex(data.response_hash),
-        tag: String(data.tag ?? ''),
+        tag: toText(data.tag),
       };
     }
 

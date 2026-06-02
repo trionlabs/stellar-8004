@@ -4,7 +4,7 @@
 import { scValToNative } from '@stellar/stellar-sdk';
 import type { rpc } from '@stellar/stellar-sdk';
 
-import { bytesToUtf8, isValidStellarAddress, parseEventData } from '../helpers.ts';
+import { bytesToUtf8, isValidStellarAddress, parseEventData, toText } from '../helpers.ts';
 
 export interface RegisteredEvent {
   type: 'Registered';
@@ -112,7 +112,7 @@ function parseIdentityEventInner(
         type: 'Registered',
         ...base,
         owner,
-        agentUri: String(data.agent_uri ?? ''),
+        agentUri: toText(data.agent_uri),
       };
     }
 
@@ -126,7 +126,7 @@ function parseIdentityEventInner(
         type: 'UriUpdated',
         ...base,
         updatedBy,
-        newUri: String(data.new_uri ?? ''),
+        newUri: toText(data.new_uri),
       };
     }
 
