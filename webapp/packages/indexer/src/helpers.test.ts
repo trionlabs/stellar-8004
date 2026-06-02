@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isValidStellarAddress, toText } from './helpers.js';
+import { isValidStellarAddress, toBigInt, toText } from './helpers.js';
 
 describe('toText', () => {
   it('returns strings unchanged', () => {
@@ -17,6 +17,25 @@ describe('toText', () => {
     const bytes = new TextEncoder().encode('hi');
     expect(toText(bytes)).toBe('hi');
     expect(toText(bytes)).not.toBe('104,105');
+  });
+});
+
+describe('toBigInt', () => {
+  it('passes a bigint through unchanged', () => {
+    expect(toBigInt(5n, 'value')).toBe(5n);
+  });
+
+  it('converts an integer number to bigint', () => {
+    expect(toBigInt(42, 'value')).toBe(42n);
+  });
+
+  it('rejects a non-integer number with a clear error', () => {
+    // BigInt(1.5) throws an opaque RangeError; toBigInt must reject explicitly.
+    expect(() => toBigInt(1.5, 'score')).toThrow(/expected an integer for score/);
+  });
+
+  it('rejects a non-numeric type with a clear error', () => {
+    expect(() => toBigInt('7', 'score')).toThrow(/expected bigint\/number for score/);
   });
 });
 

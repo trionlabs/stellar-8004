@@ -264,8 +264,26 @@ async function runIndexerLoop(
     // NOT assume retention is long enough to make the resume case impossible.
     // The skipped range is recoverable only via the backfill script; the gap
     // detector below logs the jump so the skip is observable.
-    const oldestRetained = await getOldestLedger(contract.contractId);
-    if (oldestRetained > startLedger) {
+    // A transient RPC failure on the probe must NOT abort the whole run — that
+    // would also strand the other contracts, including ones fully in-window
+    // that need no clamp at all. On probe failure, skip the clamp for this
+    // contract and proceed with the un-clamped start: if it really has aged out
+    // of retention, the getEvents below fails in the per-contract catch and
+    // only this contract defers to the next run, while the others still
+    // advance. A failed probe is not memoized, so the next contract re-attempts
+    // it (giving a flaky RPC another chance to answer).
+    let oldestRetained: number | null = null;
+    try {
+      oldestRetained = await getOldestLedger(contract.contractId);
+    } catch (error) {
+      log({
+        level: 'warn',
+        msg: 'Oldest-ledger probe failed - skipping retention clamp for this contract',
+        contract: contract.name,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    if (oldestRetained != null && oldestRetained > startLedger) {
       log({
         level: 'warn',
         msg: 'Start ledger predates RPC retention - clamping to oldest retained',
@@ -298,6 +316,11 @@ async function runIndexerLoop(
     let cursor: string | undefined;
     let maxLedger = startLedger;
     let scanCompleted = true;
+    // Set when THIS contract's scan stops because it hit the soft deadline (as
+    // opposed to a retryable defer). Drives the defer-counter decision below
+    // without depending on the run-global `result.timedOut`, which a future
+    // refactor could clear or reorder.
+    let deadlineStopped = false;
     // Set when a write fails because a referenced parent row (e.g. an agent
     // that identity has not indexed yet this run) does not exist. We stop and
     // leave the checkpoint un-advanced so the batch is retried next run, by
@@ -318,6 +341,7 @@ async function runIndexerLoop(
         // Stop cleanly mid-scan; leave the checkpoint un-advanced so the next
         // run resumes from here. Treated like a partial scan.
         scanCompleted = false;
+        deadlineStopped = true;
         result.timedOut = true;
         log({ level: 'warn', msg: 'Soft time budget reached mid-scan', contract: contract.name });
         break;
@@ -464,7 +488,7 @@ async function runIndexerLoop(
     // preserves the counter unchanged.
     const nextDeferAttempts = scanCompleted
       ? 0
-      : result.timedOut
+      : deadlineStopped
         ? deferAttempts
         : deferAttempts + 1;
     await updateCheckpoint(
