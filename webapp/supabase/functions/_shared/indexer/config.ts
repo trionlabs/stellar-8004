@@ -1,3 +1,6 @@
+// AUTO-GENERATED from packages/indexer/src/config.ts — DO NOT EDIT.
+// Regenerate with: pnpm --filter @stellar8004/indexer sync:shared
+
 import { MAINNET_CONFIG, TESTNET_CONFIG } from './sdk-config.ts';
 
 import { env } from './env.ts';

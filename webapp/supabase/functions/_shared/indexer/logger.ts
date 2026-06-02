@@ -1,3 +1,6 @@
+// AUTO-GENERATED from packages/indexer/src/logger.ts — DO NOT EDIT.
+// Regenerate with: pnpm --filter @stellar8004/indexer sync:shared
+
 export type LogLevel = 'info' | 'warn' | 'error';
 
 export interface LogEntry {
