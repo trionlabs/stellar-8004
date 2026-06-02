@@ -46,6 +46,8 @@ vi.mock('./db.js', () => ({
   writeIdentityEvent: mocks.writeIdentityEvent,
   writeReputationEvent: mocks.writeReputationEvent,
   writeValidationEvent: mocks.writeValidationEvent,
+  isRetryableWriteError: (error: unknown) =>
+    typeof error === 'object' && error !== null && (error as { retryable?: boolean }).retryable === true,
 }));
 
 vi.mock('./parsers/identity.js', () => ({
@@ -258,6 +260,44 @@ describe('runIndexer', () => {
     );
   });
 
+  it('defers the batch without advancing the checkpoint on a retryable write failure', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // identity is at ledger 10; reputation/validation are caught up so only
+    // identity scans. The writer fails with a retryable (FK) error.
+    mocks.getLastLedger.mockImplementation((_db: unknown, contractName: string) =>
+      Promise.resolve(contractName === 'identity' ? 10 : 20),
+    );
+    mocks.getEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true }],
+      cursor: undefined,
+    });
+    mocks.parseIdentityEvent.mockReturnValue({ type: 'Registered' });
+    mocks.writeIdentityEvent.mockRejectedValue(
+      Object.assign(new Error('fk violation'), { retryable: true }),
+    );
+
+    const result = await runIndexer();
+
+    expect(result.processed).toBe(0);
+    expect(result.errors).toBe(1);
+    // Checkpoint stays at the previous ledger so the deferred event is retried.
+    expect(result.contracts.identity.lastLedger).toBe(10);
+    expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
+      1,
+      mocks.db,
+      'identity',
+      10,
+      undefined,
+      undefined,
+    );
+
+    const warnings = (console.warn as ReturnType<typeof vi.fn>).mock.calls.map(
+      ([line]) => JSON.parse(line).msg,
+    );
+    expect(warnings).toContain('Retryable write failure - deferring batch to next run');
+  });
+
   it('releases lock even when an error occurs', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -265,7 +305,21 @@ describe('runIndexer', () => {
 
     await expect(runIndexer()).rejects.toThrow('rpc down');
 
-    expect(mocks.db.rpc).toHaveBeenCalledWith('release_indexer_lock');
+    expect(mocks.db.rpc).toHaveBeenCalledWith(
+      'release_indexer_lock',
+      expect.objectContaining({ p_owner: expect.any(String) }),
+    );
+  });
+
+  it('fences the lock: acquire and release use the same owner token', async () => {
+    await runIndexer();
+
+    const calls = (mocks.db.rpc as ReturnType<typeof vi.fn>).mock.calls;
+    const acquire = calls.find(([name]) => name === 'acquire_indexer_lock');
+    const release = calls.find(([name]) => name === 'release_indexer_lock');
+
+    expect(acquire?.[1]?.p_owner).toEqual(expect.any(String));
+    expect(release?.[1]?.p_owner).toBe(acquire?.[1]?.p_owner);
   });
 
   it('logs a warning when parser returns null', async () => {
