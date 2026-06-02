@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getConfig } from './config.js';
 import {
   createSupabaseAdmin,
+  getDeferAttempts,
   getExpectedNextLedger,
   getLastLedger,
   isRetryableWriteError,
@@ -68,6 +69,12 @@ interface ContractIndexerResult {
 }
 
 const GAP_THRESHOLD = 100;
+
+// After this many consecutive runs deferring a contract's batch on a retryable
+// (foreign-key) write failure, give up deferring and skip the offending event
+// so a permanently-unresolvable parent (e.g. a dropped/unparseable Registered)
+// cannot wedge the stream forever. The skip is logged at error level.
+const MAX_DEFER_ATTEMPTS = 5;
 
 export interface IndexerResult {
   processed: number;
@@ -166,6 +173,11 @@ async function runIndexerLoop(
 
     const lastLedger = await getLastLedger(db, contract.name);
     const expectedNext = await getExpectedNextLedger(db, contract.name);
+    const deferAttempts = await getDeferAttempts(db, contract.name);
+    // Once we have deferred this batch too many times, the failure is almost
+    // certainly not transient. Switch to skip mode so the checkpoint can move
+    // past the offending event instead of stalling the stream indefinitely.
+    const skipRetryableErrors = deferAttempts >= MAX_DEFER_ATTEMPTS;
 
     if (lastLedger >= latestLedger) {
       contractResult.lastLedger = lastLedger;
@@ -267,27 +279,43 @@ async function runIndexerLoop(
           contractResult.errors++;
 
           if (isRetryableWriteError(error)) {
-            // A referenced parent row is not present yet (e.g. feedback for an
-            // agent identity has not indexed). Abandon this batch without
-            // advancing the checkpoint so it is retried on the next run.
+            if (skipRetryableErrors) {
+              // Escape hatch: we have deferred this batch MAX_DEFER_ATTEMPTS
+              // times, so treat the failure as permanent and skip the event
+              // (the checkpoint will advance past it). Logged at error level so
+              // monitoring can surface the dropped event.
+              log({
+                level: 'error',
+                msg: 'Retryable write failure exceeded max defer attempts - skipping event',
+                contract: contract.name,
+                eventId: event.id,
+                deferAttempts,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            } else {
+              // A referenced parent row is not present yet (e.g. feedback for
+              // an agent identity has not indexed). Abandon this batch without
+              // advancing the checkpoint so it is retried on the next run.
+              log({
+                level: 'warn',
+                msg: 'Retryable write failure - deferring batch to next run',
+                contract: contract.name,
+                eventId: event.id,
+                deferAttempts,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              retryableWriteFailure = true;
+              break;
+            }
+          } else {
             log({
-              level: 'warn',
-              msg: 'Retryable write failure - deferring batch to next run',
+              level: 'error',
+              msg: 'Event processing error',
               contract: contract.name,
               eventId: event.id,
               error: error instanceof Error ? error.message : String(error),
             });
-            retryableWriteFailure = true;
-            break;
           }
-
-          log({
-            level: 'error',
-            msg: 'Event processing error',
-            contract: contract.name,
-            eventId: event.id,
-            error: error instanceof Error ? error.message : String(error),
-          });
         }
 
         if (event.ledger > maxLedger) {
@@ -329,7 +357,17 @@ async function runIndexerLoop(
     const nextExpected = scanCompleted
       ? latestLedger + 1
       : expectedNext ?? undefined;
-    await updateCheckpoint(db, contract.name, contractResult.lastLedger, cursor, nextExpected);
+    // Reset the defer counter on a completed scan; increment it when we leave
+    // the checkpoint un-advanced because of a retryable write failure.
+    const nextDeferAttempts = scanCompleted ? 0 : deferAttempts + 1;
+    await updateCheckpoint(
+      db,
+      contract.name,
+      contractResult.lastLedger,
+      cursor,
+      nextExpected,
+      nextDeferAttempts,
+    );
 
     log({
       level: 'info',
