@@ -59,7 +59,16 @@ export function parseEventData(value: unknown): Record<string, unknown> {
  */
 export function toBigInt(val: unknown, fieldName: string): bigint {
   if (typeof val === 'bigint') return val;
-  if (typeof val === 'number') return BigInt(val);
+  if (typeof val === 'number') {
+    // Guard against non-integer numbers: BigInt(1.5) throws a RangeError that
+    // would otherwise surface as an opaque parse failure. Reject explicitly.
+    if (!Number.isInteger(val)) {
+      throw new TypeError(
+        `toBigInt: expected an integer for ${fieldName}, got ${val}`,
+      );
+    }
+    return BigInt(val);
+  }
 
   throw new TypeError(
     `toBigInt: expected bigint/number for ${fieldName}, got ${typeof val}`,

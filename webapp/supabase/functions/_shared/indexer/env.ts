@@ -1,3 +1,6 @@
+// AUTO-GENERATED from packages/indexer/src/env.ts — DO NOT EDIT.
+// Regenerate with: pnpm --filter @stellar8004/indexer sync:shared
+
 type EnvRuntime = typeof globalThis & {
   Deno?: { env?: { get?: (key: string) => string | undefined } };
   process?: { env?: Record<string, string | undefined> };
