@@ -353,6 +353,91 @@ describe('runIndexer', () => {
     );
   });
 
+  it('defers (does not advance) the checkpoint on a NON-retryable write failure', async () => {
+    // Regression guard for the silent-loss bug: a non-retryable write failure
+    // (e.g. a transient network error postgrest reports with code='') must NOT
+    // let the checkpoint advance past the un-written event. It defers instead.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    mocks.getCheckpointState.mockImplementation((_db: unknown, contractName: string) =>
+      Promise.resolve({
+        lastLedger: contractName === 'identity' ? 10 : 20,
+        expectedNext: null,
+        deferAttempts: 0,
+      }),
+    );
+    mocks.getEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true }],
+      cursor: undefined,
+    });
+    mocks.parseIdentityEvent.mockReturnValue({ type: 'Registered' });
+    mocks.writeIdentityEvent.mockRejectedValue(
+      Object.assign(new Error('network error'), { retryable: false }),
+    );
+
+    const result = await runIndexer();
+
+    expect(result.processed).toBe(0);
+    expect(result.errors).toBe(1);
+    // Checkpoint stays at the previous ledger so the dropped event is retried.
+    expect(result.contracts.identity.lastLedger).toBe(10);
+    expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
+      1,
+      mocks.db,
+      'identity',
+      10,
+      undefined,
+      1,
+    );
+
+    const errors = (console.error as ReturnType<typeof vi.fn>).mock.calls.map(
+      ([line]) => JSON.parse(line).msg,
+    );
+    expect(errors).toContain('Write failure - deferring batch to next run');
+  });
+
+  it('skips a NON-retryable write failure once defer attempts exceed the max', async () => {
+    // The escape hatch must also cover non-retryable failures: a
+    // deterministically poison event cannot wedge the stream forever.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    mocks.getCheckpointState.mockImplementation((_db: unknown, contractName: string) =>
+      Promise.resolve({
+        lastLedger: contractName === 'identity' ? 10 : 20,
+        expectedNext: null,
+        deferAttempts: contractName === 'identity' ? 5 : 0,
+      }),
+    );
+    mocks.getEvents.mockResolvedValue({
+      events: [{ id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true }],
+      cursor: undefined,
+    });
+    mocks.parseIdentityEvent.mockReturnValue({ type: 'Registered' });
+    mocks.writeIdentityEvent.mockRejectedValue(
+      Object.assign(new Error('still failing'), { retryable: false }),
+    );
+
+    const result = await runIndexer();
+
+    expect(result.errors).toBe(1);
+    expect(result.skippedEvents).toBe(1);
+    // Checkpoint advances past the poison event; defer counter resets.
+    expect(result.contracts.identity.lastLedger).toBe(20);
+    expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
+      1,
+      mocks.db,
+      'identity',
+      20,
+      21,
+      0,
+    );
+
+    const errors = (console.error as ReturnType<typeof vi.fn>).mock.calls.map(
+      ([line]) => JSON.parse(line).msg,
+    );
+    expect(errors).toContain('Write failure exceeded max defer attempts - skipping event');
+  });
+
   it('clamps a cold-start scan to the oldest retained ledger', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -457,12 +542,21 @@ describe('runIndexer', () => {
   });
 
   it('releases lock even when an error occurs', async () => {
+    vi.useFakeTimers();
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(Math, 'random').mockReturnValue(0);
 
+    // getLatestLedger is wrapped in withRetry, so an always-failing RPC retries
+    // (with backoff) before the run rejects. Drive the backoff timers.
     mocks.getLatestLedger.mockRejectedValue(new Error('rpc down'));
 
-    await expect(runIndexer()).rejects.toThrow('rpc down');
+    const settled = runIndexer().catch((e) => e);
+    await vi.runAllTimersAsync();
+    const error = await settled;
 
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe('rpc down');
     expect(mocks.db.rpc).toHaveBeenCalledWith(
       'release_indexer_lock',
       expect.objectContaining({ p_owner: expect.any(String) }),

@@ -136,9 +136,12 @@ export function extractServices(uriData: unknown): unknown[] {
  * a best-effort SSRF guard against agent metadata URIs that point at
  * internal infrastructure.
  *
- * Note: this only inspects the URL string. A DNS-rebinding attacker who
- * controls a public hostname can still aim at private space at fetch time.
- * Closing that gap requires DNS-then-connect-by-IP, which Deno's fetch
+ * This inspects a single hostname/IP STRING. The companion
+ * {@link hostnameResolvesToPrivate} resolves a public hostname's A/AAAA
+ * records and runs each through this function, which blocks a public name
+ * that points at private space (e.g. an attacker A record → 169.254.169.254).
+ * The remaining residual is sub-TTL DNS rebinding between the resolve and the
+ * fetch; fully closing that needs connect-by-pinned-IP, which Deno fetch
  * doesn't expose.
  */
 export function isPrivateOrLoopbackHost(hostname: string): boolean {
@@ -166,6 +169,27 @@ export function isPrivateOrLoopbackHost(hostname: string): boolean {
   if (stripped.startsWith('fc') || stripped.startsWith('fd')) return true; // fc00::/7 unique-local
   if (stripped.startsWith('ff')) return true; // multicast
 
+  // IPv4-mapped / IPv4-embedded IPv6 (e.g. ::ffff:127.0.0.1, ::ffff:7f00:1,
+  // ::127.0.0.1, 64:ff9b::a.b.c.d NAT64). A resolver can hand back an AAAA
+  // record in any of these forms that ultimately targets a private IPv4, so
+  // extract the embedded IPv4 and re-check it.
+  if (stripped.includes(':')) {
+    const dottedTail = stripped.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+    if (dottedTail && isPrivateOrLoopbackHost(dottedTail[1])) return true;
+    // Only the IPv4-mapped prefix (::ffff:HHHH:HHHH), anchored so we don't
+    // misread the last two groups of a legitimate public IPv6 as an IPv4.
+    const hexMapped = stripped.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (hexMapped) {
+      const hi = parseInt(hexMapped[1], 16);
+      const lo = parseInt(hexMapped[2], 16);
+      const a = (hi >> 8) & 0xff;
+      const b = hi & 0xff;
+      const c = (lo >> 8) & 0xff;
+      const d = lo & 0xff;
+      if (isPrivateOrLoopbackHost(`${a}.${b}.${c}.${d}`)) return true;
+    }
+  }
+
   // IPv4 dotted quad.
   const ipv4Match = stripped.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (ipv4Match) {
@@ -182,6 +206,41 @@ export function isPrivateOrLoopbackHost(hostname: string): boolean {
   }
 
   return false;
+}
+
+/**
+ * Resolves a hostname's A and AAAA records and returns true if ANY of them is
+ * a private/loopback/link-local/etc address. This closes the SSRF hole where a
+ * PUBLIC hostname (e.g. `something.nip.io`, or an attacker-controlled domain)
+ * resolves to an internal IP such as the cloud metadata endpoint
+ * (169.254.169.254) or an internal docker service — which the string-only
+ * `isPrivateOrLoopbackHost` cannot see.
+ *
+ * Fails OPEN (returns false) when `Deno.resolveDns` is unavailable (restricted
+ * runtime) or returns no records: the real exploit requires a name that
+ * resolves to a private IP, which resolveDns WILL surface and block, so
+ * failing open here avoids breaking legitimate resolution without reopening
+ * the exploited path. Callers must still run the string checks first (bare-IP
+ * and literal-private hostnames never reach this function).
+ */
+async function hostnameResolvesToPrivate(hostname: string): Promise<boolean> {
+  // Guard for restricted runtimes that don't expose resolveDns (fail open).
+  if (typeof Deno?.resolveDns !== 'function') return false;
+
+  const ips: string[] = [];
+  try {
+    ips.push(...(await Deno.resolveDns(hostname, 'A')));
+  } catch {
+    // No A record, or a transient/permission error.
+  }
+  try {
+    ips.push(...(await Deno.resolveDns(hostname, 'AAAA')));
+  } catch {
+    // No AAAA record, or a transient/permission error.
+  }
+
+  if (ips.length === 0) return false;
+  return ips.some((ip) => isPrivateOrLoopbackHost(ip));
 }
 
 /**
@@ -252,6 +311,14 @@ async function fetchJson(url: string): Promise<unknown | null> {
     return null;
   }
 
+  // Resolve the hostname and reject if it points at private/internal space.
+  // The string checks above only catch literal private IPs and known internal
+  // names; this blocks a PUBLIC hostname whose A/AAAA records resolve to an
+  // internal IP (cloud metadata 169.254.169.254, internal docker services).
+  if (await hostnameResolvesToPrivate(parsed.hostname)) {
+    return null;
+  }
+
   try {
     // Don't follow redirects automatically - validate each hop.
     const response = await fetch(url, {
@@ -272,6 +339,7 @@ async function fetchJson(url: string): Promise<unknown | null> {
       if (redirectUrl.protocol !== 'https:' && redirectUrl.protocol !== 'http:') return null;
       if (isPrivateOrLoopbackHost(redirectUrl.hostname)) return null;
       if (/^\d{1,3}(\.\d{1,3}){3}$/.test(redirectUrl.hostname) || redirectUrl.hostname.startsWith('[')) return null;
+      if (await hostnameResolvesToPrivate(redirectUrl.hostname)) return null;
 
       // Follow one redirect only.
       const redirectResponse = await fetch(redirectUrl.toString(), {
