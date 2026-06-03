@@ -7,6 +7,14 @@ use crate::events;
 use crate::storage;
 use crate::types::{ValidationStatus, ValidationSummary};
 
+// Caps the number of validations get_summary scans. Each scanned validation
+// costs TWO ledger-entry reads (the agent-index slot + the validation status),
+// so the cap is ~half the ~100-entry per-transaction footprint limit. Without
+// it, an agent with as few as ~50 validations would make get_summary exceed
+// the footprint budget and revert. Beyond the cap, summarise client-side over
+// the paginated reads.
+pub(crate) const MAX_SUMMARY_VALIDATIONS: u32 = 45;
+
 // Cross-contract auth delegates to identity registry; share custody.
 #[contractclient(name = "IdentityRegistryClient")]
 pub trait IdentityRegistryInterface {
@@ -41,6 +49,16 @@ impl ValidationRegistryContract {
         let owner = identity
             .find_owner(&agent_id)
             .ok_or(ValidationError::AgentNotFound)?;
+
+        // M3: the validator must be independent of the agent under validation.
+        // Without this, the owner (or a delegated caller) could name itself as
+        // validator and then self-respond, defeating the trust the validation
+        // record is meant to convey. Reject the obvious cases; deeper sybil
+        // independence is a documented off-chain assumption.
+        if validator_address == owner || validator_address == caller {
+            return Err(ValidationError::ValidatorNotIndependent);
+        }
+
         if caller != owner {
             let mut authorized = false;
             if let Some(approved) = identity.get_approved(&agent_id) {
@@ -135,6 +153,10 @@ impl ValidationRegistryContract {
         storage::has_validation(e, &request_hash)
     }
 
+    /// Aggregates over at most `MAX_SUMMARY_VALIDATIONS` of the agent's
+    /// validations (in insertion order) to stay within the read budget. For
+    /// agents beyond that count, summarise client-side over the paginated
+    /// reads instead.
     pub fn get_summary(
         e: &Env,
         agent_id: u32,
@@ -142,10 +164,11 @@ impl ValidationRegistryContract {
         tag: String,
     ) -> ValidationSummary {
         let count = storage::get_agent_validation_count(e, agent_id);
+        let scan = core::cmp::min(count, MAX_SUMMARY_VALIDATIONS);
         let mut total_response = 0u64;
         let mut match_count = 0u64;
 
-        for i in 0..count {
+        for i in 0..scan {
             if let Some(hash) = storage::get_agent_validation_at(e, agent_id, i) {
                 if let Some(status) = storage::get_validation(e, &hash) {
                     if !status.has_response {
