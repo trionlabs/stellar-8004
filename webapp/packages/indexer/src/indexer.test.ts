@@ -22,6 +22,10 @@ const mocks = vi.hoisted(() => ({
   writeIdentityEvent: vi.fn(),
   writeReputationEvent: vi.fn(),
   writeValidationEvent: vi.fn(),
+  bulkUpsertRegistered: vi.fn(),
+  bulkUpsertMetadataSet: vi.fn(),
+  bulkUpsertNewFeedback: vi.fn(),
+  bulkUpsertValidationRequest: vi.fn(),
   parseIdentityEvent: vi.fn(),
   parseReputationEvent: vi.fn(),
   parseValidationEvent: vi.fn(),
@@ -45,6 +49,10 @@ vi.mock('./db.js', () => ({
   writeIdentityEvent: mocks.writeIdentityEvent,
   writeReputationEvent: mocks.writeReputationEvent,
   writeValidationEvent: mocks.writeValidationEvent,
+  bulkUpsertRegistered: mocks.bulkUpsertRegistered,
+  bulkUpsertMetadataSet: mocks.bulkUpsertMetadataSet,
+  bulkUpsertNewFeedback: mocks.bulkUpsertNewFeedback,
+  bulkUpsertValidationRequest: mocks.bulkUpsertValidationRequest,
   isRetryableWriteError: (error: unknown) =>
     typeof error === 'object' && error !== null && (error as { retryable?: boolean }).retryable === true,
 }));
@@ -85,6 +93,10 @@ describe('runIndexer', () => {
     mocks.writeIdentityEvent.mockResolvedValue(undefined);
     mocks.writeReputationEvent.mockResolvedValue(undefined);
     mocks.writeValidationEvent.mockResolvedValue(undefined);
+    mocks.bulkUpsertRegistered.mockResolvedValue(undefined);
+    mocks.bulkUpsertMetadataSet.mockResolvedValue(undefined);
+    mocks.bulkUpsertNewFeedback.mockResolvedValue(undefined);
+    mocks.bulkUpsertValidationRequest.mockResolvedValue(undefined);
     mocks.updateCheckpoint.mockResolvedValue(undefined);
     mocks.refreshLeaderboard.mockResolvedValue(undefined);
 
@@ -221,6 +233,73 @@ describe('runIndexer', () => {
       UriUpdated: 1,
     });
     expect(result.contracts.identity.processed).toBe(2);
+  });
+
+  it('collapses a homogeneous bulk-upsertable page into a single bulkWrite', async () => {
+    mocks.getEvents.mockResolvedValue({
+      events: [
+        { id: 'f1', ledger: 15, topic: ['t'], inSuccessfulContractCall: true },
+        { id: 'f2', ledger: 16, topic: ['t'], inSuccessfulContractCall: true },
+      ],
+      cursor: undefined,
+    });
+    // Both reputation events parse to the same bulk-upsertable type.
+    mocks.parseReputationEvent.mockReturnValue({ type: 'NewFeedback' });
+
+    const result = await runIndexer();
+
+    expect(mocks.bulkUpsertNewFeedback).toHaveBeenCalledTimes(1);
+    expect(mocks.bulkUpsertNewFeedback).toHaveBeenCalledWith(mocks.db, [
+      { type: 'NewFeedback' },
+      { type: 'NewFeedback' },
+    ]);
+    // The per-event writer is bypassed entirely on the fast path.
+    expect(mocks.writeReputationEvent).not.toHaveBeenCalled();
+    expect(result.contracts.reputation.processed).toBe(2);
+    expect(result.contracts.reputation.events).toEqual({ NewFeedback: 2 });
+  });
+
+  it('falls back to the per-event path when a bulk page upsert fails', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mocks.getEvents.mockResolvedValue({
+      events: [
+        { id: 'f1', ledger: 15, topic: ['t'], inSuccessfulContractCall: true },
+        { id: 'f2', ledger: 16, topic: ['t'], inSuccessfulContractCall: true },
+      ],
+      cursor: undefined,
+    });
+    mocks.parseReputationEvent.mockReturnValue({ type: 'NewFeedback' });
+    mocks.bulkUpsertNewFeedback.mockRejectedValue(new Error('bulk boom'));
+
+    const result = await runIndexer();
+
+    expect(mocks.bulkUpsertNewFeedback).toHaveBeenCalledTimes(1);
+    // Fallback re-applies each event individually (idempotent upserts).
+    expect(mocks.writeReputationEvent).toHaveBeenCalledTimes(2);
+    expect(result.contracts.reputation.processed).toBe(2);
+    expect(result.contracts.reputation.events).toEqual({ NewFeedback: 2 });
+  });
+
+  it('keeps the per-event path for a mixed-type page (no bulk)', async () => {
+    mocks.getEvents.mockResolvedValue({
+      events: [
+        { id: 'f1', ledger: 15, topic: ['t'], inSuccessfulContractCall: true },
+        { id: 'f2', ledger: 16, topic: ['t'], inSuccessfulContractCall: true },
+      ],
+      cursor: undefined,
+    });
+    mocks.parseReputationEvent
+      .mockReturnValueOnce({ type: 'NewFeedback' })
+      .mockReturnValueOnce({ type: 'FeedbackRevoked' });
+
+    const result = await runIndexer();
+
+    expect(mocks.bulkUpsertNewFeedback).not.toHaveBeenCalled();
+    expect(mocks.writeReputationEvent).toHaveBeenCalledTimes(2);
+    expect(result.contracts.reputation.events).toEqual({
+      NewFeedback: 1,
+      FeedbackRevoked: 1,
+    });
   });
 
   it('does not advance checkpoints after a partial scan if a later page fails', async () => {
