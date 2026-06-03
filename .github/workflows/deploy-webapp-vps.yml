@@ -33,8 +33,13 @@ jobs:
             git reset --hard origin/main
             cd webapp
 
-            echo "=== Rebuilding edge functions ==="
-            bash scripts/build-edge-function.sh
+            # No host-side edge rebuild: the committed
+            # supabase/functions/_shared/indexer/ copy IS the deployed artifact,
+            # and CI enforces zero drift from packages/indexer/src
+            # (ci.yml: `sync-indexer-to-shared.js --check`). So the `git reset
+            # --hard` above already places the correct files — running the
+            # generator here would only add a `node` dependency the VPS shell
+            # does not have, breaking the deploy before migrations run.
 
             echo "=== Applying new migrations ==="
             docker exec trionlabs8004-db psql -U postgres -c \
