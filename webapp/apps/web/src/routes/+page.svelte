@@ -6,7 +6,7 @@
 
 	let { data }: PageProps = $props();
 
-	const skillCmd = 'npx skills add trionlabs/stellar-8004 --skill 8004s';
+	const skillCmd = 'npx skills add trionlabs/stellar-8004 --skill 8004stellar';
 	let copied = $state(false);
 
 	const recentAgentPadding = $derived((3 - (data.recentAgents.length % 3)) % 3);

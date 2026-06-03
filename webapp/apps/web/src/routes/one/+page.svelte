@@ -49,7 +49,7 @@
 		{ num: '03', title: 'TypeScript SDK', color: c.positive, items: ['@trionlabs/stellar8004 package', 'Full contract client wrappers', 'Agent metadata builder & auto-storage'], footer: 'Query, register, feedback, validate' },
 		{ num: '04', title: 'Explorer Web App', color: c.accent, items: ['Agent search & advanced filtering', 'Agent profiles with scores & services', 'TryAgent: use & pay in-browser'], footer: 'SvelteKit · stellar8004.com · Live' },
 		{ num: '05', title: 'Event Indexer', color: c.accent, items: ['Real-time Soroban event indexing', 'URI resolution & metadata extraction', 'REST API with 7 public endpoints'], footer: 'Supabase Edge Functions · PostgreSQL' },
-		{ num: '06', title: 'Claude Code Skills', color: c.accent, items: ['/8004stellar — trust playbook', '/x402stellar — payment integration', '/stellar-dev — full Stellar guide'], footer: 'AI-native developer experience' },
+		{ num: '06', title: 'Agent Skills', color: c.accent, items: ['/8004stellar — trust playbook', '/x402stellar — payment integration', '/stellar-dev — full Stellar guide'], footer: 'AI-native developer experience' },
 	];
 
 	const identityFeatures = [
@@ -671,7 +671,7 @@
 		<div>
 			<p class="text-[11px] tracking-wider uppercase font-medium" style={s({ color: c.accent })}>Developer Experience</p>
 			<h2 class="mt-2 text-3xl font-light tracking-tight">Build on 8004 in Minutes</h2>
-			<p class="mt-2 text-[15px] text-text-muted">TypeScript SDK, Claude Code skills, REST API, and full documentation.</p>
+			<p class="mt-2 text-[15px] text-text-muted">TypeScript SDK, agent skills, REST API, and full documentation.</p>
 		</div>
 		<div class="grid gap-4 lg:grid-cols-2">
 			<div class="space-y-3 rounded-xl p-4" style={s({ background: c.raised, border: `1px solid ${c.border}` })}>
@@ -691,12 +691,12 @@
 			</div>
 			<div class="space-y-3 rounded-xl p-4" style={s({ background: c.raised, border: `1px solid ${c.border}` })}>
 				<div class="flex items-center justify-between">
-					<p class="text-[11px] font-mono tracking-wider uppercase" style={s({ color: c.accent })}>Claude Code Skills</p>
+					<p class="text-[11px] font-mono tracking-wider uppercase" style={s({ color: c.accent })}>Agent Skills</p>
 					<span class="text-[9px] font-mono text-text-dim rounded px-2 py-0.5" style={s({ background: c.overlay })}>AI-native DX</span>
 				</div>
 				<div class="rounded-lg p-3 font-mono text-[11px] leading-relaxed space-y-2" style={s({ background: c.surface, border: `1px solid ${c.border}` })}>
 					<div><p class="text-text-dim"># Install all skills</p><p><span style={s({ color: c.positive })}>$</span> npx skills add trionlabs/stellar-8004 --skill '*'</p></div>
-					<div><p class="text-text-dim"># Use in Claude Code</p><p><span style={s({ color: c.positive })}>$</span> /8004stellar</p><p class="text-text-dim pl-2">Agent trust protocol playbook</p></div>
+					<div><p class="text-text-dim"># Use in your agent</p><p><span style={s({ color: c.positive })}>$</span> /8004stellar</p><p class="text-text-dim pl-2">Agent trust protocol playbook</p></div>
 					<div><p><span style={s({ color: c.positive })}>$</span> /x402stellar</p><p class="text-text-dim pl-2">HTTP micropayment implementation</p></div>
 				</div>
 			</div>

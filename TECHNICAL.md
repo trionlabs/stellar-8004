@@ -57,7 +57,7 @@ Written in Rust for Soroban. All three have timelocked upgrades (3-day delay) an
 - **SDK** (`@trionlabs/stellar8004`) - TypeScript library with contract bindings, Freighter wallet signer, and explorer API client. Single source of truth for contract addresses in `config.ts`.
 - **Web App** (`stellar8004.com`) - SvelteKit explorer for browsing agents, submitting feedback, requesting validations, and managing agent registrations.
 - **CLI** - Command-line tool for agents to register themselves directly.
-- **Skills** - `/8004stellar` and `/x402s` for AI-assisted development.
+- **Skills** - `/8004stellar` and `/x402stellar` for AI-assisted development.
 
 ## Spec Coverage
 

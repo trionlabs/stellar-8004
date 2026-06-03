@@ -3,17 +3,17 @@
 
 	const skills = [
 		{
-			name: '8004s',
-			slash: '/8004s',
+			name: '8004stellar',
+			slash: '/8004stellar',
 			desc: 'Full agent onboarding playbook for ERC-8004 on Stellar. Covers metadata preparation, on-chain registration (register, register_with_uri, register_full), indexer discovery, reputation system (give/read/revoke feedback, get_summary with running aggregates), validation workflow, trust verification, x402 and MPP payment integration, and storage vs event architecture.',
-			install: 'npx skills add trionlabs/stellar-8004 --skill 8004s',
+			install: 'npx skills add trionlabs/stellar-8004 --skill 8004stellar',
 			repo: 'https://github.com/trionlabs/stellar-8004'
 		},
 		{
-			name: 'x402s',
-			slash: '/x402s',
+			name: 'x402stellar',
+			slash: '/x402stellar',
 			desc: 'x402 HTTP-native micropayments on Stellar. Implements HTTP 402 Payment Required flows with USDC on Soroban — server middleware (Express), client signing (private key and browser wallet), fee sponsorship, facilitator setup (Coinbase/OpenZeppelin), and Freighter 6.x integration.',
-			install: 'npx skills add trionlabs/stellar-8004 --skill x402s',
+			install: 'npx skills add trionlabs/stellar-8004 --skill x402stellar',
 			repo: 'https://github.com/trionlabs/stellar-8004'
 		},
 		{
@@ -351,14 +351,14 @@ console.log('Indexer status:', health.data.status);`;
 				<div class="flex items-center gap-3">
 					<span class="inline-flex items-center gap-1.5 rounded-full border border-accent/12 bg-accent/4 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase">
 						<span class="h-1 w-1 rounded-full bg-accent animate-pulse"></span>
-						Claude Code Skills
+						Agent Skills
 					</span>
 				</div>
 				<h2 class="text-2xl font-light tracking-tight text-text">
 					Build on <span class="text-accent">Stellar8004</span> from your terminal
 				</h2>
 				<p class="max-w-2xl text-[13px] leading-relaxed text-text-muted">
-					Open-source skills that give Claude Code full context on 8004 smart contracts, Stellar SDK patterns, and x402 payment flows. One command to install - then use slash commands like <code class="rounded bg-accent/8 px-1.5 py-0.5 text-[11px] text-accent">/8004s</code> directly in Claude Code.
+					Open-source skills that give your agent full context on 8004 smart contracts, Stellar SDK patterns, and x402 payment flows. One command to install - then use slash commands like <code class="rounded bg-accent/8 px-1.5 py-0.5 text-[11px] text-accent">/8004stellar</code> in any skills-compatible agent.
 				</p>
 			</div>
 
