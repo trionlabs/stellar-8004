@@ -6,6 +6,7 @@ export {
   type MetadataSetEvent,
   type AgentWalletSetEvent,
   type AgentWalletUnsetEvent,
+  type AgentTransferredEvent,
 } from './identity.js';
 
 export {

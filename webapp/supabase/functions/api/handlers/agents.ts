@@ -164,10 +164,19 @@ export async function handleAgentFeedback(id: string, url: URL): Promise<Respons
   const responsesMap = new Map<string, Record<string, unknown>[]>();
 
   if (feedbackIds.length > 0) {
+    // Scope responses to the (client, index) values on THIS page rather than
+    // loading every response the agent has ever received. This is a superset of
+    // the exact (client_address, feedback_index) pairs needed (PostgREST has no
+    // tuple IN), but it is bounded by the page; the responsesMap key below keeps
+    // only exact matches, so the extra rows are harmless.
+    const clientAddresses = [...new Set(feedbackIds.map((f) => f.client_address))];
+    const feedbackIndexes = [...new Set(feedbackIds.map((f) => f.feedback_index))];
     const { data: responses } = await db
       .from('feedback_responses')
       .select('*')
       .eq('agent_id', agentId)
+      .in('client_address', clientAddresses)
+      .in('feedback_index', feedbackIndexes)
       .order('created_at', { ascending: false });
 
     for (const r of responses ?? []) {

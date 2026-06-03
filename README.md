@@ -111,6 +111,23 @@ Update these files with new addresses:
 4. `webapp/apps/web/.env.example`
 5. This README
 
+**Then WIPE the indexed data before backfilling.** The DB keys `agents` on the bare
+on-chain token id (`agents.id`), with no registry-address scoping. A freshly
+deployed identity registry restarts token ids at 1, so without a wipe the new
+agent #1 collides with the old deployment's agent #1 (and old feedback /
+validations / metadata stay attached to a now-different agent). Run against the
+indexer DB:
+
+```sql
+TRUNCATE agents, agent_metadata, feedback, feedback_responses, validations RESTART IDENTITY CASCADE;
+UPDATE indexer_state SET last_ledger = 0, expected_next_ledger = NULL, defer_attempts = 0;
+```
+
+This drops all pre-redeploy data (acceptable while the project runs exactly one
+registry per network and does not need to serve historical agents). If historical
+retention is ever required, add a `registry_address` column to `agents` + children
+and make the keys composite instead of wiping.
+
 Then run `scripts/backfill-events.ts` from the new deploy ledger and redeploy the indexer.
 
 ## AI Agent Skills

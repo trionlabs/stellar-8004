@@ -5,6 +5,8 @@ import { parseIdentityEvent } from '../identity.js';
 import { mockEvent } from './helpers.js';
 
 const MOCK_OWNER = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
+// A second valid (checksum-correct) account id, distinct from MOCK_OWNER.
+const MOCK_RECIPIENT = 'GAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQDZ7H';
 const textEncoder = new TextEncoder();
 
 describe('parseIdentityEvent', () => {
@@ -132,6 +134,48 @@ describe('parseIdentityEvent', () => {
     const event = mockEvent({
       topics: ['metadata_set', 1, 'agentWallet'],
       data: { value: textEncoder.encode('not-a-valid-stellar-address') },
+    });
+
+    expect(parseIdentityEvent(event)).toBeNull();
+  });
+
+  it('parses an OZ transfer event, taking agentId from token_id data (not topic[1])', () => {
+    // OZ NonFungible Transfer: topics = ['transfer', from, to], data is the
+    // field-name-keyed map { token_id }. topic[1] is the `from` ADDRESS, so a
+    // naive topic[1] read would NaN out — the agentId must come from the data.
+    const event = mockEvent({
+      topics: ['transfer', new Address(MOCK_OWNER), new Address(MOCK_RECIPIENT)],
+      data: { token_id: 42 },
+      typeHints: { token_id: 'u32' },
+    });
+
+    const result = parseIdentityEvent(event);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        type: 'AgentTransferred',
+        agentId: 42,
+        from: MOCK_OWNER,
+        to: MOCK_RECIPIENT,
+      }),
+    );
+  });
+
+  it('returns null for a transfer with a malformed recipient address', () => {
+    const event = mockEvent({
+      topics: ['transfer', new Address(MOCK_OWNER), 'not-an-address'],
+      data: { token_id: 7 },
+      typeHints: { token_id: 'u32' },
+    });
+
+    expect(parseIdentityEvent(event)).toBeNull();
+  });
+
+  it('returns null for a transfer missing the recipient topic', () => {
+    const event = mockEvent({
+      topics: ['transfer', new Address(MOCK_OWNER)],
+      data: { token_id: 7 },
+      typeHints: { token_id: 'u32' },
     });
 
     expect(parseIdentityEvent(event)).toBeNull();
