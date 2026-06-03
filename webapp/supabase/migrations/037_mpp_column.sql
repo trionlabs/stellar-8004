@@ -1,9 +1,9 @@
 -- Add MPP (Machine Payments Protocol) support column to agents table
 -- Mirrors the existing x402_enabled column pattern
 
-ALTER TABLE agents ADD COLUMN mpp_enabled boolean NOT NULL DEFAULT false;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS mpp_enabled boolean NOT NULL DEFAULT false;
 
-CREATE INDEX idx_agents_mpp_enabled ON agents (mpp_enabled) WHERE mpp_enabled = true;
+CREATE INDEX IF NOT EXISTS idx_agents_mpp_enabled ON agents (mpp_enabled) WHERE mpp_enabled = true;
 
 -- Recreate search_agents_advanced to include x402_enabled and mpp_enabled
 -- Original function queries from leaderboard_scores and joins agents for search_vector.
