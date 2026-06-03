@@ -32,6 +32,7 @@ function fakeDb(error: { message: string; code?: string } | null = null) {
     from: vi.fn((table: string) => ({
       upsert: (payload: unknown, opts: unknown) => thenable('upsert', table, payload, opts),
       update: (payload: unknown) => thenable('update', table, payload),
+      delete: () => thenable('delete', table),
     })),
     rpc: vi.fn((name: string, payload: unknown) => thenable(`rpc:${name}`, undefined, payload)),
   } as unknown as SupabaseClient;
@@ -112,6 +113,36 @@ describe('writeIdentityEvent', () => {
     expect(update?.payload).toEqual({ wallet: null });
   });
 
+  it('moves owner to the recipient and clears metadata on AgentTransferred', async () => {
+    const { db, calls } = fakeDb();
+    await writeIdentityEvent(db, {
+      type: 'AgentTransferred',
+      ...base,
+      from: 'GFROM',
+      to: 'GTO',
+    });
+
+    // owner follows the NFT; wallet is nulled (contract clears it on transfer).
+    const update = calls.find((c) => c.op === 'update' && c.table === 'agents');
+    expect(update?.payload).toEqual({ owner: 'GTO', wallet: null });
+    // The contract's clear_all_metadata emits no per-key event, so the indexer
+    // must delete the orphaned metadata rows itself.
+    const del = calls.find((c) => c.op === 'delete' && c.table === 'agent_metadata');
+    expect(del).toBeDefined();
+  });
+
+  it('skips an AgentTransferred missing the recipient without writing', async () => {
+    const { db, calls } = fakeDb();
+    await writeIdentityEvent(db, {
+      type: 'AgentTransferred',
+      ...base,
+      from: 'GFROM',
+      to: '',
+    });
+
+    expect(calls).toHaveLength(0);
+  });
+
   it('throws a non-retryable IndexerWriteError on a generic DB error', async () => {
     const { db } = fakeDb({ message: 'boom' });
     await expect(
@@ -171,6 +202,15 @@ describe('retryable error classification', () => {
 
   it('maps deadlock_detected (40P01) and serialization_failure (40001) to retryable', async () => {
     for (const code of ['40P01', '40001']) {
+      const { db } = fakeDb({ message: 'transient', code });
+      const error = await writeIdentityEvent(db, { type: 'AgentWalletUnset', ...base }).catch((e) => e);
+      expect(isRetryableWriteError(error)).toBe(true);
+    }
+  });
+
+  it('maps transient connection/timeout codes to retryable', async () => {
+    // Genuinely transient infrastructure failures must defer, not drop.
+    for (const code of ['08006', '53300', '57014', '57P01']) {
       const { db } = fakeDb({ message: 'transient', code });
       const error = await writeIdentityEvent(db, { type: 'AgentWalletUnset', ...base }).catch((e) => e);
       expect(isRetryableWriteError(error)).toBe(true);
