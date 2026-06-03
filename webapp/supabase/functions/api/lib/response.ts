@@ -91,11 +91,15 @@ export function normalizeServices(raw: unknown): Array<{ name: string; endpoint:
   return raw
     .filter((s): s is Record<string, unknown> => s != null && typeof s === 'object')
     .map((s) => ({
-      name: typeof s.name === 'string' ? s.name : 'unknown',
-      endpoint: typeof s.endpoint === 'string' ? s.endpoint : '',
-      version: typeof s.version === 'string' ? s.version : undefined,
-      description: typeof s.description === 'string' ? s.description : undefined,
-      inputExample: typeof s.inputExample === 'string' ? s.inputExample : undefined,
+      // These fields come from attacker-controlled agent_uri_data and are
+      // served over a CORS:* API, so sanitize + length-cap them the same way
+      // name/description are sanitized in formatAgent (defense-in-depth for
+      // downstream HTML consumers + bounds response size).
+      name: sanitizeString(s.name, 256) ?? 'unknown',
+      endpoint: sanitizeString(s.endpoint, 2048) ?? '',
+      version: sanitizeString(s.version, 64) ?? undefined,
+      description: sanitizeString(s.description, 2048) ?? undefined,
+      inputExample: sanitizeString(s.inputExample, 4096) ?? undefined,
     }))
     .filter((s) => s.endpoint.length > 0);
 }
