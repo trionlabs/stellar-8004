@@ -14,11 +14,33 @@ const utf8Decoder = new TextDecoder('utf-8', { fatal: false });
 
 // PostgreSQL SQLSTATEs the indexer treats as transient: the write should be
 // deferred and retried next run rather than dropped as corrupt data.
-//   23503 foreign_key_violation  - referenced parent row not indexed yet
-//   55P03 lock_not_available     - insert_feedback_response lock_timeout fired
-//   40001 serialization_failure  - concurrent passes serialized
-//   40P01 deadlock_detected      - concurrent passes deadlocked
-const RETRYABLE_PG_CODES = new Set(['23503', '55P03', '40001', '40P01']);
+//   23503 foreign_key_violation       - referenced parent row not indexed yet
+//   55P03 lock_not_available          - insert_feedback_response lock_timeout fired
+//   40001 serialization_failure       - concurrent passes serialized
+//   40P01 deadlock_detected           - concurrent passes deadlocked
+//   08000/08003/08006 connection_*    - transient DB connection loss
+//   53300 too_many_connections        - pool exhaustion under load
+//   53400 configuration_limit_exceeded
+//   57014 query_canceled              - statement_timeout fired mid-write
+//   57P01 admin_shutdown / 57P03 cannot_connect_now - DB restart/failover
+// Network-level failures (no SQLSTATE: postgrest-js reports code='' for a
+// client-side fetch error, or a 5xx with a non-JSON body has no code) are NOT
+// listed here but are still deferred — the indexer loop treats an unclassified
+// write failure as a transient defer rather than a silent drop.
+const RETRYABLE_PG_CODES = new Set([
+  '23503',
+  '55P03',
+  '40001',
+  '40P01',
+  '08000',
+  '08003',
+  '08006',
+  '53300',
+  '53400',
+  '57014',
+  '57P01',
+  '57P03',
+]);
 
 /**
  * Thrown by writers when a Supabase operation fails. `retryable` marks
@@ -268,6 +290,42 @@ export async function writeIdentityEvent(
         .eq('id', event.agentId);
 
       assertNoError(result, `[identity] failed to clear wallet for agent ${event.agentId}`);
+      break;
+    }
+
+    case 'AgentTransferred': {
+      // NFT ownership changed hands. Track the new owner; without this the DB
+      // `owner` is frozen at the original minter forever, which corrupts the
+      // API owner field, the by-owner account listings, and the leaderboard
+      // self-feedback filter (`client_address <> a.owner`).
+      //
+      // The contract clears the wallet AND all metadata on transfer
+      // (`clear_all_metadata`) but emits only a single agentWallet MetadataSet
+      // (handled as AgentWalletUnset above) — the other metadata keys get NO
+      // per-key event, so the indexer must delete them here to mirror on-chain
+      // state. `wallet: null` is set redundantly (the AgentWalletUnset from the
+      // same tx already nulls it) for ordering/idempotency safety.
+      if (event.agentId == null || !event.to) {
+        logMalformedEvent('identity', 'AgentTransferred', event);
+        return;
+      }
+
+      const ownerResult = await db
+        .from('agents')
+        .update({ owner: event.to, wallet: null })
+        .eq('id', event.agentId);
+
+      assertNoError(ownerResult, `[identity] failed to transfer owner for agent ${event.agentId}`);
+
+      const metaResult = await db
+        .from('agent_metadata')
+        .delete()
+        .eq('agent_id', event.agentId);
+
+      assertNoError(
+        metaResult,
+        `[identity] failed to clear metadata on transfer for agent ${event.agentId}`,
+      );
       break;
     }
   }
