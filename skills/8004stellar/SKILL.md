@@ -24,7 +24,7 @@ Application Layer    (Agent apps, marketplaces, 8004scan)
         ↓
 Trust Layer          (ERC-8004: identity + reputation + validation) ← this skill
         ↓
-Payment Layer        (x402: USDC micropayments) ← /x402s skill
+Payment Layer        (x402: USDC micropayments) ← /x402stellar skill
         ↓
 Communication Layer  (A2A, MCP, HTTP)
 ```
@@ -627,7 +627,7 @@ async function verifyAndInteract(targetAgentId: number, minScore = 70) {
   const x402Service = agent.services?.find(s => s.name === 'x402');
   if (!x402Service) throw new Error('Agent has no x402 endpoint');
 
-  // 4. Interact via x402 payment (see /x402s skill)
+  // 4. Interact via x402 payment (see /x402stellar skill)
   const response = await fetchPaid(x402Service.endpoint);
   const result = await response.json();
 
@@ -656,7 +656,7 @@ async function verifyAndInteract(targetAgentId: number, minScore = 70) {
 
 ## x402 Integration
 
-Combine agent trust (`/8004stellar`) with payments (`/x402s`):
+Combine agent trust (`/8004stellar`) with payments (`/x402stellar`):
 
 ```typescript
 async function payTrustedAgent(agentId: number, serviceUrl: string) {
@@ -668,7 +668,7 @@ async function payTrustedAgent(agentId: number, serviceUrl: string) {
     throw new Error('Agent not trusted enough for payment');
   }
 
-  // 2. Pay via x402 (see /x402s skill for full setup)
+  // 2. Pay via x402 (see /x402stellar skill for full setup)
   const response = await fetchPaid(serviceUrl);
 
   // 3. Give feedback after service delivery
@@ -836,4 +836,4 @@ for (const event of events.events) {
 ## Related Skills
 
 - [stellar-dev](https://github.com/stellar/stellar-dev-skill) — General Stellar/Soroban development (required companion)
-- [x402s](../x402s/SKILL.md) — x402 payment protocol on Stellar
+- [x402stellar](../x402stellar/SKILL.md) — x402 payment protocol on Stellar

@@ -1,5 +1,5 @@
 ---
-name: x402s
+name: x402stellar
 description: x402 HTTP-native payment protocol for AI agents on Stellar. Use when implementing pay-per-use APIs, agent micropayments, or HTTP 402 Payment Required flows with USDC on Stellar/Soroban.
 license: Apache-2.0
 metadata:
@@ -411,7 +411,7 @@ The `PAYMENT-SIGNATURE` header requires Soroban auth entry signing — use the c
 
 ## Integration with ERC-8004
 
-Combine agent trust (`/8004stellar`) with payments (`/x402s`):
+Combine agent trust (`/8004stellar`) with payments (`/x402stellar`):
 
 ```typescript
 // 1. Check agent reputation before paying
