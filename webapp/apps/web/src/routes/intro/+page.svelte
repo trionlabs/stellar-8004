@@ -184,7 +184,7 @@
 						'On-chain identity as an NFT on Stellar',
 						'Earn reputation through real user feedback',
 						'Accept micropayments via x402 or MPP',
-						'SDK + Claude Code skills for fast integration',
+						'SDK + agent skills for fast integration',
 					] as item}
 						<div class="flex items-start gap-2 text-[12px] text-text-muted">
 							<span class="text-accent text-[8px] mt-1">&#9654;</span>
@@ -295,7 +295,7 @@
 				{ n: '03', t: 'TypeScript SDK', c: 'positive', items: ['@trionlabs/stellar8004', 'Full contract client wrappers', 'Metadata builder & auto-storage'], f: 'Query, register, feedback, validate' },
 				{ n: '04', t: 'Explorer Web App', c: 'accent', items: ['Search & advanced filtering', 'Agent profiles with scores', 'TryAgent: pay agents in-browser'], f: 'SvelteKit · stellar8004.com' },
 				{ n: '05', t: 'Event Indexer', c: 'accent', items: ['Real-time Soroban event indexing', 'URI resolution & metadata extraction', 'REST API — 7 public endpoints'], f: 'Supabase · PostgreSQL' },
-				{ n: '06', t: 'Claude Code Skills', c: 'accent', items: ['/8004stellar — agent trust protocol', '/x402stellar — HTTP micropayments', 'Install via npx skills add'], f: 'AI-native developer experience' },
+				{ n: '06', t: 'Agent Skills', c: 'accent', items: ['/8004stellar — agent trust protocol', '/x402stellar — HTTP micropayments', 'Install via npx skills add'], f: 'AI-native developer experience' },
 			] as d}
 				<div class="rounded-xl border border-border bg-surface p-4 space-y-2">
 					<div class="flex items-center gap-2">
@@ -648,7 +648,7 @@
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-accent uppercase">Developer Experience</p>
 			<h2 class="text-3xl font-light tracking-tight">Build on 8004 in Minutes</h2>
-			<p class="text-[15px] text-text-muted font-light leading-relaxed max-w-2xl">TypeScript SDK, Claude Code skills, REST API, and full documentation.</p>
+			<p class="text-[15px] text-text-muted font-light leading-relaxed max-w-2xl">TypeScript SDK, agent skills, REST API, and full documentation.</p>
 		</div>
 		<div class="grid sm:grid-cols-2 gap-4">
 			<div class="rounded-xl border border-border bg-surface p-5 space-y-3">
@@ -663,7 +663,7 @@
 				</div>
 			</div>
 			<div class="rounded-xl border border-border bg-surface p-5 space-y-3">
-				<div class="flex justify-between items-center"><p class="text-[11px] font-mono tracking-[0.18em] text-accent uppercase">Claude Code Skills</p><a href="https://github.com/trionlabs/stellar-8004/tree/main/skills" target="_blank" rel="noopener noreferrer" class="rounded-full bg-accent-soft border border-accent/20 px-2 py-0.5 text-[10px] font-mono text-accent transition hover:bg-accent/15">GitHub</a></div>
+				<div class="flex justify-between items-center"><p class="text-[11px] font-mono tracking-[0.18em] text-accent uppercase">Agent Skills</p><a href="https://github.com/trionlabs/stellar-8004/tree/main/skills" target="_blank" rel="noopener noreferrer" class="rounded-full bg-accent-soft border border-accent/20 px-2 py-0.5 text-[10px] font-mono text-accent transition hover:bg-accent/15">GitHub</a></div>
 				<div class="rounded-lg bg-surface-overlay border border-border p-3 font-mono text-[11px] leading-relaxed space-y-2">
 					<div><p class="text-text-dim"># Install skills</p><p><span class="text-positive">$</span> npx skills add trionlabs/stellar-8004 --skill '*'</p></div>
 					<div><p><span class="text-positive">$</span> /8004stellar <span class="text-text-dim">&mdash; agent trust protocol</span></p></div>
