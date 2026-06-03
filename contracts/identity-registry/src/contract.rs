@@ -69,32 +69,30 @@ impl IdentityRegistryContract {
         agent_id
     }
 
+    /// Returns typed errors (consistent with the rest of the surface) rather
+    /// than host-trapping on invalid metadata, so callers get an auditable
+    /// failure instead of an opaque panic.
     pub fn register_full(
         e: &Env,
         caller: Address,
         agent_uri: String,
         metadata: Vec<MetadataEntry>,
-    ) -> u32 {
+    ) -> Result<u32, IdentityError> {
         caller.require_auth();
-        // Panics on invalid input (returns u32, not Result).
         let reserved_wallet_key = agent_wallet_key(e);
-        assert!(
-            metadata.len() <= MAX_METADATA_KEYS,
-            "too many metadata entries"
-        );
+        if metadata.len() > MAX_METADATA_KEYS {
+            return Err(IdentityError::TooManyMetadataKeys);
+        }
         for entry in metadata.iter() {
-            assert!(
-                entry.key.len() <= MAX_METADATA_KEY_LEN,
-                "metadata key too long"
-            );
-            assert!(
-                entry.value.len() <= MAX_METADATA_VALUE_LEN,
-                "metadata value too long"
-            );
-            assert!(
-                entry.key != reserved_wallet_key,
-                "agentWallet is a reserved metadata key - use set_agent_wallet"
-            );
+            if entry.key.len() > MAX_METADATA_KEY_LEN {
+                return Err(IdentityError::MetadataKeyTooLong);
+            }
+            if entry.value.len() > MAX_METADATA_VALUE_LEN {
+                return Err(IdentityError::MetadataValueTooLong);
+            }
+            if entry.key == reserved_wallet_key {
+                return Err(IdentityError::ReservedMetadataKey);
+            }
         }
         let agent_id = Base::sequential_mint(e, &caller);
         storage::set_agent_uri(e, agent_id, &agent_uri);
@@ -104,7 +102,7 @@ impl IdentityRegistryContract {
             events::metadata_set(e, agent_id, &entry.key, &entry.value);
         }
         events::registered(e, agent_id, &caller, &agent_uri);
-        agent_id
+        Ok(agent_id)
     }
 
     fn init_agent_wallet(e: &Env, agent_id: u32, owner: &Address) {

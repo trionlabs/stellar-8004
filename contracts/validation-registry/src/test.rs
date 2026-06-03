@@ -6,7 +6,10 @@ use soroban_sdk::{
     Address, BytesN, Env, String, Vec,
 };
 
-use crate::contract::{ValidationRegistryContract, ValidationRegistryContractClient};
+use crate::contract::{
+    ValidationRegistryContract, ValidationRegistryContractClient, MAX_SUMMARY_VALIDATIONS,
+};
+use crate::errors::ValidationError;
 use crate::storage::{DataKey, TTL_BUMP};
 
 mod mock_identity {
@@ -440,4 +443,63 @@ fn test_validation_ttl_survives_long_idle_periods_via_reads() {
             "get_validation_status should re-extend the validation TTL to TTL_BUMP"
         );
     });
+}
+
+#[test]
+fn test_validator_cannot_be_agent_owner() {
+    // M3: the owner (here also the caller) cannot name itself validator, which
+    // would let it self-respond and fabricate a validation record.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, agent_owner, _) = setup(&env);
+
+    let result = client.try_validation_request(
+        &agent_owner,
+        &agent_owner, // validator == owner == caller
+        &0,
+        &String::from_str(&env, ""),
+        &test_hash(&env, 1),
+    );
+    assert_eq!(
+        result,
+        Err(Ok(ValidationError::ValidatorNotIndependent)),
+        "validator equal to the agent owner must be rejected"
+    );
+}
+
+#[test]
+fn test_get_summary_caps_iteration() {
+    // H2: get_summary scans at most MAX_SUMMARY_VALIDATIONS entries, so an
+    // agent with more validations cannot push it past the read budget. The
+    // count reflects the cap, not the (larger) total.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, agent_owner, validator) = setup(&env);
+
+    let total = MAX_SUMMARY_VALIDATIONS + 5;
+    for i in 0..total {
+        let hash = test_hash(&env, i as u8);
+        client.validation_request(
+            &agent_owner,
+            &validator,
+            &0,
+            &String::from_str(&env, ""),
+            &hash,
+        );
+        client.validation_response(
+            &validator,
+            &hash,
+            &50,
+            &String::from_str(&env, ""),
+            &test_hash(&env, (i + 128) as u8),
+            &String::from_str(&env, ""),
+        );
+    }
+
+    let summary = client.get_summary(&0, &Vec::<Address>::new(&env), &String::from_str(&env, ""));
+    assert_eq!(
+        summary.count, MAX_SUMMARY_VALIDATIONS as u64,
+        "summary must be capped at MAX_SUMMARY_VALIDATIONS, not the full total"
+    );
+    assert_eq!(summary.average_response, 50);
 }

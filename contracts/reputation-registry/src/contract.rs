@@ -8,7 +8,11 @@ use crate::storage;
 use crate::types::{FeedbackData, SummaryResult};
 
 const MAX_SUMMARY_CLIENTS: u32 = 5;
-const MAX_ABS_VALUE: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_000; // 1e38
+// 1e20. Chosen so that `value × 1e18` — the worst-case WAD normalization in
+// `get_summary` (decimals = 0 → factor 1e18) — stays within i128
+// (max ≈ 1.7e38). Above this, an otherwise in-range write could make the
+// summary call overflow; bounding it here keeps aggregation total.
+const MAX_ABS_VALUE: i128 = 100_000_000_000_000_000_000;
 
 // Cross-contract auth delegates to identity registry; trust its admin.
 #[contractclient(name = "IdentityRegistryClient")]
@@ -16,6 +20,7 @@ pub trait IdentityRegistryInterface {
     fn find_owner(e: &Env, agent_id: u32) -> Option<Address>;
     fn agent_exists(e: &Env, agent_id: u32) -> bool;
     fn is_authorized_or_owner(e: &Env, spender: Address, agent_id: u32) -> bool;
+    fn get_agent_wallet(e: &Env, agent_id: u32) -> Option<Address>;
 }
 
 #[contract]
@@ -56,6 +61,16 @@ impl ReputationRegistryContract {
         }
         if identity.is_authorized_or_owner(&caller, &agent_id) {
             return Err(ReputationError::SelfFeedback);
+        }
+        // The bound operational `agentWallet` is the agent acting in its own
+        // right; it must not be able to rate its own agent_id either. The
+        // owner/operator check above does not cover it, since a wallet can be
+        // set to an address that is neither the NFT owner nor an approved
+        // operator.
+        if let Some(wallet) = identity.get_agent_wallet(&agent_id) {
+            if caller == wallet {
+                return Err(ReputationError::SelfFeedback);
+            }
         }
 
         if !storage::client_exists(e, agent_id, &caller) {
@@ -161,7 +176,9 @@ impl ReputationRegistryContract {
     }
 
     /// WAD-normalized average for given clients. Rejects empty client list.
-    /// i128 WAD overflow at |value| > ~1.7e20 with decimals=0 returns AggregateOverflow.
+    /// New writes are bounded (`MAX_ABS_VALUE`) so they always normalize; any
+    /// legacy entry whose WAD normalization would overflow i128 is skipped
+    /// (not aborted), so the summary stays computable.
     pub fn get_summary(
         e: &Env,
         agent_id: u32,
@@ -198,10 +215,13 @@ impl ReputationRegistryContract {
                         fb.value_decimals
                     };
                     let factor = pow10(18 - dec);
-                    let normalized = fb
-                        .value
-                        .checked_mul(factor)
-                        .ok_or(ReputationError::AggregateOverflow)?;
+                    // Skip (don't abort) legacy entries that can't be
+                    // normalized into i128. New writes are bounded so they
+                    // always fit; this only guards pre-bound data.
+                    let normalized = match fb.value.checked_mul(factor) {
+                        Some(n) => n,
+                        None => continue,
+                    };
                     sum_wad = sum_wad
                         .checked_add(normalized)
                         .ok_or(ReputationError::AggregateOverflow)?;
@@ -232,8 +252,24 @@ impl ReputationRegistryContract {
             }
         }
 
-        let avg_wad = sum_wad / (count as i128);
-        let summary_value = avg_wad / pow10(18 - mode_dec);
+        // Single round-to-nearest division (M4). Dividing once — by
+        // count × 10^(18-mode_dec) — avoids the compounding truncation of
+        // two sequential floor divisions.
+        let divisor = (count as i128)
+            .checked_mul(pow10(18 - mode_dec))
+            .ok_or(ReputationError::AggregateOverflow)?;
+        let half = divisor / 2;
+        let summary_value = if sum_wad >= 0 {
+            sum_wad
+                .checked_add(half)
+                .ok_or(ReputationError::AggregateOverflow)?
+                / divisor
+        } else {
+            sum_wad
+                .checked_sub(half)
+                .ok_or(ReputationError::AggregateOverflow)?
+                / divisor
+        };
 
         Ok(SummaryResult {
             count,

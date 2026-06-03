@@ -153,3 +153,56 @@ fn test_multiple_reviewers_with_real_identity() {
     let clients = rep_client.get_clients_paginated(&agent_id, &0, &10);
     assert_eq!(clients.len(), 5);
 }
+
+#[test]
+fn test_bound_wallet_self_feedback_rejected_with_real_identity() {
+    // C1 against the real identity registry: an agent owner can bind an
+    // operational `agentWallet` that is neither the NFT owner nor an approved
+    // operator. That wallet must not be able to rate its own agent_id.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (rep_client, id_client, _admin) = setup(&env);
+
+    let agent_owner = Address::generate(&env);
+    let agent_id = id_client.register(&agent_owner);
+
+    // Bind a distinct operational wallet.
+    let bound_wallet = Address::generate(&env);
+    id_client.set_agent_wallet(&agent_owner, &agent_id, &bound_wallet);
+    assert_eq!(
+        id_client.get_agent_wallet(&agent_id),
+        Some(bound_wallet.clone())
+    );
+
+    // The bound wallet attempts to rate its own agent -> rejected.
+    let result = rep_client.try_give_feedback(
+        &bound_wallet,
+        &agent_id,
+        &100,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+    assert!(
+        result.is_err(),
+        "bound agentWallet self-feedback must be rejected on-chain"
+    );
+
+    // A genuine third-party reviewer is still accepted.
+    let reviewer = Address::generate(&env);
+    rep_client.give_feedback(
+        &reviewer,
+        &agent_id,
+        &90,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+    assert_eq!(rep_client.read_feedback(&agent_id, &reviewer, &1).value, 90);
+}
