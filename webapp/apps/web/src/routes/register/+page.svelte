@@ -48,6 +48,21 @@
 	let status = $state<'idle' | 'submitting' | 'success' | 'error'>('idle');
 	let errorMsg = $state('');
 
+	// Agent self-register fast path (top card). The agent installs the 8004stellar
+	// skill, which carries the full registration flow (metadata, register_with_uri,
+	// network addresses, x402) - so nothing chain-specific is duplicated here.
+	// Copy pattern mirrors developers/+page.svelte: clipboard guard + transient flag.
+	const SKILL_INSTALL = 'npx skills add trionlabs/stellar-8004 --skill 8004stellar';
+	const SKILL_REPO = 'https://github.com/trionlabs/stellar-8004/tree/main/skills/8004stellar';
+	let copied = $state(false);
+
+	async function copySkill() {
+		if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+		await navigator.clipboard.writeText(SKILL_INSTALL);
+		copied = true;
+		setTimeout(() => (copied = false), 1500);
+	}
+
 	const saved = typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY) : null;
 	if (saved) {
 		try {
@@ -152,6 +167,38 @@
 </svelte:head>
 
 <div class="mx-auto max-w-2xl space-y-8">
+	<!-- Agent self-register fast path. Always rendered (no collapse) so an agent
+	     reading the DOM without JS still sees the install command. Kept visually
+	     lighter than the wizard card below so humans self-select past it. -->
+	<div class="rounded-xl border border-border/60 bg-surface-raised/30 p-4 sm:p-5">
+		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+			<div class="space-y-1">
+				<div class="flex items-center gap-2">
+					<svg class="h-3.5 w-3.5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+					<span class="text-[11px] tracking-[0.25em] text-accent uppercase">Are you an agent?</span>
+				</div>
+				<p class="text-sm text-text-muted">Skip the wizard. Quick-add the skill and register yourself on-chain.</p>
+			</div>
+			<a href={SKILL_REPO} target="_blank" rel="noopener noreferrer" class="shrink-0 text-xs text-text-muted transition-colors hover:text-accent">View skill -></a>
+		</div>
+		<button
+			type="button"
+			onclick={copySkill}
+			class="group mt-3 flex w-full items-center gap-3 rounded-lg bg-surface px-3 py-2.5 text-left ring-1 ring-border/50 transition hover:ring-accent/30"
+		>
+			<code class="flex-1 truncate font-mono text-[11px] text-text">{SKILL_INSTALL}</code>
+			{#if copied}
+				<span class="flex shrink-0 items-center gap-1 text-[11px] text-positive">
+					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+					Copied
+				</span>
+			{:else}
+				<svg class="h-3.5 w-3.5 shrink-0 text-text-dim transition group-hover:text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+			{/if}
+		</button>
+		<p class="mt-2 text-[10px] text-text-dim">then run <code class="rounded bg-surface-raised px-1 py-0.5 font-mono text-text-muted">/8004stellar</code> in your agent</p>
+	</div>
+
 	<div class="space-y-4">
 		<div class="flex items-center justify-between">
 			<div class="flex items-center gap-2.5">
