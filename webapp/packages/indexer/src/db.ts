@@ -483,6 +483,144 @@ export async function writeValidationEvent(
   }
 }
 
+// --- Bulk writers (homogeneous-page fast path) ----------------------------
+//
+// Each per-event writer above issues one PostgREST round-trip. When a page's
+// events are ALL the same pure-upsert type — the dominant backfill shape (long
+// runs of NewFeedback / ValidationRequest / Registered) — the indexer collapses
+// the whole page into ONE multi-row upsert via these variants, cutting the
+// round-trips ~page-size-fold. The indexer only calls a bulk writer when every
+// event on the page parsed to that type; on any failure it falls back to the
+// per-event path (which keeps FK-defer / skip-after-N handling and re-applies
+// idempotently, since a failed PostgREST statement rolls back wholesale).
+
+type RegisteredEvent = Extract<IdentityEvent, { type: 'Registered' }>;
+type MetadataSetEvent = Extract<IdentityEvent, { type: 'MetadataSet' }>;
+type NewFeedbackEvent = Extract<ReputationEvent, { type: 'NewFeedback' }>;
+type ValidationRequestEvent = Extract<ValidationEvent, { type: 'ValidationRequest' }>;
+
+// A single PostgREST upsert array cannot carry two rows with the same
+// ON CONFLICT key (Postgres: "ON CONFLICT DO UPDATE command cannot affect row
+// a second time"). Events arrive in ledger order, so keeping the LAST row per
+// key mirrors the final on-chain state — identical to replaying per-event.
+function dedupeKeepLast<T>(rows: T[], key: (row: T) => string): T[] {
+  const byKey = new Map<string, T>();
+  for (const row of rows) byKey.set(key(row), row);
+  return [...byKey.values()];
+}
+
+export async function bulkUpsertRegistered(
+  db: SupabaseClient,
+  events: IdentityEvent[],
+): Promise<void> {
+  const rows = events
+    .filter((e): e is RegisteredEvent => e.type === 'Registered' && e.agentId != null && !!e.owner)
+    .map((e) => ({
+      id: e.agentId,
+      owner: e.owner,
+      agent_uri: e.agentUri,
+      agent_uri_data: null,
+      uri_resolve_attempts: 0,
+      resolve_uri_pending: typeof e.agentUri === 'string' && e.agentUri.length > 0,
+      created_at: e.ledgerClosedAt,
+      created_ledger: e.ledger,
+      tx_hash: e.txHash,
+    }));
+  if (rows.length === 0) return;
+  const deduped = dedupeKeepLast(rows, (r) => String(r.id));
+  // ignoreDuplicates mirrors the per-event Registered path: a replay must not
+  // clobber resolver state (agent_uri_data, resolve_uri_pending, ...).
+  const result = await db
+    .from('agents')
+    .upsert(deduped, { onConflict: 'id', ignoreDuplicates: true });
+  assertNoError(result, `[identity] bulk Registered upsert failed (${deduped.length} rows)`);
+}
+
+export async function bulkUpsertMetadataSet(
+  db: SupabaseClient,
+  events: IdentityEvent[],
+): Promise<void> {
+  const rows = events
+    .filter((e): e is MetadataSetEvent => e.type === 'MetadataSet' && e.agentId != null && !!e.key)
+    .map((e) => ({
+      agent_id: e.agentId,
+      key: e.key,
+      value: typeof e.value === 'string' ? e.value : utf8Decoder.decode(e.value),
+    }));
+  if (rows.length === 0) return;
+  const deduped = dedupeKeepLast(rows, (r) => `${r.agent_id}:${r.key}`);
+  const result = await db
+    .from('agent_metadata')
+    .upsert(deduped, { onConflict: 'agent_id,key' });
+  assertNoError(result, `[identity] bulk MetadataSet upsert failed (${deduped.length} rows)`);
+}
+
+export async function bulkUpsertNewFeedback(
+  db: SupabaseClient,
+  events: ReputationEvent[],
+): Promise<void> {
+  const rows = events
+    .filter(
+      (e): e is NewFeedbackEvent =>
+        e.type === 'NewFeedback' && e.agentId != null && !!e.clientAddress,
+    )
+    .map((e) => ({
+      agent_id: e.agentId,
+      client_address: e.clientAddress,
+      feedback_index: toDbBigint(e.feedbackIndex),
+      value: e.value.toString(),
+      value_decimals: e.valueDecimals,
+      tag1: e.tag1 || null,
+      tag2: e.tag2 || null,
+      endpoint: e.endpoint || null,
+      feedback_uri: e.feedbackUri || null,
+      feedback_hash: e.feedbackHash || null,
+      created_at: e.ledgerClosedAt,
+      created_ledger: e.ledger,
+      tx_hash: e.txHash,
+    }));
+  if (rows.length === 0) return;
+  const deduped = dedupeKeepLast(
+    rows,
+    (r) => `${r.agent_id}:${r.client_address}:${r.feedback_index}`,
+  );
+  const result = await db
+    .from('feedback')
+    .upsert(deduped, { onConflict: 'agent_id,client_address,feedback_index' });
+  assertNoError(result, `[reputation] bulk NewFeedback upsert failed (${deduped.length} rows)`);
+}
+
+export async function bulkUpsertValidationRequest(
+  db: SupabaseClient,
+  events: ValidationEvent[],
+): Promise<void> {
+  const rows = events
+    .filter(
+      (e): e is ValidationRequestEvent =>
+        e.type === 'ValidationRequest' &&
+        !!e.requestHash &&
+        e.agentId != null &&
+        !!e.validatorAddress,
+    )
+    .map((e) => ({
+      request_hash: e.requestHash,
+      agent_id: e.agentId,
+      validator_address: e.validatorAddress,
+      request_uri: e.requestUri || null,
+      created_at: e.ledgerClosedAt,
+      request_tx_hash: e.txHash,
+    }));
+  if (rows.length === 0) return;
+  const deduped = dedupeKeepLast(rows, (r) => String(r.request_hash));
+  const result = await db
+    .from('validations')
+    .upsert(deduped, { onConflict: 'request_hash' });
+  assertNoError(
+    result,
+    `[validation] bulk ValidationRequest upsert failed (${deduped.length} rows)`,
+  );
+}
+
 export async function refreshLeaderboard(db: SupabaseClient): Promise<void> {
   const result = await db.rpc('refresh_leaderboard');
   assertNoError(result, '[leaderboard] failed to refresh materialized view');

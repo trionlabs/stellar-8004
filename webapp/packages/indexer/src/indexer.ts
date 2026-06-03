@@ -4,6 +4,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getConfig } from './config.js';
 import {
+  bulkUpsertMetadataSet,
+  bulkUpsertNewFeedback,
+  bulkUpsertRegistered,
+  bulkUpsertValidationRequest,
   createSupabaseAdmin,
   getCheckpointState,
   isRetryableWriteError,
@@ -30,7 +34,18 @@ interface ContractHandler {
   name: string;
   contractId: string;
   affectsLeaderboard: boolean;
-  process: (db: SupabaseClient, event: rpc.Api.EventResponse) => Promise<string | null>;
+  /** Parse one raw event (no write); `null` when unparseable/skipped. */
+  parse: (event: rpc.Api.EventResponse) => { type: string } | null;
+  /** Persist one already-parsed event via its bound writer. */
+  writeOne: (db: SupabaseClient, parsed: { type: string }) => Promise<void>;
+  /** Event types this handler can bulk-upsert in a single round-trip. */
+  bulkTypes: ReadonlySet<string>;
+  /** Bulk-write a page of same-typed events. Throws if `type` is unsupported. */
+  bulkWrite: (
+    db: SupabaseClient,
+    type: string,
+    events: { type: string }[],
+  ) => Promise<void>;
 }
 
 /**
@@ -45,16 +60,29 @@ function defineContract<E extends { type: string }>(cfg: {
   affectsLeaderboard: boolean;
   parser: (event: rpc.Api.EventResponse) => E | null;
   writer: (db: SupabaseClient, event: E) => Promise<void>;
+  /**
+   * Optional per-type bulk writers. A type present here is eligible for the
+   * homogeneous-page fast path; absent types always take the per-event writer.
+   */
+  bulkWriters?: Partial<Record<E['type'], (db: SupabaseClient, events: E[]) => Promise<void>>>;
 }): ContractHandler {
+  const bulkWriters = (cfg.bulkWriters ?? {}) as Record<
+    string,
+    (db: SupabaseClient, events: E[]) => Promise<void>
+  >;
   return {
     name: cfg.name,
     contractId: cfg.contractId,
     affectsLeaderboard: cfg.affectsLeaderboard,
-    async process(db, event) {
-      const parsed = cfg.parser(event);
-      if (parsed == null) return null;
-      await cfg.writer(db, parsed);
-      return parsed.type;
+    parse: cfg.parser as (event: rpc.Api.EventResponse) => { type: string } | null,
+    writeOne: cfg.writer as (db: SupabaseClient, parsed: { type: string }) => Promise<void>,
+    bulkTypes: new Set(Object.keys(bulkWriters)),
+    async bulkWrite(db, type, events) {
+      const fn = bulkWriters[type];
+      if (fn == null) {
+        throw new Error(`[${cfg.name}] no bulk writer registered for ${type}`);
+      }
+      await fn(db, events as E[]);
     },
   };
 }
@@ -178,6 +206,12 @@ async function runIndexerLoop(
       affectsLeaderboard: false,
       parser: parseIdentityEvent,
       writer: writeIdentityEvent,
+      // Registered / MetadataSet are pure upserts; the RMW types (UriUpdated,
+      // AgentWalletSet/Unset, AgentTransferred) stay on the per-event path.
+      bulkWriters: {
+        Registered: bulkUpsertRegistered,
+        MetadataSet: bulkUpsertMetadataSet,
+      },
     }),
     defineContract({
       name: 'reputation',
@@ -185,6 +219,10 @@ async function runIndexerLoop(
       affectsLeaderboard: true,
       parser: parseReputationEvent,
       writer: writeReputationEvent,
+      // FeedbackRevoked (update) / ResponseAppended (rpc) stay per-event.
+      bulkWriters: {
+        NewFeedback: bulkUpsertNewFeedback,
+      },
     }),
     defineContract({
       name: 'validation',
@@ -192,6 +230,10 @@ async function runIndexerLoop(
       affectsLeaderboard: true,
       parser: parseValidationEvent,
       writer: writeValidationEvent,
+      // ValidationResponse (update) stays per-event.
+      bulkWriters: {
+        ValidationRequest: bulkUpsertValidationRequest,
+      },
     }),
   ];
 
@@ -385,9 +427,62 @@ async function runIndexerLoop(
         break;
       }
 
-      for (const event of response.events) {
+      // Fast path: a page whose events ALL parse to the same bulk-upsertable
+      // type collapses into one multi-row upsert (the dominant backfill shape:
+      // long runs of NewFeedback / ValidationRequest / Registered) — one
+      // round-trip instead of one-per-event. On ANY failure we fall through to
+      // the per-event loop, which keeps the FK-defer / skip-after-N handling and
+      // re-applies safely (all writes are idempotent upserts; a failed PostgREST
+      // statement rolls back wholesale, so nothing partial leaks through).
+      // maxLedger only advances on a successful bulk write, so a deferred page
+      // is never checkpoint-skipped.
+      // Parse the page once; the result feeds BOTH the fast path and the
+      // per-event fallback, so a parser is never invoked twice for an event.
+      const parsedPage = response.events.map((ev) => contract.parse(ev));
+
+      let bulkHandled = false;
+      if (response.events.length > 1) {
+        const firstType = parsedPage[0]?.type ?? null;
+        const homogeneousBulk =
+          firstType != null &&
+          contract.bulkTypes.has(firstType) &&
+          parsedPage.every((p) => p != null && p.type === firstType);
+
+        if (homogeneousBulk) {
+          try {
+            await contract.bulkWrite(db, firstType, parsedPage as { type: string }[]);
+            contractResult.processed += parsedPage.length;
+            contractResult.events[firstType] =
+              (contractResult.events[firstType] ?? 0) + parsedPage.length;
+            if (contract.affectsLeaderboard) {
+              needsLeaderboardRefresh = true;
+            }
+            for (const ev of response.events) {
+              if (ev.ledger > maxLedger) maxLedger = ev.ledger;
+            }
+            bulkHandled = true;
+          } catch (error) {
+            log({
+              level: 'warn',
+              msg: 'Bulk page upsert failed - falling back to per-event',
+              contract: contract.name,
+              events: response.events.length,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+      }
+
+      if (!bulkHandled)
+        for (let i = 0; i < response.events.length; i++) {
+          const event = response.events[i];
+          const parsed = parsedPage[i];
         try {
-          const eventType = await contract.process(db, event);
+          // Writer runs for any non-null parse (mirrors the old process()).
+          if (parsed != null) {
+            await contract.writeOne(db, parsed);
+          }
+          const eventType = parsed?.type ?? null;
 
           if (eventType != null) {
             contractResult.processed++;
