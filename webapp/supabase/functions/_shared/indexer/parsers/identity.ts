@@ -63,12 +63,29 @@ export interface AgentWalletUnsetEvent {
   txHash: string;
 }
 
+/// OZ NonFungible `transfer` event, emitted by `Base::transfer` /
+/// `Base::transfer_from` on every NFT ownership change. The identity registry
+/// overrides transfer to clear the wallet + all metadata on-chain, but the
+/// only state the DB must follow here is the new owner. Topics are
+/// `['transfer', from, to]`; the `token_id` (agentId) lives in the Map-format
+/// data body, NOT in a topic.
+export interface AgentTransferredEvent {
+  type: 'AgentTransferred';
+  agentId: number;
+  from: string;
+  to: string;
+  ledger: number;
+  ledgerClosedAt: string;
+  txHash: string;
+}
+
 export type IdentityEvent =
   | RegisteredEvent
   | UriUpdatedEvent
   | MetadataSetEvent
   | AgentWalletSetEvent
-  | AgentWalletUnsetEvent;
+  | AgentWalletUnsetEvent
+  | AgentTransferredEvent;
 
 const AGENT_WALLET_KEY = 'agentWallet';
 
@@ -91,6 +108,33 @@ function parseIdentityEventInner(
   if (!event.topic || event.topic.length < 2) return null;
 
   const eventName = scValToNative(event.topic[0]) as string;
+
+  // OZ NonFungible `transfer` event (topics: ['transfer', from, to]). This is
+  // emitted by Base::transfer/transfer_from on every NFT ownership change. It
+  // MUST be handled before the generic topic[1] agentId read below: for a
+  // transfer, topic[1] is the `from` Address (not the agentId), so the generic
+  // `Number(scValToNative(topic[1]))` would be NaN and drop the event. The
+  // agentId travels as `token_id` in the Map-format data body
+  // (#[contractevent] defaults to a field-name-keyed map), not in a topic.
+  if (eventName === 'transfer') {
+    if (event.topic.length < 3) return null;
+    const from = String(scValToNative(event.topic[1]));
+    const to = String(scValToNative(event.topic[2]));
+    if (!isValidStellarAddress(from) || !isValidStellarAddress(to)) return null;
+    const data = parseEventData(scValToNative(event.value));
+    const tokenId = Number(data.token_id);
+    if (!Number.isSafeInteger(tokenId) || tokenId < 0) return null;
+    return {
+      type: 'AgentTransferred',
+      agentId: tokenId,
+      from,
+      to,
+      ledger: event.ledger,
+      ledgerClosedAt: event.ledgerClosedAt,
+      txHash: event.txHash,
+    };
+  }
+
   const agentId = Number(scValToNative(event.topic[1]));
   if (!Number.isSafeInteger(agentId) || agentId < 0) return null;
 

@@ -88,3 +88,24 @@ Deno.test('isPrivateOrLoopbackHost - IPv6 unique-local blocked', () => {
 Deno.test('isPrivateOrLoopbackHost - IPv6 multicast blocked', () => {
   assertEquals(isPrivateOrLoopbackHost('ff02::1'), true);
 });
+
+Deno.test('isPrivateOrLoopbackHost - IPv4-mapped IPv6 (dotted) is blocked', () => {
+  assertEquals(isPrivateOrLoopbackHost('::ffff:127.0.0.1'), true);
+  assertEquals(isPrivateOrLoopbackHost('::ffff:169.254.169.254'), true); // AWS metadata
+  assertEquals(isPrivateOrLoopbackHost('::ffff:10.0.0.1'), true);
+  assertEquals(isPrivateOrLoopbackHost('[::ffff:192.168.1.1]'), true);
+  // A public IPv4-mapped address is still allowed.
+  assertEquals(isPrivateOrLoopbackHost('::ffff:8.8.8.8'), false);
+});
+
+Deno.test('isPrivateOrLoopbackHost - IPv4-mapped IPv6 (hex) is blocked', () => {
+  assertEquals(isPrivateOrLoopbackHost('::ffff:7f00:1'), true); // 127.0.0.1
+  assertEquals(isPrivateOrLoopbackHost('::ffff:a9fe:a9fe'), true); // 169.254.169.254
+  assertEquals(isPrivateOrLoopbackHost('::ffff:0a00:1'), true); // 10.0.0.1
+});
+
+Deno.test('isPrivateOrLoopbackHost - legitimate public IPv6 is allowed', () => {
+  assertEquals(isPrivateOrLoopbackHost('2001:db8::1:2'), false);
+  assertEquals(isPrivateOrLoopbackHost('2606:4700:4700::1111'), false); // cloudflare
+  assertEquals(isPrivateOrLoopbackHost('2a00:1450:4001:81b::200e'), false); // google
+});

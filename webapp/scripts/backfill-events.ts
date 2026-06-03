@@ -260,6 +260,23 @@ function parseIdentityEvent(
 				data: { agentId, ...base },
 			};
 		}
+		case 'transfer': {
+			// OZ NonFungible transfer: topics ['transfer', from, to]; the token_id
+			// (agentId) travels in the Map-format data body, NOT in a topic
+			// (topic[1] is the `from` address). Tracking this lets a historical
+			// backfill repair agents.owner after any NFT transfer.
+			if (topic.length < 3) return null;
+			const from = String(StellarSdk.scValToNative(topic[1]));
+			const to = String(StellarSdk.scValToNative(topic[2]));
+			if (!isValidAddress(from) || !isValidAddress(to)) return null;
+			const agentId = Number(data.token_id);
+			if (!Number.isSafeInteger(agentId) || agentId < 0) return null;
+			return {
+				type: 'AgentTransferred',
+				contractName: 'identity',
+				data: { agentId, from, to, ...base },
+			};
+		}
 		default:
 			return null;
 	}
@@ -464,6 +481,28 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 				wallet: null,
 				updated_at: d.ledgerClosedAt,
 			}, 'id');
+			break;
+
+		case 'AgentTransferred':
+			// owner follows the NFT. The contract also clears the wallet and ALL
+			// metadata on transfer (clear_all_metadata emits no per-key event),
+			// so null the wallet and delete the orphaned metadata rows.
+			await fetch(`${SUPABASE_URL}/rest/v1/agents?id=eq.${d.agentId}`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json',
+					apikey: SUPABASE_SERVICE_KEY,
+					Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+				},
+				body: JSON.stringify({ owner: d.to, wallet: null, updated_at: d.ledgerClosedAt }),
+			});
+			await fetch(`${SUPABASE_URL}/rest/v1/agent_metadata?agent_id=eq.${d.agentId}`, {
+				method: 'DELETE',
+				headers: {
+					apikey: SUPABASE_SERVICE_KEY,
+					Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+				},
+			});
 			break;
 
 		case 'NewFeedback':
@@ -679,9 +718,10 @@ async function main() {
 
 	console.log('\n');
 
-	// Refresh leaderboard
+	// Refresh leaderboard. Use the FORCE variant so the throttle on the
+	// cron-path refresh_leaderboard() does not skip this one-shot final rebuild.
 	console.log('Refreshing leaderboard...');
-	await fetch(`${SUPABASE_URL}/rest/v1/rpc/refresh_leaderboard`, {
+	await fetch(`${SUPABASE_URL}/rest/v1/rpc/refresh_leaderboard_force`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',

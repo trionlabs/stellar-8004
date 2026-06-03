@@ -203,7 +203,13 @@ async function runIndexerLoop(
     gaps: [],
   };
   let needsLeaderboardRefresh = false;
-  const { sequence: latestLedger } = await rpcServer.getLatestLedger();
+  // Wrapped in withRetry like the other RPC calls: a single transient failure
+  // here would otherwise throw out of the loop and strand the whole run
+  // (all contracts), skipping the entire cron cycle.
+  const { sequence: latestLedger } = await withRetry(() => rpcServer.getLatestLedger(), {
+    maxAttempts: 3,
+    baseDelayMs: 1000,
+  });
 
   // Probe the oldest retained ledger via a head-anchored getEvents (always
   // in range), memoized for the run. Used to clamp cold-start scans.
@@ -318,11 +324,15 @@ async function runIndexerLoop(
     // without depending on the run-global `result.timedOut`, which a future
     // refactor could clear or reorder.
     let deadlineStopped = false;
-    // Set when a write fails because a referenced parent row (e.g. an agent
-    // that identity has not indexed yet this run) does not exist. We stop and
-    // leave the checkpoint un-advanced so the batch is retried next run, by
-    // which point the prerequisite contract will have caught up. Writes are
-    // idempotent upserts, so re-processing is safe.
+    // Set when a write fails in a way that should defer the WHOLE batch and
+    // leave the checkpoint un-advanced so it is retried next run. Two cases:
+    //   - retryable (FK) failure: a referenced parent row (e.g. an agent that
+    //     identity has not indexed yet this run) does not exist; the
+    //     prerequisite contract catches up by the next run.
+    //   - transient non-retryable failure the PG-code classifier can't see
+    //     (network reset, 5xx, too_many_connections): deferring instead of
+    //     advancing prevents silently dropping the event.
+    // Writes are idempotent upserts, so re-processing is safe.
     let retryableWriteFailure = false;
 
     log({
@@ -430,13 +440,38 @@ async function runIndexerLoop(
               break;
             }
           } else {
-            log({
-              level: 'error',
-              msg: 'Event processing error',
-              contract: contract.name,
-              eventId: event.id,
-              error: error instanceof Error ? error.message : String(error),
-            });
+            // Non-retryable per the PG-code classifier, but this branch also
+            // catches TRANSIENT infrastructure failures the classifier cannot
+            // see: postgrest-js sets code='' on client-side network errors, a
+            // 5xx with a non-JSON body carries no code, and some genuinely
+            // transient PG codes are absent from RETRYABLE_PG_CODES. Advancing
+            // the checkpoint past such a failure would SILENTLY and PERMANENTLY
+            // drop an on-chain event. Defer the batch (leave the checkpoint
+            // un-advanced) so the event is retried next run; the
+            // MAX_DEFER_ATTEMPTS escape hatch still skips a deterministically
+            // poison event so it cannot wedge the stream forever.
+            if (skipRetryableErrors) {
+              contractResult.skipped++;
+              log({
+                level: 'error',
+                msg: 'Write failure exceeded max defer attempts - skipping event',
+                contract: contract.name,
+                eventId: event.id,
+                deferAttempts,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            } else {
+              log({
+                level: 'error',
+                msg: 'Write failure - deferring batch to next run',
+                contract: contract.name,
+                eventId: event.id,
+                deferAttempts,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              retryableWriteFailure = true;
+              break;
+            }
           }
         }
 
