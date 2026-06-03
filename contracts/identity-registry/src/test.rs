@@ -7,6 +7,7 @@ use soroban_sdk::{
 };
 
 use crate::contract::{IdentityRegistryContract, IdentityRegistryContractClient};
+use crate::errors::IdentityError;
 use crate::types::MetadataEntry;
 
 fn create_client<'a>(e: &Env) -> (IdentityRegistryContractClient<'a>, Address) {
@@ -634,12 +635,11 @@ fn test_register_full_rejects_excess_metadata_entries() {
         });
     }
 
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        client.register_full(&user, &String::from_str(&env, "ipfs://x"), &entries)
-    }));
-    assert!(
-        result.is_err(),
-        "register_full with >100 metadata entries must be rejected"
+    // Typed error (no host trap): a consistent, auditable failure surface.
+    assert_eq!(
+        client.try_register_full(&user, &String::from_str(&env, "ipfs://x"), &entries),
+        Err(Ok(IdentityError::TooManyMetadataKeys)),
+        "register_full with >100 metadata entries must return TooManyMetadataKeys"
     );
 }
 
@@ -659,12 +659,50 @@ fn test_register_full_rejects_reserved_agent_wallet_key() {
         }],
     );
 
-    // register_full uses assert! and panics on the reserved key, so this
-    // call should fail at the host level.
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        client.register_full(&user, &String::from_str(&env, ""), &metadata)
-    }));
-    assert!(result.is_err());
+    // agentWallet in the registration metadata array must be rejected with a
+    // typed error, not smuggled in.
+    assert_eq!(
+        client.try_register_full(&user, &String::from_str(&env, ""), &metadata),
+        Err(Ok(IdentityError::ReservedMetadataKey))
+    );
+}
+
+#[test]
+fn test_register_full_rejects_oversized_metadata() {
+    // The key/value length caps must surface as typed errors too (not panics).
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let uri = String::from_str(&env, "ipfs://x");
+
+    // 65-byte key (cap is 64).
+    let long_key = String::from_str(&env, &"k".repeat(65));
+    let long_key_md = Vec::from_array(
+        &env,
+        [MetadataEntry {
+            key: long_key,
+            value: Bytes::from_slice(&env, b"v"),
+        }],
+    );
+    assert_eq!(
+        client.try_register_full(&user, &uri, &long_key_md),
+        Err(Ok(IdentityError::MetadataKeyTooLong))
+    );
+
+    // 4097-byte value (cap is 4096).
+    let big_value = Bytes::from_slice(&env, &std::vec![b'v'; 4097]);
+    let big_value_md = Vec::from_array(
+        &env,
+        [MetadataEntry {
+            key: String::from_str(&env, "k"),
+            value: big_value,
+        }],
+    );
+    assert_eq!(
+        client.try_register_full(&user, &uri, &big_value_md),
+        Err(Ok(IdentityError::MetadataValueTooLong))
+    );
 }
 
 #[test]

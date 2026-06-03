@@ -7,6 +7,7 @@ use soroban_sdk::{
 };
 
 use crate::contract::{ReputationRegistryContract, ReputationRegistryContractClient};
+use crate::errors::ReputationError;
 use crate::storage::{DataKey, TTL_BUMP};
 
 // Mock identity registry for cross-contract calls. Tracks owners + an
@@ -19,6 +20,7 @@ mod mock_identity {
     pub enum DataKey {
         Owner(u32),
         Approved(u32),
+        Wallet(u32),
     }
 
     #[contract]
@@ -40,6 +42,16 @@ mod mock_identity {
             e.storage()
                 .persistent()
                 .set(&DataKey::Approved(token_id), &operator);
+        }
+
+        pub fn set_wallet(e: &Env, token_id: u32, wallet: Address) {
+            e.storage()
+                .persistent()
+                .set(&DataKey::Wallet(token_id), &wallet);
+        }
+
+        pub fn get_agent_wallet(e: &Env, agent_id: u32) -> Option<Address> {
+            e.storage().persistent().get(&DataKey::Wallet(agent_id))
         }
 
         pub fn find_owner(e: &Env, agent_id: u32) -> Option<Address> {
@@ -184,6 +196,58 @@ fn test_approved_operator_rejected_from_self_feedback() {
     assert!(
         result.is_err(),
         "approved operator must be rejected from give_feedback"
+    );
+}
+
+#[test]
+fn test_bound_agent_wallet_rejected_from_self_feedback() {
+    // C1: the bound operational agentWallet is neither the NFT owner nor an
+    // approved operator, so the owner/operator check does not catch it. It
+    // must still be rejected as self-feedback on its own agent_id.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, identity, _, _) = setup(&env);
+    let wallet = Address::generate(&env);
+
+    // Bind a wallet that is distinct from owner/operators.
+    identity.set_wallet(&0, &wallet);
+
+    let result = client.try_give_feedback(
+        &wallet,
+        &0,
+        &100,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+    assert_eq!(
+        result,
+        Err(Ok(ReputationError::SelfFeedback)),
+        "bound agentWallet must be rejected from rating its own agent_id"
+    );
+
+    // A wallet bound to a *different* agent can still rate agent 0.
+    identity.set_owner(&1, &Address::generate(&env));
+    let other_reviewer = Address::generate(&env);
+    identity.set_wallet(&1, &other_reviewer);
+    assert!(
+        client
+            .try_give_feedback(
+                &other_reviewer,
+                &0,
+                &80,
+                &0,
+                &empty_str(&env),
+                &empty_str(&env),
+                &empty_str(&env),
+                &empty_str(&env),
+                &zero_hash(&env),
+            )
+            .is_ok(),
+        "a wallet bound to another agent must still be able to rate agent 0"
     );
 }
 
@@ -534,13 +598,15 @@ fn test_timelocked_upgrade() {
 
 #[test]
 fn test_value_out_of_range_rejected() {
-    // Values outside [-1e38, 1e38] are rejected.
+    // H1: values outside [-1e20, 1e20] are rejected. The bound is tightened
+    // from the old 1e38 so a single in-range entry always normalizes into
+    // i128 in get_summary (value × 1e18 worst case).
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
 
-    // 1e38 + 1 must be rejected.
-    let too_big: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_001;
+    // MAX_ABS_VALUE + 1 must be rejected.
+    let too_big: i128 = 100_000_000_000_000_000_001;
     let result = client.try_give_feedback(
         &reviewer,
         &0,
@@ -552,8 +618,9 @@ fn test_value_out_of_range_rejected() {
         &empty_str(&env),
         &zero_hash(&env),
     );
-    assert!(
-        result.is_err(),
+    assert_eq!(
+        result,
+        Err(Ok(ReputationError::ValueOutOfRange)),
         "values above MAX_ABS_VALUE must be rejected"
     );
 
@@ -569,13 +636,33 @@ fn test_value_out_of_range_rejected() {
         &empty_str(&env),
         &zero_hash(&env),
     );
-    assert!(
-        result.is_err(),
+    assert_eq!(
+        result,
+        Err(Ok(ReputationError::ValueOutOfRange)),
         "values below -MAX_ABS_VALUE must be rejected"
     );
 
-    // Exactly at the bound is accepted.
-    let max_abs: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_000;
+    // A value that the OLD 1e38 bound accepted but the new bound rejects.
+    let old_in_range: i128 = 1_000_000_000_000_000_000_000_000_000_000; // 1e30
+    assert_eq!(
+        client.try_give_feedback(
+            &reviewer,
+            &0,
+            &old_in_range,
+            &0,
+            &empty_str(&env),
+            &empty_str(&env),
+            &empty_str(&env),
+            &empty_str(&env),
+            &zero_hash(&env),
+        ),
+        Err(Ok(ReputationError::ValueOutOfRange)),
+        "value normalizable-unsafe under the old bound must now be rejected"
+    );
+
+    // Exactly at the new bound is accepted, and its summary is computable
+    // (1e20 × 1e18 = 1e38 fits i128).
+    let max_abs: i128 = 100_000_000_000_000_000_000; // 1e20
     client.give_feedback(
         &reviewer,
         &0,
@@ -587,6 +674,11 @@ fn test_value_out_of_range_rejected() {
         &empty_str(&env),
         &zero_hash(&env),
     );
+    let mut clients = Vec::<Address>::new(&env);
+    clients.push_back(reviewer.clone());
+    let summary = client.get_summary(&0, &clients, &empty_str(&env), &empty_str(&env));
+    assert_eq!(summary.count, 1);
+    assert_eq!(summary.summary_value, max_abs);
 }
 
 #[test]
@@ -721,4 +813,98 @@ fn test_feedback_ttl_survives_long_idle_periods_via_reads() {
             "read_feedback should re-extend the feedback TTL to TTL_BUMP"
         );
     });
+}
+
+#[test]
+fn test_get_summary_skips_unnormalizable_legacy_entry() {
+    // H1 (read side): a pre-bound entry whose WAD normalization overflows i128
+    // must be skipped, not abort the entire summary call.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+    let contract_addr = client.address.clone();
+
+    env.as_contract(&contract_addr, || {
+        // index 1: oversized legacy entry (i128::MAX, dec 0) -> value × 1e18
+        // overflows i128 during normalization.
+        crate::storage::set_feedback(
+            &env,
+            0,
+            &reviewer,
+            1,
+            &crate::types::FeedbackData {
+                value: i128::MAX,
+                value_decimals: 0,
+                is_revoked: false,
+                tag1: empty_str(&env),
+                tag2: empty_str(&env),
+            },
+        );
+        // index 2: a normal, normalizable entry.
+        crate::storage::set_feedback(
+            &env,
+            0,
+            &reviewer,
+            2,
+            &crate::types::FeedbackData {
+                value: 50,
+                value_decimals: 0,
+                is_revoked: false,
+                tag1: empty_str(&env),
+                tag2: empty_str(&env),
+            },
+        );
+        crate::storage::set_last_index(&env, 0, &reviewer, 2);
+    });
+
+    let mut clients = Vec::<Address>::new(&env);
+    clients.push_back(reviewer.clone());
+    // Must not revert: the oversized entry is skipped, the normal one counts.
+    let summary = client.get_summary(&0, &clients, &empty_str(&env), &empty_str(&env));
+    assert_eq!(summary.count, 1);
+    assert_eq!(summary.summary_value, 50);
+}
+
+#[test]
+fn test_summary_rounds_to_nearest_non_divisible() {
+    // M4: a single round-to-nearest division. Mean of {1, 2} is 1.5, which
+    // must round to 2 -- the old two-step floor division produced 1.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _identity, _, reviewer_a) = setup(&env);
+    let reviewer_b = Address::generate(&env);
+
+    client.give_feedback(
+        &reviewer_a,
+        &0,
+        &1,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+    client.give_feedback(
+        &reviewer_b,
+        &0,
+        &2,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+
+    let mut clients = Vec::<Address>::new(&env);
+    clients.push_back(reviewer_a.clone());
+    clients.push_back(reviewer_b.clone());
+    let summary = client.get_summary(&0, &clients, &empty_str(&env), &empty_str(&env));
+    assert_eq!(summary.count, 2);
+    assert_eq!(
+        summary.summary_value, 2,
+        "1.5 must round to nearest (2), not floor (1)"
+    );
+    assert_eq!(summary.summary_value_decimals, 0);
 }
