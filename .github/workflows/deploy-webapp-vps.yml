@@ -45,15 +45,6 @@ jobs:
             docker exec trionlabs8004-db psql -U postgres -c \
               "CREATE TABLE IF NOT EXISTS schema_migrations (filename text PRIMARY KEY, applied_at timestamptz DEFAULT now());"
 
-            # One-time drift reconcile: 037_mpp_column was applied to prod via an
-            # earlier path but never recorded here, so the runner re-ran it and hit
-            # "column already exists" / "cannot change return type". Its effects are
-            # already present, so record it as applied (idempotent) to skip the
-            # re-run and let the runner proceed to the genuinely-new 038-041.
-            # Safe to remove once 037 is recorded on prod.
-            docker exec trionlabs8004-db psql -U postgres -c \
-              "INSERT INTO schema_migrations (filename) VALUES ('037_mpp_column.sql') ON CONFLICT DO NOTHING;"
-
             APPLIED=$(docker exec trionlabs8004-db psql -U postgres -tAc \
               "SELECT filename FROM schema_migrations;" 2>/dev/null)
 
