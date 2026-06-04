@@ -296,15 +296,22 @@ function parseReputationEvent(
 			const clientAddress = String(StellarSdk.scValToNative(topic[2]));
 			if (!isValidAddress(clientAddress)) return null;
 			const tag1 = String(StellarSdk.scValToNative(topic[3]));
+			const feedbackIndex = Number(data.feedback_index ?? 0);
+			const valueDecimals = Number(data.value_decimals ?? 0);
+			// Match the canonical parser's validation (packages/indexer/src/parsers/
+			// reputation.ts): drop out-of-range events rather than write a variant
+			// the live indexer would reject, so a backfilled mirror == a live one.
+			if (feedbackIndex < 1) return null;
+			if (valueDecimals < 0 || valueDecimals > 18) return null;
 			return {
 				type: 'NewFeedback',
 				contractName: 'reputation',
 				data: {
 					agentId,
 					clientAddress,
-					feedbackIndex: Number(data.feedback_index ?? 0),
+					feedbackIndex,
 					value: data.value,
-					valueDecimals: Number(data.value_decimals ?? 0),
+					valueDecimals,
 					tag1,
 					tag2: String(data.tag2 ?? ''),
 					endpoint: String(data.endpoint ?? ''),
@@ -456,6 +463,7 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 				agent_uri: d.newUri,
 				updated_at: d.ledgerClosedAt,
 				resolve_uri_pending: true,
+				uri_updated_ledger: d.ledger, // monotonic guard (migration 046)
 			}, 'id');
 			break;
 
@@ -484,24 +492,14 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 			break;
 
 		case 'AgentTransferred':
-			// owner follows the NFT. The contract also clears the wallet and ALL
-			// metadata on transfer (clear_all_metadata emits no per-key event),
-			// so null the wallet and delete the orphaned metadata rows.
-			await fetch(`${SUPABASE_URL}/rest/v1/agents?id=eq.${d.agentId}`, {
-				method: 'PATCH',
-				headers: {
-					'Content-Type': 'application/json',
-					apikey: SUPABASE_SERVICE_KEY,
-					Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-				},
-				body: JSON.stringify({ owner: d.to, wallet: null, updated_at: d.ledgerClosedAt }),
-			});
-			await fetch(`${SUPABASE_URL}/rest/v1/agent_metadata?agent_id=eq.${d.agentId}`, {
-				method: 'DELETE',
-				headers: {
-					apikey: SUPABASE_SERVICE_KEY,
-					Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-				},
+			// Atomic, ledger-guarded transfer via the same SECURITY DEFINER RPC the
+			// live indexer uses (migration 047): owner change + metadata clear commit
+			// in one transaction, so a backfill crash can't leave the new owner with
+			// the prior owner's metadata. Matches the canonical writer exactly.
+			await callRpc('apply_agent_transfer', {
+				p_agent_id: d.agentId,
+				p_to: d.to,
+				p_ledger: d.ledger,
 			});
 			break;
 
@@ -510,7 +508,11 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 				agent_id: d.agentId,
 				client_address: d.clientAddress,
 				feedback_index: d.feedbackIndex,
-				value: d.value != null ? Number(d.value) : 0,
+				// Full precision: value is an i128 (numeric(78,0) column). Number()
+				// is lossy past 2^53 AND throws on a bigint via JSON.stringify, so
+				// serialize as a decimal string exactly like the canonical writer
+				// (packages/indexer/src/db.ts value.toString()).
+				value: d.value != null ? String(d.value) : '0',
 				value_decimals: d.valueDecimals,
 				tag1: d.tag1,
 				tag2: d.tag2,
@@ -520,11 +522,12 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 				created_at: d.ledgerClosedAt,
 				created_ledger: d.ledger,
 				tx_hash: d.txHash,
-			});
+			}, 'agent_id,client_address,feedback_index'); // idempotent: re-run/retry-safe
 			break;
 
 		case 'FeedbackRevoked':
-			// Update existing feedback as revoked
+			// Append-only: set the revoked flag (never delete) + the monotonic guard
+			// column (migration 046) so a later live event compares correctly.
 			await fetch(`${SUPABASE_URL}/rest/v1/feedback?agent_id=eq.${d.agentId}&client_address=eq.${d.clientAddress}&feedback_index=eq.${d.feedbackIndex}`, {
 				method: 'PATCH',
 				headers: {
@@ -532,7 +535,7 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 					apikey: SUPABASE_SERVICE_KEY,
 					Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
 				},
-				body: JSON.stringify({ is_revoked: true }),
+				body: JSON.stringify({ is_revoked: true, revoked_ledger: d.ledger }),
 			});
 			break;
 
@@ -564,6 +567,7 @@ async function writeEvent(event: ParsedEvent): Promise<void> {
 					tag: d.tag,
 					has_response: true,
 					responded_at: d.ledgerClosedAt,
+					response_ledger: d.ledger, // monotonic guard (migration 046)
 				}),
 			});
 			break;
