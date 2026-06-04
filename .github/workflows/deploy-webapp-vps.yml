@@ -66,8 +66,21 @@ jobs:
               fi
             done
 
-            echo "=== Restarting edge runtime ==="
-            docker restart trionlabs8004-edge-functions
+            echo "=== Recreating edge runtime ==="
+            # `docker restart` reuses the old container, which can keep a stale
+            # handle to the bind-mounted supabase/functions/ after the `git
+            # reset --hard` above swaps files — serving deleted/old code, or
+            # wedging the runtime entirely (observed in prod). Recreating the
+            # container re-resolves the mount and reloads functions.
+            #   -p  pins the EXISTING Dokploy compose project so we never spawn
+            #       a second/duplicate stack (project name = the compose dir
+            #       name, not the default config-file-dir basename).
+            #   --no-deps  keeps it edge-only: the DB and every other service
+            #       are untouched by a code-only deploy.
+            docker compose \
+              -p trionlabs8004-supabase-ei13uw \
+              -f docker/docker-compose.supabase.yml \
+              up -d --force-recreate --no-deps functions
 
             echo "=== Verifying indexer health ==="
             sleep 5
