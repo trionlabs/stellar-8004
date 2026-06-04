@@ -318,4 +318,27 @@ describe('bulk writers (homogeneous-page fast path)', () => {
     const rows = calls.find((c) => c.op === 'upsert')?.payload as unknown[];
     expect(rows).toHaveLength(1);
   });
+
+  it('chunks a page larger than the per-statement cap into multiple bounded upserts', async () => {
+    const { db, calls } = fakeDb();
+    // 501 distinct conflict keys (feedback_index 1..501) so dedupe keeps all of
+    // them; the per-statement cap is 500, so this must split into 500 + 1 rather
+    // than emit one unbounded multi-MB statement.
+    const events: ReputationEvent[] = Array.from({ length: 501 }, (_, i) => ({
+      ...fb,
+      agentId: 1,
+      clientAddress: 'GA',
+      feedbackIndex: BigInt(i + 1),
+      value: 80n,
+    }));
+
+    await bulkUpsertNewFeedback(db, events);
+
+    const upserts = calls.filter((c) => c.op === 'upsert');
+    expect(upserts).toHaveLength(2);
+    expect((upserts[0].payload as unknown[]).length).toBe(500);
+    expect((upserts[1].payload as unknown[]).length).toBe(1);
+    expect(upserts.every((u) => u.table === 'feedback')).toBe(true);
+    expect(upserts.every((u) => (u.opts as { onConflict: string }).onConflict === 'agent_id,client_address,feedback_index')).toBe(true);
+  });
 });
