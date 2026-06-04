@@ -1,12 +1,25 @@
-name: Verify VPS Deploy (Dokploy health gate)
+name: Deploy via Dokploy + verify (VPS)
 
-# This stack is deployed by Dokploy's own git-watch auto-deploy (it pulls main,
-# runs `docker compose up` which applies migrations via the in-compose `migrate`
-# service and recreates the edge runtime). This workflow does NOT deploy — a
-# second deploy path racing Dokploy is exactly what caused the edge runtime to
-# orphan its bind-mount and go down. Instead it WAITS for Dokploy's deploy of
-# the pushed commit, then asserts the stack actually came up healthy, failing
-# loudly if it didn't (the safety net that was missing during the outages).
+# Deploys the self-hosted Supabase + indexer stack on the Dokploy VPS, then
+# verifies it came up healthy. Why this exact shape (learned the hard way):
+#
+#  * Dokploy's GitHub-App webhook auto-deploy is UNRELIABLE — a push can sit
+#    indefinitely with no deploy (observed: 15 min, zero Dokploy activity, even
+#    though autoDeploy=on and watchPaths matched). So we TRIGGER Dokploy's own
+#    compose-deploy endpoint explicitly instead of waiting for the webhook.
+#  * We let DOKPLOY do the git pull + migrations (its in-compose `migrate`
+#    service runs each file in a transaction) rather than a raw SSH `git reset`
+#    — that keeps Dokploy's own state in sync and avoids two git-writers racing.
+#  * A Dokploy compose deploy re-creates the functions/ host-dir inode but does
+#    NOT recreate the already-running edge container, ORPHANING its bind-mount
+#    (/home/deno/functions//deleted -> empty -> HTTP 500 worker-boot errors,
+#    indexer stalls). So we force-recreate the edge as the final deploy action.
+#    This is the controlled, single-purpose SSH step; CI is the SOLE deploy
+#    trigger now, so nothing reconciles it away.
+#  * Then we assert the stack is actually healthy and fail loudly otherwise.
+#
+# The Dokploy refreshToken is read from Dokploy's own DB on the host and curled
+# to localhost — it never leaves the VPS, so no deploy token lives in GitHub.
 
 on:
   workflow_dispatch:
@@ -20,10 +33,10 @@ on:
       - 'webapp/docker/docker-compose.supabase.yml'
 
 jobs:
-  verify:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for Dokploy deploy and verify health
+      - name: Trigger Dokploy deploy, then verify health
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -33,12 +46,32 @@ jobs:
           envs: GITHUB_SHA
           script: |
             set -uo pipefail
-            REPO=/etc/dokploy/compose/trionlabs8004-supabase-ei13uw/code
             PROJECT=trionlabs8004-supabase-ei13uw
+            REPO=/etc/dokploy/compose/${PROJECT}/code
             TARGET_SHA="${GITHUB_SHA}"
-            echo "=== Post-deploy health gate for ${TARGET_SHA} ==="
+            echo "=== Deploy + verify ${TARGET_SHA} ==="
 
-            # 1. Wait (up to 15 min) for Dokploy's git-watch to deploy this commit.
+            # 0. Trigger Dokploy's compose deploy explicitly (the webhook is
+            #    unreliable). Token is read on-host and never printed/exported.
+            DOKPLOY_PG=$(docker ps --format '{{.Names}}' | grep '^dokploy-postgres' | head -1)
+            if [ -z "${DOKPLOY_PG:-}" ]; then
+              echo "::error::dokploy-postgres container not found"; exit 1
+            fi
+            TOKEN=$(docker exec "$DOKPLOY_PG" psql -U dokploy -d dokploy -tAc \
+              "SELECT \"refreshToken\" FROM compose WHERE \"appName\"='${PROJECT}';" 2>/dev/null | tr -d ' ')
+            if [ -z "${TOKEN:-}" ]; then
+              echo "::error::could not read Dokploy refreshToken for ${PROJECT}"; exit 1
+            fi
+            HTTP=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+              "http://localhost:3000/api/deploy/compose/${TOKEN}" || echo 000)
+            echo "Dokploy deploy trigger -> HTTP ${HTTP}"
+            case "$HTTP" in
+              200|201|202|204) ;;
+              *) echo "::error::Dokploy deploy trigger failed (HTTP ${HTTP})"; exit 1;;
+            esac
+
+            # 1. Wait (up to 15 min) for Dokploy to pull this commit into the
+            #    deploy dir (it does the git checkout + compose up + migrate).
             DEPLOYED=0
             for i in $(seq 1 30); do
               CUR=$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo none)
@@ -51,16 +84,16 @@ jobs:
               sleep 30
             done
             if [ "$DEPLOYED" != "1" ]; then
-              echo "::error::Dokploy did not deploy ${TARGET_SHA} within 15 min. Is auto-deploy enabled?"
+              echo "::error::Dokploy did not deploy ${TARGET_SHA} within 15 min."
               exit 1
             fi
 
-            # 2. Let the stack settle: functions-init sync + migrate + edge recreate.
+            # 2. Let the stack settle: functions-init sync + migrate.
             echo "=== Settling (90s) ==="
             sleep 90
 
-            # 3. Migrations: migrate service exited cleanly AND every migration file
-            #    is recorded (catches a new migration silently not applying).
+            # 3. Migrations: migrate service exited cleanly AND every migration
+            #    file is recorded (catches a new migration silently not applying).
             MIG_EXIT=$(docker inspect trionlabs8004-migrate --format '{{.State.ExitCode}}' 2>/dev/null || echo NA)
             if [ "$MIG_EXIT" != "0" ]; then
               echo "::error::migrate service did not exit cleanly (exit=${MIG_EXIT})"
@@ -76,11 +109,20 @@ jobs:
               exit 1
             fi
 
-            # 4. Edge + indexer health, with retry to tolerate the stale-lock
-            #    self-heal window (180s reaper) and post-recreate boot.
+            # 4. Force-recreate the edge to repair the deploy bind-mount orphan
+            #    (see header). Final deploy action; CI is the sole trigger so it
+            #    is not reconciled away.
+            echo "=== Recreating edge (repair deploy bind-mount orphan) ==="
+            ( cd "$REPO/webapp" && docker compose -p "${PROJECT}" \
+                -f docker/docker-compose.supabase.yml up -d --force-recreate --no-deps functions )
+
+            # 5. Edge + indexer health, with retry to tolerate the post-recreate
+            #    boot and the stale-lock self-heal window (180s reaper).
             HEALTHY=0
             for i in $(seq 1 12); do
-              # NOT orphaned: the edge container must see its bind-mounted functions.
+              # Bind-mount intact: the edge sees its functions, mount not deleted.
+              PID=$(docker inspect trionlabs8004-edge-functions --format '{{.State.Pid}}' 2>/dev/null)
+              ORPH=$(grep -c 'functions//deleted' /proc/${PID}/mountinfo 2>/dev/null || true)
               FCOUNT=$(docker exec trionlabs8004-edge-functions sh -c 'ls /home/deno/functions 2>/dev/null | wc -l' 2>/dev/null | tr -d ' ')
               # Indexer making forward progress (honest liveness, under the 5-min bar).
               LAG=$(docker exec trionlabs8004-db psql -U postgres -tAc \
@@ -88,8 +130,9 @@ jobs:
               # No fresh edge 500s (the worker-boot-error signature of an orphan).
               E500=$(docker exec trionlabs8004-db psql -U postgres -tAc \
                 "SELECT count(*) FROM net._http_response WHERE created > now() - interval '2 min' AND status_code = 500;" 2>/dev/null | tr -d ' ')
-              echo "  [$i/12] functions=${FCOUNT:-?} lag=${LAG:-?}s recent_500s=${E500:-?}"
-              if [ "${FCOUNT:-0}" -gt 0 ] 2>/dev/null && \
+              echo "  [$i/12] orphan=${ORPH:-?} functions=${FCOUNT:-?} lag=${LAG:-?}s recent_500s=${E500:-?}"
+              if [ "${ORPH:-1}" = "0" ] 2>/dev/null && \
+                 [ "${FCOUNT:-0}" -gt 0 ] 2>/dev/null && \
                  [ "${LAG:-99999}" -lt 300 ] 2>/dev/null && \
                  [ "${E500:-99999}" -eq 0 ] 2>/dev/null; then
                 HEALTHY=1
@@ -99,11 +142,11 @@ jobs:
             done
 
             if [ "$HEALTHY" != "1" ]; then
-              echo "::error::Edge/indexer unhealthy after deploy (functions=${FCOUNT} lag=${LAG}s 500s=${E500})."
-              echo "Likely the orphaned-bind-mount regression. Recover with a Dokploy Redeploy, or:"
-              echo "  docker compose -p ${PROJECT} -f docker/docker-compose.supabase.yml up -d --force-recreate --no-deps functions"
+              echo "::error::Edge/indexer unhealthy after deploy (orphan=${ORPH} functions=${FCOUNT} lag=${LAG}s 500s=${E500})."
+              echo "Recover with:"
+              echo "  cd ${REPO}/webapp && docker compose -p ${PROJECT} -f docker/docker-compose.supabase.yml up -d --force-recreate --no-deps functions"
               docker logs trionlabs8004-edge-functions 2>&1 | tail -12
               exit 1
             fi
 
-            echo "=== Health gate PASSED: migrations applied, edge serving, indexer advancing ==="
+            echo "=== Deploy verified: Dokploy applied migrations, edge serving, indexer advancing ==="
