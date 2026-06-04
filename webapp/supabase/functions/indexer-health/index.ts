@@ -69,18 +69,27 @@ Deno.serve(async (request: Request) => {
     }
 
     const now = Date.now();
-    const rows = new Map((data ?? []).map((row) => [row.id, row]));
+    const rows = new Map<string, Record<string, unknown>>(
+      ((data ?? []) as Record<string, unknown>[]).map((row) => [row.id as string, row]),
+    );
     const contracts = EXPECTED_CONTRACTS.map((contract) => {
       const row = rows.get(contract);
       const updatedAt = typeof row?.updated_at === 'string' ? row.updated_at : null;
-      const updatedAtMs = updatedAt ? Date.parse(updatedAt) : Number.NaN;
-      const stale = !Number.isFinite(updatedAtMs) || now - updatedAtMs > STALE_THRESHOLD_MS;
+      // Staleness tracks FORWARD PROGRESS (last_advanced_at), not mere run
+      // activity (updated_at): a wedged-but-still-ticking contract must read
+      // stale. Fall back to updated_at for rows written before migration 044.
+      const progressAt = typeof row?.last_advanced_at === 'string'
+        ? row.last_advanced_at
+        : updatedAt;
+      const progressMs = progressAt ? Date.parse(progressAt) : Number.NaN;
+      const stale = !Number.isFinite(progressMs) || now - progressMs > STALE_THRESHOLD_MS;
 
       return {
         contract,
         lastLedger: row?.last_ledger ?? null,
         expectedNextLedger: row?.expected_next_ledger ?? null,
         updatedAt,
+        lastAdvancedAt: progressAt,
         stale,
         missing: !row,
       };
