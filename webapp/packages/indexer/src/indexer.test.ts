@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   createSupabaseAdmin: vi.fn(),
   getCheckpointState: vi.fn(),
   updateCheckpoint: vi.fn(),
+  recordDeadLetter: vi.fn(),
   refreshLeaderboard: vi.fn(),
   writeIdentityEvent: vi.fn(),
   writeReputationEvent: vi.fn(),
@@ -45,6 +46,7 @@ vi.mock('./db.js', () => ({
   createSupabaseAdmin: mocks.createSupabaseAdmin,
   getCheckpointState: mocks.getCheckpointState,
   updateCheckpoint: mocks.updateCheckpoint,
+  recordDeadLetter: mocks.recordDeadLetter,
   refreshLeaderboard: mocks.refreshLeaderboard,
   writeIdentityEvent: mocks.writeIdentityEvent,
   writeReputationEvent: mocks.writeReputationEvent,
@@ -128,6 +130,7 @@ describe('runIndexer', () => {
       20,
       21,
       0,
+      true,
     );
     expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       2,
@@ -136,6 +139,7 @@ describe('runIndexer', () => {
       20,
       21,
       0,
+      true,
     );
     expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       3,
@@ -144,6 +148,7 @@ describe('runIndexer', () => {
       20,
       21,
       0,
+      true,
     );
     expect(mocks.refreshLeaderboard).not.toHaveBeenCalled();
   });
@@ -175,6 +180,7 @@ describe('runIndexer', () => {
       20,
       21,
       0,
+      true,
     );
   });
 
@@ -341,6 +347,7 @@ describe('runIndexer', () => {
       10,
       undefined,
       1,
+      false,
     );
   });
 
@@ -378,6 +385,7 @@ describe('runIndexer', () => {
       10,
       undefined,
       1,
+      false,
     );
 
     const warnings = (console.warn as ReturnType<typeof vi.fn>).mock.calls.map(
@@ -422,6 +430,7 @@ describe('runIndexer', () => {
       20,
       21,
       0,
+      true,
     );
 
     const errors = (console.error as ReturnType<typeof vi.fn>).mock.calls.map(
@@ -429,6 +438,12 @@ describe('runIndexer', () => {
     );
     expect(errors).toContain(
       'Retryable write failure exceeded max defer attempts - skipping event',
+    );
+    // The skipped event is durably dead-lettered so the drop is replayable,
+    // not merely logged (8004 faithful-mirror auditing).
+    expect(mocks.recordDeadLetter).toHaveBeenCalledWith(
+      mocks.db,
+      expect.objectContaining({ contract: 'identity', reason: 'skip-retryable', eventId: 'evt-1' }),
     );
   });
 
@@ -467,6 +482,7 @@ describe('runIndexer', () => {
       10,
       undefined,
       1,
+      false,
     );
 
     const errors = (console.error as ReturnType<typeof vi.fn>).mock.calls.map(
@@ -509,12 +525,18 @@ describe('runIndexer', () => {
       20,
       21,
       0,
+      true,
     );
 
     const errors = (console.error as ReturnType<typeof vi.fn>).mock.calls.map(
       ([line]) => JSON.parse(line).msg,
     );
     expect(errors).toContain('Write failure exceeded max defer attempts - skipping event');
+    // The skipped non-retryable event is durably dead-lettered too (replayable).
+    expect(mocks.recordDeadLetter).toHaveBeenCalledWith(
+      mocks.db,
+      expect.objectContaining({ contract: 'identity', reason: 'skip-nonretryable', eventId: 'evt-1' }),
+    );
   });
 
   it('clamps a cold-start scan to the oldest retained ledger', async () => {
@@ -539,6 +561,9 @@ describe('runIndexer', () => {
     );
     expect(scanCall).toBeDefined();
     expect(result.contracts.identity.lastLedger).toBe(20000);
+    // A cold start is an expected first-run jump from the deploy ledger, NOT a
+    // data-loss event, so it must not be dead-lettered.
+    expect(mocks.recordDeadLetter).not.toHaveBeenCalled();
   });
 
   it('clamps a resumed checkpoint that has aged out of the retention window', async () => {
@@ -572,6 +597,12 @@ describe('runIndexer', () => {
     // The forced-forward jump past the retained window is surfaced as a gap.
     expect(result.gaps.some((g) => g.contract === 'identity')).toBe(true);
     expect(result.contracts.identity.lastLedger).toBe(20000);
+    // A resume-clamp drops real on-chain events, so the skipped range is
+    // durably dead-lettered (replayable), not just logged (8004 auditing).
+    expect(mocks.recordDeadLetter).toHaveBeenCalledWith(
+      mocks.db,
+      expect.objectContaining({ contract: 'identity', reason: 'retention-clamp' }),
+    );
   });
 
   it('does not abort the run when the oldest-ledger probe fails transiently', async () => {
