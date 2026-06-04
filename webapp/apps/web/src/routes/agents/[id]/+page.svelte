@@ -5,7 +5,8 @@
 	import { getClients } from '$lib/sdk-client.js';
 	import { validateAgentUri } from '@trionlabs/stellar8004';
 	import { wallet } from '$lib/wallet.svelte.js';
-	import { explorerTxUrl } from '$lib/explorer.js';
+	import { explorerTxUrl, explorerContractUrl, explorerAccountUrl } from '$lib/explorer.js';
+	import { stellarConfig } from '$lib/sdk-client.js';
 	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress, sanitizeImageUrl, TRUST_DESCRIPTIONS } from '$lib/formatters.js';
 	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
 	import ScoreBreakdown from '$lib/components/ScoreBreakdown.svelte';
@@ -93,12 +94,15 @@
 
 	const tabs = [
 		{ id: 'metadata', label: 'Metadata' },
-		{ id: 'reputation', label: 'Reputation' }
+		{ id: 'reputation', label: 'Reputation' },
+		{ id: 'validation', label: 'Validation' }
 	] as const;
 
-	type TabId = 'metadata' | 'reputation';
+	type TabId = 'metadata' | 'reputation' | 'validation';
 
 	let activeTab = $state<TabId>('reputation');
+
+	const identityRegistryAddress = stellarConfig.contracts.identity;
 
 	// Parse registration data for structured display
 	const parsedRegistration = $derived.by(() => {
@@ -326,6 +330,18 @@
 							{shortAddress(data.agent.owner)}
 						</button>
 					</Tooltip>
+					{#if data.agent.owner}
+						<a
+							href={explorerAccountUrl(data.agent.owner)}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="text-text-dim/40 transition hover:text-accent"
+							title="View owner account on Stellar Explorer"
+							aria-label="View owner account on Stellar Explorer"
+						>
+							<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+						</a>
+					{/if}
 					<span class="text-text-dim/25">-</span>
 					<span class="text-text-dim/50">{dateFormatter.format(new Date(data.agent.createdAt))}</span>
 					<span class="text-text-dim/25">-</span>
@@ -334,6 +350,19 @@
 							#{data.agent.id}
 						</button>
 					</Tooltip>
+					{#if identityRegistryAddress}
+						<span class="text-text-dim/25">-</span>
+						<Tooltip text={`Identity Registry: ${identityRegistryAddress}`}>
+							<a
+								href={explorerContractUrl(identityRegistryAddress)}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="text-text-dim/40 transition hover:text-accent"
+							>
+								registry
+							</a>
+						</Tooltip>
+					{/if}
 				</div>
 				{#if data.agent.description}
 					<p class="mt-2 line-clamp-2 text-sm leading-relaxed text-text-muted">{data.agent.description}</p>
@@ -669,7 +698,25 @@
 									{#if feedback.responses.length > 0}
 										<span>{feedback.responses.length} response{feedback.responses.length !== 1 ? 's' : ''}</span>
 									{/if}
+									{#if feedback.txHash}
+										<a
+											href={explorerTxUrl(feedback.txHash)}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="inline-flex items-center gap-1 text-accent/60 transition hover:text-accent"
+											title="Verify this feedback transaction on Stellar Explorer"
+										>
+											<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+											verify on-chain
+										</a>
+									{/if}
 								</div>
+
+								{#if feedback.feedbackHash}
+									<p class="mt-1 truncate font-mono text-[10px] text-text-dim/40" title={`On-chain feedback hash: ${feedback.feedbackHash}`}>
+										hash: {feedback.feedbackHash.startsWith('0x') ? feedback.feedbackHash : `0x${feedback.feedbackHash}`}
+									</p>
+								{/if}
 
 								<!-- Evidence (inline) -->
 								<EvidenceViewer
@@ -707,6 +754,121 @@
 					</div>
 				</div>
 			{/if}
+		</section>
+	{:else if activeTab === 'validation'}
+		<section class="space-y-4">
+			<div>
+				<h2 class="text-sm font-medium text-text">Validation</h2>
+				<p class="mt-1 text-xs text-text-dim">
+					Independent third-party attestations (Validation Registry) - a distinct trust signal from crowd feedback.
+				</p>
+			</div>
+
+			<div class="space-y-2">
+				{#if data.validations.length > 0}
+					{#each data.validations as validation (validation.requestHash)}
+						<div class="rounded-lg border border-border/40 bg-surface px-4 py-3 space-y-2.5 glass-card">
+							<div class="flex items-start gap-3">
+								<!-- Score / pending -->
+								{#if validation.hasResponse && validation.response != null}
+									<div class="shrink-0 text-lg font-medium tabular-nums leading-none pt-0.5 {validation.response >= 60 ? 'text-positive' : validation.response >= 30 ? 'text-warning' : 'text-negative'}">
+										{validation.response}
+									</div>
+								{:else}
+									<span class="shrink-0 rounded-md bg-warning-soft px-2 py-0.5 text-[10px] text-warning">pending</span>
+								{/if}
+
+								<!-- Validator (independent attester) -->
+								<div class="min-w-0 flex-1">
+									<div class="flex items-center gap-2 flex-wrap">
+										<span class="text-[10px] text-text-dim/50 uppercase tracking-wider">Validator</span>
+										<Tooltip text={validation.validatorAddress}>
+											<a
+												href={explorerAccountUrl(validation.validatorAddress)}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="font-mono text-xs text-text-muted transition hover:text-accent"
+											>
+												{shortAddress(validation.validatorAddress)}
+											</a>
+										</Tooltip>
+										{#if validation.tag}
+											<span class="rounded-md bg-accent/6 px-1.5 py-0.5 text-[10px] text-accent">{validation.tag}</span>
+										{/if}
+									</div>
+
+									<div class="mt-1 flex items-center gap-3 text-[11px] text-text-dim/50">
+										<span>{dateTimeFormatter.format(new Date(validation.createdAt))}</span>
+										{#if validation.respondedAt}
+											<span>responded {dateTimeFormatter.format(new Date(validation.respondedAt))}</span>
+										{/if}
+									</div>
+								</div>
+							</div>
+
+							<!-- URIs + hashes -->
+							<div class="space-y-1 text-[11px]">
+								{#if validation.requestUri}
+									<div class="flex items-start gap-2">
+										<span class="w-16 shrink-0 text-text-dim/40">request</span>
+										<span class="min-w-0 flex-1 truncate font-mono text-text-muted" title={validation.requestUri}>{validation.requestUri}</span>
+									</div>
+								{/if}
+								{#if validation.responseUri}
+									<div class="flex items-start gap-2">
+										<span class="w-16 shrink-0 text-text-dim/40">response</span>
+										<span class="min-w-0 flex-1 truncate font-mono text-text-muted" title={validation.responseUri}>{validation.responseUri}</span>
+									</div>
+								{/if}
+								<div class="flex items-start gap-2">
+									<span class="w-16 shrink-0 text-text-dim/40">req hash</span>
+									<span class="min-w-0 flex-1 truncate font-mono text-text-dim/50" title={validation.requestHash}>{validation.requestHashShort}</span>
+								</div>
+								{#if validation.responseHash}
+									<div class="flex items-start gap-2">
+										<span class="w-16 shrink-0 text-text-dim/40">res hash</span>
+										<span class="min-w-0 flex-1 truncate font-mono text-text-dim/50" title={validation.responseHash}>{validation.responseHash}</span>
+									</div>
+								{/if}
+							</div>
+
+							<!-- Per-record chain links -->
+							{#if validation.requestTxHash || validation.responseTxHash}
+								<div class="flex items-center gap-3 text-[11px]">
+									{#if validation.requestTxHash}
+										<a
+											href={explorerTxUrl(validation.requestTxHash)}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="inline-flex items-center gap-1 text-accent/60 transition hover:text-accent"
+											title="Verify validation request transaction"
+										>
+											<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+											request tx
+										</a>
+									{/if}
+									{#if validation.responseTxHash}
+										<a
+											href={explorerTxUrl(validation.responseTxHash)}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="inline-flex items-center gap-1 text-accent/60 transition hover:text-accent"
+											title="Verify validation response transaction"
+										>
+											<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+											response tx
+										</a>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					{/each}
+				{:else}
+					<div class="rounded-lg border border-dashed border-border/40 px-4 py-8 text-center text-sm text-text-dim">
+						No validation requests yet.
+					</div>
+				{/if}
+			</div>
 		</section>
 	{/if}
 </div>

@@ -10,7 +10,7 @@
 	import EllipticStars from '$lib/components/EllipticStars.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
-	let { children } = $props();
+	let { children, data } = $props();
 
 	const appNetworkLabel =
 		env.PUBLIC_STELLAR_NETWORK === 'mainnet' ? 'Mainnet' : 'Testnet';
@@ -107,6 +107,25 @@
 				</a>
 			</div>
 			<div class="flex items-center gap-4">
+				{#if data?.indexerStatus}
+					<span
+						class="inline-flex items-center gap-1.5 text-text-dim/60"
+						title={data.indexerStatus.stale
+							? 'Indexer is behind — data may be delayed'
+							: `Mirror synced to ledger ${data.indexerStatus.syncedLedger}`}
+					>
+						<span
+							class="h-1.5 w-1.5 rounded-full {data.indexerStatus.stale
+								? 'bg-warning animate-pulse'
+								: 'bg-positive'}"
+						></span>
+						{#if data.indexerStatus.stale}
+							<span class="tabular-nums">ledger {data.indexerStatus.syncedLedger} - syncing...</span>
+						{:else}
+							<span class="tabular-nums">synced to ledger {data.indexerStatus.syncedLedger}</span>
+						{/if}
+					</span>
+				{/if}
 				<a href={resolve('/agents')} class="transition hover:text-text-muted">Agents</a>
 				<a href={resolve('/leaderboard')} class="transition hover:text-text-muted">Leaderboard</a>
 				<a href="https://github.com/trionlabs/stellar-8004" target="_blank" rel="noopener noreferrer" class="transition hover:text-text-muted" aria-label="GitHub">
