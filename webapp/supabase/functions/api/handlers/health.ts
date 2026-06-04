@@ -4,9 +4,9 @@ export async function handleHealth(): Promise<Response> {
   const db = createSupabaseAdmin();
 
   const [{ data: identity }, { data: reputation }, { data: validation }] = await Promise.all([
-    db.from('indexer_state').select('last_ledger, updated_at').eq('id', 'identity').maybeSingle(),
-    db.from('indexer_state').select('last_ledger, updated_at').eq('id', 'reputation').maybeSingle(),
-    db.from('indexer_state').select('last_ledger, updated_at').eq('id', 'validation').maybeSingle(),
+    db.from('indexer_state').select('last_ledger, updated_at, last_advanced_at').eq('id', 'identity').maybeSingle(),
+    db.from('indexer_state').select('last_ledger, updated_at, last_advanced_at').eq('id', 'reputation').maybeSingle(),
+    db.from('indexer_state').select('last_ledger, updated_at, last_advanced_at').eq('id', 'validation').maybeSingle(),
   ]);
 
   const now = Date.now();
@@ -14,10 +14,14 @@ export async function handleHealth(): Promise<Response> {
 
   function checkStale(row: Record<string, unknown> | null) {
     if (!row) return { lastLedger: 0, stale: true };
-    const updated = new Date(row.updated_at as string).getTime();
+    // Staleness tracks FORWARD PROGRESS (last_advanced_at), not mere run
+    // activity (updated_at) — a wedged-but-still-ticking contract must read
+    // stale. Fall back to updated_at for rows written before migration 044.
+    const progressAt = (row.last_advanced_at ?? row.updated_at) as string;
+    const advanced = new Date(progressAt).getTime();
     return {
       lastLedger: row.last_ledger ?? 0,
-      stale: (now - updated) > staleThreshold,
+      stale: (now - advanced) > staleThreshold,
     };
   }
 
