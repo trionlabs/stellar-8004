@@ -11,6 +11,7 @@ import {
   createSupabaseAdmin,
   getCheckpointState,
   isRetryableWriteError,
+  recordDeadLetter,
   refreshLeaderboard,
   updateCheckpoint,
   writeIdentityEvent,
@@ -337,6 +338,19 @@ async function runIndexerLoop(
         oldestLedger: oldestRetained,
         coldStart: lastLedger === 0,
       });
+      // Durably record the skipped range so the loss is replayable (backfill
+      // over [requestedStartLedger, oldestRetained)) rather than just an
+      // ephemeral log. A cold start (lastLedger === 0) is an expected first-run
+      // jump from the deploy ledger, not a data-loss event, so don't dead-letter
+      // it. See migration 045.
+      if (lastLedger !== 0) {
+        await recordDeadLetter(db, {
+          contract: contract.name,
+          reason: 'retention-clamp',
+          ledger: startLedger,
+          detail: `start ledger ${startLedger} aged out of RPC retention; clamped forward to ${oldestRetained} (skipped range [${startLedger}, ${oldestRetained}))`,
+        });
+      }
       startLedger = oldestRetained;
     }
 
@@ -519,6 +533,13 @@ async function runIndexerLoop(
                 deferAttempts,
                 error: error instanceof Error ? error.message : String(error),
               });
+              await recordDeadLetter(db, {
+                contract: contract.name,
+                reason: 'skip-retryable',
+                eventId: event.id,
+                ledger: event.ledger,
+                detail: error instanceof Error ? error.message : String(error),
+              });
             } else {
               // A referenced parent row is not present yet (e.g. feedback for
               // an agent identity has not indexed). Abandon this batch without
@@ -554,6 +575,13 @@ async function runIndexerLoop(
                 eventId: event.id,
                 deferAttempts,
                 error: error instanceof Error ? error.message : String(error),
+              });
+              await recordDeadLetter(db, {
+                contract: contract.name,
+                reason: 'skip-nonretryable',
+                eventId: event.id,
+                ledger: event.ledger,
+                detail: error instanceof Error ? error.message : String(error),
               });
             } else {
               log({
@@ -618,12 +646,17 @@ async function runIndexerLoop(
       : deadlineStopped
         ? deferAttempts
         : deferAttempts + 1;
+    // Liveness: the checkpoint moved forward only when the new ledger exceeds
+    // the prior one. A deferred/partial run that rewrites the same lastLedger is
+    // NOT progress, so last_advanced_at is left untouched (see migration 044).
+    const advanced = contractResult.lastLedger > lastLedger;
     await updateCheckpoint(
       db,
       contract.name,
       contractResult.lastLedger,
       nextExpected,
       nextDeferAttempts,
+      advanced,
     );
 
     log({

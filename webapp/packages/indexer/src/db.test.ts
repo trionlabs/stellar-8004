@@ -2,13 +2,17 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  bulkUpsertMetadataSet,
   bulkUpsertNewFeedback,
   bulkUpsertRegistered,
   bulkUpsertValidationRequest,
   IndexerWriteError,
   isRetryableWriteError,
+  recordDeadLetter,
+  updateCheckpoint,
   writeIdentityEvent,
   writeReputationEvent,
+  writeValidationEvent,
 } from './db.js';
 import type { IdentityEvent } from './parsers/identity.js';
 import type { ReputationEvent } from './parsers/reputation.js';
@@ -20,13 +24,27 @@ import type { ValidationEvent } from './parsers/validation.js';
  * `.update(...).eq(...).eq(...)` works. Records the last operation for asserts.
  */
 function fakeDb(error: { message: string; code?: string } | null = null) {
-  const calls: Array<{ table?: string; op: string; payload?: unknown; opts?: unknown }> = [];
+  const calls: Array<{
+    table?: string;
+    op: string;
+    payload?: unknown;
+    opts?: unknown;
+    filters: string[];
+  }> = [];
   const result = { error };
 
   const thenable = (op: string, table?: string, payload?: unknown, opts?: unknown) => {
-    calls.push({ table, op, payload, opts });
+    const record = { table, op, payload, opts, filters: [] as string[] };
+    calls.push(record);
     const chain: Record<string, unknown> = {
-      eq: vi.fn(() => chain),
+      eq: vi.fn((col: string, val: unknown) => {
+        record.filters.push(`eq:${col}:${val}`);
+        return chain;
+      }),
+      or: vi.fn((expr: string) => {
+        record.filters.push(`or:${expr}`);
+        return chain;
+      }),
       then: (resolve: (v: typeof result) => unknown) => resolve(result),
     };
     return chain;
@@ -36,6 +54,7 @@ function fakeDb(error: { message: string; code?: string } | null = null) {
     from: vi.fn((table: string) => ({
       upsert: (payload: unknown, opts: unknown) => thenable('upsert', table, payload, opts),
       update: (payload: unknown) => thenable('update', table, payload),
+      insert: (payload: unknown) => thenable('insert', table, payload),
       delete: () => thenable('delete', table),
     })),
     rpc: vi.fn((name: string, payload: unknown) => thenable(`rpc:${name}`, undefined, payload)),
@@ -117,7 +136,7 @@ describe('writeIdentityEvent', () => {
     expect(update?.payload).toEqual({ wallet: null });
   });
 
-  it('moves owner to the recipient and clears metadata on AgentTransferred', async () => {
+  it('applies AgentTransferred atomically via the apply_agent_transfer RPC', async () => {
     const { db, calls } = fakeDb();
     await writeIdentityEvent(db, {
       type: 'AgentTransferred',
@@ -126,13 +145,12 @@ describe('writeIdentityEvent', () => {
       to: 'GTO',
     });
 
-    // owner follows the NFT; wallet is nulled (contract clears it on transfer).
-    const update = calls.find((c) => c.op === 'update' && c.table === 'agents');
-    expect(update?.payload).toEqual({ owner: 'GTO', wallet: null });
-    // The contract's clear_all_metadata emits no per-key event, so the indexer
-    // must delete the orphaned metadata rows itself.
-    const del = calls.find((c) => c.op === 'delete' && c.table === 'agent_metadata');
-    expect(del).toBeDefined();
+    // owner change + metadata clear are ONE transaction (migration 047), so the
+    // writer issues a single ledger-guarded RPC, never a separate update+delete
+    // that could be observed half-applied.
+    const rpc = calls.find((c) => c.op === 'rpc:apply_agent_transfer');
+    expect(rpc?.payload).toEqual({ p_agent_id: 1, p_to: 'GTO', p_ledger: 100 });
+    expect(calls.some((c) => c.op === 'update' || c.op === 'delete')).toBe(false);
   });
 
   it('skips an AgentTransferred missing the recipient without writing', async () => {
@@ -145,6 +163,20 @@ describe('writeIdentityEvent', () => {
     });
 
     expect(calls).toHaveLength(0);
+  });
+
+  it('ledger-guards UriUpdated so a stale URI change cannot wipe newer resolved data', async () => {
+    const { db, calls } = fakeDb();
+    await writeIdentityEvent(db, {
+      type: 'UriUpdated',
+      ...base,
+      updatedBy: 'GOWNER',
+      newUri: 'ipfs://new',
+    });
+
+    const update = calls.find((c) => c.op === 'update' && c.table === 'agents');
+    expect((update?.payload as { uri_updated_ledger?: number }).uri_updated_ledger).toBe(100);
+    expect(update?.filters).toContain('or:uri_updated_ledger.is.null,uri_updated_ledger.lte.100');
   });
 
   it('throws a non-retryable IndexerWriteError on a generic DB error', async () => {
@@ -177,6 +209,23 @@ describe('writeReputationEvent', () => {
     expect(isRetryableWriteError(error)).toBe(true);
   });
 
+  it('ledger-guards FeedbackRevoked so an older revoke cannot overwrite newer state', async () => {
+    const { db, calls } = fakeDb();
+    await writeReputationEvent(db, {
+      type: 'FeedbackRevoked',
+      ...base,
+      clientAddress: 'GCLIENT',
+      feedbackIndex: 3n,
+    });
+
+    const update = calls.find((c) => c.op === 'update' && c.table === 'feedback');
+    // Append-only: revocation is a flag, not a delete; and it is ledger-guarded.
+    expect((update?.payload as { is_revoked?: boolean }).is_revoked).toBe(true);
+    expect((update?.payload as { revoked_ledger?: number }).revoked_ledger).toBe(100);
+    expect(update?.filters).toContain('or:revoked_ledger.is.null,revoked_ledger.lte.100');
+    expect(calls.some((c) => c.op === 'delete')).toBe(false);
+  });
+
   it('routes a ResponseAppended through the atomic insert_feedback_response RPC', async () => {
     const { db, calls } = fakeDb();
     await writeReputationEvent(db, {
@@ -194,6 +243,160 @@ describe('writeReputationEvent', () => {
     expect(rpc).toBeDefined();
     // The event id is forwarded as the idempotency key.
     expect((rpc?.payload as { p_event_id?: string }).p_event_id).toBe('1000-0-0');
+  });
+});
+
+describe('writeValidationEvent', () => {
+  it('ledger-guards ValidationResponse so a stale response cannot clobber a newer one', async () => {
+    const { db, calls } = fakeDb();
+    await writeValidationEvent(db, {
+      type: 'ValidationResponse',
+      ...base,
+      validatorAddress: 'GVALIDATOR',
+      requestHash: 'h1',
+      response: 80,
+      responseUri: '',
+      responseHash: '',
+      tag: '',
+    });
+
+    const update = calls.find((c) => c.op === 'update' && c.table === 'validations');
+    expect((update?.payload as { response_ledger?: number }).response_ledger).toBe(100);
+    expect(update?.filters).toContain('or:response_ledger.is.null,response_ledger.lte.100');
+  });
+});
+
+describe('updateCheckpoint liveness', () => {
+  it('stamps last_advanced_at when the checkpoint advances', async () => {
+    const { db, calls } = fakeDb();
+    await updateCheckpoint(db, 'identity', 200, 201, 0, true);
+    const up = calls.find((c) => c.op === 'upsert' && c.table === 'indexer_state');
+    expect((up?.payload as { last_advanced_at?: string }).last_advanced_at).toBeTypeOf('string');
+  });
+
+  it('omits last_advanced_at on a no-progress run so liveness reflects real progress', async () => {
+    const { db, calls } = fakeDb();
+    await updateCheckpoint(db, 'identity', 200, 201, 1, false);
+    const up = calls.find((c) => c.op === 'upsert' && c.table === 'indexer_state');
+    expect('last_advanced_at' in (up?.payload as object)).toBe(false);
+    // updated_at is still bumped (the run happened); only progress is gated.
+    expect((up?.payload as { updated_at?: string }).updated_at).toBeTypeOf('string');
+  });
+});
+
+describe('recordDeadLetter', () => {
+  it('durably inserts a dropped-event row', async () => {
+    const { db, calls } = fakeDb();
+    await recordDeadLetter(db, {
+      contract: 'reputation',
+      reason: 'skip-retryable',
+      eventId: '1000-0-0',
+      ledger: 50,
+      detail: 'boom',
+    });
+    const ins = calls.find((c) => c.op === 'insert' && c.table === 'indexer_dead_letter');
+    expect((ins?.payload as { reason?: string }).reason).toBe('skip-retryable');
+    expect((ins?.payload as { event_id?: string }).event_id).toBe('1000-0-0');
+  });
+
+  it('never throws when the insert returns an error (best-effort, returned-error path)', async () => {
+    const { db } = fakeDb({ message: 'dead-letter table missing' });
+    await expect(
+      recordDeadLetter(db, { contract: 'identity', reason: 'retention-clamp', ledger: 10 }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('never throws when the insert call itself throws (best-effort, thrown path)', async () => {
+    // A dead-letter failure must never re-wedge the loop it exists to observe,
+    // so even a synchronous throw from the client is swallowed.
+    const db = {
+      from: () => ({ insert: () => { throw new Error('connection reset'); } }),
+    } as unknown as SupabaseClient;
+    await expect(
+      recordDeadLetter(db, { contract: 'reputation', reason: 'skip-nonretryable', ledger: 7 }),
+    ).resolves.toBeUndefined();
+  });
+});
+
+// 8004 faithful-mirror invariant: the bulk fast path and the per-event path
+// must produce BYTE-IDENTICAL rows, so the mirror is provably path-independent
+// (a busy/backfill page and a quiet trickle index to the same state). This test
+// fails the moment a future writer change diverges the two paths.
+describe('bulk vs per-event write equivalence', () => {
+  it('NewFeedback: bulk rows equal the per-event rows', async () => {
+    const events: ReputationEvent[] = [
+      { type: 'NewFeedback', ...base, clientAddress: 'GA', feedbackIndex: 1n, value: 80n, valueDecimals: 0, tag1: 'good', tag2: '', endpoint: '', feedbackUri: '', feedbackHash: '' },
+      { type: 'NewFeedback', ...base, clientAddress: 'GB', feedbackIndex: 1n, value: 90n, valueDecimals: 2, tag1: '', tag2: 'x', endpoint: 'ep', feedbackUri: 'ipfs://f', feedbackHash: 'h' },
+    ];
+
+    const perEvent = fakeDb();
+    for (const e of events) await writeReputationEvent(perEvent.db, e);
+    const perRows = perEvent.calls
+      .filter((c) => c.op === 'upsert' && c.table === 'feedback')
+      .map((c) => c.payload);
+
+    const bulk = fakeDb();
+    await bulkUpsertNewFeedback(bulk.db, events);
+    const bulkRows = bulk.calls.find((c) => c.op === 'upsert' && c.table === 'feedback')?.payload;
+
+    expect(bulkRows).toEqual(perRows);
+  });
+
+  it('Registered: bulk rows equal the per-event rows', async () => {
+    const events: IdentityEvent[] = [
+      { type: 'Registered', ...base, owner: 'GA', agentUri: 'ipfs://x' },
+      { type: 'Registered', agentId: 2, ledger: 101, ledgerClosedAt: base.ledgerClosedAt, txHash: base.txHash, owner: 'GB', agentUri: '' },
+    ];
+
+    const perEvent = fakeDb();
+    for (const e of events) await writeIdentityEvent(perEvent.db, e);
+    const perRows = perEvent.calls
+      .filter((c) => c.op === 'upsert' && c.table === 'agents')
+      .map((c) => c.payload);
+
+    const bulk = fakeDb();
+    await bulkUpsertRegistered(bulk.db, events);
+    const bulkRows = bulk.calls.find((c) => c.op === 'upsert' && c.table === 'agents')?.payload;
+
+    expect(bulkRows).toEqual(perRows);
+  });
+
+  it('MetadataSet: bulk rows equal the per-event rows', async () => {
+    const events: IdentityEvent[] = [
+      { type: 'MetadataSet', ...base, key: 'name', value: 'Alice' },
+      { type: 'MetadataSet', agentId: 2, ledger: 101, ledgerClosedAt: base.ledgerClosedAt, txHash: base.txHash, key: 'url', value: 'https://x' },
+    ];
+
+    const perEvent = fakeDb();
+    for (const e of events) await writeIdentityEvent(perEvent.db, e);
+    const perRows = perEvent.calls
+      .filter((c) => c.op === 'upsert' && c.table === 'agent_metadata')
+      .map((c) => c.payload);
+
+    const bulk = fakeDb();
+    await bulkUpsertMetadataSet(bulk.db, events);
+    const bulkRows = bulk.calls.find((c) => c.op === 'upsert' && c.table === 'agent_metadata')?.payload;
+
+    expect(bulkRows).toEqual(perRows);
+  });
+
+  it('ValidationRequest: bulk rows equal the per-event rows', async () => {
+    const events: ValidationEvent[] = [
+      { type: 'ValidationRequest', ...base, validatorAddress: 'GV', requestHash: 'h1', requestUri: '' },
+      { type: 'ValidationRequest', agentId: 2, ledger: 101, ledgerClosedAt: base.ledgerClosedAt, txHash: base.txHash, validatorAddress: 'GV2', requestHash: 'h2', requestUri: 'ipfs://r' },
+    ];
+
+    const perEvent = fakeDb();
+    for (const e of events) await writeValidationEvent(perEvent.db, e);
+    const perRows = perEvent.calls
+      .filter((c) => c.op === 'upsert' && c.table === 'validations')
+      .map((c) => c.payload);
+
+    const bulk = fakeDb();
+    await bulkUpsertValidationRequest(bulk.db, events);
+    const bulkRows = bulk.calls.find((c) => c.op === 'upsert' && c.table === 'validations')?.payload;
+
+    expect(bulkRows).toEqual(perRows);
   });
 });
 

@@ -79,7 +79,24 @@ export const load: PageServerLoad = async ({ params, url }) => {
 					feedbackHash: string | null;
 					isRevoked: boolean;
 					createdAt: string;
+					txHash: string | null;
+					createdLedger: number | null;
 					responses: Array<{ id: number; responder: string; responseUri: string | null; createdAt: string }>;
+				}>,
+				validations: [] as Array<{
+					requestHash: string;
+					requestHashShort: string;
+					validatorAddress: string;
+					response: number | null;
+					hasResponse: boolean;
+					requestUri: string | null;
+					responseUri: string | null;
+					responseHash: string | null;
+					requestTxHash: string | null;
+					responseTxHash: string | null;
+					tag: string | null;
+					createdAt: string;
+					respondedAt: string | null;
 				}>,
 				scores: null,
 				clientBreakdown: [] as Array<{
@@ -120,7 +137,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		feedbackResult,
 		leaderboardResult,
 		responsesResult,
-		totalAgentsResult
+		totalAgentsResult,
+		validationsResult
 	] = await Promise.all([
 		db.from('agent_metadata').select('*').eq('agent_id', agentId),
 		feedbackQuery,
@@ -133,7 +151,13 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			.limit(200),
 		db
 			.from('agents')
-			.select('id', { count: 'exact', head: true })
+			.select('id', { count: 'exact', head: true }),
+		db
+			.from('validations')
+			.select('*')
+			.eq('agent_id', agentId)
+			.order('created_at', { ascending: false })
+			.limit(100)
 	]);
 
 	const metadataRows = assertSuccess(metadataResult, 'Metadata') ?? [];
@@ -143,6 +167,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		responsesResult,
 		'Feedback responses'
 	) as FeedbackResponseRow[];
+	const validationRows = assertSuccess(validationsResult, 'Validations') ?? [];
 
 	assertSuccess(totalAgentsResult, 'Total agents');
 	const totalAgents = totalAgentsResult.count ?? 0;
@@ -248,6 +273,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			feedbackHash: feedback.feedback_hash,
 			isRevoked: feedback.is_revoked,
 			createdAt: feedback.created_at,
+			txHash: feedback.tx_hash,
+			createdLedger: feedback.created_ledger,
 			responses: (
 				responsesByFeedback.get(
 					feedbackKey(feedback.agent_id, feedback.client_address, feedback.feedback_index)
@@ -258,6 +285,24 @@ export const load: PageServerLoad = async ({ params, url }) => {
 				responseUri: response.response_uri,
 				createdAt: response.created_at
 			}))
+		})),
+		validations: validationRows.map((validation) => ({
+			requestHash: validation.request_hash,
+			requestHashShort:
+				validation.request_hash.length > 14
+					? `${validation.request_hash.slice(0, 10)}…${validation.request_hash.slice(-4)}`
+					: validation.request_hash,
+			validatorAddress: validation.validator_address,
+			response: validation.response,
+			hasResponse: validation.has_response,
+			requestUri: validation.request_uri,
+			responseUri: validation.response_uri,
+			responseHash: validation.response_hash,
+			requestTxHash: validation.request_tx_hash,
+			responseTxHash: validation.response_tx_hash,
+			tag: validation.tag,
+			createdAt: validation.created_at,
+			respondedAt: validation.responded_at
 		})),
 		scores: leaderboard
 			? {
