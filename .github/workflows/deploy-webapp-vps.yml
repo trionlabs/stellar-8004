@@ -1,4 +1,12 @@
-name: Deploy Webapp VPS (Supabase + Indexer)
+name: Verify VPS Deploy (Dokploy health gate)
+
+# This stack is deployed by Dokploy's own git-watch auto-deploy (it pulls main,
+# runs `docker compose up` which applies migrations via the in-compose `migrate`
+# service and recreates the edge runtime). This workflow does NOT deploy — a
+# second deploy path racing Dokploy is exactly what caused the edge runtime to
+# orphan its bind-mount and go down. Instead it WAITS for Dokploy's deploy of
+# the pushed commit, then asserts the stack actually came up healthy, failing
+# loudly if it didn't (the safety net that was missing during the outages).
 
 on:
   workflow_dispatch:
@@ -12,78 +20,90 @@ on:
       - 'webapp/docker/docker-compose.supabase.yml'
 
 jobs:
-  deploy:
+  verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to VPS via SSH
+      - name: Wait for Dokploy deploy and verify health
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          script_stop: true
-          command_timeout: 5m
+          command_timeout: 25m
+          envs: GITHUB_SHA
           script: |
-            set -e
+            set -uo pipefail
             REPO=/etc/dokploy/compose/trionlabs8004-supabase-ei13uw/code
+            PROJECT=trionlabs8004-supabase-ei13uw
+            TARGET_SHA="${GITHUB_SHA}"
+            echo "=== Post-deploy health gate for ${TARGET_SHA} ==="
 
-            echo "=== Pulling latest code ==="
-            cd "$REPO"
-            git fetch origin main
-            git reset --hard origin/main
-            cd webapp
-
-            # No host-side edge rebuild: the committed
-            # supabase/functions/_shared/indexer/ copy IS the deployed artifact,
-            # and CI enforces zero drift from packages/indexer/src
-            # (ci.yml: `sync-indexer-to-shared.js --check`). So the `git reset
-            # --hard` above already places the correct files — running the
-            # generator here would only add a `node` dependency the VPS shell
-            # does not have, breaking the deploy before migrations run.
-
-            echo "=== Applying new migrations ==="
-            docker exec trionlabs8004-db psql -U postgres -c \
-              "CREATE TABLE IF NOT EXISTS schema_migrations (filename text PRIMARY KEY, applied_at timestamptz DEFAULT now());"
-
-            APPLIED=$(docker exec trionlabs8004-db psql -U postgres -tAc \
-              "SELECT filename FROM schema_migrations;" 2>/dev/null)
-
-            for f in supabase/migrations/*.sql; do
-              NAME=$(basename "$f")
-              if echo "$APPLIED" | grep -qxF "$NAME"; then
-                echo "  $NAME - already applied"
-                continue
+            # 1. Wait (up to 15 min) for Dokploy's git-watch to deploy this commit.
+            DEPLOYED=0
+            for i in $(seq 1 30); do
+              CUR=$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo none)
+              if [ "$CUR" = "$TARGET_SHA" ]; then
+                echo "Dokploy deployed ${TARGET_SHA}"
+                DEPLOYED=1
+                break
               fi
+              echo "  [$i/30] waiting for Dokploy to deploy ${TARGET_SHA} (current ${CUR})..."
+              sleep 30
+            done
+            if [ "$DEPLOYED" != "1" ]; then
+              echo "::error::Dokploy did not deploy ${TARGET_SHA} within 15 min. Is auto-deploy enabled?"
+              exit 1
+            fi
 
-              echo "  $NAME - applying..."
-              if docker exec -i trionlabs8004-db psql -U postgres -v ON_ERROR_STOP=1 < "$f"; then
-                docker exec trionlabs8004-db psql -U postgres -tAc \
-                  "INSERT INTO schema_migrations (filename) VALUES ('$NAME') ON CONFLICT DO NOTHING;"
-                echo "  $NAME - done"
-              else
-                echo "  $NAME - FAILED"
-                exit 1
+            # 2. Let the stack settle: functions-init sync + migrate + edge recreate.
+            echo "=== Settling (90s) ==="
+            sleep 90
+
+            # 3. Migrations: migrate service exited cleanly AND every migration file
+            #    is recorded (catches a new migration silently not applying).
+            MIG_EXIT=$(docker inspect trionlabs8004-migrate --format '{{.State.ExitCode}}' 2>/dev/null || echo NA)
+            if [ "$MIG_EXIT" != "0" ]; then
+              echo "::error::migrate service did not exit cleanly (exit=${MIG_EXIT})"
+              docker logs trionlabs8004-migrate 2>&1 | tail -20
+              exit 1
+            fi
+            FILES=$(ls "$REPO"/webapp/supabase/migrations/*.sql 2>/dev/null | wc -l | tr -d ' ')
+            ROWS=$(docker exec trionlabs8004-db psql -U postgres -tAc \
+              "SELECT count(*) FROM schema_migrations;" 2>/dev/null | tr -d ' ')
+            echo "migrations: ${FILES} files, ${ROWS} applied (migrate exit=0)"
+            if [ "${FILES:-0}" -gt "${ROWS:-0}" ] 2>/dev/null; then
+              echo "::error::migration files (${FILES}) exceed applied rows (${ROWS}) - a migration did not apply"
+              exit 1
+            fi
+
+            # 4. Edge + indexer health, with retry to tolerate the stale-lock
+            #    self-heal window (180s reaper) and post-recreate boot.
+            HEALTHY=0
+            for i in $(seq 1 12); do
+              # NOT orphaned: the edge container must see its bind-mounted functions.
+              FCOUNT=$(docker exec trionlabs8004-edge-functions sh -c 'ls /home/deno/functions 2>/dev/null | wc -l' 2>/dev/null | tr -d ' ')
+              # Indexer making forward progress (honest liveness, under the 5-min bar).
+              LAG=$(docker exec trionlabs8004-db psql -U postgres -tAc \
+                "SELECT round(extract(epoch FROM now()-max(last_advanced_at))) FROM indexer_state;" 2>/dev/null | tr -d ' ')
+              # No fresh edge 500s (the worker-boot-error signature of an orphan).
+              E500=$(docker exec trionlabs8004-db psql -U postgres -tAc \
+                "SELECT count(*) FROM net._http_response WHERE created > now() - interval '2 min' AND status_code = 500;" 2>/dev/null | tr -d ' ')
+              echo "  [$i/12] functions=${FCOUNT:-?} lag=${LAG:-?}s recent_500s=${E500:-?}"
+              if [ "${FCOUNT:-0}" -gt 0 ] 2>/dev/null && \
+                 [ "${LAG:-99999}" -lt 300 ] 2>/dev/null && \
+                 [ "${E500:-99999}" -eq 0 ] 2>/dev/null; then
+                HEALTHY=1
+                break
               fi
+              sleep 30
             done
 
-            echo "=== Recreating edge runtime ==="
-            # `docker restart` reuses the old container, which can keep a stale
-            # handle to the bind-mounted supabase/functions/ after the `git
-            # reset --hard` above swaps files — serving deleted/old code, or
-            # wedging the runtime entirely (observed in prod). Recreating the
-            # container re-resolves the mount and reloads functions.
-            #   -p  pins the EXISTING Dokploy compose project so we never spawn
-            #       a second/duplicate stack (project name = the compose dir
-            #       name, not the default config-file-dir basename).
-            #   --no-deps  keeps it edge-only: the DB and every other service
-            #       are untouched by a code-only deploy.
-            docker compose \
-              -p trionlabs8004-supabase-ei13uw \
-              -f docker/docker-compose.supabase.yml \
-              up -d --force-recreate --no-deps functions
+            if [ "$HEALTHY" != "1" ]; then
+              echo "::error::Edge/indexer unhealthy after deploy (functions=${FCOUNT} lag=${LAG}s 500s=${E500})."
+              echo "Likely the orphaned-bind-mount regression. Recover with a Dokploy Redeploy, or:"
+              echo "  docker compose -p ${PROJECT} -f docker/docker-compose.supabase.yml up -d --force-recreate --no-deps functions"
+              docker logs trionlabs8004-edge-functions 2>&1 | tail -12
+              exit 1
+            fi
 
-            echo "=== Verifying indexer health ==="
-            sleep 5
-            docker logs trionlabs8004-edge-functions 2>&1 | tail -3
-
-            echo "=== Deploy complete ==="
+            echo "=== Health gate PASSED: migrations applied, edge serving, indexer advancing ==="
