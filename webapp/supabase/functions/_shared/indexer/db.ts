@@ -512,6 +512,30 @@ function dedupeKeepLast<T>(rows: T[], key: (row: T) => string): T[] {
   return [...byKey.values()];
 }
 
+// Cap rows per PostgREST statement. A single homogeneous page can carry up to
+// EVENTS_PAGE_LIMIT events, each up to the on-chain 4KB metadata/URI cap, so an
+// un-chunked bulk upsert could balloon into one multi-MB INSERT ... ON CONFLICT
+// that trips statement-size / memory / time limits. Splitting it bounds each
+// statement regardless of page size. Chunks are upserted sequentially; if a
+// later chunk fails, the writer throws and the indexer falls back to the
+// per-event path, which re-applies every row idempotently (all writes are
+// upserts), so an already-applied earlier chunk is harmless.
+const BULK_CHUNK_SIZE = 500;
+
+async function upsertChunked<T>(
+  db: SupabaseClient,
+  table: string,
+  rows: T[],
+  options: { onConflict: string; ignoreDuplicates?: boolean },
+  context: string,
+): Promise<void> {
+  for (let offset = 0; offset < rows.length; offset += BULK_CHUNK_SIZE) {
+    const chunk = rows.slice(offset, offset + BULK_CHUNK_SIZE);
+    const result = await db.from(table).upsert(chunk, options);
+    assertNoError(result, `${context} (rows ${offset}-${offset + chunk.length})`);
+  }
+}
+
 export async function bulkUpsertRegistered(
   db: SupabaseClient,
   events: IdentityEvent[],
@@ -533,10 +557,13 @@ export async function bulkUpsertRegistered(
   const deduped = dedupeKeepLast(rows, (r) => String(r.id));
   // ignoreDuplicates mirrors the per-event Registered path: a replay must not
   // clobber resolver state (agent_uri_data, resolve_uri_pending, ...).
-  const result = await db
-    .from('agents')
-    .upsert(deduped, { onConflict: 'id', ignoreDuplicates: true });
-  assertNoError(result, `[identity] bulk Registered upsert failed (${deduped.length} rows)`);
+  await upsertChunked(
+    db,
+    'agents',
+    deduped,
+    { onConflict: 'id', ignoreDuplicates: true },
+    '[identity] bulk Registered upsert failed',
+  );
 }
 
 export async function bulkUpsertMetadataSet(
@@ -552,10 +579,13 @@ export async function bulkUpsertMetadataSet(
     }));
   if (rows.length === 0) return;
   const deduped = dedupeKeepLast(rows, (r) => `${r.agent_id}:${r.key}`);
-  const result = await db
-    .from('agent_metadata')
-    .upsert(deduped, { onConflict: 'agent_id,key' });
-  assertNoError(result, `[identity] bulk MetadataSet upsert failed (${deduped.length} rows)`);
+  await upsertChunked(
+    db,
+    'agent_metadata',
+    deduped,
+    { onConflict: 'agent_id,key' },
+    '[identity] bulk MetadataSet upsert failed',
+  );
 }
 
 export async function bulkUpsertNewFeedback(
@@ -587,10 +617,13 @@ export async function bulkUpsertNewFeedback(
     rows,
     (r) => `${r.agent_id}:${r.client_address}:${r.feedback_index}`,
   );
-  const result = await db
-    .from('feedback')
-    .upsert(deduped, { onConflict: 'agent_id,client_address,feedback_index' });
-  assertNoError(result, `[reputation] bulk NewFeedback upsert failed (${deduped.length} rows)`);
+  await upsertChunked(
+    db,
+    'feedback',
+    deduped,
+    { onConflict: 'agent_id,client_address,feedback_index' },
+    '[reputation] bulk NewFeedback upsert failed',
+  );
 }
 
 export async function bulkUpsertValidationRequest(
@@ -615,12 +648,12 @@ export async function bulkUpsertValidationRequest(
     }));
   if (rows.length === 0) return;
   const deduped = dedupeKeepLast(rows, (r) => String(r.request_hash));
-  const result = await db
-    .from('validations')
-    .upsert(deduped, { onConflict: 'request_hash' });
-  assertNoError(
-    result,
-    `[validation] bulk ValidationRequest upsert failed (${deduped.length} rows)`,
+  await upsertChunked(
+    db,
+    'validations',
+    deduped,
+    { onConflict: 'request_hash' },
+    '[validation] bulk ValidationRequest upsert failed',
   );
 }
 
