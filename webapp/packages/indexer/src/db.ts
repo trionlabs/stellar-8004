@@ -148,16 +148,71 @@ export async function updateCheckpoint(
   ledger: number,
   expectedNextLedger?: number,
   deferAttempts = 0,
+  advanced = false,
 ): Promise<void> {
-  const result = await db.from('indexer_state').upsert({
+  const now = new Date().toISOString();
+  const patch: Record<string, unknown> = {
     id: contractName,
     last_ledger: ledger,
     expected_next_ledger: expectedNextLedger ?? null,
     defer_attempts: deferAttempts,
-    updated_at: new Date().toISOString(),
-  });
+    updated_at: now,
+  };
+  // Honest liveness: only stamp last_advanced_at when the checkpoint actually
+  // moved forward. Omitting the column on a no-progress run preserves its prior
+  // value through the merge-duplicates upsert, so the health staleness check
+  // (which reads last_advanced_at) reflects real forward progress rather than
+  // mere run activity. See migration 044.
+  if (advanced) patch.last_advanced_at = now;
+
+  const result = await db.from('indexer_state').upsert(patch);
 
   assertNoError(result, `[indexer_state] failed to update checkpoint for ${contractName}`);
+}
+
+/**
+ * Durably record an on-chain event (or ledger range) the indexer is about to
+ * SKIP past — the MAX_DEFER_ATTEMPTS escape hatch and the RPC retention clamp
+ * both advance the checkpoint over events they could not write. Best-effort: a
+ * dead-letter failure is logged but never thrown, so it can never re-wedge the
+ * loop it exists to make observable. See migration 045.
+ */
+export async function recordDeadLetter(
+  db: SupabaseClient,
+  entry: {
+    contract: string;
+    reason: 'skip-retryable' | 'skip-nonretryable' | 'retention-clamp';
+    eventId?: string | null;
+    ledger?: number | null;
+    detail?: string | null;
+  },
+): Promise<void> {
+  try {
+    const result = await db.from('indexer_dead_letter').insert({
+      contract: entry.contract,
+      reason: entry.reason,
+      event_id: entry.eventId ?? null,
+      ledger: entry.ledger ?? null,
+      detail: entry.detail ?? null,
+    });
+    if (result.error) {
+      log({
+        level: 'warn',
+        msg: 'Failed to record dead-letter entry',
+        contract: entry.contract,
+        reason: entry.reason,
+        error: result.error.message,
+      });
+    }
+  } catch (error) {
+    log({
+      level: 'warn',
+      msg: 'Failed to record dead-letter entry',
+      contract: entry.contract,
+      reason: entry.reason,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 export async function writeIdentityEvent(
@@ -198,12 +253,11 @@ export async function writeIdentityEvent(
     }
 
     case 'UriUpdated': {
-      // Unlike Registered, this UPDATE is intentionally destructive: a URI
-      // change must invalidate previously-resolved data. It is replay-safe by
-      // construction - re-applying the same newUri reset yields the same state
-      // and the resolver re-populates - because events within a contract are
-      // processed in ledger order, so an older UriUpdated never lands after a
-      // newer one.
+      // This UPDATE is intentionally destructive: a URI change must invalidate
+      // previously-resolved data. The ledger guard (uri_updated_ledger, migration
+      // 046) makes it monotonic and reorder-safe — a stale/replayed older
+      // UriUpdated can no longer wipe data resolved from a newer URI. We do NOT
+      // rely on RPC ledger-ordering for correctness.
       if (event.agentId == null || !event.newUri) {
         logMalformedEvent('identity', 'UriUpdated', event);
         return;
@@ -218,8 +272,10 @@ export async function writeIdentityEvent(
           services: [],
           uri_resolve_attempts: 0,
           resolve_uri_pending: true,
+          uri_updated_ledger: event.ledger,
         })
-        .eq('id', event.agentId);
+        .eq('id', event.agentId)
+        .or(`uri_updated_ledger.is.null,uri_updated_ledger.lte.${event.ledger}`);
 
       assertNoError(result, `[identity] failed to update URI for agent ${event.agentId}`);
       break;
@@ -310,22 +366,18 @@ export async function writeIdentityEvent(
         return;
       }
 
-      const ownerResult = await db
-        .from('agents')
-        .update({ owner: event.to, wallet: null })
-        .eq('id', event.agentId);
+      // Single transaction (migration 047): the owner change + metadata clear
+      // commit together, so the mirror is never observed mid-transfer with the
+      // new owner but the prior owner's metadata still attached. The RPC is
+      // ledger-guarded (transferred_ledger), so a replayed/older transfer can
+      // neither regress ownership nor wipe current metadata.
+      const result = await db.rpc('apply_agent_transfer', {
+        p_agent_id: event.agentId,
+        p_to: event.to,
+        p_ledger: event.ledger,
+      });
 
-      assertNoError(ownerResult, `[identity] failed to transfer owner for agent ${event.agentId}`);
-
-      const metaResult = await db
-        .from('agent_metadata')
-        .delete()
-        .eq('agent_id', event.agentId);
-
-      assertNoError(
-        metaResult,
-        `[identity] failed to clear metadata on transfer for agent ${event.agentId}`,
-      );
+      assertNoError(result, `[identity] failed to apply transfer for agent ${event.agentId}`);
       break;
     }
   }
@@ -374,12 +426,15 @@ export async function writeReputationEvent(
         return;
       }
 
+      // Ledger-guarded (revoked_ledger, migration 046): monotonic + reorder-safe.
+      // Feedback is append-only; revocation is a state flag, never a delete.
       const result = await db
         .from('feedback')
-        .update({ is_revoked: true })
+        .update({ is_revoked: true, revoked_ledger: event.ledger })
         .eq('agent_id', event.agentId)
         .eq('client_address', event.clientAddress)
-        .eq('feedback_index', toDbBigint(event.feedbackIndex));
+        .eq('feedback_index', toDbBigint(event.feedbackIndex))
+        .or(`revoked_ledger.is.null,revoked_ledger.lte.${event.ledger}`);
 
       assertNoError(
         result,
@@ -453,9 +508,11 @@ export async function writeValidationEvent(
 
     case 'ValidationResponse': {
       // Spec parity (canonical erc-8004): renamed from `ValidationResponded`.
-      // The spec allows multiple responses per requestHash (progressive
-      // validation states like soft/hard finality), so the upsert pattern
-      // below intentionally overwrites prior response state.
+      // The contract overwrites the response in place (validation_response sets
+      // status.response, contract.rs), so this UPDATE faithfully mirrors that.
+      // The ledger guard (response_ledger, migration 046) makes the overwrite
+      // monotonic — a stale/replayed older response can no longer clobber a
+      // newer one; we do NOT rely on RPC ledger-ordering for correctness.
       if (!event.requestHash || event.response == null) {
         logMalformedEvent('validation', 'ValidationResponse', event);
         return;
@@ -471,8 +528,10 @@ export async function writeValidationEvent(
           has_response: true,
           responded_at: event.ledgerClosedAt,
           response_tx_hash: event.txHash,
+          response_ledger: event.ledger,
         })
-        .eq('request_hash', event.requestHash);
+        .eq('request_hash', event.requestHash)
+        .or(`response_ledger.is.null,response_ledger.lte.${event.ledger}`);
 
       assertNoError(
         result,
@@ -519,10 +578,10 @@ function dedupeKeepLast<T>(rows: T[], key: (row: T) => string): T[] {
 // upserts), so an already-applied earlier chunk is harmless.
 const BULK_CHUNK_SIZE = 500;
 
-async function upsertChunked<T>(
+async function upsertChunked(
   db: SupabaseClient,
   table: string,
-  rows: T[],
+  rows: Record<string, unknown>[],
   options: { onConflict: string; ignoreDuplicates?: boolean },
   context: string,
 ): Promise<void> {
