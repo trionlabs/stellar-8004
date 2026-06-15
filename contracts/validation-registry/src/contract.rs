@@ -1,4 +1,6 @@
-use soroban_sdk::{contract, contractclient, contractimpl, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{
+    contract, contractclient, contractimpl, panic_with_error, Address, BytesN, Env, String, Vec,
+};
 use stellar_access::ownable::{self as ownable, Ownable};
 use stellar_macros::only_owner;
 
@@ -6,6 +8,11 @@ use crate::errors::ValidationError;
 use crate::events;
 use crate::storage;
 use crate::types::{ValidationStatus, ValidationSummary};
+
+// Cap the validations get_summary scans so its read cost is bounded regardless
+// of how many validations an agent has. Realistic agents have far fewer; only
+// the most recent N are aggregated past the cap.
+const MAX_SUMMARY_VALIDATIONS: u32 = 500;
 
 // Cross-contract auth delegates to identity registry; share custody.
 #[contractclient(name = "IdentityRegistryClient")]
@@ -145,7 +152,10 @@ impl ValidationRegistryContract {
         let mut total_response = 0u64;
         let mut match_count = 0u64;
 
-        for i in 0..count {
+        // Bound the scan to the most recent validations so an inflated per-agent
+        // validation count can't push get_summary past the per-tx read budget.
+        let start = count.saturating_sub(MAX_SUMMARY_VALIDATIONS);
+        for i in start..count {
             if let Some(hash) = storage::get_agent_validation_at(e, agent_id, i) {
                 if let Some(status) = storage::get_validation(e, &hash) {
                     if !status.has_response {
@@ -260,4 +270,11 @@ impl ValidationRegistryContract {
 }
 
 #[contractimpl(contracttrait)]
-impl Ownable for ValidationRegistryContract {}
+impl Ownable for ValidationRegistryContract {
+    /// Disabled: renouncing ownership would permanently brick the timelocked
+    /// upgrade path and every `#[only_owner]` function. Ownership can still be
+    /// handed off via the 2-step `transfer_ownership` / `accept_ownership` flow.
+    fn renounce_ownership(e: &Env) {
+        panic_with_error!(e, ValidationError::RenounceDisabled);
+    }
+}

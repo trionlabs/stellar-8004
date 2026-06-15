@@ -1,4 +1,6 @@
-use soroban_sdk::{contract, contractclient, contractimpl, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{
+    contract, contractclient, contractimpl, panic_with_error, Address, BytesN, Env, String, Vec,
+};
 use stellar_access::ownable::{self as ownable, Ownable};
 use stellar_macros::only_owner;
 
@@ -8,6 +10,10 @@ use crate::storage;
 use crate::types::{FeedbackData, SummaryResult};
 
 const MAX_SUMMARY_CLIENTS: u32 = 5;
+// Cap the per-client feedback entries get_summary scans so its read cost is
+// bounded regardless of how many feedbacks a single client has left. Realistic
+// clients leave far fewer; only the most recent N are aggregated past the cap.
+const MAX_SUMMARY_FEEDBACK_PER_CLIENT: u64 = 100;
 const MAX_ABS_VALUE: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_000; // 1e38
 
 // Cross-contract auth delegates to identity registry; trust its admin.
@@ -46,6 +52,12 @@ impl ReputationRegistryContract {
             return Err(ReputationError::InvalidValueDecimals);
         }
         if !(-MAX_ABS_VALUE..=MAX_ABS_VALUE).contains(&value) {
+            return Err(ReputationError::ValueOutOfRange);
+        }
+        // Every accepted value must survive get_summary's WAD normalization at
+        // its declared decimals; otherwise it would be stored but overflow and
+        // revert get_summary. (value_decimals <= 18 is enforced above.)
+        if value.checked_mul(pow10(18 - value_decimals)).is_none() {
             return Err(ReputationError::ValueOutOfRange);
         }
 
@@ -181,7 +193,14 @@ impl ReputationRegistryContract {
         for idx in 0..limit {
             let client = client_addresses.get(idx).unwrap();
             let last = storage::get_last_index(e, agent_id, &client);
-            for i in 1..=last {
+            // Bound the scan to the most recent entries so an inflated per-client
+            // feedback count can't push get_summary past the per-tx read budget.
+            let start = if last > MAX_SUMMARY_FEEDBACK_PER_CLIENT {
+                last - MAX_SUMMARY_FEEDBACK_PER_CLIENT + 1
+            } else {
+                1
+            };
+            for i in start..=last {
                 if let Some(fb) = storage::get_feedback(e, agent_id, &client, i) {
                     if fb.is_revoked {
                         continue;
@@ -318,7 +337,14 @@ impl ReputationRegistryContract {
 }
 
 #[contractimpl(contracttrait)]
-impl Ownable for ReputationRegistryContract {}
+impl Ownable for ReputationRegistryContract {
+    /// Disabled: renouncing ownership would permanently brick the timelocked
+    /// upgrade path and every `#[only_owner]` function. Ownership can still be
+    /// handed off via the 2-step `transfer_ownership` / `accept_ownership` flow.
+    fn renounce_ownership(e: &Env) {
+        panic_with_error!(e, ReputationError::RenounceDisabled);
+    }
+}
 
 const POW10: [i128; 19] = [
     1,
