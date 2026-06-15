@@ -390,6 +390,12 @@ async function runIndexerLoop(
     //     advancing prevents silently dropping the event.
     // Writes are idempotent upserts, so re-processing is safe.
     let retryableWriteFailure = false;
+    // Set when the scan stops because getEvents itself failed (a transient RPC
+    // error), as opposed to a write defer. A fetch failure means nothing was
+    // processed, so it must NOT increment the write-defer counter — that counter
+    // arms the skip-after-N escape hatch, and conflating it with RPC flakiness
+    // can prematurely drop a genuine event (report #5).
+    let fetchFailed = false;
 
     log({
       level: 'info',
@@ -431,6 +437,7 @@ async function runIndexerLoop(
         });
       } catch (error) {
         scanCompleted = false;
+        fetchFailed = true;
         log({
           level: 'error',
           msg: 'RPC getEvents error',
@@ -637,13 +644,14 @@ async function runIndexerLoop(
     const nextExpected = scanCompleted
       ? latestLedger + 1
       : expectedNext ?? undefined;
-    // Reset the defer counter on a completed scan; increment it when we leave
-    // the checkpoint un-advanced because of a retryable write failure. A
-    // deadline-triggered stop is a clean partial scan, not a defer, so it
-    // preserves the counter unchanged.
+    // Reset the defer counter on a completed scan; increment it ONLY when we
+    // leave the checkpoint un-advanced because of a retryable WRITE failure. A
+    // deadline-triggered stop or a transient getEvents FETCH failure is not a
+    // write defer (nothing was processed), so it preserves the counter unchanged
+    // and never arms the skip-after-N escape hatch on its own.
     const nextDeferAttempts = scanCompleted
       ? 0
-      : deadlineStopped
+      : deadlineStopped || fetchFailed
         ? deferAttempts
         : deferAttempts + 1;
     // Liveness: the checkpoint moved forward only when the new ledger exceeds
