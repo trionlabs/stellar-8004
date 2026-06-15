@@ -340,13 +340,53 @@ describe('runIndexer', () => {
     expect(result.processed).toBe(1);
     expect(result.errors).toBe(1);
     expect(result.contracts.identity.lastLedger).toBe(10);
+    // A transient getEvents FETCH failure leaves the checkpoint un-advanced but
+    // must NOT increment the write-defer counter (stays 0) — otherwise RPC
+    // flakiness could arm the skip-after-N escape hatch (report #5).
     expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       1,
       mocks.db,
       'identity',
       10,
       undefined,
+      0,
+      false,
+    );
+  });
+
+  it('a transient getEvents failure preserves (never increments) the defer counter', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // identity has already accrued 4 write-defers; reputation/validation are
+    // caught up. A pure RPC fetch failure this run must leave the counter at 4
+    // (not bump it to 5 and trip the skip-after-N escape hatch).
+    mocks.getCheckpointState.mockImplementation((_db: unknown, contractName: string) =>
+      Promise.resolve({
+        lastLedger: contractName === 'identity' ? 10 : 20,
+        expectedNext: null,
+        deferAttempts: contractName === 'identity' ? 4 : 0,
+      }),
+    );
+    mocks.getEvents
+      // oldest-ledger probe (in range, no clamp)
+      .mockResolvedValueOnce({ events: [], cursor: undefined, oldestLedger: 1 })
+      // first real page fails outright
+      .mockRejectedValue(new Error('rpc temporarily unavailable'));
+
+    const promise = runIndexer();
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.errors).toBe(1);
+    expect(result.contracts.identity.lastLedger).toBe(10);
+    expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
       1,
+      mocks.db,
+      'identity',
+      10,
+      undefined,
+      4,
       false,
     );
   });
