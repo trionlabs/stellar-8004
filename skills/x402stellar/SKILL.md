@@ -42,7 +42,7 @@ x402 is an open protocol from Coinbase that activates the HTTP 402 "Payment Requ
 npm install @x402/core @x402/express @x402/fetch @x402/stellar @stellar/stellar-sdk
 ```
 
-Written against `@x402/stellar@~2.9.0`. Compatible with `@stellar/stellar-sdk@^15.0.1` and `@stellar/freighter-api@^6.0.0`. The x402 ecosystem is evolving fast — check for breaking changes if using a newer version.
+Written against `@x402/stellar@~2.9.0`. Compatible with `@stellar/stellar-sdk@^14.6.1` or `@^15.0.1`, and `@stellar/freighter-api@^6.0.0` (see the troubleshooting table below). The x402 ecosystem is evolving fast — check for breaking changes if using a newer version.
 
 ## Server Side (Express)
 

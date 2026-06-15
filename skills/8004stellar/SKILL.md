@@ -364,14 +364,14 @@ await buildAndSign('revoke_feedback', REPUTATION_REGISTRY, [
 
 ### append_response
 
-Agent owner can respond to feedback on-chain. Multiple responses per feedback allowed.
+**Callable by anyone** — any authenticated account, not only the agent owner. The responder's address is recorded in the `ResponseAppended` event topic, so consumers must treat a response as coming from `responder` (not necessarily the agent owner) and must NOT assume a response proves agent-owner authorship. Multiple responses per feedback allowed.
 
 ```typescript
 const responseContent = JSON.stringify({ reply: 'Thank you for the feedback, we improved latency.' });
 const responseHashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(responseContent));
 
 await buildAndSign('append_response', REPUTATION_REGISTRY, [
-  StellarSdk.nativeToScVal(signerAddress, { type: 'address' }),       // caller (agent owner)
+  StellarSdk.nativeToScVal(signerAddress, { type: 'address' }),       // caller (any authenticated account; recorded as responder)
   StellarSdk.nativeToScVal(agentId, { type: 'u32' }),
   StellarSdk.nativeToScVal(clientAddress, { type: 'address' }),       // feedback author
   StellarSdk.nativeToScVal(BigInt(1), { type: 'u64' }),               // feedbackIndex
@@ -529,7 +529,8 @@ Or with the SDK:
 
 ```typescript
 import { generateRequestNonce } from '@trionlabs/stellar8004';
-const requestHash = generateRequestNonce(agentId, validatorAddr);
+// generateRequestNonce is async (it awaits crypto.subtle.digest) — you MUST await it.
+const requestHash = await generateRequestNonce(agentId, validatorAddr);
 ```
 
 ### validation_response
@@ -543,7 +544,7 @@ const responseHashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().
 await buildAndSign('validation_response', VALIDATION_REGISTRY, [
   StellarSdk.nativeToScVal(validatorAddr, { type: 'address' }),    // caller (validator)
   StellarSdk.nativeToScVal(requestHash, { type: 'bytes' }),        // requestHash
-  StellarSdk.nativeToScVal(1, { type: 'u32' }),                    // response (1 = approved)
+  StellarSdk.nativeToScVal(85, { type: 'u32' }),                   // response: a 0-100 score (values > 100 revert with InvalidResponse)
   StellarSdk.nativeToScVal('https://response.example.com', { type: 'string' }), // responseUri
   StellarSdk.nativeToScVal(new Uint8Array(responseHashBuf), { type: 'bytes' }), // responseHash
   StellarSdk.nativeToScVal('kyc', { type: 'string' }),             // tag
@@ -561,7 +562,8 @@ const status = StellarSdk.scValToNative(result);
 // {
 //   validator_address: Address,
 //   agent_id: u32,
-//   response: u32,            — 0 = pending, 1 = approved, other = custom
+//   response: u32,            — a 0-100 score set by the validator (values > 100 revert).
+//                               Use has_response (below), NOT response == 0, to detect "pending".
 //   response_hash: BytesN<32>,
 //   tag: string,
 //   last_update: u64,         — ledger sequence
@@ -717,11 +719,11 @@ Understanding what's stored on-chain vs emitted as events is critical for readin
 
 ### Contract Error Codes
 
-**Identity Registry** (11 codes): not found, not authorized, URI too long, key too long, value too long, too many metadata keys, reserved key, empty value, upgrade pending, upgrade not ready, no pending upgrade
+**Identity Registry** (11 codes): not owner or approved, URI not set, agent not found, metadata key too long, metadata value too long, too many metadata keys, reserved metadata key, empty value, no upgrade proposed, timelock not expired, upgrade already proposed
 
-**Reputation Registry** (12 codes): agent not found, self-feedback blocked, feedback not found, already revoked, not feedback author, not agent owner/authorized, index out of range, invalid tag length, invalid value decimals, upgrade pending, upgrade not ready, no pending upgrade
+**Reputation Registry** (12 codes): self-feedback, feedback not found, invalid value decimals, not owner or approved (retained for ABI stability, unused), aggregate overflow, agent not found, empty value, value out of range, client addresses required, no upgrade proposed, timelock not expired, upgrade already proposed
 
-**Validation Registry** (11 codes): agent not found, request already exists, request not found, not validator, already responded, invalid response, invalid tag, upgrade pending, upgrade not ready, no pending upgrade, not authorized
+**Validation Registry** (11 codes): not owner or approved, request not found, invalid response, request already exists, not designated validator, already responded (retained for ABI stability, unused), agent not found, counter overflow, no upgrade proposed, timelock not expired, upgrade already proposed
 
 Use `formatSorobanError(err)` from the SDK to convert error codes to readable messages.
 
