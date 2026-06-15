@@ -9,6 +9,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# Least-privilege: these jobs only read the repo (build, test, type-check).
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -37,8 +41,21 @@ jobs:
       - name: Install stellar-cli
         run: cargo install --locked stellar-cli@25.2.0
 
+      # The reproducible-build claim rests on a tracked Cargo.lock; fail fast if
+      # it is stale rather than letting the build silently re-resolve deps.
+      - name: Verify Cargo.lock is up to date
+        run: cargo metadata --locked --format-version=1 > /dev/null
+
       - name: Build WASM
         run: make build
+
+      # Enforce the published reproducible-build digests so a toolchain/dep/
+      # profile change that alters the bytes is caught here, not in production.
+      - name: Verify reproducible WASM hashes
+        run: sha256sum -c contracts/wasm.sha256
+
+      - name: Ensure the build did not mutate Cargo.lock
+        run: git diff --exit-code Cargo.lock
 
       - name: Run tests
         run: make test
