@@ -195,7 +195,11 @@ function normalizeRecord(record: unknown): unknown {
 
 	for (const [key, value] of Object.entries(source)) {
 		const camelKey = toCamelCase(key);
-		normalized[camelKey] = normalizeRecord(value);
+		// `metadata` is the opaque on-chain key/value map. Its keys are arbitrary
+		// user-controlled strings (e.g. `social_links`) that MUST round-trip
+		// verbatim — camelCasing them silently corrupts the read path. Pass the
+		// value through untouched so the keys are preserved.
+		normalized[camelKey] = camelKey === 'metadata' ? value : normalizeRecord(value);
 	}
 
 	if ('agentUriData' in normalized) {
