@@ -719,11 +719,11 @@ Understanding what's stored on-chain vs emitted as events is critical for readin
 
 ### Contract Error Codes
 
-**Identity Registry** (11 codes): not owner or approved, URI not set, agent not found, metadata key too long, metadata value too long, too many metadata keys, reserved metadata key, empty value, no upgrade proposed, timelock not expired, upgrade already proposed
+**Identity Registry** (12 codes): not owner or approved, URI not set, agent not found, metadata key too long, metadata value too long, too many metadata keys, reserved metadata key, empty value, no upgrade proposed, timelock not expired, upgrade already proposed, renounce disabled
 
-**Reputation Registry** (12 codes): self-feedback, feedback not found, invalid value decimals, not owner or approved (retained for ABI stability, unused), aggregate overflow, agent not found, empty value, value out of range, client addresses required, no upgrade proposed, timelock not expired, upgrade already proposed
+**Reputation Registry** (13 codes): self-feedback, feedback not found, invalid value decimals, not owner or approved (retained for ABI stability, unused), aggregate overflow, agent not found, empty value, value out of range, client addresses required, no upgrade proposed, timelock not expired, upgrade already proposed, renounce disabled
 
-**Validation Registry** (11 codes): not owner or approved, request not found, invalid response, request already exists, not designated validator, already responded (retained for ABI stability, unused), agent not found, counter overflow, no upgrade proposed, timelock not expired, upgrade already proposed
+**Validation Registry** (12 codes): not owner or approved, request not found, invalid response, request already exists, not designated validator, already responded (retained for ABI stability, unused), agent not found, counter overflow, no upgrade proposed, timelock not expired, upgrade already proposed, renounce disabled
 
 Use `formatSorobanError(err)` from the SDK to convert error codes to readable messages.
 

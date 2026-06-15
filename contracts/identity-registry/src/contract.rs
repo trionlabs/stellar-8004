@@ -1,4 +1,4 @@
-use soroban_sdk::{contract, contractimpl, Address, Bytes, BytesN, Env, String, Vec};
+use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Bytes, BytesN, Env, String, Vec};
 use stellar_access::ownable::{self as ownable, Ownable};
 use stellar_macros::only_owner;
 use stellar_tokens::non_fungible::{Base, ContractOverrides, NonFungibleToken};
@@ -323,4 +323,11 @@ impl NonFungibleToken for IdentityRegistryContract {
 }
 
 #[contractimpl(contracttrait)]
-impl Ownable for IdentityRegistryContract {}
+impl Ownable for IdentityRegistryContract {
+    /// Disabled: renouncing ownership would permanently brick the timelocked
+    /// upgrade path and every `#[only_owner]` function. Ownership can still be
+    /// handed off via the 2-step `transfer_ownership` / `accept_ownership` flow.
+    fn renounce_ownership(e: &Env) {
+        panic_with_error!(e, IdentityError::RenounceDisabled);
+    }
+}

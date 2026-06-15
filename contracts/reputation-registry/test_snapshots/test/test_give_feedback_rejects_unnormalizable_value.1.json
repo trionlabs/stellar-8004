@@ -9,7 +9,6 @@
     [],
     [],
     [],
-    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
@@ -26,10 +25,10 @@
                   "u32": 0
                 },
                 {
-                  "i128": "100000000000000000000000000000000000000"
+                  "i128": "100"
                 },
                 {
-                  "u32": 18
+                  "u32": 0
                 },
                 {
                   "string": ""
@@ -73,7 +72,7 @@
               "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
               "key": {
                 "ledger_key_nonce": {
-                  "nonce": "1033654523790656264"
+                  "nonce": "5541220902715666415"
                 }
               },
               "durability": "temporary",
@@ -276,7 +275,7 @@
                       "symbol": "value"
                     },
                     "val": {
-                      "i128": "100000000000000000000000000000000000000"
+                      "i128": "100"
                     }
                   },
                   {
@@ -284,7 +283,7 @@
                       "symbol": "value_decimals"
                     },
                     "val": {
-                      "u32": 18
+                      "u32": 0
                     }
                   }
                 ]
@@ -458,7 +457,7 @@
                     "symbol": "value"
                   },
                   "val": {
-                    "i128": "100000000000000000000000000000000000000"
+                    "i128": "100"
                   }
                 },
                 {
@@ -466,7 +465,7 @@
                     "symbol": "value_decimals"
                   },
                   "val": {
-                    "u32": 18
+                    "u32": 0
                   }
                 }
               ]

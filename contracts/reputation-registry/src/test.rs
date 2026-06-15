@@ -113,6 +113,56 @@ fn zero_hash(e: &Env) -> BytesN<32> {
 }
 
 #[test]
+fn test_give_feedback_rejects_unnormalizable_value() {
+    // 1e21 passes the flat MAX_ABS_VALUE (1e38) check but overflows get_summary's
+    // WAD normalization at decimals=0 (1e21 * 1e18 > i128::MAX). It must be
+    // rejected at give_feedback time so it can never poison get_summary.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+
+    let result = client.try_give_feedback(
+        &reviewer,
+        &0,
+        &1_000_000_000_000_000_000_000, // 1e21
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+    assert!(
+        result.is_err(),
+        "a value that can't survive WAD normalization must be rejected"
+    );
+
+    // A value that DOES normalize cleanly at the same decimals is still accepted.
+    client.give_feedback(
+        &reviewer,
+        &0,
+        &100,
+        &0,
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &empty_str(&env),
+        &zero_hash(&env),
+    );
+}
+
+#[test]
+fn test_renounce_ownership_is_disabled() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, _) = setup(&env);
+
+    let result = client.try_renounce_ownership();
+    assert!(result.is_err());
+    assert!(client.get_owner().is_some());
+}
+
+#[test]
 fn test_give_feedback() {
     let env = Env::default();
     env.mock_all_auths();
@@ -574,13 +624,15 @@ fn test_value_out_of_range_rejected() {
         "values below -MAX_ABS_VALUE must be rejected"
     );
 
-    // Exactly at the bound is accepted.
+    // Exactly at the bound is accepted at decimals=18, where it WAD-normalizes
+    // (1e38 * pow10(0) fits i128). At decimals=0 it would overflow normalization
+    // and is now rejected — see test_give_feedback_rejects_unnormalizable_value.
     let max_abs: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_000;
     client.give_feedback(
         &reviewer,
         &0,
         &max_abs,
-        &0,
+        &18,
         &empty_str(&env),
         &empty_str(&env),
         &empty_str(&env),

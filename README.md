@@ -62,7 +62,19 @@ make fmt
 
 ## Reproducible Builds
 
-The Rust toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml) to `nightly-2025-08-11` with `wasm32v1-none` target. Combined with a tracked `Cargo.lock` and a deterministic release profile (`opt-level=z`, LTO, `panic=abort`, `codegen-units=1`), a fresh checkout + `make build` produces byte-identical WASMs. The same binaries are deployed on both testnet and mainnet:
+The Rust toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml) to `nightly-2025-08-11` with `wasm32v1-none` target. Combined with a tracked `Cargo.lock` and a deterministic release profile (`opt-level=z`, LTO, `panic=abort`, `codegen-units=1`), a fresh checkout + `make build` produces byte-identical WASMs. CI enforces this against [`contracts/wasm.sha256`](contracts/wasm.sha256) (`make verify-wasm`).
+
+> **⚠️ Hardening upgrade pending.** This source tree includes a contract-hardening pass (bounded `get_summary` reads, a `give_feedback` normalization guard, and `renounce_ownership` disabled). It therefore builds to the **new** hashes below. The contracts currently **deployed** on testnet and mainnet still run the **previous** bytecode (old hashes) until a 3-day timelocked upgrade is executed — so `stellar contract fetch` from a live network returns the old hashes until then.
+
+Source build (this tree, enforced in CI):
+
+| Contract | sha256 |
+|----------|--------|
+| `identity_registry.wasm` | `bd1f1d7c62f8acf13f6106aba8feca4b69ce3d32f31d36c558a0ac487c287ede` |
+| `reputation_registry.wasm` | `e097fd5c3b5ac0572ad2233023e35738e1213e2ce395c70c0c899c9121503e26` |
+| `validation_registry.wasm` | `d0162ae601a91881ecca4f97159e0e5c7f655f3cd51ccac20652fd5f7fb3c505` |
+
+Currently deployed on testnet and mainnet (until the upgrade lands):
 
 | Contract | sha256 |
 |----------|--------|
@@ -70,11 +82,15 @@ The Rust toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml) to 
 | `reputation_registry.wasm` | `74af1a031934346260f7265dacb633209dba507c1416f1e37d52405b53478f71` |
 | `validation_registry.wasm` | `9e5d7dc78ca00fc7c7afc914a0b3ecbcec61b4e7b1893a84bf47c3b811c68aa1` |
 
-Verify against a live network:
+Verify the source build:
 
 ```bash
-make clean && make build
-sha256sum target/wasm32v1-none/release/*.wasm
+make clean && make verify-wasm   # builds, then checks against contracts/wasm.sha256
+```
+
+To compare against a live (not-yet-upgraded) deployment, expect the **deployed** hashes above:
+
+```bash
 stellar contract fetch --network mainnet --id <CONTRACT_ID> -o fetched.wasm
 sha256sum fetched.wasm
 ```

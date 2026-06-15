@@ -69,7 +69,7 @@ Compared against the [8004 reference contracts](https://github.com/erc-8004/erc-
 | Reputation | 10 | 8 | `readAllFeedback` off-chain only (explorer HTTP endpoint). `getResponseCount` no `responders[]` filter. `getClients` paginated. |
 | Validation | 7 | All 7 | `getAgentValidations` and `getValidatorRequests` paginated. |
 
-Soroban-only additions: `extend_ttl`, `propose_upgrade` / `execute_upgrade` / `cancel_upgrade` / `pending_upgrade` (3-day timelocked upgrades), `version`, `find_owner`, `agent_exists`, `total_agents`, `request_exists`, `token_uri` override, metadata size caps (64B key / 4KB value / 100 keys). OZ 2-step ownership: `get_owner`, `transfer_ownership`, `accept_ownership`, `renounce_ownership`.
+Soroban-only additions: `extend_ttl`, `propose_upgrade` / `execute_upgrade` / `cancel_upgrade` / `pending_upgrade` (3-day timelocked upgrades), `version`, `find_owner`, `agent_exists`, `total_agents`, `request_exists`, `token_uri` override, metadata size caps (64B key / 4KB value / 100 keys). OZ 2-step ownership: `get_owner`, `transfer_ownership`, `accept_ownership`. `renounce_ownership` is exposed but **overridden to revert** — renouncing would permanently brick the timelocked upgrade path.
 
 ## Differences from the EVM Reference
 
@@ -82,7 +82,7 @@ All spec functions are implemented with equivalent behavior. Differences are inh
 | `setAgentWallet` auth | EIP-712 / ERC-1271 signature + deadline | `require_auth()` on both caller and wallet (native, no replay) |
 | `getClients` / `getAgentValidations` / `getValidatorRequests` | Returns full array | Paginated `*_paginated(start, limit)` (per-tx read budget ~100 entries) |
 | `readAllFeedback` | On-chain, returns 7 parallel arrays | Off-chain: explorer HTTP `/api/v1/agents/:id/feedback` wrapped by SDK `ExplorerClient.getFeedback()` |
-| `getSummary` client cap | Unbounded | Hard-capped at 5 clients per call |
+| `getSummary` client cap | Unbounded | Hard-capped at 5 clients per call; reputation also scans at most the 100 most-recent feedback entries per client, validation at most the 500 most-recent validations per agent (bounded read cost) |
 | Function overloading | `register()`, `register(uri)`, `register(uri, metadata)` | Three named functions: `register`, `register_with_uri`, `register_full` |
 | `getResponseCount` | Accepts `responders[]` filter | Total count only; per-responder filtering via `ResponseAppended` events |
 
@@ -90,6 +90,9 @@ All spec functions are implemented with equivalent behavior. Differences are inh
 
 - Transfer clears ALL metadata (spec only clears `agentWallet`). Prevents a previous owner's claims from persisting.
 - Metadata size caps: 64-byte keys, 4KB values, 100 keys per agent.
+- `renounce_ownership` is overridden to revert, so ownership (and the timelocked upgrade path it gates) can never be permanently disabled.
+- `give_feedback` rejects any value that can't survive `get_summary`'s WAD normalization at its declared decimals, so a single stored value can never overflow and revert `get_summary`.
+- `get_summary` read loops are bounded (most-recent-N per client/agent), so an inflated feedback/validation count can't push the read past the per-tx budget.
 
 **Type adaptations:**
 

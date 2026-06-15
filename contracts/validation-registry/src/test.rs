@@ -81,6 +81,17 @@ fn test_hash(e: &Env, val: u8) -> BytesN<32> {
 }
 
 #[test]
+fn test_renounce_ownership_is_disabled() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, _) = setup(&env);
+
+    let result = client.try_renounce_ownership();
+    assert!(result.is_err());
+    assert!(client.get_owner().is_some());
+}
+
+#[test]
 fn test_validation_request_and_response() {
     let env = Env::default();
     env.mock_all_auths();
