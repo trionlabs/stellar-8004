@@ -16,4 +16,5 @@ pub enum ValidationError {
     NoUpgradeProposed = 9,
     TimelockNotExpired = 10,
     UpgradeAlreadyProposed = 11,
+    RenounceDisabled = 12,
 }
