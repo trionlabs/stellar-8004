@@ -21,6 +21,24 @@ const handler: RequestHandler = async ({ params, url, request, getClientAddress 
 		});
 	}
 
+	// `params.path` is a catch-all interpolated into the upstream URL. Constrain
+	// it to the known api endpoints (positive allowlist) so a crafted path such
+	// as `../../indexer` can't traverse out of the `api` function and reach
+	// another edge function on the same gateway.
+	const segments = (params.path ?? '').split('/');
+	const ALLOWED_ENDPOINTS = new Set(['agents', 'accounts', 'search', 'stats', 'health']);
+	// Reject if the first segment isn't a known endpoint, OR if ANY segment is a
+	// traversal/dot-segment ('', '.', '..'). Checking only the first segment is
+	// insufficient: a `..` deeper in the path (e.g. `agents/../../indexer`) would
+	// be collapsed by the WHATWG URL parser in fetch() and escape the api/v1
+	// namespace to reach another edge function.
+	if (!ALLOWED_ENDPOINTS.has(segments[0]) || segments.some((s) => s === '' || s === '.' || s === '..')) {
+		return new Response(JSON.stringify({ success: false, error: { code: 'NOT_FOUND', message: 'Endpoint not found' } }), {
+			status: 404,
+			headers: { 'Content-Type': 'application/json' },
+		});
+	}
+
 	const target = `${kongUrl}/functions/v1/api/v1/${params.path}${url.search}`;
 	const anonKey = env.SUPABASE_ANON_KEY;
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { wallet } from '$lib/wallet.svelte.js';
+	import { stellarConfig } from '$lib/sdk-client.js';
 	import { shortAddress } from '$lib/formatters.js';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import RequestEditor from './RequestEditor.svelte';
@@ -363,6 +364,23 @@
 		} catch {
 			const fixed = atob(paymentRequiredHeader).replace(/\\(?!["\\/bfnrtu])/g, '');
 			paymentRequired = JSON.parse(fixed);
+		}
+
+		// Network guard (parity with the MPP path): refuse to sign if the agent's
+		// x402 requirements target a Stellar network other than the one the app/
+		// wallet is configured for. CAIP-2 chain id: stellar:pubnet (mainnet),
+		// stellar:testnet (testnet).
+		const appCaip =
+			stellarConfig.networkPassphrase === 'Test SDF Network ; September 2015'
+				? 'stellar:testnet'
+				: 'stellar:pubnet';
+		const acceptNetworks = (Array.isArray(paymentRequired?.accepts) ? paymentRequired.accepts : [])
+			.map((a: { network?: unknown }) => (typeof a?.network === 'string' ? a.network : null))
+			.filter((n: string | null): n is string => n !== null);
+		if (acceptNetworks.length > 0 && !acceptNetworks.includes(appCaip)) {
+			errorMsg = `This agent requires payment on ${acceptNetworks[0]}, but the app is on ${appCaip}. Switch networks to continue.`;
+			phase = 'error';
+			return;
 		}
 
 		// Step 3: Create payment payload — triggers Freighter signAuthEntry popup
