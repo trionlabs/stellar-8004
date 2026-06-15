@@ -2,6 +2,10 @@ import { createSupabaseAdmin, successWithCache, errorResponse, paginate, formatA
 
 const AGENTS_SELECT = 'id, owner, wallet, agent_uri, agent_uri_data, supported_trust, x402_enabled, mpp_enabled, services, created_at, created_ledger, tx_hash';
 
+// Upper bound on score-qualifying agent ids marshalled into the .in('id', ...)
+// filter (and thus the request URL) for a minScore query. Highest-scored first.
+const MAX_MIN_SCORE_AGENTS = 500;
+
 export async function handleAgentsList(url: URL): Promise<Response> {
   const db = createSupabaseAdmin();
   const page = parseIntParam(url.searchParams.get('page'), 1, 1, 10000);
@@ -19,7 +23,33 @@ export async function handleAgentsList(url: URL): Promise<Response> {
   const validSort = ['created_at', 'id'].includes(sortBy) ? sortBy : 'created_at';
   const validOrder = sortOrder === 'asc' ? 'asc' : 'desc';
 
+  // minScore lives in the leaderboard_scores materialized view, not on agents.
+  // Resolve the qualifying agent ids up front and constrain BOTH the count and
+  // data queries by them, so the reported total and hasMore stay correct across
+  // every page. (Filtering per-page in JS corrupted pagination — report #3.)
+  const minScoreNum = minScore ? parseFloat(minScore) : 0;
+  let qualifyingIds: number[] | null = null;
+  if (minScoreNum > 0) {
+    // Bound the id list (highest-scored first) so it can't grow unbounded into
+    // the request URL of the .in('id', ...) filter below.
+    const { data: scored, error: scoreErr } = await db
+      .from('leaderboard_scores')
+      .select('agent_id')
+      .gte('total_score', minScoreNum)
+      .order('total_score', { ascending: false })
+      .limit(MAX_MIN_SCORE_AGENTS);
+    if (scoreErr) {
+      console.error('Score filter error:', scoreErr.message);
+      return errorResponse('QUERY_ERROR', 'Database query failed', 500);
+    }
+    qualifyingIds = (scored ?? []).map((s) => s.agent_id as number);
+    if (qualifyingIds.length === 0) {
+      return successWithCache([], 30, 120, { pagination: paginate(0, page, limit) });
+    }
+  }
+
   let query = db.from('agents').select(AGENTS_SELECT, { count: 'exact', head: false });
+  if (qualifyingIds) query = query.in('id', qualifyingIds);
 
   if (search) {
     // Use the search_vector GIN index (007_search_index.sql) for full-text search
@@ -43,6 +73,7 @@ export async function handleAgentsList(url: URL): Promise<Response> {
   const total = count ?? 0;
 
   let dataQuery = db.from('agents').select(AGENTS_SELECT).order(validSort, { ascending: validOrder === 'asc' });
+  if (qualifyingIds) dataQuery = dataQuery.in('id', qualifyingIds);
 
   if (search) {
     dataQuery = dataQuery.textSearch('search_vector', search, { type: 'plain' });
@@ -82,20 +113,14 @@ export async function handleAgentsList(url: URL): Promise<Response> {
     }
   }
 
-  const minScoreNum = minScore ? parseFloat(minScore) : 0;
-  const formatted = (agents ?? []).map((a) => {
+  const items = (agents ?? []).map((a) => {
     const scores = scoresMap.get(a.id) ?? null;
     return formatAgent(a, scores);
   });
 
-  // minScore is applied post-query since total_score lives in leaderboard_scores, not agents.
-  // When minScore is active, adjust the total count to reflect the actual filtered result.
-  const items = minScoreNum
-    ? formatted.filter((a) => ((a as Record<string, unknown>).totalScore as number) >= minScoreNum)
-    : formatted;
-  const adjustedTotal = minScoreNum ? items.length : total;
-
-  return successWithCache(items, 30, 120, { pagination: paginate(adjustedTotal, page, limit) });
+  // `total` already reflects the minScore filter (applied at the DB level above),
+  // so pagination is consistent across pages.
+  return successWithCache(items, 30, 120, { pagination: paginate(total, page, limit) });
 }
 
 export async function handleAgentDetail(id: string): Promise<Response> {

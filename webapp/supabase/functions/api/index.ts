@@ -6,6 +6,16 @@ import { handleAccounts } from './handlers/accounts.ts';
 import { handleStats } from './handlers/stats.ts';
 import { handleHealth } from './handlers/health.ts';
 
+// Loose IP plausibility check. The rate-limit RPC casts the key to `inet`, so a
+// non-IP value would throw and make the limiter fail OPEN. Anything that doesn't
+// look like an IPv4/IPv6 address is funnelled to a shared sentinel bucket below.
+function isPlausibleIp(value: string): boolean {
+  if (!value) return false;
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(value)) return true; // IPv4 dotted quad
+  if (value.includes(':') && /^[0-9a-fA-F:.]+$/.test(value)) return true; // IPv6
+  return false;
+}
+
 const db = createSupabaseAdmin();
 
 Deno.serve(async (req: Request) => {
@@ -27,10 +37,15 @@ Deno.serve(async (req: Request) => {
 
   // Prefer proxy-set headers (trusted) over client-controllable ones.
   // Order: cf-connecting-ip (Cloudflare) > x-real-ip (nginx/Dokploy) > x-forwarded-for (last resort)
-  const ip = req.headers.get('cf-connecting-ip')
+  const rawIp = req.headers.get('cf-connecting-ip')
     ?? req.headers.get('x-real-ip')
     ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    ?? 'unknown';
+    ?? '';
+  // Fail CLOSED, not OPEN: a non-IP value ('unknown', a spoofed/garbage
+  // X-Forwarded-For, or a missing header) is routed to one shared sentinel
+  // bucket rather than being passed to the inet cast where it would throw and
+  // bypass rate limiting entirely (report #2).
+  const ip = isPlausibleIp(rawIp) ? rawIp : '0.0.0.0';
   const rateLimit = await checkRateLimit(db, ip);
 
   const rateHeaders: Record<string, string> = {
