@@ -18,8 +18,14 @@ build-reputation: build-identity
 build-validation: build-identity
 	stellar contract build --package validation-registry
 
+# Verify the freshly built WASMs match the published reproducible-build digests
+# (contracts/wasm.sha256). Run in CI so a toolchain/dep/profile drift that
+# changes the bytes fails the build instead of silently shipping new binaries.
+verify-wasm: build
+	sha256sum -c contracts/wasm.sha256
+
 test:
-	cargo test --workspace
+	cargo test --workspace --locked
 
 test-identity:
 	cargo test --package identity-registry
