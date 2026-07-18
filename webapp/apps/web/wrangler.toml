@@ -1,3 +1,43 @@
-name = "8004scan"
+# stellar8004 explorer — Cloudflare Workers (Static Assets).
+#
+# WORKERS, NOT PAGES — deliberate. The account runs six Workers and zero Pages projects, and
+# Cloudflare steers new projects to Workers Static Assets; Pages would mean adopting the older
+# platform. The previous contents of this file were an abandoned Pages attempt
+# (`pages_build_output_dir`, name "8004scan") that contradicted the adapter-node setup actually in
+# use — it never deployed.
+#
+# Replaces: the `trionlabs8004-webapp` Docker service on the synth VPS. The point is not RAM
+# (166 MiB) — it is that synth is the CI/CD runner box and should not also be another project's
+# live web origin. Bonus: /api/v1/[...path] is a pure reverse proxy to Supabase Edge Functions, so
+# on Workers it terminates at the edge instead of round-tripping to Germany.
+
+name = "stellar8004-web"
+main = ".svelte-kit/cloudflare/_worker.js"
 compatibility_date = "2026-04-01"
-pages_build_output_dir = ".svelte-kit/cloudflare"
+
+# @supabase/supabase-js and @stellar/stellar-sdk pull node builtins (stream/crypto/util).
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = ".svelte-kit/cloudflare"
+binding = "ASSETS"
+
+[observability]
+enabled = true
+
+# SECRETS — set via `wrangler secret put`, NEVER committed:
+#   SUPABASE_URL                (https://jltyhxaitrcgtyrvnkmj.supabase.co — hosted, not self-hosted)
+#   SUPABASE_SERVICE_ROLE_KEY   (bypasses RLS; server-only)
+#   SUPABASE_ANON_KEY
+# Read via $env/dynamic/private INSIDE functions (src/lib/supabase-server.ts), never at module
+# scope — which is exactly what workerd requires, so no code change was needed.
+
+[vars]
+# Public, build-and-runtime config read via $env/dynamic/public. Not secrets: contract addresses
+# and the RPC URL are on-chain public data, and the client bundle needs them anyway. Mirrors the
+# env of the Docker service being replaced.
+PUBLIC_STELLAR_NETWORK = "mainnet"
+PUBLIC_STELLAR_RPC_URL = "https://mainnet.sorobanrpc.com"
+PUBLIC_IDENTITY_REGISTRY = "CBGPDCJIHQ32G42BE7F2CIT3YW6XRN5ED6GQJHCRZSNAYH6TGMCL6X35"
+PUBLIC_REPUTATION_REGISTRY = "CBOIAIMMWAXI57OATLX6BWVDQLCC4YU55HV6MZXFRP6CBSGAMXSTEPPA"
+PUBLIC_VALIDATION_REGISTRY = "CBT6WWEVEPT2UFGFGVJJ7ELYGLQAGRYSVGDTGMCJTRWXOH27MWUO7UJG"
