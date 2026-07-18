@@ -6,10 +6,10 @@
 # (`pages_build_output_dir`, name "8004scan") that contradicted the adapter-node setup actually in
 # use — it never deployed.
 #
-# Replaces: the `trionlabs8004-webapp` Docker service on the synth VPS. The point is not RAM
-# (166 MiB) — it is that synth is the CI/CD runner box and should not also be another project's
-# live web origin. Bonus: /api/v1/[...path] is a pure reverse proxy to Supabase Edge Functions, so
-# on Workers it terminates at the edge instead of round-tripping to Germany.
+# Replaces a self-hosted Docker deployment; the driver was separating this app off a shared box, not
+# RAM. Bonus: /api/v1/[...path] is a pure reverse proxy to Supabase Edge Functions, so on Workers it
+# terminates at the edge instead of round-tripping to the origin region.
+# (Infra topology / origin details deliberately kept out of this public repo.)
 
 name = "stellar8004-web"
 main = ".svelte-kit/cloudflare/_worker.js"
@@ -19,14 +19,11 @@ compatibility_date = "2026-04-01"
 compatibility_flags = ["nodejs_compat"]
 
 # CUTOVER via Workers Route, deliberately NOT a DNS change. The zone is already proxied through
-# Cloudflare (origin = the synth VPS), so a route intercepts the request at the edge BEFORE it
-# reaches the origin, while the DNS record stays untouched.
+# Cloudflare, so a route intercepts the request at the edge and the DNS record stays untouched;
+# rollback is deleting the route, with no DNS propagation to wait on.
 #
-# Why this shape: rollback is deleting the route — traffic falls straight back to the synth origin,
-# which is still running and unmodified. A DNS swap would have to propagate; this does not.
-#
-# Apex only: www.stellar8004.com resolves but returns 404 (never configured on the origin), so
-# routing it would newly expose a hostname that does not serve today.
+# Apex only: www.stellar8004.com resolves but returns 404 (never configured), so routing it would
+# newly expose a hostname that does not serve today.
 #
 # ⚠️ MUST stay ABOVE every [table] header. TOML assigns a bare key to the most recent table, so
 # placing this under [assets] silently made it `assets.routes` — wrangler warned "Unexpected fields
@@ -40,6 +37,11 @@ routes = [
 # it has no purpose. Same call as apps/ops-cron-worker in the heydodo repo. Verify deploys with
 # `wrangler deployments list`, not an HTTP probe against workers.dev.
 workers_dev = false
+
+# Per-version preview URLs default ON and would serve this Worker — WITH its secret bindings —
+# on a public *.workers.dev hostname, bypassing the route above and defeating workers_dev=false.
+# Off, so the route is the only ingress.
+preview_urls = false
 
 [assets]
 directory = ".svelte-kit/cloudflare"
