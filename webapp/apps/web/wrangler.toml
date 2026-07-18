@@ -18,6 +18,29 @@ compatibility_date = "2026-04-01"
 # @supabase/supabase-js and @stellar/stellar-sdk pull node builtins (stream/crypto/util).
 compatibility_flags = ["nodejs_compat"]
 
+# CUTOVER via Workers Route, deliberately NOT a DNS change. The zone is already proxied through
+# Cloudflare (origin = the synth VPS), so a route intercepts the request at the edge BEFORE it
+# reaches the origin, while the DNS record stays untouched.
+#
+# Why this shape: rollback is deleting the route — traffic falls straight back to the synth origin,
+# which is still running and unmodified. A DNS swap would have to propagate; this does not.
+#
+# Apex only: www.stellar8004.com resolves but returns 404 (never configured on the origin), so
+# routing it would newly expose a hostname that does not serve today.
+#
+# ⚠️ MUST stay ABOVE every [table] header. TOML assigns a bare key to the most recent table, so
+# placing this under [assets] silently made it `assets.routes` — wrangler warned "Unexpected fields
+# found in assets field: routes" and deployed with NO route at all. Top-level keys go first.
+routes = [
+  { pattern = "stellar8004.com/*", zone_name = "stellar8004.com" }
+]
+
+# The account is on Workers PAID, where requests are billable per-million. A workers.dev endpoint is
+# the one surface an outsider can drive the bill through, and once the route above serves the apex
+# it has no purpose. Same call as apps/ops-cron-worker in the heydodo repo. Verify deploys with
+# `wrangler deployments list`, not an HTTP probe against workers.dev.
+workers_dev = false
+
 [assets]
 directory = ".svelte-kit/cloudflare"
 binding = "ASSETS"
