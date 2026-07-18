@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-node';
+import adapter from '@sveltejs/adapter-cloudflare';
 import { relative, sep } from 'node:path';
 
 /** @type {import('@sveltejs/kit').Config} */
@@ -14,7 +14,10 @@ const config = {
 		}
 	},
 	kit: {
-		adapter: adapter({ out: 'build' })
+		// Cloudflare Workers (Static Assets), NOT Pages. The account already runs six Workers and
+		// zero Pages projects, and Cloudflare now steers new projects to Workers Static Assets — so
+		// Pages would mean adopting the older platform. Routing config lives in wrangler.toml.
+		adapter: adapter()
 	}
 };
 
