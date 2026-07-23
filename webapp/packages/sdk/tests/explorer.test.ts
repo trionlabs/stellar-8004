@@ -86,6 +86,38 @@ describe('ExplorerClient', () => {
 		});
 	});
 
+	it('preserves arbitrary on-chain metadata keys verbatim (does not camelCase them)', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			jsonResponse(
+				buildEnvelope({
+					id: 7,
+					owner: 'GOWNER',
+					agent_uri_data: { name: 'Nova' },
+					metadata: {
+						social_links: 'https://x.com/nova',
+						my_custom_key: 'value',
+						agentWallet: 'GWALLET'
+					}
+				})
+			)
+		);
+
+		vi.stubGlobal('fetch', fetchMock);
+
+		const client = new ExplorerClient('https://stellar8004.com');
+		const response = await client.getAgent(7);
+
+		// On-chain metadata keys are arbitrary user input and must round-trip
+		// unchanged — camelCasing them silently corrupts the read path.
+		expect(response.data.metadata).toEqual({
+			social_links: 'https://x.com/nova',
+			my_custom_key: 'value',
+			agentWallet: 'GWALLET'
+		});
+		// The surrounding envelope IS still camelCased (agent_uri_data → agentUriData).
+		expect((response.data as Record<string, unknown>).agentUriData).toBeDefined();
+	});
+
 	it('retries on 429 using Retry-After before succeeding', async () => {
 		vi.useFakeTimers();
 

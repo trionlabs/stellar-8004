@@ -7,7 +7,6 @@ import {
 	BASE_FEE,
 	Contract,
 	TransactionBuilder,
-	authorizeEntry,
 	nativeToScVal,
 	rpc,
 	xdr as StellarXdr
@@ -114,9 +113,6 @@ export async function createMppCredential(
 		: 'Test SDF Network ; September 2015';
 
 	const isMainnet = network.includes('pubnet') || network.includes('mainnet');
-	const rpcUrl = isMainnet
-		? 'https://soroban-mainnet.stellar.org'
-		: stellarConfig.rpcUrl;
 
 	// Network mismatch guard: compare challenge network with app's configured network
 	const appIsTestnet = stellarConfig.networkPassphrase === 'Test SDF Network ; September 2015';
@@ -127,7 +123,11 @@ export async function createMppCredential(
 		throw new Error('Network mismatch: agent requires Testnet but your wallet is on Mainnet. Switch to Testnet.');
 	}
 
-	const server = new rpc.Server(rpcUrl);
+	// Use the app's configured RPC for whichever network it runs on. The guard
+	// above guarantees the challenge network matches stellarConfig, so this is
+	// always the correct endpoint — `soroban-mainnet.stellar.org` is not a usable
+	// public SDF endpoint and previously broke every live mainnet charge (report #1).
+	const server = new rpc.Server(stellarConfig.rpcUrl);
 	const contract = new Contract(currency);
 	const stellarAmount = BigInt(amount);
 
@@ -185,6 +185,11 @@ export async function createMppCredential(
 					entry.credentials().switch().value ===
 					StellarXdr.SorobanCredentialsType.sorobanCredentialsAddress().value
 				) {
+					// Bound the signed auth entry to the challenge expiry before
+					// signing, so the wallet's signature can't be replayed beyond it.
+					// validUntilLedger (computed above) was previously dead code —
+					// the entry was signed with whatever expiration simulation left.
+					entry.credentials().address().signatureExpirationLedger(validUntilLedger);
 					// Use Freighter to sign the auth entry
 					const entryXdr = entry.toXDR('base64');
 					const result = await freighterSigner.signAuthEntry(entryXdr, {
