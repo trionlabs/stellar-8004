@@ -51,7 +51,7 @@ binding = "ASSETS"
 enabled = true
 
 # SECRETS — set via `wrangler secret put`, NEVER committed:
-#   SUPABASE_URL                (https://jltyhxaitrcgtyrvnkmj.supabase.co — hosted, not self-hosted)
+#   SUPABASE_URL                (<project>.supabase.co — hosted, not self-hosted)
 #   SUPABASE_SERVICE_ROLE_KEY   (bypasses RLS; server-only)
 #   SUPABASE_ANON_KEY
 # Read via $env/dynamic/private INSIDE functions (src/lib/supabase-server.ts), never at module

@@ -155,6 +155,8 @@ See [`webapp/README.md`](webapp/README.md) for the explorer, SDK quick start, an
 
 Example: `stellar:testnet:CDE3K4COIAGWNNJQQLL26SYI3KBJF5FUDHXG5FA6GYDJCG7T5V7FIWZH#0`
 
+> **On `{network}`:** the identifier uses the friendly labels `testnet` and `mainnet`. These are human-readable display labels, **not** strict [CAIP-2](https://chainagnostic.org/CAIPs/caip-2) chain ids — the CAIP-2 chain id for Stellar mainnet is `stellar:pubnet`. The x402/MPP payment layer uses the CAIP-2 form (`stellar:pubnet` / `stellar:testnet`); the agent identifier above intentionally keeps the `mainnet` label for continuity.
+
 ## Technical Details
 
 Spec coverage, EVM divergences, event layouts, and type mappings: [`TECHNICAL.md`](TECHNICAL.md).

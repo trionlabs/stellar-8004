@@ -10,7 +10,7 @@ packages/sdk/     @trionlabs/stellar8004 - canonical TS SDK + auto-generated bin
 packages/indexer/ Soroban event indexer that writes to Supabase
 packages/db/      Supabase-generated TypeScript types
 supabase/         migrations, edge functions (api, indexer, resolve-uris, indexer-health)
-docker/           self-hosted Supabase compose for Dokploy / VPS deploy
+docker/           self-hosted Supabase compose (local / self-host)
 scripts/          backfill, recover, seed, e2e helpers
 ```
 
@@ -41,12 +41,12 @@ pnpm --filter @stellar8004/web check       # svelte-check + tsc
 
 ## Deploy
 
-The web app, the self-hosted Supabase stack, and the indexer Edge Functions
-are deployed to a VPS via Dokploy. The CI workflow at
-[`../.github/workflows/deploy-webapp-vps.yml`](../.github/workflows/deploy-webapp-vps.yml)
-SSH-pulls and runs the migrate + restart sequence on every push to `main`
-that touches `webapp/packages/indexer/`, `webapp/supabase/`, or
-`webapp/docker/`.
+The explorer web app is served from Cloudflare Workers
+(`@sveltejs/adapter-cloudflare`; config in `apps/web/wrangler.toml`, published
+with `wrangler deploy`). Supabase runs as a hosted project, so the migrations
+and Edge Functions (`api`, `indexer`, `resolve-uris`, `indexer-health`) are
+deployed to it directly. The `docker/` compose stack is for running the full
+Supabase stack self-hosted.
 
 ## SDK quick start
 

@@ -21,38 +21,50 @@ const handler: RequestHandler = async ({ params, url, request, getClientAddress 
 		});
 	}
 
-	// SSRF/traversal guard. `params.path` is attacker-controlled and was previously interpolated
-	// straight into the target string; fetch()'s URL parser then collapsed `..` (incl. the
-	// double-encoded `%252e%252e` that survives CF normalization), letting a caller escape the
-	// `/functions/v1/api/v1/` Edge Function prefix and reach the raw Kong gateway (/rest/v1,
-	// /auth/v1). Two layers, because the upstream may itself decode once more (second-order):
-	//   1. FULLY percent-decode the path (loop — beats multi-layer encoding) and reject any `..`/`.`
-	//      segment or backslash. This kills `..`, `%2e%2e`, `%252e%252e`, and `..%2f` alike.
-	//   2. Resolve through new URL() (same normalization fetch() applies) and assert the result is
-	//      still same-origin AND under the prefix. Defense in depth.
+	// SSRF/traversal guard combining both hardening passes:
+	//   - positive endpoint allowlist (origin/main 5ecfc5b): only known api endpoints, so a crafted
+	//     path can't hop out of the `api` function to another edge function (/indexer, /rest/v1, /auth/v1).
+	//   - full multi-pass percent-decode + new URL() origin/prefix assertion (feat 2093be8): kills
+	//     `..`, `%2e%2e`, `%252e%252e`, `..%2f` incl. second-order decodes, then re-encodes each
+	//     segment and asserts the resolved URL stays same-origin and under the api/v1 prefix.
 	const PREFIX = '/functions/v1/api/v1/';
+	const ALLOWED_ENDPOINTS = new Set(['agents', 'accounts', 'search', 'stats', 'health']);
+	const notFound = () =>
+		new Response(JSON.stringify({ success: false, error: { code: 'NOT_FOUND', message: 'Endpoint not found' } }), {
+			status: 404,
+			headers: { 'Content-Type': 'application/json' },
+		});
+
 	let target: URL;
 	try {
-		let decoded = params.path;
-		for (let i = 0; i < 3; i++) {
-			const next = decodeURIComponent(decoded); // throws on malformed input → caught → 400
+		// 1. Fully percent-decode (loop beats %252e / deeper second-order encodings).
+		let decoded = params.path ?? '';
+		for (let i = 0; i < 6; i++) {
+			const next = decodeURIComponent(decoded);
 			if (next === decoded) break;
 			decoded = next;
 		}
-		if (decoded.includes('\\') || decoded.split('/').some((s) => s === '..' || s === '.')) {
-			throw new Error('path traversal');
+		// Any surviving '%' means the input was encoded deeper than the loop unwound;
+		// reject it (and any backslash) outright — allowlisted endpoints/ids never
+		// contain either, so this closes the multi-layer-encoding gap with no loop race.
+		if (decoded.includes('%') || decoded.includes('\\')) throw new Error('traversal');
+		const segments = decoded.split('/');
+		// 2. Positive allowlist + dot-segment/empty rejection.
+		if (
+			!ALLOWED_ENDPOINTS.has(segments[0]) ||
+			segments.some((s) => s === '' || s === '.' || s === '..')
+		) {
+			return notFound();
 		}
+		// 3. Rebuild from re-encoded segments so fetch()'s own decode can't reintroduce traversal.
+		const safePath = segments.map((s) => encodeURIComponent(s)).join('/');
 		const base = new URL(kongUrl);
-		target = new URL(PREFIX + params.path, base);
+		target = new URL(PREFIX + safePath, base);
 		target.search = url.search;
-		if (target.origin !== base.origin || !target.pathname.startsWith(PREFIX)) {
-			throw new Error('path escapes API prefix');
-		}
+		// 4. Defense in depth: assert same-origin AND under prefix.
+		if (target.origin !== base.origin || !target.pathname.startsWith(PREFIX)) return notFound();
 	} catch {
-		return new Response(JSON.stringify({ success: false, error: { code: 'BAD_REQUEST', message: 'Invalid API path' } }), {
-			status: 400,
-			headers: { 'Content-Type': 'application/json' },
-		});
+		return notFound();
 	}
 	const anonKey = env.SUPABASE_ANON_KEY;
 
