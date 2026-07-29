@@ -170,7 +170,7 @@ importers:
   packages/sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: ^15.0.0
+        specifier: ^15.0.0 || ^16.0.0
         version: 15.0.1
       buffer:
         specifier: ^6.0.3
