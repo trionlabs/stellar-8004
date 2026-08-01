@@ -38,6 +38,7 @@
 				<a href={resolve('/agents')} class="nav-link">Agents</a>
 				<a href={resolve('/leaderboard')} class="nav-link">Ranks</a>
 				<a href={resolve('/developers')} class="nav-link"><span class="bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Skills</span></a>
+				<a href={resolve('/mcp')} class="nav-link" title="Read-only MCP server for agent discovery">MCP</a>
 				<a href={resolve('/intro')} class="nav-link" title="What is stellar8004?">
 					<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>
 				</a>
@@ -90,6 +91,10 @@
 			<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
 			<span class="bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Skills</span>
 		</a>
+		<a href={resolve('/mcp')} class="btm-nav-item">
+			<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>
+			<span>MCP</span>
+		</a>
 		<a href={resolve('/intro')} class="btm-nav-item">
 			<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>
 			<span>Intro</span>
@@ -128,6 +133,7 @@
 				{/if}
 				<a href={resolve('/agents')} class="transition hover:text-text-muted">Agents</a>
 				<a href={resolve('/leaderboard')} class="transition hover:text-text-muted">Leaderboard</a>
+				<a href={resolve('/mcp')} class="transition hover:text-text-muted">MCP</a>
 				<a href="https://github.com/trionlabs/stellar-8004" target="_blank" rel="noopener noreferrer" class="transition hover:text-text-muted" aria-label="GitHub">
 					<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
 				</a>
