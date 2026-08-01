@@ -372,10 +372,12 @@ textarea:focus {
 
 .btm-nav-item {
   display: flex;
+  flex: 1 1 0;
+  min-width: 0;
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  padding: 6px 14px;
+  padding: 6px 4px;
   border-radius: 10px;
   font-size: 10px;
   font-weight: 500;
