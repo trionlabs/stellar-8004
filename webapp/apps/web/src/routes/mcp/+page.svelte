@@ -6,21 +6,25 @@
 
 	const heroCmd = `npx -y ${PKG} find "a paid web scraper with a good reputation"`;
 
-	const evidence = [
+	const ERC8004_STUDY = 'https://arxiv.org/abs/2606.26028';
+
+	const evidence: { figure: string; label: string; body: string; source?: string }[] = [
 		{
 			figure: '59–91%',
 			label: 'Sybil reviewers',
-			body: 'Published studies of open review systems put the share of Sybil or otherwise inauthentic reviewers in this band. Reputation you cannot attribute is reputation you cannot trust.'
+			body: 'A 2026 empirical study of the ERC-8004 ecosystem found that this share of "reviewers" are Sybils. Reputation you cannot attribute is reputation you cannot trust.',
+			source: ERC8004_STUDY
 		},
 		{
 			figure: '3–15%',
 			label: 'Live endpoints',
-			body: 'Of the service endpoints agents declare on-chain, only a small fraction answer when probed. Declared is not the same as reachable.'
+			body: 'The same study found that only this share of registrations answer on the endpoint they declare. Declared is not the same as reachable.',
+			source: ERC8004_STUDY
 		},
 		{
 			figure: '0',
 			label: 'Fields verified',
-			body: 'This server verifies no self-declared field. It reports what the registry says, labels it as declared, and tells you exactly where the proof stops.'
+			body: 'Not a study — a property of this server. It verifies no self-declared field: it reports what the registry says, labels it as declared, and tells you exactly where the proof stops.'
 		}
 	];
 
@@ -159,8 +163,6 @@ npx -y ${PKG} doctor                      # self-check`,
 	let copiedKey = $state<string | null>(null);
 	let copyStatus = $state('');
 
-	const current = $derived(clients.find((c) => c.id === activeClient) ?? clients[0]);
-
 	const tabEls: Partial<Record<ClientId, HTMLButtonElement>> = {};
 	let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -184,15 +186,24 @@ npx -y ${PKG} doctor                      # self-check`,
 		tabEls[activeClient]?.focus();
 	}
 
+	const COPY_FAILED = 'Copy failed — select the text and copy manually.';
+
 	async function copyText(key: string, text: string) {
-		if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+		// No clipboard at all (old browser, non-secure context). Announce it rather than
+		// returning silently, or the live region says nothing and the button looks dead.
+		if (typeof navigator === 'undefined' || !navigator.clipboard) {
+			clearTimeout(copyTimer);
+			copiedKey = null;
+			copyStatus = COPY_FAILED;
+			return;
+		}
 
 		try {
 			await navigator.clipboard.writeText(text);
 		} catch {
 			// Rejects on insecure origins and when the permission is denied. Say so rather
 			// than leaving the button silent and the user guessing.
-			copyStatus = 'Copy failed — select the text and copy manually.';
+			copyStatus = COPY_FAILED;
 			return;
 		}
 
@@ -295,6 +306,16 @@ npx -y ${PKG} doctor                      # self-check`,
 					</div>
 					<div class="mt-0.5 text-[11px] tracking-wide text-accent uppercase">{item.label}</div>
 					<p class="mt-2.5 text-[11px] leading-relaxed text-text-muted">{item.body}</p>
+					{#if item.source}
+						<a
+							href={item.source}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="mt-2 inline-block text-[11px] text-accent hover:underline"
+						>
+							arXiv 2606.26028 &nearr;<span class="sr-only"> (opens in a new tab)</span>
+						</a>
+					{/if}
 				</div>
 			{/each}
 		</div>
@@ -337,28 +358,33 @@ npx -y ${PKG} doctor                      # self-check`,
 			{/each}
 		</div>
 
-		<div
-			class="space-y-3 rounded-xl border border-border bg-surface-raised p-5"
-			role="tabpanel"
-			id="panel-{current.id}"
-			aria-labelledby="tab-{current.id}"
-			tabindex="0"
-		>
-			<div class="flex flex-wrap items-start justify-between gap-3">
-				<p class="max-w-xl text-xs leading-relaxed text-text-muted">{current.lead}</p>
-				<button
-					type="button"
-					class="copy-btn shrink-0"
-					onclick={() => copyText(`client:${current.id}`, current.code)}
-				>
-					{copiedKey === `client:${current.id}` ? 'Copied' : 'Copy'}
-				</button>
+		<!-- Every panel stays in the DOM so each tab's aria-controls resolves, and so all seven
+		     configs are readable before hydration. Inactive ones are hidden, not unmounted. -->
+		{#each clients as client (client.id)}
+			<div
+				class="space-y-3 rounded-xl border border-border bg-surface-raised p-5"
+				role="tabpanel"
+				id="panel-{client.id}"
+				aria-labelledby="tab-{client.id}"
+				tabindex="0"
+				hidden={activeClient !== client.id}
+			>
+				<div class="flex flex-wrap items-start justify-between gap-3">
+					<p class="max-w-xl text-xs leading-relaxed text-text-muted">{client.lead}</p>
+					<button
+						type="button"
+						class="copy-btn shrink-0"
+						onclick={() => copyText(`client:${client.id}`, client.code)}
+					>
+						{copiedKey === `client:${client.id}` ? 'Copied' : 'Copy'}
+					</button>
+				</div>
+
+				<CodeBlock code={client.code} lang={client.lang} />
+
+				<p class="text-[11px] leading-relaxed text-text-muted">{client.note}</p>
 			</div>
-
-			<CodeBlock code={current.code} lang={current.lang} />
-
-			<p class="text-[11px] leading-relaxed text-text-muted">{current.note}</p>
-		</div>
+		{/each}
 	</section>
 
 	<!-- Guarantees -->
