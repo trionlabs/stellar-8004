@@ -157,18 +157,55 @@ npx -y ${PKG} doctor                      # self-check`,
 
 	let activeClient = $state<ClientId>('claude');
 	let copiedKey = $state<string | null>(null);
+	let copyStatus = $state('');
 
-	const current = $derived(clients.find((c) => c.id === activeClient)!);
+	const current = $derived(clients.find((c) => c.id === activeClient) ?? clients[0]);
+
+	const tabEls: Partial<Record<ClientId, HTMLButtonElement>> = {};
+	let copyTimer: ReturnType<typeof setTimeout> | undefined;
+
+	// Roving-tabindex keyboard navigation, per the WAI-ARIA tabs pattern.
+	function onTabKeydown(e: KeyboardEvent) {
+		const keys = ['ArrowRight', 'ArrowLeft', 'Home', 'End'];
+		if (!keys.includes(e.key)) return;
+		e.preventDefault();
+
+		const i = clients.findIndex((c) => c.id === activeClient);
+		const next =
+			e.key === 'ArrowRight'
+				? (i + 1) % clients.length
+				: e.key === 'ArrowLeft'
+					? (i - 1 + clients.length) % clients.length
+					: e.key === 'Home'
+						? 0
+						: clients.length - 1;
+
+		activeClient = clients[next].id;
+		tabEls[activeClient]?.focus();
+	}
 
 	async function copyText(key: string, text: string) {
 		if (typeof navigator === 'undefined' || !navigator.clipboard) return;
 
-		await navigator.clipboard.writeText(text);
+		try {
+			await navigator.clipboard.writeText(text);
+		} catch {
+			// Rejects on insecure origins and when the permission is denied. Say so rather
+			// than leaving the button silent and the user guessing.
+			copyStatus = 'Copy failed — select the text and copy manually.';
+			return;
+		}
+
 		copiedKey = key;
-		setTimeout(() => {
+		copyStatus = 'Copied to clipboard';
+		clearTimeout(copyTimer);
+		copyTimer = setTimeout(() => {
 			if (copiedKey === key) copiedKey = null;
+			copyStatus = '';
 		}, 1500);
 	}
+
+	$effect(() => () => clearTimeout(copyTimer));
 </script>
 
 <svelte:head>
@@ -177,7 +214,26 @@ npx -y ${PKG} doctor                      # self-check`,
 		name="description"
 		content="A read-only MCP server for discovering and ranking stellar-8004 agents that accept x402 micropayments. No key, no account, no wallet."
 	/>
+	<!-- mcp.stellar8004.com serves the same content; point search engines at this copy. -->
+	<link rel="canonical" href="https://stellar8004.com/mcp" />
+	<meta property="og:title" content="MCP Server - Stellar8004" />
+	<meta
+		property="og:description"
+		content="Discover and rank Stellar payment agents from any MCP client. Read-only, keyless, no wallet."
+	/>
+	<meta property="og:image" content="/og-image.png" />
+	<meta property="og:type" content="website" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="MCP Server - Stellar8004" />
+	<meta
+		name="twitter:description"
+		content="Discover and rank Stellar payment agents from any MCP client."
+	/>
+	<meta name="twitter:image" content="/og-image.png" />
 </svelte:head>
+
+<!-- Copy buttons only swap their own label, which a screen reader never announces. -->
+<div class="sr-only" role="status" aria-live="polite">{copyStatus}</div>
 
 <div class="space-y-16">
 	<!-- Hero -->
@@ -215,7 +271,7 @@ npx -y ${PKG} doctor                      # self-check`,
 		<div class="flex flex-wrap items-center gap-3 text-xs">
 			<a href="#quick-start" class="cta-primary">Quick start</a>
 			<a href={resolve('/agents')} class="cta-secondary">Explore registry</a>
-			<span class="text-text-dim">Node.js &ge; 22 &middot; read-only &middot; mainnet</span>
+			<span class="text-text-muted">Node.js &ge; 22 &middot; read-only &middot; mainnet</span>
 		</div>
 	</section>
 
@@ -238,7 +294,7 @@ npx -y ${PKG} doctor                      # self-check`,
 						{item.figure}
 					</div>
 					<div class="mt-0.5 text-[11px] tracking-wide text-accent uppercase">{item.label}</div>
-					<p class="mt-2.5 text-[11px] leading-relaxed text-text-dim">{item.body}</p>
+					<p class="mt-2.5 text-[11px] leading-relaxed text-text-muted">{item.body}</p>
 				</div>
 			{/each}
 		</div>
@@ -254,27 +310,40 @@ npx -y ${PKG} doctor                      # self-check`,
 				Quick start
 			</span>
 			<h2 class="text-lg font-medium text-text">One command. Any MCP client.</h2>
-			<p class="text-xs text-text-dim">
+			<p class="text-xs text-text-muted">
 				Node.js &ge; 22. No account, no API key, no wallet. Read-only by design.
 			</p>
 		</div>
 
-		<div class="flex flex-wrap gap-2">
+		<div class="flex flex-wrap gap-2" role="tablist" aria-label="MCP client">
 			{#each clients as client (client.id)}
 				<button
 					type="button"
+					role="tab"
+					id="tab-{client.id}"
+					aria-controls="panel-{client.id}"
+					aria-selected={activeClient === client.id}
+					tabindex={activeClient === client.id ? 0 : -1}
+					bind:this={tabEls[client.id]}
 					onclick={() => (activeClient = client.id)}
+					onkeydown={onTabKeydown}
 					class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors
 						{activeClient === client.id
 						? 'border-accent/20 bg-accent/6 text-accent'
-						: 'border-border/50 text-text-dim hover:border-border hover:text-text-muted'}"
+						: 'border-border/50 text-text-muted hover:border-border hover:text-text'}"
 				>
 					{client.label}
 				</button>
 			{/each}
 		</div>
 
-		<div class="space-y-3 rounded-xl border border-border bg-surface-raised p-5">
+		<div
+			class="space-y-3 rounded-xl border border-border bg-surface-raised p-5"
+			role="tabpanel"
+			id="panel-{current.id}"
+			aria-labelledby="tab-{current.id}"
+			tabindex="0"
+		>
 			<div class="flex flex-wrap items-start justify-between gap-3">
 				<p class="max-w-xl text-xs leading-relaxed text-text-muted">{current.lead}</p>
 				<button
@@ -288,7 +357,7 @@ npx -y ${PKG} doctor                      # self-check`,
 
 			<CodeBlock code={current.code} lang={current.lang} />
 
-			<p class="text-[11px] leading-relaxed text-text-dim">{current.note}</p>
+			<p class="text-[11px] leading-relaxed text-text-muted">{current.note}</p>
 		</div>
 	</section>
 
@@ -311,7 +380,7 @@ npx -y ${PKG} doctor                      # self-check`,
 						<span class="text-[11px] font-medium text-accent tabular-nums">{g.n}</span>
 						<h3 class="text-sm font-medium text-text">{g.title}</h3>
 					</div>
-					<p class="mt-2 text-[11px] leading-relaxed text-text-dim">{g.body}</p>
+					<p class="mt-2 text-[11px] leading-relaxed text-text-muted">{g.body}</p>
 				</div>
 			{/each}
 		</div>
@@ -335,7 +404,7 @@ npx -y ${PKG} doctor                      # self-check`,
 			>
 			<a href={resolve('/developers')} class="cta-secondary">Skills &amp; API</a>
 		</div>
-		<p class="text-[11px] leading-relaxed text-text-dim">
+		<p class="text-[11px] leading-relaxed text-text-muted">
 			MIT licensed and a companion to this explorer — TypeScript applications, registration and
 			signed writes use the canonical
 			<code class="text-text-muted">@trionlabs/stellar8004</code> SDK; MCP clients and terminal discovery
@@ -345,6 +414,17 @@ npx -y ${PKG} doctor                      # self-check`,
 </div>
 
 <style>
+	/* layout.css styles focus only for input/select/textarea, so buttons, links and the
+	   tab panel would otherwise fall back to whatever the reset leaves behind. */
+	[role='tab']:focus-visible,
+	[role='tabpanel']:focus-visible,
+	.copy-btn:focus-visible,
+	.cta-primary:focus-visible,
+	.cta-secondary:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+
 	.hero-cmd {
 		display: flex;
 		align-items: center;
