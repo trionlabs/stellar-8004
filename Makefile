@@ -2,7 +2,7 @@ default: build
 
 all: test
 
-# Identity must build first (reputation and validation import its WASM)
+# Build WASM with the local host toolchain for development.
 build:
 	stellar contract build --locked --package identity-registry
 	stellar contract build --locked --package reputation-registry
@@ -18,11 +18,10 @@ build-reputation: build-identity
 build-validation: build-identity
 	stellar contract build --locked --package validation-registry
 
-# Verify the freshly built WASMs match the published reproducible-build digests
-# (contracts/wasm.sha256). Run in CI so a toolchain/dep/profile drift that
-# changes the bytes fails the build instead of silently shipping new binaries.
-verify-wasm: build
-	sha256sum -c contracts/wasm.sha256
+# Build and verify in the same pinned Linux/amd64 environment on every host.
+# Verified artifacts are written to target/reproducible/.
+verify-wasm:
+	sh scripts/verify-wasm.sh
 
 test:
 	cargo test --workspace --locked

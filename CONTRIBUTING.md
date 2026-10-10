@@ -23,6 +23,8 @@ The Rust toolchain is pinned in `rust-toolchain.toml` - it installs automaticall
 ## Contracts
 
 - Run `make test` before pushing
+- Run `make verify-wasm` with Docker running to check the canonical Linux/amd64
+  build; verified artifacts are written to `target/reproducible/`
 - Run `cargo clippy --workspace` - must be zero warnings
 - Run `make fmt` - must produce no diff
 - No `u8` in `#[contracttype]` structs (Soroban limitation, use `u32`)

@@ -53,16 +53,34 @@ webapp/
 
 ```bash
 cargo install --locked stellar-cli --version 25.2.0
-make build    # Build all contracts
+make build    # Build all contracts using the local host toolchain
 make test     # 74 tests
 make fmt
 ```
 
 ## Reproducible Builds
 
-The Rust toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml) to `nightly-2025-08-11` with the `wasm32v1-none` target. Use Stellar CLI 25.2.0, the tracked `Cargo.lock`, and the release profile (`opt-level=z`, LTO, `panic=abort`, `codegen-units=1`). Run `make verify-wasm` to compare the build with [`contracts/wasm.sha256`](contracts/wasm.sha256). Both the crates.io installation above and the official CLI release embed CLI revision `28484880988199233a7e8e87c97cb12dac323cb3`. Newer CLI versions may also change optimization defaults.
+Run `make verify-wasm` with Docker running. Local verification and CI both use
+[`scripts/verify-wasm.sh`](scripts/verify-wasm.sh), which pins the official Stellar
+CLI 25.2.0 image by its Linux/amd64 digest and explicitly selects
+`nightly-2025-08-11` with the `wasm32v1-none` target. It builds with the tracked
+`Cargo.lock` and release profile, checks all three digests in
+[`contracts/wasm.sha256`](contracts/wasm.sha256), and copies successful outputs to
+`target/reproducible/`. The source mount is read-only; native build outputs stay
+in `target/wasm32v1-none/release/`.
 
-The previously recorded deployment digests below used CLI metadata `25.2.0#`, without a revision. Comparing their WASM sections with the pinned build identified only that metadata difference; executable code and contract interfaces are unchanged. These earlier digests therefore differ from the current reproducible-build manifest:
+The build host is part of this recipe. Native macOS/arm64 and Linux/x86_64 builds
+with the same Rust and CLI versions assign different internal function indices
+in reputation and validation. Comparing their WASM instructions after remapping
+those indices confirms identical behavior and contract interfaces, but their
+file hashes differ. The manifest records the canonical Linux build. Ordinary
+`make build` remains available for local development.
+
+The previously recorded deployment digests below match the native macOS layout
+with CLI metadata `25.2.0#`, without a revision. Current CLI 25.2.0 packages embed
+revision `28484880988199233a7e8e87c97cb12dac323cb3`; the canonical Linux build also
+has the function ordering described above. Keep these deployment digests
+separate from the current reproducible-build manifest:
 
 | Contract | sha256 |
 |----------|--------|
@@ -79,22 +97,26 @@ sha256sum fetched.wasm
 
 ## Deploy
 
+First run `make verify-wasm` successfully for the source you intend to deploy.
+If verification fails, stop: `target/reproducible/` may still contain artifacts
+from an earlier successful build.
+
 ```bash
 stellar keys generate deployer --network testnet --fund
 DEPLOYER=$(stellar keys address deployer)
 
 stellar contract deploy \
-  --wasm target/wasm32v1-none/release/identity_registry.wasm \
+  --wasm target/reproducible/identity_registry.wasm \
   --source-account deployer --network testnet \
   -- --owner $DEPLOYER --name '"Agent Registry"' --symbol '"AGENT"'
 
 stellar contract deploy \
-  --wasm target/wasm32v1-none/release/reputation_registry.wasm \
+  --wasm target/reproducible/reputation_registry.wasm \
   --source-account deployer --network testnet \
   -- --owner $DEPLOYER --identity_registry <IDENTITY_CONTRACT_ID>
 
 stellar contract deploy \
-  --wasm target/wasm32v1-none/release/validation_registry.wasm \
+  --wasm target/reproducible/validation_registry.wasm \
   --source-account deployer --network testnet \
   -- --owner $DEPLOYER --identity_registry <IDENTITY_CONTRACT_ID>
 ```

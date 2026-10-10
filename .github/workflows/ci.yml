@@ -22,7 +22,7 @@ jobs:
         run: python3 .github/scripts/check-markdown-policy.py
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -43,24 +43,15 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Install system deps
-        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev libudev-dev pkg-config
-
-      - name: Install stellar-cli
-        run: cargo install --locked stellar-cli@25.2.0
-
       # The reproducible-build claim rests on a tracked Cargo.lock; fail fast if
       # it is stale rather than letting the build silently re-resolve deps.
       - name: Verify Cargo.lock is up to date
         run: cargo metadata --locked --format-version=1 > /dev/null
 
-      - name: Build WASM
-        run: make build
-
-      # Enforce the published reproducible-build digests so a toolchain/dep/
-      # profile change that alters the bytes is caught here, not in production.
-      - name: Verify reproducible WASM hashes
-        run: sha256sum -c contracts/wasm.sha256
+      # Use the same pinned Linux/amd64 image locally and in CI. Native hosts
+      # can produce different internal function ordering with the same Rust.
+      - name: Build and verify reproducible WASM
+        run: make verify-wasm
 
       - name: Ensure the build did not mutate Cargo.lock
         run: git diff --exit-code Cargo.lock
