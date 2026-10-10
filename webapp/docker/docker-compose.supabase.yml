@@ -288,6 +288,9 @@ services:
       # PostgREST accepts a plain-text symmetric secret, a single JWK, or a JWKS
       PGRST_JWT_SECRET: ${JWT_JWKS:-${JWT_SECRET}}
       PGRST_DB_USE_LEGACY_GUCS: "false"
+      # Hoist RPC limits before execution; SET inside a running SQL function
+      # alone cannot start PostgreSQL's statement-timeout timer.
+      PGRST_DB_HOISTED_TX_SETTINGS: "statement_timeout,lock_timeout,plan_filter.statement_cost_limit,default_transaction_isolation"
       PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
       PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
     command:

@@ -1,665 +1,334 @@
 // AUTO-GENERATED from packages/indexer/src/indexer.ts — DO NOT EDIT.
 // Regenerate with: pnpm --filter @stellar8004/indexer sync:shared
 
-import * as StellarSdk from '@stellar/stellar-sdk';
 import type { rpc } from '@stellar/stellar-sdk';
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-import { getConfig } from './config.ts';
-import {
-  bulkUpsertMetadataSet,
-  bulkUpsertNewFeedback,
-  bulkUpsertRegistered,
-  bulkUpsertValidationRequest,
-  createSupabaseAdmin,
-  getCheckpointState,
-  isRetryableWriteError,
-  recordDeadLetter,
-  refreshLeaderboard,
-  updateCheckpoint,
-  writeIdentityEvent,
-  writeReputationEvent,
-  writeValidationEvent,
-} from './db.ts';
+import { getConfig, type NetworkConfig } from './config.ts';
+import { IndexerWriteError, sourceIdentity, type ProjectionStore, type Stream } from './db.ts';
+import { CONTRACT_NAMES, prepareEvents, type ContractName, type EventPacket } from './events.ts';
+import { eventsFromTransaction } from './historical-source.ts';
 import { log } from './logger.ts';
-import { interpretEvent, type EventInterpretation } from './event-interpretation.ts';
-import { IDENTITY_EVENT_NAMES, parseIdentityEvent } from './parsers/identity.ts';
-import { REPUTATION_EVENT_NAMES, parseReputationEvent } from './parsers/reputation.ts';
-import { VALIDATION_EVENT_NAMES, parseValidationEvent } from './parsers/validation.ts';
-import { withRetry } from './retry.ts';
+import { BudgetExceeded, withIndexerLease, type RunOptions, type WorkBudget } from './runtime.ts';
 
-/**
- * Runtime handler for a single contract. Interpretation distinguishes parsed,
- * unrelated and invalid input before any page writes. The parser→writer type
- * linkage is bound inside {@link defineContract}, so a handler whose writer
- * does not accept its parser's output fails to compile.
- */
-interface ContractHandler {
-  name: string;
-  contractId: string;
-  affectsLeaderboard: boolean;
-  /** Interpret one raw event without hiding malformed recognized input. */
-  parse: (event: rpc.Api.EventResponse) => EventInterpretation<{ type: string }>;
-  /** Persist one already-parsed event via its bound writer. */
-  writeOne: (db: SupabaseClient, parsed: { type: string }) => Promise<void>;
-  /** Event types this handler can bulk-upsert in a single round-trip. */
-  bulkTypes: ReadonlySet<string>;
-  /** Bulk-write a page of same-typed events. Throws if `type` is unsupported. */
-  bulkWrite: (
-    db: SupabaseClient,
-    type: string,
-    events: { type: string }[],
-  ) => Promise<void>;
+export interface LiveState {
+  lastLedger: number;
+  startLedger: number;
+  targetLedger: number;
+  resumeLedger: number;
+  cursor: string | null;
+  deferAttempts: number;
 }
-
-/**
- * Binds a contract's parser output type `E` to its writer input type at the
- * definition site. Erases `E` from the returned {@link ContractHandler} so the
- * indexer loop can iterate a heterogeneous registry without the correlated-union
- * problem — while still rejecting a mismatched parser/writer pair at compile time.
- */
-function defineContract<E extends { type: string }>(cfg: {
-  name: string;
-  contractId: string;
-  affectsLeaderboard: boolean;
-  parser: (event: rpc.Api.EventResponse) => E | null;
-  eventNames: ReadonlySet<string>;
-  writer: (db: SupabaseClient, event: E) => Promise<void>;
-  /**
-   * Optional per-type bulk writers. A type present here is eligible for the
-   * homogeneous-page fast path; absent types always take the per-event writer.
-   */
-  bulkWriters?: Partial<Record<E['type'], (db: SupabaseClient, events: E[]) => Promise<void>>>;
-}): ContractHandler {
-  const bulkWriters = (cfg.bulkWriters ?? {}) as Record<
-    string,
-    (db: SupabaseClient, events: E[]) => Promise<void>
-  >;
-  return {
-    name: cfg.name,
-    contractId: cfg.contractId,
-    affectsLeaderboard: cfg.affectsLeaderboard,
-    parse: (event) => interpretEvent(event, cfg.eventNames, cfg.parser),
-    writeOne: cfg.writer as (db: SupabaseClient, parsed: { type: string }) => Promise<void>,
-    bulkTypes: new Set(Object.keys(bulkWriters)),
-    async bulkWrite(db, type, events) {
-      const fn = bulkWriters[type];
-      if (fn == null) {
-        throw new Error(`[${cfg.name}] no bulk writer registered for ${type}`);
-      }
-      await fn(db, events as E[]);
-    },
-  };
-}
-
-interface ContractIndexerResult {
+interface ContractResult {
   processed: number;
   errors: number;
-  /** Reserved for explicitly quarantined events; failed writes are never skipped. */
   skipped: number;
   lastLedger: number;
   events: Record<string, number>;
+  expectedNextLedger?: number;
 }
-
-const GAP_THRESHOLD = 100;
-
-// Per-page event cap. Soroban RPC defaults to 100 and allows up to 10000;
-// requesting the max cuts pagination round-trips ~100x on busy contracts and
-// cold-start catch-up with no change in correctness (cursor pagination still
-// walks the full window).
-const EVENTS_PAGE_LIMIT = 10000;
-
 export interface IndexerResult {
   processed: number;
   errors: number;
-  /** Total explicitly quarantined events; failed writes are never skipped. */
   skippedEvents: number;
-  contracts: Record<string, ContractIndexerResult & { expectedNextLedger?: number }>;
-  /** True when another instance held the lock and this run did nothing. */
+  contracts: Record<string, ContractResult>;
   skipped?: boolean;
-  /** True when the run stopped early because it hit its soft time budget. */
   timedOut?: boolean;
   gaps: Array<{ contract: string; expectedLedger: number; actualLedger: number; gapSize: number }>;
 }
-
-export interface RunIndexerOptions {
-  /**
-   * Absolute epoch-ms deadline. When reached, the loop stops cleanly between
-   * pages/contracts (leaving un-scanned contracts for the next run) so the
-   * lock is released before the edge function's hard timeout kills the isolate.
-   */
-  deadlineMs?: number;
-}
-
-function assertIndexerConfig(config: ReturnType<typeof getConfig>): void {
-  if (!config.rpcUrl) {
-    throw new Error('Missing RPC URL in indexer configuration');
-  }
-
-  for (const [name, contractId] of Object.entries(config.contracts)) {
-    if (!contractId) {
-      throw new Error(`Missing contract ID for ${name}`);
-    }
-  }
+export type RunIndexerOptions = RunOptions;
+const emptyResult = (): IndexerResult => ({
+  processed: 0,
+  errors: 0,
+  skippedEvents: 0,
+  contracts: {},
+  gaps: [],
+});
+const PAGE_SIZE = 100;
+// RPC getEvents scans at most 10,000 ledgers even when endLedger is farther
+// away. An empty page proves coverage only within this bounded window.
+const LEDGER_WINDOW = 10_000;
+type LiveRpc = Pick<rpc.Server, 'getEvents' | 'getTransaction'>;
+interface LiveContext {
+  rpc: LiveRpc;
+  store: ProjectionStore;
+  budget: WorkBudget;
+  head: number;
+  config: NetworkConfig;
 }
 
 export async function runIndexer(options: RunIndexerOptions = {}): Promise<IndexerResult> {
   const config = getConfig();
-  assertIndexerConfig(config);
-
-  const rpcServer = new StellarSdk.rpc.Server(config.rpcUrl, {
-    allowHttp: config.rpcUrl.startsWith('http://'),
-  });
-  const db = createSupabaseAdmin();
-
-  // Concurrent run guard (table-based lock, pgBouncer-safe). The owner token
-  // fences the release: a run whose lock was reaped as stale cannot delete a
-  // successor's freshly-acquired lock when it eventually finishes.
-  const lockOwner = crypto.randomUUID();
-  const lockResult = await db.rpc('acquire_indexer_lock', { p_owner: lockOwner });
-  if (lockResult.error) {
-    throw new Error(`Failed to acquire indexer lock: ${lockResult.error.message}`);
-  }
-  if (lockResult.data === false) {
-    log({ level: 'warn', msg: 'Another instance is running, skipping' });
-    return { processed: 0, errors: 0, skippedEvents: 0, contracts: {}, skipped: true, gaps: [] };
-  }
-  if (lockResult.data !== true) {
-    throw new Error('Invalid indexer lock acquisition result');
-  }
-
-  try {
-    return await runIndexerLoop(rpcServer, db, config, options);
-  } finally {
-    // Never let a release blip mask the run's outcome: the indexing work is
-    // already committed, and a lock left behind is reaped by acquire's 180s
-    // stale-sweep. Throwing here would turn a successful run into a 500.
-    try {
-      const releaseResult = await db.rpc('release_indexer_lock', { p_owner: lockOwner });
-      if (releaseResult.error) {
-        throw new Error(releaseResult.error.message);
+  const result = await withIndexerLease(config, 'live', options, async (context) => {
+    const result = await indexLive({ ...context, config });
+    if (result.processed && !context.budget.expired()) {
+      try {
+        await context.store.refreshLeaderboard();
+      } catch (error) {
+        log({ level: 'error', msg: 'Leaderboard refresh failed', error: String(error) });
       }
-    } catch (error) {
-      log({
-        level: 'error',
-        msg: 'Failed to release indexer lock (will be reaped as stale)',
-        error: error instanceof Error ? error.message : String(error),
-      });
     }
+    return result;
+  });
+  return result ?? { ...emptyResult(), skipped: true };
+}
+
+function validatePage(
+  events: readonly rpc.Api.EventResponse[],
+  cursor: string | null,
+  start: number,
+): void {
+  let previous = cursor;
+  let ledger = start;
+  for (const event of events) {
+    if (
+      !/^\d{19}-\d{10}$/.test(event.id) ||
+      (previous != null && event.id <= previous) ||
+      event.ledger < ledger
+    ) {
+      throw new Error('RPC event page is out of order or did not advance');
+    }
+    previous = event.id;
+    ledger = event.ledger;
   }
 }
 
-async function runIndexerLoop(
-  rpcServer: StellarSdk.rpc.Server,
-  db: SupabaseClient,
-  config: ReturnType<typeof getConfig>,
-  options: RunIndexerOptions,
-): Promise<IndexerResult> {
-  const deadlineMs = options.deadlineMs;
-  const deadlineReached = (): boolean => deadlineMs != null && Date.now() >= deadlineMs;
-
-  // Probed once per run (the first time any contract has work) to clamp a start
-  // ledger that has aged out of the RPC retention window. Without the clamp,
-  // getEvents(startLedger < oldestLedger) errors with "start is before oldest
-  // ledger", the scan aborts, the checkpoint never advances, and the contract
-  // makes zero forward progress on every subsequent run — a permanent wedge.
-  let cachedOldestLedger: number | null = null;
-
-  // Identity is processed first so that an agent's `Registered` row exists
-  // before any feedback/validation row that references it via foreign key.
-  const contracts: ContractHandler[] = [
-    defineContract({
-      name: 'identity',
-      contractId: config.contracts.identity,
-      affectsLeaderboard: false,
-      parser: parseIdentityEvent,
-      eventNames: IDENTITY_EVENT_NAMES,
-      writer: writeIdentityEvent,
-      // Registered / MetadataSet are pure upserts; the RMW types (UriUpdated,
-      // AgentWalletSet/Unset, AgentTransferred) stay on the per-event path.
-      bulkWriters: {
-        Registered: bulkUpsertRegistered,
-        MetadataSet: bulkUpsertMetadataSet,
-      },
-    }),
-    defineContract({
-      name: 'reputation',
-      contractId: config.contracts.reputation,
-      affectsLeaderboard: true,
-      parser: parseReputationEvent,
-      eventNames: REPUTATION_EVENT_NAMES,
-      writer: writeReputationEvent,
-      // FeedbackRevoked (update) / ResponseAppended (rpc) stay per-event.
-      bulkWriters: {
-        NewFeedback: bulkUpsertNewFeedback,
-      },
-    }),
-    defineContract({
-      name: 'validation',
-      contractId: config.contracts.validation,
-      affectsLeaderboard: true,
-      parser: parseValidationEvent,
-      eventNames: VALIDATION_EVENT_NAMES,
-      writer: writeValidationEvent,
-      // ValidationResponse (update) stays per-event.
-      bulkWriters: {
-        ValidationRequest: bulkUpsertValidationRequest,
-      },
-    }),
-  ];
-
-  const result: IndexerResult = {
-    processed: 0,
-    errors: 0,
-    skippedEvents: 0,
-    contracts: {},
-    gaps: [],
-  };
-  let needsLeaderboardRefresh = false;
-  // Wrapped in withRetry like the other RPC calls: a single transient failure
-  // here would otherwise throw out of the loop and strand the whole run
-  // (all contracts), skipping the entire cron cycle.
-  const { sequence: latestLedger } = await withRetry(() => rpcServer.getLatestLedger(), {
-    maxAttempts: 3,
-    baseDelayMs: 1000,
-  });
-
-  // Probe the oldest retained ledger via a head-anchored getEvents (always
-  // in range), memoized for the run. Used to clamp cold-start scans.
-  const getOldestLedger = async (contractId: string): Promise<number> => {
-    if (cachedOldestLedger != null) return cachedOldestLedger;
-    const probe = await withRetry(
-      () =>
-        rpcServer.getEvents({
-          startLedger: latestLedger,
-          filters: [{ type: 'contract', contractIds: [contractId] }],
-          limit: 1,
-        }),
-      { maxAttempts: 3, baseDelayMs: 1000 },
+/** A registration's initialization events precede Registered, sometimes across
+ * a page boundary. Fetch its own transaction to materialize only the verified
+ * parent. Its source page remains unacknowledged until every claim succeeds.
+ * Parent commits make these lookups resumable even if a run ends between them. */
+async function ensureRegistrations(
+  context: LiveContext,
+  stream: Stream<LiveState>,
+  state: LiveState,
+  packets: readonly EventPacket[],
+): Promise<Stream<LiveState>> {
+  const inPage = new Set(
+    packets.filter((p) => p.data.type === 'Registered').map((p) => p.data.agentId),
+  );
+  const needed = packets.filter((p) => p.contract === 'identity' && !inPage.has(p.data.agentId));
+  context.budget.check();
+  const missing = new Set(await context.store.missingAgents(needed.map((p) => p.data.agentId)));
+  const hashes = new Set(
+    needed.filter((p) => missing.has(p.data.agentId)).map((p) => p.data.txHash),
+  );
+  for (const hash of hashes) {
+    context.budget.check();
+    const tx = await context.rpc.getTransaction(hash);
+    context.budget.check();
+    if (tx.status !== 'SUCCESS' || tx.txHash !== hash)
+      throw new Error(`Registration transaction unavailable: ${hash}`);
+    const candidates = needed.filter((p) => p.data.txHash === hash && missing.has(p.data.agentId));
+    const parents = prepareEvents(
+      eventsFromTransaction(tx, new Set([context.config.contracts.identity])),
+      context.config,
+    ).filter(
+      (p) =>
+        p.data.type === 'Registered' &&
+        candidates.some(
+          (c) =>
+            c.data.agentId === p.data.agentId &&
+            c.data.ledger === p.data.ledger &&
+            BigInt(c.id.slice(0, 19)) >> 12n === BigInt(p.id.slice(0, 19)) >> 12n,
+        ),
     );
-    cachedOldestLedger = probe.oldestLedger;
-    return cachedOldestLedger;
-  };
+    if (parents.length !== new Set(candidates.map((p) => p.data.agentId)).size)
+      throw new Error('Missing prerequisite registration; restore earlier history');
+    stream = (await context.store.commit(stream, parents, state)).stream;
+  }
+  return stream;
+}
 
-  for (const contract of contracts) {
-    if (deadlineReached()) {
-      result.timedOut = true;
-      log({ level: 'warn', msg: 'Soft time budget reached, deferring remaining contracts', contract: contract.name });
-      break;
-    }
-
-    const contractResult: ContractIndexerResult = {
-      processed: 0,
-      errors: 0,
-      skipped: 0,
-      lastLedger: 0,
-      events: {},
-    };
-
-    const { lastLedger, expectedNext, deferAttempts } = await getCheckpointState(db, contract.name);
-    if (lastLedger >= latestLedger) {
-      contractResult.lastLedger = lastLedger;
-      result.contracts[contract.name] = { ...contractResult, expectedNextLedger: expectedNext ?? undefined };
-      continue;
-    }
-
-    let startLedger = lastLedger === 0 ? config.deployLedger : lastLedger + 1;
-
-    // The start ledger may predate the RPC retention window in two cases:
-    //   - cold start: the deploy ledger is weeks old, far past retention;
-    //   - resume after downtime: the indexer was stopped longer than the
-    //     retention window, so the saved checkpoint (lastLedger) has aged out.
-    // In BOTH cases getEvents(startLedger < oldestLedger) hard-fails and the
-    // checkpoint never advances, wedging the contract forever. Probe the oldest
-    // retained ledger and clamp forward unconditionally — we deliberately do
-    // NOT assume retention is long enough to make the resume case impossible.
-    // The skipped range is recoverable only via the backfill script; the gap
-    // detector below logs the jump so the skip is observable.
-    // A transient RPC failure on the probe must NOT abort the whole run — that
-    // would also strand the other contracts, including ones fully in-window
-    // that need no clamp at all. On probe failure, skip the clamp for this
-    // contract and proceed with the un-clamped start: if it really has aged out
-    // of retention, the getEvents below fails in the per-contract catch and
-    // only this contract defers to the next run, while the others still
-    // advance. A failed probe is not memoized, so the next contract re-attempts
-    // it (giving a flaky RPC another chance to answer).
-    let oldestRetained: number | null = null;
+/** One page per contract each round; the least recently serviced stream starts
+ * the next invocation, so a busy ledger cannot monopolize every time budget. */
+export async function indexLive(context: LiveContext): Promise<IndexerResult> {
+  const { store, config, budget, head } = context;
+  const result = emptyResult();
+  const source = sourceIdentity(config);
+  const streams = new Map<ContractName, Stream<LiveState>>();
+  const states = new Map<ContractName, LiveState>();
+  const blocked = new Set<ContractName>();
+  for (const name of CONTRACT_NAMES) {
+    result.contracts[name] = { processed: 0, errors: 0, skipped: 0, lastLedger: 0, events: {} };
     try {
-      oldestRetained = await getOldestLedger(contract.contractId);
+      const stream = await store.read<LiveState>(`live:${name}`, source);
+      const lastLedger = stream.state?.lastLedger ?? (await store.checkpoint(name));
+      const start = lastLedger === 0 ? Math.max(1, config.deployLedger) : lastLedger + 1;
+      const state: LiveState =
+        stream.state && stream.state.targetLedger > lastLedger
+          ? stream.state
+          : {
+              lastLedger,
+              startLedger: start,
+              targetLedger: Math.min(head, start + LEDGER_WINDOW - 1),
+              resumeLedger: start,
+              cursor: null,
+              deferAttempts: 0,
+            };
+      if (
+        !Number.isSafeInteger(lastLedger) ||
+        lastLedger < 0 ||
+        lastLedger > head ||
+        state.targetLedger > head ||
+        (lastLedger < head &&
+          (state.targetLedger < state.startLedger ||
+            state.targetLedger - state.startLedger >= LEDGER_WINDOW))
+      )
+        throw new Error('Saved live range is outside RPC history/head');
+      streams.set(name, stream);
+      states.set(name, state);
+      result.contracts[name].lastLedger = lastLedger;
+      if (lastLedger >= head) blocked.add(name);
     } catch (error) {
-      log({
-        level: 'warn',
-        msg: 'Oldest-ledger probe failed - skipping retention clamp for this contract',
-        contract: contract.name,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      fail(name, error);
     }
-    if (oldestRetained != null && oldestRetained > startLedger) {
-      log({
-        level: 'warn',
-        msg: 'Start ledger predates RPC retention - clamping to oldest retained',
-        contract: contract.name,
-        requestedStartLedger: startLedger,
-        oldestLedger: oldestRetained,
-        coldStart: lastLedger === 0,
-      });
-      // Missing deployment history is a real coverage gap, including cold
-      // starts. Do not acknowledge the jump unless its record is persisted.
-      await recordDeadLetter(db, {
-        contract: contract.name,
-        reason: 'retention-clamp',
-        ledger: startLedger,
-        detail: `start ledger ${startLedger} aged out of RPC retention; clamped forward to ${oldestRetained} (skipped range [${startLedger}, ${oldestRetained}))`,
-      });
-      result.gaps.push({
-        contract: contract.name,
-        expectedLedger: startLedger,
-        actualLedger: oldestRetained,
-        gapSize: oldestRetained - startLedger,
-      });
-      startLedger = oldestRetained;
-    }
-
-    if (expectedNext != null && startLedger > expectedNext + GAP_THRESHOLD &&
-        !result.gaps.some((gap) => gap.contract === contract.name)) {
-      const gapSize = startLedger - expectedNext;
-      log({
-        level: 'error',
-        msg: 'LEDGER GAP DETECTED',
-        contract: contract.name,
-        expectedLedger: expectedNext,
-        actualLedger: startLedger,
-        gapSize,
-      });
-      result.gaps.push({
-        contract: contract.name,
-        expectedLedger: expectedNext,
-        actualLedger: startLedger,
-        gapSize,
-      });
-    }
-
-    let cursor: string | undefined;
-    let maxLedger = startLedger;
-    let scanCompleted = true;
-    // Set when THIS contract's scan stops because it hit the soft deadline (as
-    // opposed to a retryable defer). Drives the defer-counter decision below
-    // without depending on the run-global `result.timedOut`, which a future
-    // refactor could clear or reorder.
-    let deadlineStopped = false;
-    // Set when a write fails in a way that should defer the WHOLE batch and
-    // leave the checkpoint un-advanced so it is retried next run. Two cases:
-    //   - retryable (FK) failure: a referenced parent row (e.g. an agent that
-    //     identity has not indexed yet this run) does not exist; the
-    //     prerequisite contract catches up by the next run.
-    //   - transient non-retryable failure the PG-code classifier can't see
-    //     (network reset, 5xx, too_many_connections): deferring instead of
-    //     advancing prevents silently dropping the event.
-    // Earlier successful writes may be replayed; writers own their replay rules.
-    let retryableWriteFailure = false;
-    // Set when the scan stops because getEvents itself failed (a transient RPC
-    // error), as opposed to a write defer. Fetch failures must not increment
-    // the diagnostic write-defer counter.
-    let fetchFailed = false;
-    let interpretationFailed = false;
-
+  }
+  function fail(name: ContractName, error: unknown) {
+    blocked.add(name);
+    result.errors++;
+    result.contracts[name].errors++;
     log({
-      level: 'info',
-      msg: 'Indexing contract',
-      contract: contract.name,
-      startLedger,
-      latestLedger,
+      level: 'error',
+      msg: 'Contract deferred without skipping events',
+      contract: name,
+      error: String(error),
     });
-
-    while (true) {
-      if (deadlineReached()) {
-        // Stop cleanly mid-scan; leave the checkpoint un-advanced so the next
-        // run resumes from here. Treated like a partial scan.
-        scanCompleted = false;
-        deadlineStopped = true;
+  }
+  let oldest: number | undefined;
+  const order = [...CONTRACT_NAMES].sort((a, b) =>
+    (streams.get(a)?.updatedAt ?? '').localeCompare(streams.get(b)?.updatedAt ?? ''),
+  );
+  while (blocked.size < CONTRACT_NAMES.length) {
+    for (const name of order) {
+      if (blocked.has(name)) continue;
+      if (budget.expired()) {
         result.timedOut = true;
-        log({ level: 'warn', msg: 'Soft time budget reached mid-scan', contract: contract.name });
-        break;
+        return result;
       }
-
-      const request: rpc.Api.GetEventsRequest = cursor
-        ? {
-            filters: [{ type: 'contract', contractIds: [contract.contractId] }],
-            cursor,
-            limit: EVENTS_PAGE_LIMIT,
-          }
-        : {
-            filters: [{ type: 'contract', contractIds: [contract.contractId] }],
-            startLedger,
-            limit: EVENTS_PAGE_LIMIT,
-          };
-
-      let response: rpc.Api.GetEventsResponse;
-
+      let stream = streams.get(name)!;
+      let state = states.get(name)!;
       try {
-        response = await withRetry(() => rpcServer.getEvents(request), {
-          maxAttempts: 3,
-          baseDelayMs: 1000,
-        });
+        budget.check();
+        if (oldest == null) {
+          const probe = await context.rpc.getEvents({
+            startLedger: head,
+            filters: [{ type: 'contract', contractIds: [config.contracts[name]] }],
+            limit: 1,
+          });
+          budget.check();
+          if (
+            !Number.isSafeInteger(probe.oldestLedger) ||
+            probe.oldestLedger < 1 ||
+            probe.oldestLedger > head
+          )
+            throw new Error('Invalid RPC retention boundary');
+          oldest = probe.oldestLedger;
+        }
+        if (state.resumeLedger < oldest) {
+          const gap = { contract: name, startLedger: state.resumeLedger, endLedger: oldest };
+          const clamped = {
+            ...state,
+            lastLedger: oldest - 1,
+            startLedger: oldest,
+            resumeLedger: oldest,
+            targetLedger: Math.min(head, oldest + LEDGER_WINDOW - 1),
+            cursor: null,
+          };
+          stream = (await store.commit(stream, [], clamped, gap)).stream;
+          state = clamped;
+          streams.set(name, stream);
+          states.set(name, state);
+          result.contracts[name].lastLedger = state.lastLedger;
+          result.gaps.push({
+            contract: name,
+            expectedLedger: gap.startLedger,
+            actualLedger: oldest,
+            gapSize: oldest - gap.startLedger,
+          });
+        }
+        budget.check();
+        const filters = [{ type: 'contract' as const, contractIds: [config.contracts[name]] }];
+        const response = await context.rpc.getEvents(
+          state.cursor
+            ? { filters, cursor: state.cursor, limit: PAGE_SIZE }
+            : {
+                filters,
+                startLedger: state.startLedger,
+                endLedger: state.targetLedger + 1,
+                limit: PAGE_SIZE,
+              },
+        );
+        budget.check();
+        if (
+          !Number.isSafeInteger(response.oldestLedger) ||
+          response.oldestLedger < 1 ||
+          response.oldestLedger > state.resumeLedger
+        )
+          throw new Error('RPC retention changed during the scan; retry to record a gap');
+        if (
+          !Number.isSafeInteger(response.latestLedger) ||
+          response.latestLedger < state.targetLedger
+        )
+          throw new Error('RPC response cannot certify the target ledger');
+        if (response.events.length > PAGE_SIZE)
+          throw new Error('RPC exceeded the requested page limit');
+        validatePage(response.events, state.cursor, state.startLedger);
+        if (
+          response.events.some(
+            (e) => e.type !== 'contract' || e.contractId?.contractId() !== config.contracts[name],
+          )
+        )
+          throw new Error('RPC returned an event outside the requested contract');
+        const events = response.events.filter((e) => e.ledger <= state.targetLedger);
+        const packets = prepareEvents(events, config);
+        stream = await ensureRegistrations(context, stream, state, packets);
+        streams.set(name, stream);
+        const complete = response.events.length === 0 || events.length < response.events.length;
+        const last = events.at(-1);
+        const next: LiveState = complete
+          ? {
+              ...state,
+              lastLedger: state.targetLedger,
+              cursor: null,
+              startLedger: state.targetLedger + 1,
+              resumeLedger: state.targetLedger + 1,
+              deferAttempts: 0,
+            }
+          : { ...state, cursor: last!.id, resumeLedger: last!.ledger, deferAttempts: 0 };
+        budget.check();
+        const committed = await store.commit(stream, packets, next);
+        streams.set(name, committed.stream);
+        states.set(name, next);
+        const summary = result.contracts[name];
+        summary.lastLedger = next.lastLedger;
+        summary.expectedNextLedger = next.lastLedger + 1;
+        summary.processed += packets.length;
+        result.processed += packets.length;
+        for (const p of packets)
+          summary.events[p.data.type] = (summary.events[p.data.type] ?? 0) + 1;
+        if (complete) {
+          if (next.lastLedger >= head) blocked.add(name);
+          else
+            states.set(name, {
+              ...next,
+              targetLedger: Math.min(head, next.startLedger + LEDGER_WINDOW - 1),
+            });
+        }
       } catch (error) {
-        scanCompleted = false;
-        fetchFailed = true;
-        log({
-          level: 'error',
-          msg: 'RPC getEvents error',
-          contract: contract.name,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        contractResult.errors++;
-        break;
-      }
-
-      // Fast path: a page whose events ALL parse to the same bulk-upsertable
-      // type collapses into one multi-row upsert (the dominant backfill shape:
-      // long runs of NewFeedback / ValidationRequest / Registered) — one
-      // round-trip instead of one-per-event. On ANY failure we fall through to
-      // the per-event loop, which retains failure deferral. Chunked bulk
-      // writes may already have committed an earlier chunk; fallback can replay
-      // those rows. Mutable ordering safeguards are a separate writer concern.
-      // maxLedger only advances on a successful bulk write, so a deferred page
-      // is never checkpoint-skipped.
-      // Parse the page once; the result feeds BOTH the fast path and the
-      // per-event fallback, so a parser is never invoked twice for an event.
-      const interpretations = response.events.map((ev) => contract.parse(ev));
-      const invalidIndex = interpretations.findIndex((item) => item.status === 'invalid');
-      if (invalidIndex !== -1) {
-        const invalid = interpretations[invalidIndex];
-        log({
-          level: 'error',
-          msg: 'Invalid contract event - retaining checkpoint',
-          contract: contract.name,
-          eventId: response.events[invalidIndex].id,
-          ledger: response.events[invalidIndex].ledger,
-          error: invalid.status === 'invalid' ? invalid.reason : undefined,
-        });
-        contractResult.errors++;
-        interpretationFailed = true;
-        scanCompleted = false;
-        break;
-      }
-      const parsedPage = interpretations.map((item) => item.status === 'parsed' ? item.event : null);
-
-      let bulkHandled = false;
-      if (response.events.length > 1) {
-        const firstType = parsedPage[0]?.type ?? null;
-        const homogeneousBulk =
-          firstType != null &&
-          contract.bulkTypes.has(firstType) &&
-          parsedPage.every((p) => p != null && p.type === firstType);
-
-        if (homogeneousBulk) {
+        if (error instanceof BudgetExceeded || budget.expired()) {
+          result.timedOut = true;
+          return result;
+        }
+        if (error instanceof IndexerWriteError) {
+          // Diagnostic only. A failed/unknown commit never authorizes skipping;
+          // revision checking also rejects this if that unknown commit landed.
           try {
-            await contract.bulkWrite(db, firstType, parsedPage as { type: string }[]);
-            contractResult.processed += parsedPage.length;
-            contractResult.events[firstType] =
-              (contractResult.events[firstType] ?? 0) + parsedPage.length;
-            if (contract.affectsLeaderboard) {
-              needsLeaderboardRefresh = true;
-            }
-            for (const ev of response.events) {
-              if (ev.ledger > maxLedger) maxLedger = ev.ledger;
-            }
-            bulkHandled = true;
-          } catch (error) {
-            log({
-              level: 'warn',
-              msg: 'Bulk page upsert failed - falling back to per-event',
-              contract: contract.name,
-              events: response.events.length,
-              error: error instanceof Error ? error.message : String(error),
-            });
+            await store.commit(stream, [], { ...state, deferAttempts: state.deferAttempts + 1 });
+          } catch {
+            /* Preserve the original failure and its acknowledged cursor. */
           }
         }
+        fail(name, error);
       }
-
-      if (!bulkHandled)
-        for (let i = 0; i < response.events.length; i++) {
-          const event = response.events[i];
-          const parsed = parsedPage[i];
-          const interpretation = interpretations[i];
-        try {
-          // Writer runs for any non-null parse (mirrors the old process()).
-          if (parsed != null) {
-            await contract.writeOne(db, parsed);
-          }
-          const eventType = parsed?.type ?? null;
-
-          if (eventType != null) {
-            contractResult.processed++;
-            contractResult.events[eventType] = (contractResult.events[eventType] ?? 0) + 1;
-
-            if (contract.affectsLeaderboard) {
-              needsLeaderboardRefresh = true;
-            }
-          } else {
-            log({
-              level: 'warn',
-              msg: interpretation.status === 'ignored' && interpretation.reason === 'unsuccessful'
-                ? 'Ignored unsuccessful contract event'
-                : 'Ignored unrelated contract event',
-              contract: contract.name,
-              eventId: event.id,
-              ledger: event.ledger,
-              topicCount: event.topic?.length ?? 0,
-            });
-          }
-        } catch (error) {
-          contractResult.errors++;
-
-          // Repetition is not evidence of a poison event. Database/network
-          // outages and missing prerequisites remain retryable indefinitely.
-          // A future quarantine path must classify invalid input explicitly
-          // and persist its raw event before allowing progress past it.
-          log({
-            level: isRetryableWriteError(error) ? 'warn' : 'error',
-            msg: isRetryableWriteError(error)
-              ? 'Retryable write failure - deferring batch to next run'
-              : 'Write failure - deferring batch to next run',
-            contract: contract.name,
-            eventId: event.id,
-            deferAttempts,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          retryableWriteFailure = true;
-          break;
-        }
-
-        if (event.ledger > maxLedger) {
-          maxLedger = event.ledger;
-        } else if (event.ledger < maxLedger) {
-          // RPC pagination is supposed to be monotonic on ledger. If we
-          // ever see an out-of-order event, log it loudly so the cursor
-          // checkpoint we write at the end of the batch can be reasoned
-          // about - we still process the event, but we don't let it pull
-          // maxLedger backwards.
-          log({
-            level: 'warn',
-            msg: 'Non-monotonic event ledger from RPC',
-            contract: contract.name,
-            eventId: event.id,
-            eventLedger: event.ledger,
-            maxLedger,
-          });
-        }
-      }
-
-      if (retryableWriteFailure) {
-        // Leave the checkpoint where it was so the deferred events are retried.
-        scanCompleted = false;
-        break;
-      }
-
-      if (response.events.length > 0 && response.cursor) {
-        cursor = response.cursor;
-        continue;
-      }
-
-      break;
-    }
-
-    contractResult.lastLedger = scanCompleted
-      ? Math.max(maxLedger, latestLedger)
-      : lastLedger;
-    const nextExpected = scanCompleted
-      ? latestLedger + 1
-      : expectedNext ?? undefined;
-    // Reset the defer counter on a completed scan; increment it ONLY when we
-    // leave the checkpoint un-advanced because of a retryable WRITE failure. A
-    // deadline-triggered stop or a transient getEvents FETCH failure is not a
-    // write defer, so it preserves the diagnostic counter unchanged. The
-    // counter never authorizes dropping an event.
-    const nextDeferAttempts = scanCompleted
-      ? 0
-      : deadlineStopped || fetchFailed || interpretationFailed
-        ? deferAttempts
-        : deferAttempts + 1;
-    // Liveness: the checkpoint moved forward only when the new ledger exceeds
-    // the prior one. A deferred/partial run that rewrites the same lastLedger is
-    // NOT progress, so last_advanced_at is left untouched (see migration 044).
-    const advanced = contractResult.lastLedger > lastLedger;
-    await updateCheckpoint(
-      db,
-      contract.name,
-      contractResult.lastLedger,
-      nextExpected,
-      nextDeferAttempts,
-      advanced,
-    );
-
-    log({
-      level: 'info',
-      msg: 'Contract indexing complete',
-      contract: contract.name,
-      processed: contractResult.processed,
-      errors: contractResult.errors,
-      skipped: contractResult.skipped,
-      lastLedger: contractResult.lastLedger,
-      events: contractResult.events,
-    });
-
-    result.processed += contractResult.processed;
-    result.errors += contractResult.errors;
-    result.skippedEvents += contractResult.skipped;
-    result.contracts[contract.name] = { ...contractResult, expectedNextLedger: nextExpected };
-  }
-
-  if (needsLeaderboardRefresh) {
-    try {
-      await refreshLeaderboard(db);
-    } catch (error) {
-      log({
-        level: 'error',
-        msg: 'Leaderboard refresh error',
-        error: error instanceof Error ? error.message : String(error),
-      });
-      result.errors++;
     }
   }
-
   return result;
 }

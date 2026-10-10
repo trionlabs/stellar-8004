@@ -1,0 +1,143 @@
+{
+  "captureDateUtc": "2026-10-10T07:59:46.140Z",
+  "sourceEndpoint": "https://soroban-testnet.stellar.org",
+  "sourceConfiguration": "webapp/packages/sdk/src/core/config.ts TESTNET_CONFIG",
+  "network": "testnet",
+  "versionInfo": {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": "getVersionInfo",
+      "method": "getVersionInfo",
+      "params": {}
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "id": "getVersionInfo",
+      "result": {
+        "version": "29.0.0-b2b701685c79aee17fe4eb22dbd08a5dfd11594d",
+        "commitHash": "b2b701685c79aee17fe4eb22dbd08a5dfd11594d",
+        "buildTimestamp": "2026-09-22T14:52:44",
+        "captiveCoreVersion": "stellar-core 29.0.0 (4eb83337380a29ad0907f4e32196ce97b8dc7649)",
+        "protocolVersion": 29
+      }
+    }
+  },
+  "latestLedger": {
+    "sequence": 5119119,
+    "protocolVersion": 29
+  },
+  "getEvents": {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": "getEvents",
+      "method": "getEvents",
+      "params": {
+        "startLedger": 5119109,
+        "filters": [
+          {
+            "type": "contract",
+            "topics": [
+              [
+                "AAAADwAAAAh0cmFuc2Zlcg==",
+                "**"
+              ]
+            ]
+          }
+        ],
+        "pagination": {
+          "limit": 1
+        }
+      }
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "id": "getEvents",
+      "result": {
+        "events": [
+          {
+            "type": "contract",
+            "ledger": 5119109,
+            "ledgerClosedAt": "2026-10-10T07:58:52Z",
+            "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+            "id": "0021986405739663360-0000000000",
+            "operationIndex": 0,
+            "transactionIndex": 1,
+            "txHash": "03b34248b78b349d3a02768fe9065020b82cf0b893505b1f1bd6bd034d6103ea",
+            "inSuccessfulContractCall": true,
+            "topic": [
+              "AAAADwAAAAh0cmFuc2Zlcg==",
+              "AAAAEgAAAAAAAAAAEH3Rayw4M0iCLoEe96rPFNGYim8AVHJU0z4ebYZW4Jw=",
+              "AAAAEgAAAAAAAAAA1slf0lH4PJVCu/N8cACOA4Vm9/SgLnIcM/ruzTEURHw=",
+              "AAAADgAAAAZuYXRpdmUAAA=="
+            ],
+            "value": "AAAACgAAAAAAAAAAAAAAF0h26AA="
+          }
+        ],
+        "cursor": "0021986405739663360-0000000000",
+        "latestLedger": 5119119,
+        "oldestLedger": 4998160,
+        "latestLedgerCloseTime": "1791619182",
+        "oldestLedgerCloseTime": "1791014387"
+      }
+    }
+  },
+  "getTransactions": {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": "getTransactions",
+      "method": "getTransactions",
+      "params": {
+        "startLedger": 5119109,
+        "pagination": {
+          "limit": 200
+        }
+      }
+    },
+    "selectedTransaction": {
+      "status": "SUCCESS",
+      "txHash": "03b34248b78b349d3a02768fe9065020b82cf0b893505b1f1bd6bd034d6103ea",
+      "applicationOrder": 1,
+      "feeBump": false,
+      "envelopeXdr": "AAAAAgAAAABqibsKM/7QgMAPNC7KbXa+ySHAcGSjOMA4bUoMJtDI/wAPQkAATOd2AAAARQAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAABAAAAABB90WssODNIgi6BHveqzxTRmIpvAFRyVNM+Hm2GVuCcAAAAAAAAAADWyV/SUfg8lUK783xwAI4DhWb39KAuchwz+u7NMRREfAAAABdIdugAAAAAAAAAAAIm0Mj/AAAAQL2ZgnLEhINIovtm3DSj0/LbAaQ0su4QdG6pmB4bD8wp744/fxx+mqJsJ+PBs3h1OeFPktZLxFbb7PGKTMxAegyGVuCcAAAAQIwcxjV5B1e4EwQYMuFhYk20/xjKuFJsYseYqMc3UGNkIQ7usos/tVELN7DC2rRsiYT7LKLhhEbWuo6I400EMAs=",
+      "resultXdr": "AAAAAAAAAGQAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAA=",
+      "resultMetaXdr": "AAAABAAAAAAAAAACAAAAAwBOHIUAAAAAAAAAAGqJuwoz/tCAwA80Lsptdr7JIcBwZKM4wDhtSgwm0Mj/AAAAADwzRYwATOd2AAAARAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAMAAAAAAE4T8wAAAABqycViAAAAAAAAAAEAThyFAAAAAAAAAABqibsKM/7QgMAPNC7KbXa+ySHAcGSjOMA4bUoMJtDI/wAAAAA8M0WMAEzndgAAAEUAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAADAAAAAABOHIUAAAAAasnwPAAAAAAAAAABAAAAAAAAAAMAAAADAE4cgwAAAAAAAAAAEH3Rayw4M0iCLoEe96rPFNGYim8AVHJU0z4ebYZW4JwBO3dUXS/nrAAAAKIAAAHCAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAwAAAAAATOeHAAAAAGrD50YAAAAAAAAAAQBOHIUAAAAAAAAAABB90WssODNIgi6BHveqzxTRmIpvAFRyVNM+Hm2GVuCcATt3PRS4/6wAAACiAAABwgAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAMAAAAAAEznhwAAAABqw+dGAAAAAAAAAAAAThyFAAAAAAAAAADWyV/SUfg8lUK783xwAI4DhWb39KAuchwz+u7NMRREfAAAABdIdugAAE4chQAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAdeSi3LCcDzP6vfrn/TvTVBKVai5efybRQ6iyEK00c5hAAAAAQAAAAAAAAAEAAAADwAAAAh0cmFuc2ZlcgAAABIAAAAAAAAAABB90WssODNIgi6BHveqzxTRmIpvAFRyVNM+Hm2GVuCcAAAAEgAAAAAAAAAA1slf0lH4PJVCu/N8cACOA4Vm9/SgLnIcM/ruzTEURHwAAAAOAAAABm5hdGl2ZQAAAAAACgAAAAAAAAAAAAAAF0h26AAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAHXkotywnA8z+r365/0701QSlWouXn8m0UOoshCtNHOYQAAAAEAAAAAAAAAAgAAAA8AAAADZmVlAAAAABIAAAAAAAAAAGqJuwoz/tCAwA80Lsptdr7JIcBwZKM4wDhtSgwm0Mj/AAAACgAAAAAAAAAAAAAAAAAAAGQAAAAA",
+      "events": {
+        "transactionEventsXdr": [
+          "AAAAAAAAAAAAAAAB15KLcsJwPM/q9+uf9O9NUEpVqLl5/JtFDqLIQrTRzmEAAAABAAAAAAAAAAIAAAAPAAAAA2ZlZQAAAAASAAAAAAAAAABqibsKM/7QgMAPNC7KbXa+ySHAcGSjOMA4bUoMJtDI/wAAAAoAAAAAAAAAAAAAAAAAAABk"
+        ],
+        "contractEventsXdr": [
+          [
+            "AAAAAAAAAAHXkotywnA8z+r365/0701QSlWouXn8m0UOoshCtNHOYQAAAAEAAAAAAAAABAAAAA8AAAAIdHJhbnNmZXIAAAASAAAAAAAAAAAQfdFrLDgzSIIugR73qs8U0ZiKbwBUclTTPh5thlbgnAAAABIAAAAAAAAAANbJX9JR+DyVQrvzfHAAjgOFZvf0oC5yHDP67s0xFER8AAAADgAAAAZuYXRpdmUAAAAAAAoAAAAAAAAAAAAAABdIdugA"
+          ]
+        ]
+      },
+      "ledger": 5119109,
+      "createdAt": 1791619132
+    },
+    "pagesRequested": 1,
+    "selection": "Only the matching transaction retained; unrelated page transactions omitted."
+  },
+  "validation": {
+    "matchingEvents": [
+      {
+        "operationIndex": 0,
+        "eventIndex": 0,
+        "reconstructedId": "0021986405739663360-0000000000",
+        "idMatches": true
+      }
+    ],
+    "matchedTransactionHash": true,
+    "matchedLedger": true,
+    "metaVersion": 4,
+    "operationEventCounts": [
+      1
+    ],
+    "algorithmSource": "https://github.com/stellar/go-stellar-sdk/blob/b46a4639ccc5e9249fe8775b24ae718306f829ad/protocols/rpc/cursor.go",
+    "metadataOperationArraysEqualNormalized": true,
+    "timestampMatches": true,
+    "transactionIndexMatches": true,
+    "operationIndexMatches": true,
+    "transactionStatus": "SUCCESS",
+    "fixtureLimitations": "Real public testnet protocol-29 metadata-v4 transfer operation; no metadata-v3 capture, registry-specific payload, nonzero operation index, or skipped-event prefix is evidenced by this pair."
+  }
+}

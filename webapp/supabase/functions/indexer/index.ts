@@ -29,13 +29,21 @@ Deno.serve(async (request: Request) => {
     return json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
+  const controller = new AbortController();
+  const cancel = () => controller.abort(request.signal.reason);
+  request.signal.addEventListener('abort', cancel, { once: true });
+  if (request.signal.aborted) cancel();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     const startedAt = Date.now();
     const result = await Promise.race([
-      runIndexer({ deadlineMs: startedAt + INDEXER_SOFT_BUDGET_MS }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Indexer timeout')), INDEXER_TIMEOUT_MS),
-      ),
+      runIndexer({ deadlineMs: startedAt + INDEXER_SOFT_BUDGET_MS, signal: controller.signal }),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          controller.abort(new Error('Indexer timeout'));
+          reject(new Error('Indexer timeout'));
+        }, INDEXER_TIMEOUT_MS);
+      }),
     ]);
     const durationMs = Date.now() - startedAt;
 
@@ -66,5 +74,9 @@ Deno.serve(async (request: Request) => {
       },
       { status: 500 },
     );
+  } finally {
+    clearTimeout(timeout);
+    controller.abort();
+    request.signal.removeEventListener('abort', cancel);
   }
 });
