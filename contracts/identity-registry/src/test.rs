@@ -18,6 +18,21 @@ fn create_client<'a>(e: &Env) -> (IdentityRegistryContractClient<'a>, Address) {
 }
 
 #[test]
+fn test_renounce_ownership_is_disabled() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _owner) = create_client(&env);
+
+    // renounce_ownership is overridden to revert: renouncing would remove the
+    // owner and permanently brick the timelocked upgrade path. The error here
+    // (rather than success) proves the override dispatches over the OZ default.
+    let result = client.try_renounce_ownership();
+    assert!(result.is_err());
+    // Ownership is intact — the renounce did not take effect.
+    assert!(client.get_owner().is_some());
+}
+
+#[test]
 fn test_version() {
     let env = Env::default();
     let (client, _) = create_client(&env);
