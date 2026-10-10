@@ -1,7 +1,9 @@
-# NOTE: gitignore is layered. This root file applies repo-wide; the
-# subtree-merged webapp/ has its own webapp/.gitignore with additional
-# rules (notably `*.md` to keep agent role docs out of git). When in doubt
-# run `git check-ignore -v <path>` to see which file matched.
+# Markdown stays local except repository setup and contribution guides.
+*.[mM][dD]
+!README.md
+!CONTRIBUTING.md
+
+# Ignore rules are layered; use git check-ignore -v to inspect a match.
 
 target
 .soroban

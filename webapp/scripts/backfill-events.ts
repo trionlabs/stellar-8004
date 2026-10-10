@@ -1,7 +1,7 @@
 /** Bounded, resumable historical scan. Re-run with the same BACKFILL_JOB_ID
  * after the 60s historical cooldown. A job's first run fixes its target ledger.
  * Both sources use the indexer package's interpretation and fenced SQL writer.
- * See docs/operations/indexer-cutover.md before upgrading a populated database.
+ * See the "Indexer migration 050" section in webapp/README.md before upgrading.
  */
 import { getConfig } from '../packages/indexer/src/config.js';
 import { runBackfill } from '../packages/indexer/src/backfill.js';

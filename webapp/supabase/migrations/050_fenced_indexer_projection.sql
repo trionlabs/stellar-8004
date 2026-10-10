@@ -1,5 +1,6 @@
--- Coordinated cutover: stop all old writers before applying; see the indexer
--- cutover runbook. Existing provenance is deliberately NOT guessed/backfilled.
+-- Coordinated cutover: stop all old writers before applying; see the
+-- "Indexer migration 050" section in webapp/README.md. Existing provenance is
+-- deliberately NOT guessed/backfilled; populated databases need reconciliation.
 -- RPC operation IDs are fixed-width, big-endian positions (RPC >= 23).
 
 ALTER TABLE public.agents

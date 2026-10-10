@@ -2,9 +2,9 @@
 
 [8004 standard](https://www.8004.org) implementation on Stellar/Soroban - agent discovery, identity, and reputation.
 
-The complete 8004 stack on Soroban: three smart contracts for identity, reputation, and validation, a TypeScript SDK, a CLI, a live explorer at [stellar8004.com](https://stellar8004.com), SKILL.md for AI-assisted development, and x402/MPP micropayments with USDC. Agents can register an on-chain identity, build verifiable reputation, and get paid per request in seconds.
+The 8004 stack on Soroban: three smart contracts for identity, reputation, and validation, a TypeScript SDK, a live explorer at [stellar8004.com](https://stellar8004.com), and x402/MPP micropayments with USDC. Agents can register an on-chain identity, build verifiable reputation, and get paid per request.
 
-The explorer at [stellar8004.com](https://stellar8004.com) serves both builders and users. Builders register agents, integrate payments, and build trust-verified services using the SDK, CLI, and AI agent skills. Users browse agents, check reputation scores, try them with USDC payments, and leave feedback.
+The explorer at [stellar8004.com](https://stellar8004.com) serves both builders and users. Builders register agents, integrate payments, and build trust-verified services using the SDK and developer documentation. Users browse agents, check reputation scores, try them with USDC payments, and leave feedback.
 
 ## What 8004 Solves
 
@@ -15,9 +15,7 @@ The explorer at [stellar8004.com](https://stellar8004.com) serves both builders 
 - **Soroban Smart Contracts** - Identity Registry (agents as NFTs with metadata and wallet binding), Reputation Registry (feedback with on-chain self-review prevention and normalized scoring), Validation Registry (third-party attestation with progressive responses). Deployed on testnet and mainnet.
 - **Explorer** ([stellar8004.com](https://stellar8004.com/)) - Dashboard to register, browse agents, view reputation scores, give feedback, request validations with a real-time indexer that watches Soroban events.
 - **x402 and MPP Integration** - Agents advertise x402 and Managed Payment Protocol support in their registration metadata. The explorer surfaces payment-enabled agents so clients know which agents accept micropayments before interacting. Includes demo micro-agents such as a scrapper.
-- **SKILL.md for 8004 on Stellar** - `/8004stellar` and `/x402stellar` slash commands that let developers build on 8004 and x402 directly with AI assistance.
-- **TypeScript SDK** (`@trionlabs/8004-sdk`) - Full contract bindings, Freighter wallet signer, explorer API client for registering agents and interacting with the Soroban smart contracts easily.
-- **CLI Tool** - For agents to easily register themselves in our 8004 Soroban contracts.
+- **TypeScript SDK** (`@trionlabs/stellar8004`) - Contract bindings, Freighter wallet signer, and explorer API client for registering agents and interacting with the Soroban smart contracts.
 
 ## How Agents Use It
 
@@ -54,7 +52,7 @@ webapp/
 ## Build and Test
 
 ```bash
-cargo install stellar-cli
+cargo install --locked stellar-cli --version 25.2.0
 make build    # Build all contracts
 make test     # 74 tests
 make fmt
@@ -62,7 +60,7 @@ make fmt
 
 ## Reproducible Builds
 
-The Rust toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml) to `nightly-2025-08-11` with `wasm32v1-none` target. Combined with a tracked `Cargo.lock` and a deterministic release profile (`opt-level=z`, LTO, `panic=abort`, `codegen-units=1`), a fresh checkout + `make build` produces byte-identical WASMs. The same binaries are deployed on both testnet and mainnet:
+The Rust toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml) to `nightly-2025-08-11` with the `wasm32v1-none` target. Install Stellar CLI 25.2.0 from crates.io with the command above, as CI does: release binaries embed different CLI provenance, and newer CLI versions may change optimization defaults. With that CLI, the tracked `Cargo.lock`, and the release profile (`opt-level=z`, LTO, `panic=abort`, `codegen-units=1`), `make verify-wasm` checks the build against these digests:
 
 | Contract | sha256 |
 |----------|--------|
@@ -111,39 +109,11 @@ Update these files with new addresses:
 4. `webapp/apps/web/.env.example`
 5. This README
 
-**Then WIPE the indexed data before backfilling.** The DB keys `agents` on the bare
-on-chain token id (`agents.id`), with no registry-address scoping. A freshly
-deployed identity registry restarts token ids at 1, so without a wipe the new
-agent #1 collides with the old deployment's agent #1 (and old feedback /
-validations / metadata stay attached to a now-different agent). Run against the
-indexer DB:
-
-```sql
-TRUNCATE agents, agent_metadata, feedback, feedback_responses, validations RESTART IDENTITY CASCADE;
-UPDATE indexer_state SET last_ledger = 0, expected_next_ledger = NULL, defer_attempts = 0;
-```
-
-This drops all pre-redeploy data (acceptable while the project runs exactly one
-registry per network and does not need to serve historical agents). If historical
-retention is ever required, add a `registry_address` column to `agents` + children
-and make the keys composite instead of wiping.
-
-Then run `scripts/backfill-events.ts` from the new deploy ledger and redeploy the indexer.
-
-## AI Agent Skills
-
-Claude Code skills for building on Stellar 8004 and x402:
-
-```bash
-# Install all skills
-npx skills add trionlabs/stellar-8004 --skill '*'
-
-# Or individually
-npx skills add trionlabs/stellar-8004 --skill 8004stellar    # Agent trust protocol
-npx skills add trionlabs/stellar-8004 --skill x402stellar    # HTTP micropayments
-```
-
-Then use `/8004stellar` and `/x402stellar` slash commands in Claude Code. See the [Developer Portal](https://stellar8004.com/developers) for full docs.
+Preserve the existing indexed database and prepare a separately verified
+projection for the new registry deployment. Agent IDs can repeat across
+deployments, and migration 050 binds one database to its exact network and
+registry addresses. Follow the coordinated upgrade and historical backfill
+instructions in [the webapp guide](webapp/README.md#indexer-migration-050).
 
 ## Webapp
 
@@ -159,7 +129,8 @@ Example: `stellar:testnet:CDE3K4COIAGWNNJQQLL26SYI3KBJF5FUDHXG5FA6GYDJCG7T5V7FIW
 
 ## Technical Details
 
-Spec coverage, EVM divergences, event layouts, and type mappings: [`TECHNICAL.md`](TECHNICAL.md).
+Contract interfaces are in [`contracts/`](contracts/); TypeScript bindings and
+usage examples are in [the SDK guide](webapp/packages/sdk/README.md).
 
 ## Tech Stack
 

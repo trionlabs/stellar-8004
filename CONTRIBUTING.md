@@ -4,7 +4,7 @@
 
 ```bash
 # Contracts
-cargo install stellar-cli
+cargo install --locked stellar-cli --version 25.2.0
 make build && make test
 
 # Webapp
@@ -39,6 +39,9 @@ The Rust toolchain is pinned in `rust-toolchain.toml` - it installs automaticall
 ## Code style
 
 - snake_case for Rust, camelCase for TypeScript
+- Keep source code, comments, and commit messages in English.
+- Only files named `README.md` or `CONTRIBUTING.md` belong in Git. Keep other
+  Markdown documents locally; repository ignore rules exclude them.
 
 ## Pull requests
 
