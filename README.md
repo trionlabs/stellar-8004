@@ -60,7 +60,9 @@ make fmt
 
 ## Reproducible Builds
 
-The Rust toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml) to `nightly-2025-08-11` with the `wasm32v1-none` target. Install Stellar CLI 25.2.0 from crates.io with the command above, as CI does: release binaries embed different CLI provenance, and newer CLI versions may change optimization defaults. With that CLI, the tracked `Cargo.lock`, and the release profile (`opt-level=z`, LTO, `panic=abort`, `codegen-units=1`), `make verify-wasm` checks the build against these digests:
+The Rust toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml) to `nightly-2025-08-11` with the `wasm32v1-none` target. Use Stellar CLI 25.2.0, the tracked `Cargo.lock`, and the release profile (`opt-level=z`, LTO, `panic=abort`, `codegen-units=1`). Run `make verify-wasm` to compare the build with [`contracts/wasm.sha256`](contracts/wasm.sha256). Both the crates.io installation above and the official CLI release embed CLI revision `28484880988199233a7e8e87c97cb12dac323cb3`. Newer CLI versions may also change optimization defaults.
+
+The previously recorded deployment digests below used CLI metadata `25.2.0#`, without a revision. Comparing their WASM sections with the pinned build identified only that metadata difference; executable code and contract interfaces are unchanged. These earlier digests therefore differ from the current reproducible-build manifest:
 
 | Contract | sha256 |
 |----------|--------|
@@ -68,11 +70,9 @@ The Rust toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml) to 
 | `reputation_registry.wasm` | `74af1a031934346260f7265dacb633209dba507c1416f1e37d52405b53478f71` |
 | `validation_registry.wasm` | `9e5d7dc78ca00fc7c7afc914a0b3ecbcec61b4e7b1893a84bf47c3b811c68aa1` |
 
-Verify against a live network:
+Fetch an existing deployment to compare with its recorded digest:
 
 ```bash
-make clean && make build
-sha256sum target/wasm32v1-none/release/*.wasm
 stellar contract fetch --network mainnet --id <CONTRACT_ID> -o fetched.wasm
 sha256sum fetched.wasm
 ```

@@ -4,19 +4,19 @@ all: test
 
 # Identity must build first (reputation and validation import its WASM)
 build:
-	stellar contract build --package identity-registry
-	stellar contract build --package reputation-registry
-	stellar contract build --package validation-registry
+	stellar contract build --locked --package identity-registry
+	stellar contract build --locked --package reputation-registry
+	stellar contract build --locked --package validation-registry
 	@ls -l target/wasm32v1-none/release/*.wasm
 
 build-identity:
-	stellar contract build --package identity-registry
+	stellar contract build --locked --package identity-registry
 
 build-reputation: build-identity
-	stellar contract build --package reputation-registry
+	stellar contract build --locked --package reputation-registry
 
 build-validation: build-identity
-	stellar contract build --package validation-registry
+	stellar contract build --locked --package validation-registry
 
 # Verify the freshly built WASMs match the published reproducible-build digests
 # (contracts/wasm.sha256). Run in CI so a toolchain/dep/profile drift that
