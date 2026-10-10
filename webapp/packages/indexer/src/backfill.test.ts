@@ -177,6 +177,29 @@ describe('bounded historical indexing', () => {
     await expect(run()).rejects.toThrow(/Invalid event/);
     expect(store.events).toEqual([]);
   });
+  it('does not checkpoint a historical validation request with a missing URI field', async () => {
+    const malformed = tx(1);
+    const event = malformed.events.contractEventsXdr[0][0];
+    event.contractId(new Address(config.contracts.validation).toScAddress().contractId());
+    event
+      .body()
+      .v0()
+      .topics([
+        nativeToScVal('validation_request', { type: 'symbol' }),
+        nativeToScVal('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', {
+          type: 'address',
+        }),
+        nativeToScVal(1, { type: 'u32' }),
+        nativeToScVal(new Uint8Array(32)),
+      ]);
+    event.body().v0().data(nativeToScVal({}));
+    getTransactions.mockImplementation(async (query) =>
+      query.pagination?.cursor ? page([]) : page([malformed]),
+    );
+    await expect(run()).rejects.toThrow(/Invalid event/);
+    expect(store.events).toEqual([]);
+    expect(store.streams.size).toBe(0);
+  });
   it('does not write a response returned after cancellation', async () => {
     getTransactions.mockImplementation(async () => {
       stopped = true;

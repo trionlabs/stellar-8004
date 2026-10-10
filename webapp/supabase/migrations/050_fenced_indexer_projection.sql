@@ -240,6 +240,9 @@ BEGIN
   WHEN 'ValidationRequest', 'ValidationResponse' THEN
     SELECT * INTO v FROM public.validations WHERE request_hash=e->>'requestHash';
     IF typ='ValidationRequest' THEN
+      IF jsonb_typeof(e->'requestUri') IS DISTINCT FROM 'string' THEN
+        RAISE EXCEPTION 'invalid validation request URI';
+      END IF;
       IF FOUND THEN
         IF v.request_event IS NULL THEN RAISE EXCEPTION 'legacy provenance: validation'; END IF;
         IF v.request_event <> pos OR v.agent_id <> agent THEN RAISE EXCEPTION 'conflicting validation identity'; END IF;

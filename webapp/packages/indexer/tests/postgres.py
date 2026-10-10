@@ -107,6 +107,17 @@ class ProjectionTest(unittest.TestCase):
     def register(self):
         self.commit([packet('Registered', 1, owner='owner', agentUri='initial')])
 
+    def test_validation_request_requires_a_text_uri_before_acknowledging_progress(self):
+        self.register()
+        for fields in [{}, {'requestUri': None}, {'requestUri': False}, {'requestUri': 42}]:
+            with self.subTest(fields=fields):
+                request = packet('ValidationRequest', 2, validatorAddress='validator', requestHash='hash', **fields)
+                self.commit([request], progress={'lastLedger': 100}, error='invalid validation request URI')
+                self.assertEqual(self.psql('SELECT count(*) FROM validations'), '0')
+                self.assertEqual(self.psql("SELECT last_ledger FROM indexer_state WHERE id='identity'"), '99')
+        self.commit([packet('ValidationRequest', 2, validatorAddress='validator', requestHash='hash', requestUri='')])
+        self.assertEqual(self.psql('SELECT count(*) FROM validations'), '1')
+
     def test_registration_initial_claims_precede_registered_on_chain(self):
         self.commit([packet('AgentWalletSet', 1, newWallet='initial-wallet'),
                      packet('MetadataSet', 2, key='initial-key', value='initial-value'),
@@ -274,7 +285,7 @@ class ProjectionTest(unittest.TestCase):
         self.register()
         self.commit([packet('FeedbackRevoked', 4, clientAddress='client', feedbackIndex='1')], error='missing prerequisite')
         self.commit([packet('ValidationResponse', 4, requestHash='a'*64, response=20)], error='missing prerequisite')
-        self.commit([packet('ValidationRequest', 2, requestHash='a'*64, validatorAddress='validator')])
+        self.commit([packet('ValidationRequest', 2, requestHash='a'*64, validatorAddress='validator', requestUri='')])
         self.commit([packet('ValidationResponse', 5, requestHash='a'*64, validatorAddress='validator', response=90), packet('ValidationResponse', 4, requestHash='a'*64, validatorAddress='validator', response=20)])
         self.assertEqual(self.psql('SELECT response FROM validations;'), '90')
 

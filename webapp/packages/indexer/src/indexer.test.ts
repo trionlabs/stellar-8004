@@ -67,6 +67,31 @@ beforeEach(() => {
   getEvents.mockResolvedValue(page([]));
 });
 describe('bounded live indexing', () => {
+  it('retains the validation checkpoint when a recognized request has no body', async () => {
+    const malformed = event(1);
+    malformed.contractId = new Contract(config.contracts.validation);
+    malformed.topic = [
+      nativeToScVal('validation_request', { type: 'symbol' }),
+      nativeToScVal('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', {
+        type: 'address',
+      }),
+      nativeToScVal(1, { type: 'u32' }),
+      nativeToScVal(new Uint8Array(32)),
+    ];
+    malformed.value = nativeToScVal(null);
+    getEvents.mockImplementation(async (query) =>
+      query.limit !== 1 &&
+      !query.cursor &&
+      query.filters[0].contractIds![0] === config.contracts.validation
+        ? page([malformed])
+        : page([]),
+    );
+    const result = await run();
+    expect(result.contracts.validation.errors).toBe(1);
+    expect(result.contracts.validation.lastLedger).toBe(0);
+    expect(store.streams.has('live:validation')).toBe(false);
+    expect(store.events).toEqual([]);
+  });
   it('does not skip a later event beyond RPC’s 10,000-ledger scan window', async () => {
     const later = { ...event(1), ledger: 15000, id: canonicalEventId(15000, 1, 0, 1) };
     getEvents.mockImplementation(async (q) => {

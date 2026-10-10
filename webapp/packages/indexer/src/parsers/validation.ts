@@ -1,7 +1,14 @@
 import { scValToNative } from '@stellar/stellar-sdk';
 import type { rpc } from '@stellar/stellar-sdk';
 
-import { isValidStellarAddress, parseEventData, toHex, toSafeInteger, toText } from '../helpers.js';
+import {
+  bytesToUtf8,
+  isValidStellarAddress,
+  parseEventData,
+  toHex,
+  toSafeInteger,
+  toText,
+} from '../helpers.js';
 
 // Spec compliance pass: ERC-8004 spec event names are `ValidationRequest` and
 // `ValidationResponse` (no past-tense suffix). Renamed from the previous
@@ -31,9 +38,7 @@ export interface ValidationResponseEvent {
   txHash: string;
 }
 
-export type ValidationEvent =
-  | ValidationRequestEvent
-  | ValidationResponseEvent;
+export type ValidationEvent = ValidationRequestEvent | ValidationResponseEvent;
 
 export const VALIDATION_EVENT_NAMES: ReadonlySet<string> = new Set([
   'validation_request',
@@ -82,7 +87,9 @@ function parseValidationEventInner(
       return {
         type: 'ValidationRequest',
         ...base,
-        requestUri: toText(data.request_uri),
+        // The contract always emits this field. An explicit empty URI is valid;
+        // missing or non-text data must not become an invented empty string.
+        requestUri: bytesToUtf8(data.request_uri),
       };
     }
 
