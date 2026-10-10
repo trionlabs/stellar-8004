@@ -54,7 +54,7 @@ export function toText(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'string') return value;
   if (value instanceof Uint8Array) return utf8Decoder.decode(value);
-  return String(value);
+  throw new TypeError(`toText: expected string or Uint8Array, got ${typeof value}`);
 }
 
 /**
@@ -77,9 +77,9 @@ export function toBigInt(val: unknown, fieldName: string): bigint {
   if (typeof val === 'number') {
     // Guard against non-integer numbers: BigInt(1.5) throws a RangeError that
     // would otherwise surface as an opaque parse failure. Reject explicitly.
-    if (!Number.isInteger(val)) {
+    if (!Number.isSafeInteger(val)) {
       throw new TypeError(
-        `toBigInt: expected an integer for ${fieldName}, got ${val}`,
+        `toBigInt: expected an integer for ${fieldName} within the safe numeric range, got ${val}`,
       );
     }
     return BigInt(val);
@@ -88,6 +88,16 @@ export function toBigInt(val: unknown, fieldName: string): bigint {
   throw new TypeError(
     `toBigInt: expected bigint/number for ${fieldName}, got ${typeof val}`,
   );
+}
+
+/** Convert a native ScVal integer without coercing booleans or text. */
+export function toSafeInteger(value: unknown, fieldName: string): number {
+  const integer = toBigInt(value, fieldName);
+  const result = Number(integer);
+  if (!Number.isSafeInteger(result)) {
+    throw new TypeError(`Expected a safe integer for ${fieldName}`);
+  }
+  return result;
 }
 
 /**

@@ -9,6 +9,7 @@ import {
   parseEventData,
   toBigInt,
   toHex,
+  toSafeInteger,
   toText,
 } from '../helpers.ts';
 
@@ -73,6 +74,12 @@ export type ReputationEvent =
   | FeedbackRevokedEvent
   | ResponseAppendedEvent;
 
+export const REPUTATION_EVENT_NAMES: ReadonlySet<string> = new Set([
+  'new_feedback',
+  'feedback_revoked',
+  'response_appended',
+]);
+
 export function parseReputationEvent(
   event: rpc.Api.GetEventsResponse['events'][number],
 ): ReputationEvent | null {
@@ -91,7 +98,7 @@ function parseReputationEventInner(
   if (!event.topic || event.topic.length < 3) return null;
 
   const eventName = scValToNative(event.topic[0]) as string;
-  const agentId = Number(scValToNative(event.topic[1]));
+  const agentId = toSafeInteger(scValToNative(event.topic[1]), 'agent_id');
   if (!Number.isSafeInteger(agentId) || agentId < 0) return null;
   const clientAddress = String(scValToNative(event.topic[2]));
   if (!isValidStellarAddress(clientAddress)) return null;
@@ -112,7 +119,7 @@ function parseReputationEventInner(
       const data = parseEventData(scValToNative(event.value));
       const feedbackIndex = toBigInt(data.feedback_index, 'feedback_index');
       if (feedbackIndex < 1n) return null;
-      const valueDecimals = Number(data.value_decimals ?? 0);
+      const valueDecimals = toSafeInteger(data.value_decimals ?? 0, 'value_decimals');
       if (!Number.isInteger(valueDecimals) || valueDecimals < 0 || valueDecimals > 18) {
         return null;
       }

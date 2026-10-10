@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { nativeToScVal } from '@stellar/stellar-sdk';
 
 const mocks = vi.hoisted(() => ({
   config: {
@@ -32,11 +33,10 @@ const mocks = vi.hoisted(() => ({
   parseValidationEvent: vi.fn(),
 }));
 
-vi.mock('@stellar/stellar-sdk', () => ({
-  rpc: {
-    Server: mocks.serverCtor,
-  },
-}));
+vi.mock('@stellar/stellar-sdk', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@stellar/stellar-sdk')>();
+  return { ...actual, rpc: { ...actual.rpc, Server: mocks.serverCtor } };
+});
 
 vi.mock('./config.js', () => ({
   getConfig: vi.fn(() => mocks.config),
@@ -60,14 +60,17 @@ vi.mock('./db.js', () => ({
 }));
 
 vi.mock('./parsers/identity.js', () => ({
+  IDENTITY_EVENT_NAMES: new Set(['registered', 'uri_updated', 'metadata_set', 'agent_wallet_set', 'agent_wallet_unset', 'transfer']),
   parseIdentityEvent: mocks.parseIdentityEvent,
 }));
 
 vi.mock('./parsers/reputation.js', () => ({
+  REPUTATION_EVENT_NAMES: new Set(['new_feedback', 'feedback_revoked', 'response_appended']),
   parseReputationEvent: mocks.parseReputationEvent,
 }));
 
 vi.mock('./parsers/validation.js', () => ({
+  VALIDATION_EVENT_NAMES: new Set(['validation_request', 'validation_response']),
   parseValidationEvent: mocks.parseValidationEvent,
 }));
 
@@ -767,7 +770,66 @@ describe('runIndexer', () => {
     expect(release?.[1]?.p_owner).toBe(acquire?.[1]?.p_owner);
   });
 
-  it('logs a warning when parser returns null', async () => {
+  it('retains coverage for a recognized malformed event instead of silently dropping it', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.getCheckpointState.mockImplementation((_db: unknown, name: string) => Promise.resolve({
+      lastLedger: name === 'identity' ? 10 : 20, expectedNext: null, deferAttempts: 7,
+    }));
+    mocks.parseIdentityEvent.mockReturnValue(null);
+    mocks.getEvents.mockResolvedValue({
+      events: [{ id: 'evt-bad', ledger: 15, topic: [nativeToScVal('registered', { type: 'symbol' })], inSuccessfulContractCall: true }],
+      oldestLedger: 1,
+    });
+
+    const result = await runIndexer();
+
+    expect(result.errors).toBe(1);
+    expect(result.processed).toBe(0);
+    expect(result.skippedEvents).toBe(0);
+    expect(result.contracts.identity.lastLedger).toBe(10);
+    expect(mocks.updateCheckpoint).toHaveBeenCalledWith(mocks.db, 'identity', 10, undefined, 7, false);
+    expect(mocks.writeIdentityEvent).not.toHaveBeenCalled();
+  });
+
+  it('retains coverage when a later page is invalid after earlier writes succeeded', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.getCheckpointState.mockImplementation((_db: unknown, name: string) => Promise.resolve({
+      lastLedger: name === 'identity' ? 10 : 20, expectedNext: null, deferAttempts: 0,
+    }));
+    mocks.parseIdentityEvent.mockImplementation((event) => event.id === 'good' ? { type: 'Registered' } : null);
+    mocks.getEvents.mockImplementation((request) => Promise.resolve(request.limit === 1
+      ? { events: [], oldestLedger: 1 }
+      : {
+        events: [{ id: request.cursor ? 'bad' : 'good', ledger: request.cursor ? 15 : 14,
+          topic: [nativeToScVal('registered', { type: 'symbol' })], inSuccessfulContractCall: true }],
+        cursor: request.cursor ? undefined : 'page-two', oldestLedger: 1,
+      }));
+
+    const result = await runIndexer();
+
+    expect(result.processed).toBe(1);
+    expect(result.errors).toBe(1);
+    expect(result.contracts.identity.lastLedger).toBe(10);
+    expect(mocks.updateCheckpoint).toHaveBeenCalledWith(mocks.db, 'identity', 10, undefined, 0, false);
+  });
+
+  it('does not persist events from unsuccessful contract calls', async () => {
+    mocks.getEvents.mockResolvedValue({
+      events: [{ id: 'evt-failed', ledger: 15, topic: [nativeToScVal('registered', { type: 'symbol' })], inSuccessfulContractCall: false }],
+      oldestLedger: 1,
+    });
+    mocks.parseIdentityEvent.mockReturnValue({ type: 'Registered' });
+
+    const result = await runIndexer();
+
+    expect(result.processed).toBe(0);
+    expect(result.errors).toBe(0);
+    expect(mocks.writeIdentityEvent).not.toHaveBeenCalled();
+    expect(mocks.writeReputationEvent).not.toHaveBeenCalled();
+    expect(mocks.writeValidationEvent).not.toHaveBeenCalled();
+  });
+
+  it('ignores unrelated contract events when the parser returns null', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     mocks.parseIdentityEvent.mockReturnValue(null);
@@ -776,7 +838,7 @@ describe('runIndexer', () => {
 
     mocks.getEvents.mockResolvedValue({
       events: [
-        { id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true },
+        { id: 'evt-1', ledger: 15, topic: [nativeToScVal('unrelated', { type: 'symbol' })], inSuccessfulContractCall: true },
       ],
       cursor: undefined,
     });
@@ -788,7 +850,7 @@ describe('runIndexer', () => {
 
     const warnCall = (console.warn as ReturnType<typeof vi.fn>).mock.calls[0][0];
     const logEntry = JSON.parse(warnCall);
-    expect(logEntry.msg).toBe('Skipped unparseable event');
+    expect(logEntry.msg).toBe('Ignored unrelated contract event');
     expect(logEntry.contract).toBe('identity');
   });
 });

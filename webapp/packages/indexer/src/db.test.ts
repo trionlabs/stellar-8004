@@ -103,14 +103,14 @@ describe('writeIdentityEvent', () => {
     expect((upsert?.payload as { resolve_uri_pending?: boolean }).resolve_uri_pending).toBe(false);
   });
 
-  it('skips a malformed Registered event without writing', async () => {
+  it('rejects a malformed Registered event without writing', async () => {
     const { db, calls } = fakeDb();
-    await writeIdentityEvent(db, {
+    await expect(writeIdentityEvent(db, {
       type: 'Registered',
       ...base,
       owner: '',
       agentUri: '',
-    });
+    })).rejects.toThrow('Malformed Registered event');
 
     expect(calls).toHaveLength(0);
   });
@@ -153,14 +153,14 @@ describe('writeIdentityEvent', () => {
     expect(calls.some((c) => c.op === 'update' || c.op === 'delete')).toBe(false);
   });
 
-  it('skips an AgentTransferred missing the recipient without writing', async () => {
+  it('rejects an AgentTransferred missing the recipient without writing', async () => {
     const { db, calls } = fakeDb();
-    await writeIdentityEvent(db, {
+    await expect(writeIdentityEvent(db, {
       type: 'AgentTransferred',
       ...base,
       from: 'GFROM',
       to: '',
-    });
+    })).rejects.toThrow('Malformed AgentTransferred event');
 
     expect(calls).toHaveLength(0);
   });
@@ -484,11 +484,20 @@ describe('bulk writers (homogeneous-page fast path)', () => {
     expect(rows[0].value).toBe('99');
   });
 
-  it('writes nothing when every event is malformed', async () => {
+  it('rejects malformed bulk input rather than silently dropping its rows', async () => {
     const { db, calls } = fakeDb();
-    await bulkUpsertNewFeedback(db, [
+    await expect(bulkUpsertNewFeedback(db, [
       { ...fb, agentId: 1, clientAddress: '', feedbackIndex: 1n, value: 10n },
-    ]);
+    ])).rejects.toThrow('Malformed NewFeedback event');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('rejects an entire mixed bulk input before persisting its valid subset', async () => {
+    const { db, calls } = fakeDb();
+    await expect(bulkUpsertNewFeedback(db, [
+      { ...fb, agentId: 1, clientAddress: 'GA', feedbackIndex: 1n, value: 10n },
+      { ...fb, agentId: 2, clientAddress: '', feedbackIndex: 1n, value: 20n },
+    ])).rejects.toThrow('Malformed NewFeedback event');
     expect(calls).toHaveLength(0);
   });
 

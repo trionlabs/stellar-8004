@@ -1,7 +1,7 @@
 import { scValToNative } from '@stellar/stellar-sdk';
 import type { rpc } from '@stellar/stellar-sdk';
 
-import { bytesToUtf8, isValidStellarAddress, parseEventData, toText } from '../helpers.js';
+import { bytesToUtf8, isValidStellarAddress, parseEventData, toSafeInteger, toText } from '../helpers.js';
 
 export interface RegisteredEvent {
   type: 'Registered';
@@ -86,6 +86,15 @@ export type IdentityEvent =
 
 const AGENT_WALLET_KEY = 'agentWallet';
 
+export const IDENTITY_EVENT_NAMES: ReadonlySet<string> = new Set([
+  'registered',
+  'uri_updated',
+  'metadata_set',
+  'agent_wallet_set',
+  'agent_wallet_unset',
+  'transfer',
+]);
+
 export function parseIdentityEvent(
   event: rpc.Api.GetEventsResponse['events'][number],
 ): IdentityEvent | null {
@@ -119,7 +128,7 @@ function parseIdentityEventInner(
     const to = String(scValToNative(event.topic[2]));
     if (!isValidStellarAddress(from) || !isValidStellarAddress(to)) return null;
     const data = parseEventData(scValToNative(event.value));
-    const tokenId = Number(data.token_id);
+    const tokenId = toSafeInteger(data.token_id, 'token_id');
     if (!Number.isSafeInteger(tokenId) || tokenId < 0) return null;
     return {
       type: 'AgentTransferred',
@@ -132,7 +141,7 @@ function parseIdentityEventInner(
     };
   }
 
-  const agentId = Number(scValToNative(event.topic[1]));
+  const agentId = toSafeInteger(scValToNative(event.topic[1]), 'agent_id');
   if (!Number.isSafeInteger(agentId) || agentId < 0) return null;
 
   const base = {
@@ -153,7 +162,7 @@ function parseIdentityEventInner(
         type: 'Registered',
         ...base,
         owner,
-        agentUri: toText(data.agent_uri),
+        agentUri: bytesToUtf8(data.agent_uri),
       };
     }
 
@@ -167,7 +176,7 @@ function parseIdentityEventInner(
         type: 'UriUpdated',
         ...base,
         updatedBy,
-        newUri: toText(data.new_uri),
+        newUri: bytesToUtf8(data.new_uri),
       };
     }
 

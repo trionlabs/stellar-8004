@@ -1,7 +1,7 @@
 import { scValToNative } from '@stellar/stellar-sdk';
 import type { rpc } from '@stellar/stellar-sdk';
 
-import { isValidStellarAddress, parseEventData, toHex, toText } from '../helpers.js';
+import { isValidStellarAddress, parseEventData, toHex, toSafeInteger, toText } from '../helpers.js';
 
 // Spec compliance pass: ERC-8004 spec event names are `ValidationRequest` and
 // `ValidationResponse` (no past-tense suffix). Renamed from the previous
@@ -35,6 +35,11 @@ export type ValidationEvent =
   | ValidationRequestEvent
   | ValidationResponseEvent;
 
+export const VALIDATION_EVENT_NAMES: ReadonlySet<string> = new Set([
+  'validation_request',
+  'validation_response',
+]);
+
 export function parseValidationEvent(
   event: rpc.Api.GetEventsResponse['events'][number],
 ): ValidationEvent | null {
@@ -55,7 +60,7 @@ function parseValidationEventInner(
   const eventName = scValToNative(event.topic[0]) as string;
   const validatorAddress = String(scValToNative(event.topic[1]));
   if (!isValidStellarAddress(validatorAddress)) return null;
-  const agentId = Number(scValToNative(event.topic[2]));
+  const agentId = toSafeInteger(scValToNative(event.topic[2]), 'agent_id');
   if (!Number.isSafeInteger(agentId) || agentId < 0) return null;
   // Spec compliance pass: `request_hash` is now an indexed topic at index 3.
   const requestHash = toHex(scValToNative(event.topic[3]));
@@ -88,7 +93,7 @@ function parseValidationEventInner(
       // unparseable (drop the event). The caller logs the skip.
       if (data.response == null) return null;
 
-      const response = Number(data.response);
+      const response = toSafeInteger(data.response, 'response');
       if (!Number.isInteger(response) || response < 0 || response > 100) {
         return null;
       }

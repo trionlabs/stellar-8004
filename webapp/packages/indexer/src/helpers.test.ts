@@ -20,6 +20,12 @@ describe('toText', () => {
   });
 });
 
+describe('text payload types', () => {
+  it.each([false, 12, { uri: 'ipfs://x' }])('rejects %s instead of inventing event text', (value) => {
+    expect(() => toText(value)).toThrow();
+  });
+});
+
 describe('toBigInt', () => {
   it('passes a bigint through unchanged', () => {
     expect(toBigInt(5n, 'value')).toBe(5n);
@@ -27,6 +33,10 @@ describe('toBigInt', () => {
 
   it('converts an integer number to bigint', () => {
     expect(toBigInt(42, 'value')).toBe(42n);
+  });
+
+  it('rejects an unsafe number rather than certifying already rounded input', () => {
+    expect(() => toBigInt(Number.MAX_SAFE_INTEGER + 1, 'value')).toThrow();
   });
 
   it('rejects a non-integer number with a clear error', () => {

@@ -22,15 +22,15 @@ import {
   writeValidationEvent,
 } from './db.ts';
 import { log } from './logger.ts';
-import { parseIdentityEvent } from './parsers/identity.ts';
-import { parseReputationEvent } from './parsers/reputation.ts';
-import { parseValidationEvent } from './parsers/validation.ts';
+import { interpretEvent, type EventInterpretation } from './event-interpretation.ts';
+import { IDENTITY_EVENT_NAMES, parseIdentityEvent } from './parsers/identity.ts';
+import { REPUTATION_EVENT_NAMES, parseReputationEvent } from './parsers/reputation.ts';
+import { VALIDATION_EVENT_NAMES, parseValidationEvent } from './parsers/validation.ts';
 import { withRetry } from './retry.ts';
 
 /**
- * Runtime handler for a single contract. `process` parses one raw RPC event
- * and persists it, returning the event's discriminant `type` for counting (or
- * `null` when the event was unparseable and skipped). The parser→writer type
+ * Runtime handler for a single contract. Interpretation distinguishes parsed,
+ * unrelated and invalid input before any page writes. The parser→writer type
  * linkage is bound inside {@link defineContract}, so a handler whose writer
  * does not accept its parser's output fails to compile.
  */
@@ -38,8 +38,8 @@ interface ContractHandler {
   name: string;
   contractId: string;
   affectsLeaderboard: boolean;
-  /** Parse one raw event (no write); `null` when unparseable/skipped. */
-  parse: (event: rpc.Api.EventResponse) => { type: string } | null;
+  /** Interpret one raw event without hiding malformed recognized input. */
+  parse: (event: rpc.Api.EventResponse) => EventInterpretation<{ type: string }>;
   /** Persist one already-parsed event via its bound writer. */
   writeOne: (db: SupabaseClient, parsed: { type: string }) => Promise<void>;
   /** Event types this handler can bulk-upsert in a single round-trip. */
@@ -63,6 +63,7 @@ function defineContract<E extends { type: string }>(cfg: {
   contractId: string;
   affectsLeaderboard: boolean;
   parser: (event: rpc.Api.EventResponse) => E | null;
+  eventNames: ReadonlySet<string>;
   writer: (db: SupabaseClient, event: E) => Promise<void>;
   /**
    * Optional per-type bulk writers. A type present here is eligible for the
@@ -78,7 +79,7 @@ function defineContract<E extends { type: string }>(cfg: {
     name: cfg.name,
     contractId: cfg.contractId,
     affectsLeaderboard: cfg.affectsLeaderboard,
-    parse: cfg.parser as (event: rpc.Api.EventResponse) => { type: string } | null,
+    parse: (event) => interpretEvent(event, cfg.eventNames, cfg.parser),
     writeOne: cfg.writer as (db: SupabaseClient, parsed: { type: string }) => Promise<void>,
     bulkTypes: new Set(Object.keys(bulkWriters)),
     async bulkWrite(db, type, events) {
@@ -212,6 +213,7 @@ async function runIndexerLoop(
       contractId: config.contracts.identity,
       affectsLeaderboard: false,
       parser: parseIdentityEvent,
+      eventNames: IDENTITY_EVENT_NAMES,
       writer: writeIdentityEvent,
       // Registered / MetadataSet are pure upserts; the RMW types (UriUpdated,
       // AgentWalletSet/Unset, AgentTransferred) stay on the per-event path.
@@ -225,6 +227,7 @@ async function runIndexerLoop(
       contractId: config.contracts.reputation,
       affectsLeaderboard: true,
       parser: parseReputationEvent,
+      eventNames: REPUTATION_EVENT_NAMES,
       writer: writeReputationEvent,
       // FeedbackRevoked (update) / ResponseAppended (rpc) stay per-event.
       bulkWriters: {
@@ -236,6 +239,7 @@ async function runIndexerLoop(
       contractId: config.contracts.validation,
       affectsLeaderboard: true,
       parser: parseValidationEvent,
+      eventNames: VALIDATION_EVENT_NAMES,
       writer: writeValidationEvent,
       // ValidationResponse (update) stays per-event.
       bulkWriters: {
@@ -397,6 +401,7 @@ async function runIndexerLoop(
     // error), as opposed to a write defer. Fetch failures must not increment
     // the diagnostic write-defer counter.
     let fetchFailed = false;
+    let interpretationFailed = false;
 
     log({
       level: 'info',
@@ -460,7 +465,24 @@ async function runIndexerLoop(
       // is never checkpoint-skipped.
       // Parse the page once; the result feeds BOTH the fast path and the
       // per-event fallback, so a parser is never invoked twice for an event.
-      const parsedPage = response.events.map((ev) => contract.parse(ev));
+      const interpretations = response.events.map((ev) => contract.parse(ev));
+      const invalidIndex = interpretations.findIndex((item) => item.status === 'invalid');
+      if (invalidIndex !== -1) {
+        const invalid = interpretations[invalidIndex];
+        log({
+          level: 'error',
+          msg: 'Invalid contract event - retaining checkpoint',
+          contract: contract.name,
+          eventId: response.events[invalidIndex].id,
+          ledger: response.events[invalidIndex].ledger,
+          error: invalid.status === 'invalid' ? invalid.reason : undefined,
+        });
+        contractResult.errors++;
+        interpretationFailed = true;
+        scanCompleted = false;
+        break;
+      }
+      const parsedPage = interpretations.map((item) => item.status === 'parsed' ? item.event : null);
 
       let bulkHandled = false;
       if (response.events.length > 1) {
@@ -499,6 +521,7 @@ async function runIndexerLoop(
         for (let i = 0; i < response.events.length; i++) {
           const event = response.events[i];
           const parsed = parsedPage[i];
+          const interpretation = interpretations[i];
         try {
           // Writer runs for any non-null parse (mirrors the old process()).
           if (parsed != null) {
@@ -516,7 +539,9 @@ async function runIndexerLoop(
           } else {
             log({
               level: 'warn',
-              msg: 'Skipped unparseable event',
+              msg: interpretation.status === 'ignored' && interpretation.reason === 'unsuccessful'
+                ? 'Ignored unsuccessful contract event'
+                : 'Ignored unrelated contract event',
               contract: contract.name,
               eventId: event.id,
               ledger: event.ledger,
@@ -590,7 +615,7 @@ async function runIndexerLoop(
     // counter never authorizes dropping an event.
     const nextDeferAttempts = scanCompleted
       ? 0
-      : deadlineStopped || fetchFailed
+      : deadlineStopped || fetchFailed || interpretationFailed
         ? deferAttempts
         : deferAttempts + 1;
     // Liveness: the checkpoint moved forward only when the new ledger exceeds

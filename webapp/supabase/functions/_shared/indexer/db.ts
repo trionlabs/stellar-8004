@@ -4,7 +4,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { requireEnv } from './env.ts';
-import { log } from './logger.ts';
 import type { IdentityEvent } from './parsers/identity.ts';
 import type { ReputationEvent } from './parsers/reputation.ts';
 import type { ValidationEvent } from './parsers/validation.ts';
@@ -75,18 +74,20 @@ function toDbBigint(value: bigint): string {
   return value.toString();
 }
 
-function logMalformedEvent(
+function rejectMalformedEvent(
   contract: 'identity' | 'reputation' | 'validation',
   eventType: string,
-  payload: unknown,
+): never {
+  throw new IndexerWriteError(`[${contract}] Malformed ${eventType} event`, false);
+}
+
+function assertCompleteBulkInput(
+  events: readonly unknown[],
+  rows: readonly unknown[],
+  contract: 'identity' | 'reputation' | 'validation',
+  eventType: string,
 ): void {
-  log({
-    level: 'error',
-    msg: 'Malformed event payload',
-    contract,
-    event: eventType,
-    payload,
-  });
+  if (rows.length !== events.length) rejectMalformedEvent(contract, eventType);
 }
 
 export function createSupabaseAdmin(): SupabaseClient {
@@ -203,8 +204,7 @@ export async function writeIdentityEvent(
   switch (event.type) {
     case 'Registered': {
       if (event.agentId == null || !event.owner) {
-        logMalformedEvent('identity', 'Registered', event);
-        return;
+        rejectMalformedEvent('identity', 'Registered');
       }
 
       const shouldResolveUri =
@@ -240,8 +240,7 @@ export async function writeIdentityEvent(
       // UriUpdated can no longer wipe data resolved from a newer URI. We do NOT
       // rely on RPC ledger-ordering for correctness.
       if (event.agentId == null || !event.newUri) {
-        logMalformedEvent('identity', 'UriUpdated', event);
-        return;
+        rejectMalformedEvent('identity', 'UriUpdated');
       }
 
       const result = await db
@@ -264,8 +263,7 @@ export async function writeIdentityEvent(
 
     case 'MetadataSet': {
       if (event.agentId == null || !event.key) {
-        logMalformedEvent('identity', 'MetadataSet', event);
-        return;
+        rejectMalformedEvent('identity', 'MetadataSet');
       }
 
       const value =
@@ -297,8 +295,7 @@ export async function writeIdentityEvent(
       // wallet column gets a clean update path. The raw on-chain event is
       // still MetadataSet for cross-chain subscribers.
       if (event.agentId == null || !event.newWallet) {
-        logMalformedEvent('identity', 'AgentWalletSet', event);
-        return;
+        rejectMalformedEvent('identity', 'AgentWalletSet');
       }
 
       const result = await db
@@ -317,8 +314,7 @@ export async function writeIdentityEvent(
       // with empty bytes on transfer (and `unsetAgentWallet` does the
       // same).
       if (event.agentId == null) {
-        logMalformedEvent('identity', 'AgentWalletUnset', event);
-        return;
+        rejectMalformedEvent('identity', 'AgentWalletUnset');
       }
 
       const result = await db
@@ -343,8 +339,7 @@ export async function writeIdentityEvent(
       // state. `wallet: null` is set redundantly (the AgentWalletUnset from the
       // same tx already nulls it) for ordering/idempotency safety.
       if (event.agentId == null || !event.to) {
-        logMalformedEvent('identity', 'AgentTransferred', event);
-        return;
+        rejectMalformedEvent('identity', 'AgentTransferred');
       }
 
       // Single transaction (migration 047): the owner change + metadata clear
@@ -371,8 +366,7 @@ export async function writeReputationEvent(
   switch (event.type) {
     case 'NewFeedback': {
       if (event.agentId == null || !event.clientAddress) {
-        logMalformedEvent('reputation', 'NewFeedback', event);
-        return;
+        rejectMalformedEvent('reputation', 'NewFeedback');
       }
 
       const result = await db.from('feedback').upsert(
@@ -403,8 +397,7 @@ export async function writeReputationEvent(
 
     case 'FeedbackRevoked': {
       if (event.agentId == null || !event.clientAddress) {
-        logMalformedEvent('reputation', 'FeedbackRevoked', event);
-        return;
+        rejectMalformedEvent('reputation', 'FeedbackRevoked');
       }
 
       // Ledger-guarded (revoked_ledger, migration 046): monotonic + reorder-safe.
@@ -430,8 +423,7 @@ export async function writeReputationEvent(
         !event.clientAddress ||
         !event.responder
       ) {
-        logMalformedEvent('reputation', 'ResponseAppended', event);
-        return;
+        rejectMalformedEvent('reputation', 'ResponseAppended');
       }
 
       const result = await db.rpc('insert_feedback_response', {
@@ -464,8 +456,7 @@ export async function writeValidationEvent(
       // Spec compliance pass: renamed from `ValidationRequested` to match
       // the ERC-8004 `ValidationRequest` event name (no past-tense suffix).
       if (!event.requestHash || event.agentId == null || !event.validatorAddress) {
-        logMalformedEvent('validation', 'ValidationRequest', event);
-        return;
+        rejectMalformedEvent('validation', 'ValidationRequest');
       }
 
       const result = await db.from('validations').upsert(
@@ -495,8 +486,7 @@ export async function writeValidationEvent(
       // monotonic — a stale/replayed older response can no longer clobber a
       // newer one; we do NOT rely on RPC ledger-ordering for correctness.
       if (!event.requestHash || event.response == null) {
-        logMalformedEvent('validation', 'ValidationResponse', event);
-        return;
+        rejectMalformedEvent('validation', 'ValidationResponse');
       }
 
       const result = await db
@@ -531,8 +521,8 @@ export async function writeValidationEvent(
 // the whole page into ONE multi-row upsert via these variants, cutting the
 // round-trips ~page-size-fold. The indexer only calls a bulk writer when every
 // event on the page parsed to that type; on any failure it falls back to the
-// per-event path (which keeps FK-defer / skip-after-N handling and re-applies
-// idempotently, since a failed PostgREST statement rolls back wholesale).
+// per-event path, retaining the checkpoint on failure. Earlier committed
+// chunks can be replayed; mutable writers own the required ordering guards.
 
 type RegisteredEvent = Extract<IdentityEvent, { type: 'Registered' }>;
 type MetadataSetEvent = Extract<IdentityEvent, { type: 'MetadataSet' }>;
@@ -590,6 +580,7 @@ export async function bulkUpsertRegistered(
       created_ledger: e.ledger,
       tx_hash: e.txHash,
     }));
+  assertCompleteBulkInput(events, rows, 'identity', 'Registered');
   if (rows.length === 0) return;
   const deduped = dedupeKeepLast(rows, (r) => String(r.id));
   // ignoreDuplicates mirrors the per-event Registered path: a replay must not
@@ -614,6 +605,7 @@ export async function bulkUpsertMetadataSet(
       key: e.key,
       value: typeof e.value === 'string' ? e.value : utf8Decoder.decode(e.value),
     }));
+  assertCompleteBulkInput(events, rows, 'identity', 'MetadataSet');
   if (rows.length === 0) return;
   const deduped = dedupeKeepLast(rows, (r) => `${r.agent_id}:${r.key}`);
   await upsertChunked(
@@ -649,6 +641,7 @@ export async function bulkUpsertNewFeedback(
       created_ledger: e.ledger,
       tx_hash: e.txHash,
     }));
+  assertCompleteBulkInput(events, rows, 'reputation', 'NewFeedback');
   if (rows.length === 0) return;
   const deduped = dedupeKeepLast(
     rows,
@@ -683,6 +676,7 @@ export async function bulkUpsertValidationRequest(
       created_at: e.ledgerClosedAt,
       request_tx_hash: e.txHash,
     }));
+  assertCompleteBulkInput(events, rows, 'validation', 'ValidationRequest');
   if (rows.length === 0) return;
   const deduped = dedupeKeepLast(rows, (r) => String(r.request_hash));
   await upsertChunked(
