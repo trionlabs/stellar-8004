@@ -1,4 +1,4 @@
-import { Address, nativeToScVal } from '@stellar/stellar-sdk';
+import { Address, nativeToScVal, xdr } from '@stellar/stellar-sdk';
 import { describe, expect, it } from 'vitest';
 
 import { interpretEvent } from './event-interpretation.js';
@@ -132,6 +132,34 @@ describe('event interpretation with real ScVal parsers', () => {
     expect(interpretEvent(raw, VALIDATION_EVENT_NAMES, parseValidationEvent)).toMatchObject({
       status: 'parsed',
       event: { type: 'ValidationRequest', requestUri: '' },
+    });
+  });
+
+  it.each([
+    { label: 'UTF-8 bytes', uri: nativeToScVal(new TextEncoder().encode('ipfs://request')) },
+    { label: 'invalid UTF-8 bytes', uri: nativeToScVal(new Uint8Array([255])) },
+    {
+      label: 'address',
+      uri: new Address('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF').toScVal(),
+    },
+    { label: 'symbol', uri: nativeToScVal('request', { type: 'symbol' }) },
+  ])('rejects a validation request URI encoded as $label', ({ uri }) => {
+    const raw = mockEvent({
+      topics: [
+        'validation_request',
+        new Address('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF'),
+        1,
+        new Uint8Array(32),
+      ],
+    });
+    raw.value = xdr.ScVal.scvMap([
+      new xdr.ScMapEntry({
+        key: nativeToScVal('request_uri', { type: 'symbol' }),
+        val: uri,
+      }),
+    ]);
+    expect(interpretEvent(raw, VALIDATION_EVENT_NAMES, parseValidationEvent)).toMatchObject({
+      status: 'invalid',
     });
   });
 

@@ -82,14 +82,20 @@ function parseValidationEventInner(
 
   switch (eventName) {
     case 'validation_request': {
-      const data = parseEventData(scValToNative(event.value));
+      const requestUri = event.value
+        .map()
+        ?.find((entry) => scValToNative(entry.key()) === 'request_uri')
+        ?.val();
+      // Validate before native conversion, which also turns addresses and
+      // symbols into strings and allows bytes to pass through text decoding.
+      if (requestUri?.switch().name !== 'scvString') return null;
 
       return {
         type: 'ValidationRequest',
         ...base,
         // The contract always emits this field. An explicit empty URI is valid;
         // missing or non-text data must not become an invented empty string.
-        requestUri: bytesToUtf8(data.request_uri),
+        requestUri: bytesToUtf8(scValToNative(requestUri)),
       };
     }
 
