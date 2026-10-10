@@ -63,6 +63,25 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+  indexer-db:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PG_BINDIR: /usr/lib/postgresql/17/bin
+    steps:
+      - uses: actions/checkout@v4
+      # Configure PGDG explicitly: the hosted image removes its apt source.
+      # The harness starts a private cluster as the unprivileged runner.
+      - name: Install PostgreSQL 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          printf '%s\n' 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-17
+      - name: Run indexer PostgreSQL integration tests
+        run: python3 webapp/packages/indexer/tests/postgres.py
+
   webapp:
     runs-on: ubuntu-latest
     defaults:
