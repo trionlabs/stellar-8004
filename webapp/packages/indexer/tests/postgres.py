@@ -50,7 +50,7 @@ class ProjectionTest(unittest.TestCase):
         cls.addClassCleanup(cls.stop)
         cls.psql('CREATE ROLE service_role BYPASSRLS; CREATE ROLE anon; CREATE ROLE authenticated; CREATE SCHEMA extensions;')
         # Apply real table migrations; omit unrelated cron, network extensions,
-        # search/leaderboard and publication setup that need a Supabase instance.
+        # search and publication setup that need a Supabase instance.
         for n in ['001', '002', '003', '004', '005', '006', '012', '014']:
             cls.migration(n)
         cls.migration('015', 'CREATE EXTENSION')
@@ -59,7 +59,7 @@ class ProjectionTest(unittest.TestCase):
         for n in ['023', '029']:
             cls.migration(n)
         cls.migration('037', 'CREATE OR REPLACE FUNCTION')
-        for n in ['038', '039', '040', '041', '044', '045', '046', '047', '048']:
+        for n in ['038', '039', '040', '041', '042', '044', '045', '046', '047', '048']:
             cls.migration(n)
         cls.psql('GRANT USAGE ON SCHEMA public TO service_role; GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role; GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;')
         cls.migration('050')
@@ -106,6 +106,15 @@ class ProjectionTest(unittest.TestCase):
 
     def register(self):
         self.commit([packet('Registered', 1, owner='owner', agentUri='initial')])
+
+    def test_forced_historical_refresh_includes_feedback_inside_the_live_throttle_window(self):
+        self.register()
+        self.psql('SET ROLE service_role; SELECT refresh_leaderboard_force();')
+        self.commit([packet('NewFeedback', 2, clientAddress='client', feedbackIndex='1', value='42', valueDecimals=0)])
+        self.psql('SET ROLE service_role; SELECT refresh_leaderboard();')
+        self.assertEqual(self.psql('SELECT feedback_count, total_score FROM leaderboard_scores WHERE agent_id=1'), '0|0.00')
+        self.psql('SET ROLE service_role; SELECT refresh_leaderboard_force();')
+        self.assertEqual(self.psql('SELECT feedback_count, total_score FROM leaderboard_scores WHERE agent_id=1'), '1|42.00')
 
     def test_validation_request_requires_a_text_uri_before_acknowledging_progress(self):
         self.register()

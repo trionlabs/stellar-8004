@@ -48,10 +48,12 @@ export interface CommitResult<S> {
   applied: number;
   superseded: number;
 }
+export type LeaderboardRefreshMode = 'throttled' | 'force';
 export interface ProjectionStore {
   read<S>(id: string, source: string): Promise<Stream<S>>;
   checkpoint(contract: string): Promise<number>;
   missingAgents(ids: readonly number[]): Promise<number[]>;
+  refreshLeaderboard(mode?: LeaderboardRefreshMode): Promise<void>;
   commit<S>(
     stream: Stream<S>,
     events: readonly EventPacket[],
@@ -215,8 +217,10 @@ export class IndexerStore implements ProjectionStore {
     };
   }
 
-  async refreshLeaderboard(): Promise<void> {
-    const query = this.db.rpc('refresh_leaderboard');
+  async refreshLeaderboard(mode: LeaderboardRefreshMode = 'throttled'): Promise<void> {
+    const query = this.db.rpc(
+      mode === 'force' ? 'refresh_leaderboard_force' : 'refresh_leaderboard',
+    );
     checked(await (this.signal ? query.abortSignal(this.signal) : query), 'refresh leaderboard');
   }
 }

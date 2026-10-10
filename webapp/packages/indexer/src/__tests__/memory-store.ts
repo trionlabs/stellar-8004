@@ -1,4 +1,10 @@
-import type { CommitResult, CoverageGap, ProjectionStore, Stream } from '../db.js';
+import type {
+  CommitResult,
+  CoverageGap,
+  LeaderboardRefreshMode,
+  ProjectionStore,
+  Stream,
+} from '../db.js';
 import type { EventPacket } from '../events.js';
 
 /** In-memory orchestration double. SQL semantics are tested by tests/postgres.py. */
@@ -10,6 +16,14 @@ export class MemoryStore implements ProjectionStore {
   agents = new Set<number>();
   failure: Error | null = null;
   afterCommit: (() => void) | undefined;
+  refreshModes: LeaderboardRefreshMode[] = [];
+  refreshFailure: Error | undefined;
+  afterRefresh: (() => void) | undefined;
+  async refreshLeaderboard(mode: LeaderboardRefreshMode = 'throttled'): Promise<void> {
+    this.refreshModes.push(mode);
+    if (this.refreshFailure) throw this.refreshFailure;
+    this.afterRefresh?.();
+  }
   async read<S>(id: string, source: string): Promise<Stream<S>> {
     const row = this.streams.get(id);
     if (row && row.source !== source) throw new Error('source mismatch');

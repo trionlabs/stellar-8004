@@ -1,6 +1,6 @@
 import { Address, nativeToScVal, rpc, xdr } from '@stellar/stellar-sdk';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { indexHistory } from './backfill.js';
+import { indexHistory, type HistoricalState } from './backfill.js';
 import { TESTNET } from './config.js';
 import { MemoryStore } from './__tests__/memory-store.js';
 import fixture from './__tests__/fixtures/rpc29-paired-v4.json';
@@ -70,6 +70,9 @@ function run(targetLedger?: number) {
     { jobId: 'test', startLedger: 10, targetLedger },
   );
 }
+function savedState() {
+  return store.streams.get('backfill:test')?.state as HistoricalState | undefined;
+}
 beforeEach(() => {
   store = new MemoryStore();
   stopped = false;
@@ -83,6 +86,74 @@ beforeEach(() => {
   getTransactions.mockResolvedValue(page([]));
 });
 describe('bounded historical indexing', () => {
+  it('acknowledges completion only after forcing a final leaderboard refresh', async () => {
+    const result = await run();
+    expect(store.refreshModes).toEqual(['force']);
+    expect(savedState()).toMatchObject({ done: true, leaderboardRefreshed: true });
+    expect(result).toMatchObject({ done: true, lastLedger: 11 });
+  });
+  it('retries a failed final refresh without rescanning or replaying completed history', async () => {
+    getTransactions.mockImplementation(async (query) =>
+      query.pagination?.cursor ? page([]) : page([tx(1)]),
+    );
+    store.refreshFailure = new Error('refresh unavailable');
+    await expect(run()).rejects.toThrow(/refresh unavailable/);
+    expect(savedState()).toMatchObject({ done: true, lastLedger: 11 });
+    expect(savedState()?.leaderboardRefreshed).not.toBe(true);
+    const reads = getTransactions.mock.calls.length;
+    store.refreshFailure = undefined;
+    expect(await run()).toMatchObject({ done: true, processed: 0 });
+    expect(store.events).toHaveLength(1);
+    expect(getTransactions).toHaveBeenCalledTimes(reads);
+    expect(store.refreshModes).toEqual(['force', 'force']);
+  });
+  it('resumes the final refresh when the scan uses up its time budget', async () => {
+    store.afterCommit = () => {
+      if (savedState()?.done) stopped = true;
+    };
+    expect(await run()).toMatchObject({ done: false, timedOut: true });
+    expect(store.refreshModes).toEqual([]);
+    stopped = false;
+    store.afterCommit = undefined;
+    getTransactions.mockRejectedValue(new Error('source history has since expired'));
+    expect(await run()).toMatchObject({ done: true, processed: 0 });
+    expect(store.refreshModes).toEqual(['force']);
+    expect(getTransactions).toHaveBeenCalledTimes(1);
+  });
+  it('does not acknowledge a refresh returned after cancellation', async () => {
+    store.afterRefresh = () => {
+      stopped = true;
+    };
+    expect(await run()).toMatchObject({ done: false, timedOut: true });
+    expect(savedState()?.leaderboardRefreshed).not.toBe(true);
+    stopped = false;
+    store.afterRefresh = undefined;
+    expect(await run()).toMatchObject({ done: true });
+    expect(store.refreshModes).toEqual(['force', 'force']);
+  });
+  it('keeps finalization pending if its acknowledgement write fails', async () => {
+    store.afterRefresh = () => {
+      store.failure = new Error('lease lost');
+    };
+    await expect(run()).rejects.toThrow(/lease lost/);
+    expect(savedState()?.leaderboardRefreshed).not.toBe(true);
+    store.failure = null;
+    store.afterRefresh = undefined;
+    expect(await run()).toMatchObject({ done: true, processed: 0 });
+    expect(store.refreshModes).toEqual(['force', 'force']);
+  });
+  it('reloads an acknowledged final refresh after losing its commit response', async () => {
+    store.afterCommit = () => {
+      if (savedState()?.leaderboardRefreshed) throw new Error('response lost');
+    };
+    await expect(run()).rejects.toThrow(/response lost/);
+    expect(savedState()?.leaderboardRefreshed).toBe(true);
+    store.afterCommit = undefined;
+    const reads = getTransactions.mock.calls.length;
+    expect(await run()).toMatchObject({ done: true, processed: 0 });
+    expect(getTransactions).toHaveBeenCalledTimes(reads);
+    expect(store.refreshModes).toEqual(['force']);
+  });
   it('resumes a single transaction larger than one invocation without renumbering or duplicate writes', async () => {
     const large = tx(450);
     getTransactions.mockImplementation(async (q) =>

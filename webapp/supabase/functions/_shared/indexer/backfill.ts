@@ -25,7 +25,10 @@ export interface HistoricalState {
   lastLedger: number;
   resumeLedger: number;
   cursor: string | null;
+  /** Source scan completion, before the final leaderboard rebuild. */
   done: boolean;
+  /** Absent on older jobs; only acknowledged after a forced rebuild succeeds. */
+  leaderboardRefreshed?: boolean;
   after: TransactionPosition | null;
   pending: {
     firstHash: string;
@@ -54,11 +57,9 @@ const BATCH_SIZE = 200;
 
 export async function runBackfill(options: BackfillOptions): Promise<BackfillResult> {
   const config = options.config ?? getConfig();
-  const result = await withIndexerLease(config, 'backfill', options, async (context) => {
-    const result = await indexHistory({ ...context, config }, options);
-    if (result.processed && !context.budget.expired()) await context.store.refreshLeaderboard();
-    return result;
-  });
+  const result = await withIndexerLease(config, 'backfill', options, (context) =>
+    indexHistory({ ...context, config }, options),
+  );
   return (
     result ?? {
       done: false,
@@ -93,6 +94,7 @@ export async function indexHistory(
     pending: null,
     after: null,
     done: false,
+    leaderboardRefreshed: false,
   };
   if (
     !Number.isSafeInteger(state.targetLedger) ||
@@ -103,14 +105,27 @@ export async function indexHistory(
     throw new Error('Backfill target mismatch or unavailable target ledger');
   let processed = 0;
   const result = (): BackfillResult => ({
-    done: state.done,
+    done: state.done && state.leaderboardRefreshed === true,
     processed,
     lastLedger: state.lastLedger,
     targetLedger: state.targetLedger,
   });
-  if (state.done) return result();
+  const finish = async (): Promise<BackfillResult> => {
+    if (state.leaderboardRefreshed !== true) {
+      budget.check();
+      // The scan is already durable. A failed/cancelled refresh or lost receipt
+      // retries this idempotent rebuild without requiring source history again.
+      await store.refreshLeaderboard('force');
+      budget.check();
+      const finalized = { ...state, leaderboardRefreshed: true };
+      stream = (await store.commit(stream, [], finalized)).stream;
+      state = finalized;
+    }
+    return result();
+  };
   const contracts = new Set(Object.values(config.contracts));
   try {
+    if (state.done) return await finish();
     while (!budget.expired()) {
       const response = await rpc.getTransactions(
         state.cursor
@@ -171,7 +186,7 @@ export async function indexHistory(
         if (tx.ledger > state.targetLedger) {
           next = { ...next, lastLedger: state.targetLedger, done: true, pending: null };
           await flush();
-          return result();
+          return await finish();
         }
         // Validate the whole transaction before persisting any of its chunks.
         const packets = parentsFirst(prepareEvents(eventsFromTransaction(tx, contracts), config));
@@ -208,7 +223,7 @@ export async function indexHistory(
         };
       }
       await flush();
-      if (state.done) return result();
+      if (state.done) return await finish();
     }
   } catch (error) {
     if (!(error instanceof BudgetExceeded) && !budget.expired()) throw error;

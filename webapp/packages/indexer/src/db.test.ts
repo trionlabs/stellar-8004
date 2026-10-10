@@ -40,6 +40,20 @@ beforeEach(() => {
   requests = [];
 });
 describe('fenced indexer store', () => {
+  it('forces the historical rebuild while keeping live refreshes throttled', async () => {
+    replies.push({ body: null }, { body: null });
+    const db = store();
+    await db.refreshLeaderboard('force');
+    await db.refreshLeaderboard();
+    expect(requests.map((request) => request.path)).toEqual([
+      '/rest/v1/rpc/refresh_leaderboard_force',
+      '/rest/v1/rpc/refresh_leaderboard',
+    ]);
+  });
+  it('surfaces a failed forced refresh instead of treating it as completion', async () => {
+    replies.push({ status: 500, body: { code: '57014', message: 'refresh timed out' } });
+    await expect(store().refreshLeaderboard('force')).rejects.toThrow(/refresh timed out/);
+  });
   it('passes the lease and deployment into a single atomic event/progress RPC without losing bigint precision', async () => {
     replies.push({ body: { applied: 1, superseded: 0, revision: 4 } });
     const event: EventPacket = {
