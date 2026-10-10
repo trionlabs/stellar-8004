@@ -41,9 +41,12 @@ export const GET: RequestHandler = async ({ url, getClientAddress }) => {
 		return json({ count: null }, { status: 500 });
 	}
 
-	return json({ count }, {
-		headers: {
-			'Cache-Control': 'private, max-age=15'
+	return json(
+		{ count },
+		{
+			headers: {
+				'Cache-Control': 'private, max-age=15'
+			}
 		}
-	});
+	);
 };

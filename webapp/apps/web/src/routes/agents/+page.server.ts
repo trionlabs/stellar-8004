@@ -80,7 +80,13 @@ async function loadScoreMap(
 	);
 }
 
-function normalizeAgentRow(agent: Pick<SearchAgentRow, 'id' | 'owner' | 'agent_uri_data' | 'created_at' | 'supported_trust' | 'services'>, score?: LeaderboardRow | null): AgentListItem {
+function normalizeAgentRow(
+	agent: Pick<
+		SearchAgentRow,
+		'id' | 'owner' | 'agent_uri_data' | 'created_at' | 'supported_trust' | 'services'
+	>,
+	score?: LeaderboardRow | null
+): AgentListItem {
 	return {
 		id: agent.id,
 		name: readUriField(agent.agent_uri_data, 'name') ?? `Agent #${agent.id}`,
@@ -148,7 +154,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			has_services_filter: hasServices ?? undefined,
 			result_limit: perPage,
 			result_offset: offset,
-			owner_filter: ownerFilter || undefined,
+			owner_filter: ownerFilter || undefined
 		});
 
 		if (rpcResult.error) {
@@ -189,7 +195,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			search_query: query,
 			result_limit: perPage,
 			result_offset: offset,
-			owner_filter: ownerFilter || undefined,
+			owner_filter: ownerFilter || undefined
 		});
 
 		if (!searchResult.error) {

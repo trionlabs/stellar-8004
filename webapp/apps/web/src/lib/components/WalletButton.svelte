@@ -41,9 +41,7 @@
 </script>
 
 {#if !mounted}
-	<button class="rounded-lg px-4 py-2 text-sm text-text-dim" disabled>
-		Loading...
-	</button>
+	<button class="rounded-lg px-4 py-2 text-sm text-text-dim" disabled> Loading... </button>
 {:else if wallet.connected}
 	<div class="flex items-center gap-3">
 		{#if wallet.network}
@@ -59,10 +57,11 @@
 		{#if agentCount != null && agentCount > 0}
 			<span class="text-text-dim">-</span>
 			<a
-				href={resolve('/agents') + `?owner=${wallet.address}`}
+				href={resolve(`/agents?owner=${wallet.address}`)}
 				class="font-mono text-[11px] text-accent transition hover:text-text"
 			>
-				{agentCount} {agentCount === 1 ? 'agent' : 'agents'}
+				{agentCount}
+				{agentCount === 1 ? 'agent' : 'agents'}
 			</a>
 		{/if}
 		<button

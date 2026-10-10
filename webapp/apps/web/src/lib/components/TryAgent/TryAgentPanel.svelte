@@ -34,14 +34,22 @@
 	onMount(async () => {
 		const loads: Promise<void>[] = [];
 		loads.push(
-			import('$lib/x402-client.js').then((m) => { x402Module = m; }).catch((err) => {
-				console.error('Failed to load x402 client:', err);
-			})
+			import('$lib/x402-client.js')
+				.then((m) => {
+					x402Module = m;
+				})
+				.catch((err) => {
+					console.error('Failed to load x402 client:', err);
+				})
 		);
 		loads.push(
-			import('$lib/mpp-client.js').then((m) => { mppModule = m; }).catch((err) => {
-				console.error('Failed to load mpp client:', err);
-			})
+			import('$lib/mpp-client.js')
+				.then((m) => {
+					mppModule = m;
+				})
+				.catch((err) => {
+					console.error('Failed to load mpp client:', err);
+				})
 		);
 		await Promise.all(loads);
 
@@ -88,9 +96,7 @@
 
 	// Derived
 	const activeService = $derived(activeServiceIdx !== null ? services[activeServiceIdx] : null);
-	const busy = $derived(
-		phase === 'sending' || phase === 'signing' || phase === 'waiting_response'
-	);
+	const busy = $derived(phase === 'sending' || phase === 'signing' || phase === 'waiting_response');
 
 	const formattedPrice = $derived.by(() => {
 		if (!pricingInfo?.price) return null;
@@ -243,8 +249,7 @@
 
 				// Fall back to x402
 				if (!parsed) {
-					const paymentHeader =
-						res.headers.get('PAYMENT-REQUIRED') || res.headers.get('X-PAYMENT');
+					const paymentHeader = res.headers.get('PAYMENT-REQUIRED') || res.headers.get('X-PAYMENT');
 					if (!paymentHeader) {
 						errorMsg =
 							'Endpoint returned 402 but the payment header is not accessible. The agent may need CORS headers.';
@@ -299,7 +304,6 @@
 			} else {
 				await sendX402PaidRequest();
 			}
-
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : 'Payment failed';
 			if (msg.includes('rejected') || msg.includes('denied') || msg.includes('cancelled')) {
@@ -311,10 +315,7 @@
 			} else if (msg.includes('insufficient') || msg.includes('balance')) {
 				errorMsg = `Insufficient USDC balance. You need ${formattedPrice || 'funds'}.`;
 				phase = 'error';
-			} else if (
-				msg.includes('Failed to fetch') ||
-				msg.includes('NetworkError')
-			) {
+			} else if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
 				phase = 'cors_error';
 			} else {
 				errorMsg = msg;
@@ -387,7 +388,15 @@
 		const paymentPayload = await Promise.race([
 			client.createPaymentPayload(paymentRequired),
 			new Promise<never>((_, reject) =>
-				setTimeout(() => reject(new Error('Signing timed out. Freighter may not have opened — check for a popup or try again.')), 60_000)
+				setTimeout(
+					() =>
+						reject(
+							new Error(
+								'Signing timed out. Freighter may not have opened — check for a popup or try again.'
+							)
+						),
+					60_000
+				)
 			)
 		]);
 
@@ -444,14 +453,22 @@
 		const credential = await Promise.race([
 			mppModule.createMppCredential(mppChallenge, wallet.address),
 			new Promise<never>((_, reject) =>
-				setTimeout(() => reject(new Error('Signing timed out. Freighter may not have opened — check for a popup or try again.')), 60_000)
+				setTimeout(
+					() =>
+						reject(
+							new Error(
+								'Signing timed out. Freighter may not have opened — check for a popup or try again.'
+							)
+						),
+					60_000
+				)
 			)
 		]);
 
 		phase = 'waiting_response';
 
 		// Send request with Authorization header
-		const paidHeaders: Record<string, string> = { 'Authorization': credential };
+		const paidHeaders: Record<string, string> = { Authorization: credential };
 		if (method !== 'GET' && body) {
 			paidHeaders['Content-Type'] = 'application/json';
 		}
@@ -481,11 +498,7 @@
 
 	function handleFetchError(err: unknown) {
 		const msg = err instanceof Error ? err.message : 'Unknown error';
-		if (
-			msg.includes('Failed to fetch') ||
-			msg.includes('NetworkError') ||
-			msg.includes('CORS')
-		) {
+		if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('CORS')) {
 			phase = 'cors_error';
 		} else if (msg.includes('timed out')) {
 			errorMsg = 'Request timed out. The service may be offline.';
@@ -526,19 +539,36 @@
 			onclick={() => wallet.connect()}
 			onmousemove={(e) => {
 				const rect = e.currentTarget.getBoundingClientRect();
-				e.currentTarget.style.setProperty('--mx', ((e.clientX - rect.left) / rect.width * 100) + '%');
-				e.currentTarget.style.setProperty('--my', ((e.clientY - rect.top) / rect.height * 100) + '%');
+				e.currentTarget.style.setProperty(
+					'--mx',
+					((e.clientX - rect.left) / rect.width) * 100 + '%'
+				);
+				e.currentTarget.style.setProperty(
+					'--my',
+					((e.clientY - rect.top) / rect.height) * 100 + '%'
+				);
 			}}
 			class="try-connect-btn"
 		>
-			<svg class="h-4 w-4 shrink-0 relative" style="z-index:1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+			<svg
+				class="relative h-4 w-4 shrink-0"
+				style="z-index:1"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+				stroke-width="1.5"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"
+				/>
 			</svg>
 			<span class="relative" style="z-index:1">Connect & Try</span>
 		</button>
 	{:else}
-		<div class="divide-y divide-border/30 rounded-xl border border-border/40 overflow-hidden">
-			{#each services as service, idx}
+		<div class="divide-y divide-border/30 overflow-hidden rounded-xl border border-border/40">
+			{#each services as service, idx (service)}
 				{@const tryable = isPayableService(service)}
 				{@const isActive = activeServiceIdx === idx}
 
@@ -551,8 +581,7 @@
 								? 'border-accent/20 bg-accent/5 text-accent'
 								: 'border-border bg-surface-raised text-text-dim'}"
 						>
-							{PROTOCOL_ICONS[service.name.toLowerCase()] ??
-								service.name.charAt(0).toUpperCase()}
+							{PROTOCOL_ICONS[service.name.toLowerCase()] ?? service.name.charAt(0).toUpperCase()}
 						</span>
 
 						<!-- Service info -->
@@ -595,11 +624,7 @@
 									Close
 								</button>
 							{:else}
-								<button
-									type="button"
-									onclick={() => openTryPanel(idx)}
-									class="try-service-btn"
-								>
+								<button type="button" onclick={() => openTryPanel(idx)} class="try-service-btn">
 									Try
 								</button>
 							{/if}
@@ -608,7 +633,7 @@
 
 					<!-- Inline try panel -->
 					{#if isActive}
-						<div class="border-t border-border/20 px-4 py-4 space-y-4">
+						<div class="space-y-4 border-t border-border/20 px-4 py-4">
 							{#if phase === 'editing' || phase === 'sending'}
 								<RequestEditor
 									bind:method
@@ -619,11 +644,7 @@
 								/>
 								{#if phase === 'sending'}
 									<div class="flex items-center gap-2 text-xs text-text-muted">
-										<svg
-											class="h-3.5 w-3.5 animate-spin"
-											viewBox="0 0 24 24"
-											fill="none"
-										>
+										<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
 											<circle
 												cx="12"
 												cy="12"
@@ -642,16 +663,13 @@
 										Sending request...
 									</div>
 								{/if}
-
 							{:else if phase === 'price_confirm'}
 								{#if pricingInfo}
 									<div
 										class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border/30 bg-surface px-3 py-2 text-[11px]"
 									>
 										<span class="text-text-dim">
-											Price: <span class="font-medium text-text"
-												>{formattedPrice} USDC</span
-											>
+											Price: <span class="font-medium text-text">{formattedPrice} USDC</span>
 										</span>
 										<span class="text-text-dim">
 											Network: <span class="text-text">{pricingInfo.network}</span>
@@ -669,7 +687,10 @@
 								{/if}
 
 								{#if pricingInfo?.scheme === 'mpp-charge'}
-									<p class="text-[11px] text-warning">This agent uses direct settlement (no fee sponsor). Your wallet needs XLM for network fees.</p>
+									<p class="text-[11px] text-warning">
+										This agent uses direct settlement (no fee sponsor). Your wallet needs XLM for
+										network fees.
+									</p>
 								{/if}
 
 								{#if errorMsg}
@@ -680,7 +701,7 @@
 									<button
 										type="button"
 										onclick={sendPaidRequest}
-										class="rounded-lg border border-accent/30 bg-accent-fill px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent-fill-hover hover:border-accent/45"
+										class="rounded-lg border border-accent/30 bg-accent-fill px-4 py-2 text-sm font-medium text-accent transition hover:border-accent/45 hover:bg-accent-fill-hover"
 									>
 										Confirm & Pay {formattedPrice}
 									</button>
@@ -692,43 +713,64 @@
 										Back
 									</button>
 								</div>
-
 							{:else if phase === 'signing'}
 								<div class="flex items-center justify-between">
 									<div class="flex items-center gap-2 text-xs text-accent">
-										<svg
-											class="h-3.5 w-3.5 animate-spin"
-											viewBox="0 0 24 24"
-											fill="none"
-										>
-											<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.25" />
-											<path d="M12 2a10 10 0 019.95 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+										<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+											<circle
+												cx="12"
+												cy="12"
+												r="10"
+												stroke="currentColor"
+												stroke-width="2"
+												opacity="0.25"
+											/>
+											<path
+												d="M12 2a10 10 0 019.95 9"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+											/>
 										</svg>
 										Confirm in Freighter...
 									</div>
-									<button type="button" onclick={resetToEditing} class="text-xs text-text-dim hover:text-text transition">
+									<button
+										type="button"
+										onclick={resetToEditing}
+										class="text-xs text-text-dim transition hover:text-text"
+									>
 										Cancel
 									</button>
 								</div>
-
 							{:else if phase === 'waiting_response'}
 								<div class="flex items-center justify-between">
 									<div class="flex items-center gap-2 text-xs text-text-muted">
-										<svg
-											class="h-3.5 w-3.5 animate-spin"
-											viewBox="0 0 24 24"
-											fill="none"
-										>
-											<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.25" />
-											<path d="M12 2a10 10 0 019.95 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+										<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+											<circle
+												cx="12"
+												cy="12"
+												r="10"
+												stroke="currentColor"
+												stroke-width="2"
+												opacity="0.25"
+											/>
+											<path
+												d="M12 2a10 10 0 019.95 9"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+											/>
 										</svg>
 										Waiting for response...
 									</div>
-									<button type="button" onclick={resetToEditing} class="text-xs text-text-dim hover:text-text transition">
+									<button
+										type="button"
+										onclick={resetToEditing}
+										class="text-xs text-text-dim transition hover:text-text"
+									>
 										Cancel
 									</button>
 								</div>
-
 							{:else if phase === 'cors_error'}
 								<div class="space-y-3">
 									<div
@@ -752,14 +794,14 @@
 												Cannot reach this service from the browser
 											</p>
 											<p class="text-[11px] text-text-muted">
-												The agent's server likely doesn't have CORS headers configured.
-												You can still try from a terminal:
+												The agent's server likely doesn't have CORS headers configured. You can
+												still try from a terminal:
 											</p>
 										</div>
 									</div>
 									<div class="relative">
 										<pre
-											class="overflow-x-auto rounded-lg border border-border bg-surface px-3 py-2.5 font-mono text-[11px] text-text-muted leading-relaxed">{curlCommand}</pre>
+											class="overflow-x-auto rounded-lg border border-border bg-surface px-3 py-2.5 font-mono text-[11px] leading-relaxed text-text-muted">{curlCommand}</pre>
 										<button
 											type="button"
 											onclick={copyCurl}
@@ -769,15 +811,12 @@
 										</button>
 									</div>
 									<p class="text-[10px] text-text-dim">
-										Agent developers: add <code
-											class="rounded bg-surface-raised px-1 py-0.5"
-											>cors({'{'} exposedHeaders: ["PAYMENT-REQUIRED",
-											"PAYMENT-RESPONSE", "WWW-Authenticate",
-											"Payment-Receipt"] {'}'})</code
+										Agent developers: add <code class="rounded bg-surface-raised px-1 py-0.5"
+											>cors({'{'} exposedHeaders: ["PAYMENT-REQUIRED", "PAYMENT-RESPONSE", "WWW-Authenticate",
+											"Payment-Receipt"] })</code
 										> to your Express server to enable browser access.
 									</p>
 								</div>
-
 							{:else if phase === 'error'}
 								<div class="space-y-2">
 									<div
@@ -806,7 +845,6 @@
 										Try again
 									</button>
 								</div>
-
 							{:else if phase === 'done' && response}
 								<ResponseViewer
 									status={response.status}
@@ -841,7 +879,11 @@
 		border-radius: 1rem;
 		border: 1px solid color-mix(in oklch, var(--color-accent) 15%, transparent);
 		background:
-			linear-gradient(to bottom, color-mix(in oklch, var(--color-accent) 3%, transparent), transparent 60%),
+			linear-gradient(
+				to bottom,
+				color-mix(in oklch, var(--color-accent) 3%, transparent),
+				transparent 60%
+			),
 			var(--color-glass);
 		backdrop-filter: var(--glass-blur);
 		-webkit-backdrop-filter: var(--glass-blur);
@@ -868,7 +910,9 @@
 		background: oklch(0.18 0.04 265);
 		color: oklch(0.93 0.03 265);
 		cursor: pointer;
-		transition: border-color 0.4s, box-shadow 0.4s;
+		transition:
+			border-color 0.4s,
+			box-shadow 0.4s;
 	}
 
 	.try-connect-btn::before,
@@ -888,7 +932,7 @@
 		background: radial-gradient(
 			ellipse 200px 140px at var(--mx, 50%) var(--my, 50%),
 			oklch(0.58 0.14 265 / 0.25),
-			oklch(0.50 0.10 265 / 0.08) 50%,
+			oklch(0.5 0.1 265 / 0.08) 50%,
 			transparent 80%
 		);
 		opacity: 0;
@@ -904,7 +948,7 @@
 	.try-connect-btn::after,
 	.try-service-btn::after {
 		background:
-			radial-gradient(ellipse 60% 80% at 25% 50%, oklch(0.50 0.10 265 / 0.12), transparent 70%),
+			radial-gradient(ellipse 60% 80% at 25% 50%, oklch(0.5 0.1 265 / 0.12), transparent 70%),
 			radial-gradient(ellipse 50% 70% at 75% 45%, oklch(0.48 0.08 265 / 0.08), transparent 70%);
 		background-size: 200% 200%;
 		background-repeat: no-repeat;
@@ -913,10 +957,10 @@
 
 	.try-connect-btn:hover,
 	.try-service-btn:hover {
-		border-color: oklch(0.50 0.10 265 / 0.30);
+		border-color: oklch(0.5 0.1 265 / 0.3);
 		box-shadow:
-			0 0 60px -12px oklch(0.50 0.12 265 / 0.12),
-			0 0 100px -20px oklch(0.52 0.10 265 / 0.06);
+			0 0 60px -12px oklch(0.5 0.12 265 / 0.12),
+			0 0 100px -20px oklch(0.52 0.1 265 / 0.06);
 	}
 
 	.try-connect-btn:hover::after,
@@ -955,9 +999,17 @@
 	}
 
 	@keyframes glow-idle {
-		0%   { background-position: 15% 45%; }
-		33%  { background-position: 70% 60%; }
-		66%  { background-position: 45% 30%; }
-		100% { background-position: 15% 45%; }
+		0% {
+			background-position: 15% 45%;
+		}
+		33% {
+			background-position: 70% 60%;
+		}
+		66% {
+			background-position: 45% 30%;
+		}
+		100% {
+			background-position: 15% 45%;
+		}
 	}
 </style>

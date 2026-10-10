@@ -6,16 +6,7 @@
 
 	let { data }: PageProps = $props();
 
-	const skillCmd = 'npx skills add trionlabs/stellar-8004 --skill 8004stellar';
-	let copied = $state(false);
-
 	const recentAgentPadding = $derived((3 - (data.recentAgents.length % 3)) % 3);
-
-	async function copySkillCmd() {
-		await navigator.clipboard.writeText(skillCmd);
-		copied = true;
-		setTimeout(() => { copied = false; }, 1500);
-	}
 </script>
 
 <svelte:head>
@@ -25,7 +16,10 @@
 		content="Explorer for 8004 Agent Trust Protocol on Stellar. Browse agents, reputation scores, and feedback."
 	/>
 	<meta property="og:title" content="Stellar8004" />
-	<meta property="og:description" content="Agent Trust Protocol on Stellar. Browse agents, reputation scores, and feedback." />
+	<meta
+		property="og:description"
+		content="Agent Trust Protocol on Stellar. Browse agents, reputation scores, and feedback."
+	/>
 	<meta property="og:image" content="/og-image.png" />
 	<meta property="og:type" content="website" />
 	<meta name="twitter:card" content="summary_large_image" />
@@ -39,15 +33,23 @@
 		<div class="space-y-5">
 			<div class="flex items-center gap-2.5">
 				<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
-				<span class="text-[11px] tracking-[0.25em] text-text-muted uppercase">Agent Trust Explorer</span>
+				<span class="text-[11px] tracking-[0.25em] text-text-muted uppercase"
+					>Agent Trust Explorer</span
+				>
 			</div>
 
 			<div class="space-y-4">
-				<h1 class="max-w-2xl text-3xl font-light tracking-tight text-text sm:text-[2.75rem] sm:leading-[1.15]">
+				<h1
+					class="max-w-2xl text-3xl font-light tracking-tight text-text sm:text-[2.75rem] sm:leading-[1.15]"
+				>
 					Explore AI agents on Stellar
 				</h1>
-				<p class="max-w-lg text-[15px] leading-relaxed text-text-muted font-light">
-					Browse registered agents, check reputation scores, and track feedback &mdash; all indexed from <span class="bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent font-medium">8004 for Stellar</span> contracts.
+				<p class="max-w-lg text-[15px] leading-relaxed font-light text-text-muted">
+					Browse registered agents, check reputation scores, and track feedback &mdash; all indexed
+					from <span
+						class="bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text font-medium text-transparent"
+						>8004 for Stellar</span
+					> contracts.
 				</p>
 			</div>
 		</div>
@@ -58,27 +60,31 @@
 					type="text"
 					name="q"
 					placeholder="Search agents..."
-					class="min-w-0 flex-1 rounded-xl border border-border bg-surface-raised/50 px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors"
+					class="min-w-0 flex-1 rounded-xl border border-border bg-surface-raised/50 px-4 py-3 text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
 				/>
 				<button
 					type="submit"
-					class="rounded-xl bg-accent-fill border border-accent/30 px-5 py-3 text-sm font-medium text-accent transition-all hover:bg-accent-fill-hover hover:border-accent/45"
+					class="rounded-xl border border-accent/30 bg-accent-fill px-5 py-3 text-sm font-medium text-accent transition-all hover:border-accent/45 hover:bg-accent-fill-hover"
 				>
 					Search
 				</button>
 			</div>
 		</form>
 
-		<div class="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">
-			{#each [
-				{ label: 'Total Agents', value: data.stats.totalAgents },
-				{ label: 'Active Feedback', value: data.stats.totalFeedback },
-				{ label: 'Unique Clients', value: data.stats.totalClients },
-			] as stat (stat.label)}
+		<div
+			class="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3"
+		>
+			{#each [{ label: 'Total Agents', value: data.stats.totalAgents }, { label: 'Active Feedback', value: data.stats.totalFeedback }, { label: 'Unique Clients', value: data.stats.totalClients }] as stat (stat.label)}
 				<div class="group/stat relative bg-surface p-6 transition-colors hover:bg-surface-raised">
-					<div class="absolute left-0 top-1/2 h-6 w-px -translate-y-1/2 bg-accent/0 transition-all duration-300 group-hover/stat:h-8 group-hover/stat:bg-accent/40"></div>
-					<p class="text-[11px] tracking-wide text-text-dim uppercase transition-colors group-hover/stat:text-text-muted">{stat.label}</p>
-					<p class="mt-2.5 text-[1.75rem] font-light tabular-nums tracking-tight text-text">
+					<div
+						class="absolute top-1/2 left-0 h-6 w-px -translate-y-1/2 bg-accent/0 transition-all duration-300 group-hover/stat:h-8 group-hover/stat:bg-accent/40"
+					></div>
+					<p
+						class="text-[11px] tracking-wide text-text-dim uppercase transition-colors group-hover/stat:text-text-muted"
+					>
+						{stat.label}
+					</p>
+					<p class="mt-2.5 text-[1.75rem] font-light tracking-tight text-text tabular-nums">
 						{statFormatter.format(stat.value)}
 					</p>
 				</div>
@@ -87,9 +93,11 @@
 	</section>
 
 	<!-- CTA Banner -->
-	<section class="cta-banner group/cta relative overflow-hidden rounded-2xl border border-border bg-linear-to-br from-surface-raised via-surface-overlay to-surface-raised p-8 sm:p-12 lg:p-16">
+	<section
+		class="cta-banner group/cta relative overflow-hidden rounded-2xl border border-border bg-linear-to-br from-surface-raised via-surface-overlay to-surface-raised p-8 sm:p-12 lg:p-16"
+	>
 		<!-- Noise texture -->
-		<div class="pointer-events-none absolute inset-0 cta-noise"></div>
+		<div class="cta-noise pointer-events-none absolute inset-0"></div>
 
 		<!-- Light leaks -->
 		<div class="cta-leak cta-leak--warm"></div>
@@ -99,8 +107,10 @@
 		<div class="relative z-10 grid gap-10 sm:grid-cols-[1fr_auto] sm:items-center">
 			<div class="space-y-5">
 				<div class="flex items-center gap-3">
-					<span class="inline-flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/6 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase">
-						<span class="h-1 w-1 rounded-full bg-accent animate-pulse"></span>
+					<span
+						class="inline-flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/6 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase"
+					>
+						<span class="h-1 w-1 animate-pulse rounded-full bg-accent"></span>
 						Agent Trust Protocol
 					</span>
 				</div>
@@ -110,30 +120,30 @@
 					<span class="text-accent">Stellar</span>
 				</h2>
 
-				<p class="max-w-sm text-[15px] leading-relaxed text-text-muted font-light">
-					Connect your Freighter wallet, register your AI agent on-chain, and start collecting reputation through client feedback.
+				<p class="max-w-sm text-[15px] leading-relaxed font-light text-text-muted">
+					Connect your Freighter wallet, register your AI agent on-chain, and start collecting
+					reputation through client feedback.
 				</p>
 
-				<!-- Skill install command -->
-				<button
-					type="button"
-					onclick={copySkillCmd}
-					class="group/cmd mt-1 flex items-center gap-2.5 rounded-lg border border-border/60 bg-surface/50 px-3.5 py-2 transition-colors hover:border-accent/20 hover:bg-surface-raised/50"
+				<a
+					href={resolve('/developers')}
+					class="mt-1 flex items-center gap-2.5 rounded-lg border border-border/60 bg-surface/50 px-3.5 py-2 transition-colors hover:border-accent/20 hover:bg-surface-raised/50"
 				>
-					<span class="text-[10px] text-text-dim/50 select-none">$</span>
-					<code class="flex-1 text-left font-mono text-[11px] text-text-muted truncate">{skillCmd}</code>
-					{#if copied}
-						<svg class="h-3.5 w-3.5 shrink-0 text-positive" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-					{:else}
-						<svg class="h-3.5 w-3.5 shrink-0 text-text-dim/30 transition group-hover/cmd:text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-					{/if}
-				</button>
+					<span class="text-[11px] text-text-muted">SDK setup and registration examples</span>
+					<span class="text-accent" aria-hidden="true">→</span>
+				</a>
 			</div>
 
 			<div class="flex flex-col items-start gap-3 sm:items-end">
 				<CtaButton href={resolve('/register')} size="lg">
 					Register Agent
-					<svg class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<svg
+						class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
 						<path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
 					</svg>
 				</CtaButton>
@@ -146,23 +156,24 @@
 		<div class="space-y-6">
 			<div class="flex items-center justify-between">
 				<h2 class="text-sm font-medium tracking-wide text-text">Recent Agents</h2>
-				<a
-					href={resolve('/agents')}
-					class="text-xs text-text-muted transition hover:text-accent"
-				>
+				<a href={resolve('/agents')} class="text-xs text-text-muted transition hover:text-accent">
 					View all
 				</a>
 			</div>
 
 			{#if data.recentAgents.length > 0}
-				<div class="grid gap-px overflow-hidden rounded-xl border border-border-subtle bg-border-subtle sm:grid-cols-2 xl:grid-cols-3">
+				<div
+					class="grid gap-px overflow-hidden rounded-xl border border-border-subtle bg-border-subtle sm:grid-cols-2 xl:grid-cols-3"
+				>
 					{#each data.recentAgents as agent (agent.id)}
 						<a
 							href={resolve('/agents/[id]', { id: String(agent.id) })}
 							class="group bg-surface p-5 transition-colors hover:bg-surface-raised"
 						>
-							<p class="text-[11px] text-text-dim font-mono">#{agent.id}</p>
-							<p class="mt-2 text-sm font-medium text-text transition-colors group-hover:text-accent">
+							<p class="font-mono text-[11px] text-text-dim">#{agent.id}</p>
+							<p
+								class="mt-2 text-sm font-medium text-text transition-colors group-hover:text-accent"
+							>
 								{agent.name}
 							</p>
 							<p class="mt-1.5 text-[11px] text-text-dim">
@@ -170,12 +181,14 @@
 							</p>
 						</a>
 					{/each}
-					{#each { length: recentAgentPadding } as _}
+					{#each [0, 1].slice(0, recentAgentPadding) as slot (slot)}
 						<div class="bg-surface"></div>
 					{/each}
 				</div>
 			{:else}
-				<div class="rounded-xl border border-dashed border-border p-10 text-center text-sm text-text-dim">
+				<div
+					class="rounded-xl border border-dashed border-border p-10 text-center text-sm text-text-dim"
+				>
 					No agents indexed yet
 				</div>
 			{/if}
@@ -191,7 +204,7 @@
 					{#each data.recentFeedback as feedback (feedback.id)}
 						<a
 							href={resolve('/agents/[id]', { id: String(feedback.agentId) })}
-							class="block rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-raised hover:border-border-subtle"
+							class="block rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-subtle hover:bg-surface-raised"
 						>
 							<div class="flex items-center justify-between">
 								<div class="min-w-0">
@@ -201,7 +214,7 @@
 									</p>
 								</div>
 								<div class="text-right">
-									<p class="text-sm font-medium tabular-nums text-positive">
+									<p class="text-sm font-medium text-positive tabular-nums">
 										{scoreFormatter.format(feedback.score)}
 									</p>
 								</div>
@@ -223,7 +236,9 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="rounded-xl border border-dashed border-border p-10 text-center text-sm text-text-dim">
+				<div
+					class="rounded-xl border border-dashed border-border p-10 text-center text-sm text-text-dim"
+				>
 					No feedback indexed yet
 				</div>
 			{/if}

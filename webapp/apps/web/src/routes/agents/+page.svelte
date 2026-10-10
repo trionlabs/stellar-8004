@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
-	import { scoreFormatter, shortAddress, sanitizeImageUrl, trustBlocks, handleRowMouse } from '$lib/formatters.js';
+	import {
+		scoreFormatter,
+		shortAddress,
+		sanitizeImageUrl,
+		trustBlocks,
+		handleRowMouse
+	} from '$lib/formatters.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import CtaButton from '$lib/components/CtaButton.svelte';
 	import StarIdenticon from '$lib/components/StarIdenticon.svelte';
@@ -39,7 +45,7 @@
 		if (clamped > 0) url.searchParams.set('min_score', String(clamped));
 		if (servicesOnly) url.searchParams.set('services', 'true');
 
-		goto(url.toString());
+		goto(resolve(`/agents?${url.searchParams}${url.hash}`));
 	}
 
 	function clearFilters() {
@@ -54,7 +60,7 @@
 		url.searchParams.delete('min_score');
 		url.searchParams.delete('services');
 		url.searchParams.set('page', '1');
-		goto(url.toString());
+		goto(resolve(`/agents?${url.searchParams}${url.hash}`));
 	}
 
 	const hasActiveFilters = $derived(
@@ -62,26 +68,38 @@
 	);
 
 	const activeFilterCount = $derived(
-		(trustReputation ? 1 : 0) + (trustCryptoEconomic ? 1 : 0) + (trustTee ? 1 : 0) + (servicesOnly ? 1 : 0) + (minScoreValue > 0 ? 1 : 0)
+		(trustReputation ? 1 : 0) +
+			(trustCryptoEconomic ? 1 : 0) +
+			(trustTee ? 1 : 0) +
+			(servicesOnly ? 1 : 0) +
+			(minScoreValue > 0 ? 1 : 0)
 	);
-
 </script>
 
 <svelte:head>
 	<title>Agents | Stellar8004</title>
-	<meta name="description" content="Browse indexed 8004 for Stellar agents with search, score-based ranking, and reputation counts." />
+	<meta
+		name="description"
+		content="Browse indexed 8004 for Stellar agents with search, score-based ranking, and reputation counts."
+	/>
 </svelte:head>
 
 <div class="space-y-8">
 	<!-- -- Header -- -->
 	<header class="flex items-center justify-between">
 		<div class="flex items-baseline gap-2">
-			<span class="font-mono text-xl tabular-nums text-accent/60 font-light">{data.agents.length}</span>
-			<h1 class="text-xl font-light tracking-tight text-text">{data.ownerFilter ? 'My Agents' : 'Agents'}</h1>
+			<span class="font-mono text-xl font-light text-accent/60 tabular-nums"
+				>{data.agents.length}</span
+			>
+			<h1 class="text-xl font-light tracking-tight text-text">
+				{data.ownerFilter ? 'My Agents' : 'Agents'}
+			</h1>
 		</div>
 		<div class="flex items-center gap-3">
 			{#if wallet.connected && !data.ownerFilter}
-				<CtaButton href="{baseAgentsPath}?owner={wallet.address}" variant="ghost" size="sm">My Agents</CtaButton>
+				<CtaButton href={resolve(`/agents?owner=${wallet.address}`)} variant="ghost" size="sm"
+					>My Agents</CtaButton
+				>
 			{/if}
 			{#if data.ownerFilter}
 				<CtaButton href={baseAgentsPath} variant="ghost" size="sm">all</CtaButton>
@@ -95,7 +113,18 @@
 		<input type="hidden" name="order" value={data.order} />
 		{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
 		<div class="search-bar">
-			<svg class="h-4 w-4 shrink-0 text-text-dim/40 transition group-focus-within:text-accent/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+			<svg
+				class="h-4 w-4 shrink-0 text-text-dim/40 transition group-focus-within:text-accent/50"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+				stroke-width="1.5"
+				><path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+				/></svg
+			>
 			<input
 				type="text"
 				name="q"
@@ -123,48 +152,98 @@
 			{#if data.query}<input type="hidden" name="q" value={data.query} />{/if}
 			{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
 			<Tooltip text="Toggle sort direction" position="bottom">
-			<button type="submit" class="chip">
-				<svg class="h-3 w-3 transition-transform {data.order === 'asc' ? '' : 'rotate-180'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg>
-				{data.order === 'asc' ? 'Asc' : 'Desc'}
-			</button>
+				<button type="submit" class="chip">
+					<svg
+						class="h-3 w-3 transition-transform {data.order === 'asc' ? '' : 'rotate-180'}"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+						><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg
+					>
+					{data.order === 'asc' ? 'Asc' : 'Desc'}
+				</button>
 			</Tooltip>
 		</form>
 
 		<span class="divider"></span>
 
 		<Tooltip text="Filter by peer feedback scores" position="bottom">
-		<button type="button" onclick={() => { trustReputation = !trustReputation; applyFilters(); }} class="chip" class:chip--on={trustReputation}>
-			{#if trustReputation}<span class="dot"></span>{/if}Reputation
-		</button>
+			<button
+				type="button"
+				onclick={() => {
+					trustReputation = !trustReputation;
+					applyFilters();
+				}}
+				class="chip"
+				class:chip--on={trustReputation}
+			>
+				{#if trustReputation}<span class="dot"></span>{/if}Reputation
+			</button>
 		</Tooltip>
 		<Tooltip text="Filter by staked collateral trust" position="bottom">
-		<button type="button" onclick={() => { trustCryptoEconomic = !trustCryptoEconomic; applyFilters(); }} class="chip" class:chip--on={trustCryptoEconomic}>
-			{#if trustCryptoEconomic}<span class="dot"></span>{/if}Crypto-economic
-		</button>
+			<button
+				type="button"
+				onclick={() => {
+					trustCryptoEconomic = !trustCryptoEconomic;
+					applyFilters();
+				}}
+				class="chip"
+				class:chip--on={trustCryptoEconomic}
+			>
+				{#if trustCryptoEconomic}<span class="dot"></span>{/if}Crypto-economic
+			</button>
 		</Tooltip>
 		<Tooltip text="Filter by hardware attestation" position="bottom">
-		<button type="button" onclick={() => { trustTee = !trustTee; applyFilters(); }} class="chip" class:chip--on={trustTee}>
-			{#if trustTee}<span class="dot"></span>{/if}TEE
-		</button>
+			<button
+				type="button"
+				onclick={() => {
+					trustTee = !trustTee;
+					applyFilters();
+				}}
+				class="chip"
+				class:chip--on={trustTee}
+			>
+				{#if trustTee}<span class="dot"></span>{/if}TEE
+			</button>
 		</Tooltip>
 		<Tooltip text="Show only agents with declared services" position="bottom">
-		<button type="button" onclick={() => { servicesOnly = !servicesOnly; applyFilters(); }} class="chip" class:chip--on-green={servicesOnly}>
-			{#if servicesOnly}<span class="dot dot--green"></span>{/if}Services
-		</button>
+			<button
+				type="button"
+				onclick={() => {
+					servicesOnly = !servicesOnly;
+					applyFilters();
+				}}
+				class="chip"
+				class:chip--on-green={servicesOnly}
+			>
+				{#if servicesOnly}<span class="dot dot--green"></span>{/if}Services
+			</button>
 		</Tooltip>
 
 		<span class="divider"></span>
 
 		<Tooltip text="Minimum trust score (0-100)" position="bottom">
-		<div class="chip focus-within:border-accent/25">
-			<span class="text-text-dim/50">&ge;</span>
-			<input type="number" min="0" max="100" bind:value={minScoreValue} onchange={applyFilters} placeholder="-"
-				class="w-7 border-0 bg-transparent p-0 text-center text-[11px] tabular-nums text-text-muted focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-		</div>
+			<div class="chip focus-within:border-accent/25">
+				<span class="text-text-dim/50">&ge;</span>
+				<input
+					type="number"
+					min="0"
+					max="100"
+					bind:value={minScoreValue}
+					onchange={applyFilters}
+					placeholder="-"
+					class="w-7 [appearance:textfield] border-0 bg-transparent p-0 text-center text-[11px] text-text-muted tabular-nums focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+				/>
+			</div>
 		</Tooltip>
 
 		{#if hasActiveFilters}
-			<button type="button" onclick={clearFilters} class="ml-auto text-[10px] text-text-dim/40 transition hover:text-negative">
+			<button
+				type="button"
+				onclick={clearFilters}
+				class="ml-auto text-[10px] text-text-dim/40 transition hover:text-negative"
+			>
 				clear {activeFilterCount}
 			</button>
 		{/if}
@@ -175,8 +254,15 @@
 		<div class="grid-wrap">
 			{#each data.agents as agent, idx (agent.id)}
 				{@const trust = trustBlocks(agent.totalScore)}
-				<a href={resolve('/agents/[id]', { id: String(agent.id) })} class="row group" style="--i:{idx}" onmousemove={handleRowMouse}>
-					<div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/40 bg-surface-raised/50">
+				<a
+					href={resolve('/agents/[id]', { id: String(agent.id) })}
+					class="row group"
+					style="--i:{idx}"
+					onmousemove={handleRowMouse}
+				>
+					<div
+						class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/40 bg-surface-raised/50"
+					>
 						{#if agent.image}
 							<img src={sanitizeImageUrl(agent.image)} alt="" class="h-full w-full object-cover" />
 						{:else}
@@ -186,31 +272,64 @@
 
 					<div class="min-w-0 flex-1">
 						<div class="flex items-center gap-1.5">
-							<p class="truncate text-[13px] font-medium text-text transition-colors group-hover:text-accent">{agent.name}</p>
+							<p
+								class="truncate text-[13px] font-medium text-text transition-colors group-hover:text-accent"
+							>
+								{agent.name}
+							</p>
 							{#if wallet.connected && wallet.address?.toUpperCase() === agent.owner.toUpperCase()}
-								<span class="shrink-0 rounded bg-positive/8 px-1 py-px text-[8px] font-semibold text-positive ring-1 ring-positive/12" title="You own this agent">YOU</span>
+								<span
+									class="shrink-0 rounded bg-positive/8 px-1 py-px text-[8px] font-semibold text-positive ring-1 ring-positive/12"
+									title="You own this agent">YOU</span
+								>
 							{/if}
 						</div>
-						<p class="font-mono text-[10px] text-text-dim/50" title={agent.owner}>{shortAddress(agent.owner)}</p>
+						<p class="font-mono text-[10px] text-text-dim/50" title={agent.owner}>
+							{shortAddress(agent.owner)}
+						</p>
 					</div>
 
-					<div class="flex items-center gap-2.5" title="Trust score: {agent.totalScore != null ? scoreFormatter.format(agent.totalScore) : '0'}/100">
+					<div
+						class="flex items-center gap-2.5"
+						title="Trust score: {agent.totalScore != null
+							? scoreFormatter.format(agent.totalScore)
+							: '0'}/100"
+					>
 						<div class="flex w-10 gap-0.5 md:w-16">
-							{#each { length: 5 } as _, i}
-								<div class="h-0.75 flex-1 rounded-full {i < trust.filled
-									? trust.level === 'high' ? 'bg-positive' : trust.level === 'mid' ? 'bg-accent' : 'bg-warning'
-									: 'bg-border/20'}"></div>
+							{#each [0, 1, 2, 3, 4] as i (i)}
+								<div
+									class="h-0.75 flex-1 rounded-full {i < trust.filled
+										? trust.level === 'high'
+											? 'bg-positive'
+											: trust.level === 'mid'
+												? 'bg-accent'
+												: 'bg-warning'
+										: 'bg-border/20'}"
+								></div>
 							{/each}
 						</div>
-						<span class="w-10 text-right tabular-nums text-sm font-semibold tracking-tight
-							{trust.level === 'high' ? 'text-positive' : trust.level === 'mid' ? 'text-accent' : trust.level === 'low' ? 'text-warning' : 'text-text-dim/25'}">
+						<span
+							class="w-10 text-right text-sm font-semibold tracking-tight tabular-nums
+							{trust.level === 'high'
+								? 'text-positive'
+								: trust.level === 'mid'
+									? 'text-accent'
+									: trust.level === 'low'
+										? 'text-warning'
+										: 'text-text-dim/25'}"
+						>
 							{agent.totalScore != null ? scoreFormatter.format(agent.totalScore) : '-'}
 						</span>
 					</div>
 
-					<div class="hidden w-14 text-right lg:block" title="Avg feedback score ({agent.feedbackCount} feedback)">
+					<div
+						class="hidden w-14 text-right lg:block"
+						title="Avg feedback score ({agent.feedbackCount} feedback)"
+					>
 						{#if agent.feedbackCount > 0}
-							<p class="tabular-nums text-xs text-text-muted">{scoreFormatter.format(agent.avgScore ?? 0)}</p>
+							<p class="text-xs text-text-muted tabular-nums">
+								{scoreFormatter.format(agent.avgScore ?? 0)}
+							</p>
 							<p class="text-[9px] text-text-dim/40">{agent.feedbackCount}</p>
 						{:else}
 							<p class="text-text-dim/20">-</p>
@@ -220,22 +339,43 @@
 					{#if wallet.connected && wallet.address?.toUpperCase() === agent.owner.toUpperCase()}
 						<button
 							type="button"
-							onclick={(e) => { e.preventDefault(); e.stopPropagation(); goto(resolve('/agents/[id]/edit', { id: String(agent.id) })); }}
-							class="shrink-0 flex items-center gap-1 rounded-md border border-accent/20
-							       bg-accent-fill px-2 py-1
-							       text-[10px] font-medium text-accent
-							       hover:bg-accent-fill-hover hover:border-accent/35
-							       transition-colors z-10"
-							aria-label="Edit {agent.name}">
-							<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-								<path stroke-linecap="round" stroke-linejoin="round"
-									d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+							onclick={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								goto(resolve('/agents/[id]/edit', { id: String(agent.id) }));
+							}}
+							class="z-10 flex shrink-0 items-center gap-1 rounded-md border
+							       border-accent/20 bg-accent-fill px-2
+							       py-1 text-[10px] font-medium
+							       text-accent transition-colors
+							       hover:border-accent/35 hover:bg-accent-fill-hover"
+							aria-label="Edit {agent.name}"
+						>
+							<svg
+								class="h-3 w-3"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="1.5"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+								/>
 							</svg>
 							Edit
 						</button>
 					{/if}
 
-					<svg class="h-3 w-3 shrink-0 text-text-dim/15 transition-all group-hover:text-accent group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+					<svg
+						class="h-3 w-3 shrink-0 text-text-dim/15 transition-all group-hover:translate-x-0.5 group-hover:text-accent"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+						><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg
+					>
 				</a>
 			{/each}
 		</div>
@@ -243,12 +383,23 @@
 		<div class="py-24 text-center">
 			{#if data.ownerFilter}
 				<p class="text-sm text-text-muted">No agents registered yet</p>
-				<div class="mt-4"><CtaButton href={resolve('/register')} variant="secondary" size="sm">Register Agent</CtaButton></div>
+				<div class="mt-4">
+					<CtaButton href={resolve('/register')} variant="secondary" size="sm"
+						>Register Agent</CtaButton
+					>
+				</div>
 			{:else}
 				<p class="text-sm text-text-muted">No matches</p>
-				<p class="mt-1 text-[11px] text-text-dim">{hasActiveFilters ? 'Try fewer filters' : 'Try a broader search'}</p>
+				<p class="mt-1 text-[11px] text-text-dim">
+					{hasActiveFilters ? 'Try fewer filters' : 'Try a broader search'}
+				</p>
 				{#if hasActiveFilters}
-					<button type="button" onclick={clearFilters} class="mt-3 text-[11px] text-text-dim transition hover:text-text-muted">Clear filters</button>
+					<button
+						type="button"
+						onclick={clearFilters}
+						class="mt-3 text-[11px] text-text-dim transition hover:text-text-muted"
+						>Clear filters</button
+					>
 				{/if}
 			{/if}
 		</div>
@@ -263,28 +414,58 @@
 					<input type="hidden" name="sort" value={data.sort} />
 					{#if data.query}<input type="hidden" name="q" value={data.query} />{/if}
 					{#if data.order !== 'desc'}<input type="hidden" name="order" value={data.order} />{/if}
-					{#each data.filters.trust as t}<input type="hidden" name="trust" value={t} />{/each}
-					{#if data.filters.minScore > 0}<input type="hidden" name="min_score" value={data.filters.minScore} />{/if}
+					{#each new Set(data.filters.trust) as t (t)}<input
+							type="hidden"
+							name="trust"
+							value={t}
+						/>{/each}
+					{#if data.filters.minScore > 0}<input
+							type="hidden"
+							name="min_score"
+							value={data.filters.minScore}
+						/>{/if}
 					{#if data.filters.hasServices}<input type="hidden" name="services" value="true" />{/if}
 					{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
 					<button type="submit" class="pager" aria-label="Previous page" title="Previous page">
-						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+						<svg
+							class="h-3 w-3"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+							><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg
+						>
 					</button>
 				</form>
 			{/if}
-			<span class="px-3 font-mono text-[11px] tabular-nums text-text-dim/50">{data.page}</span>
+			<span class="px-3 font-mono text-[11px] text-text-dim/50 tabular-nums">{data.page}</span>
 			{#if data.hasMore}
 				<form action={baseAgentsPath} method="get">
 					<input type="hidden" name="page" value={data.page + 1} />
 					<input type="hidden" name="sort" value={data.sort} />
 					{#if data.query}<input type="hidden" name="q" value={data.query} />{/if}
 					{#if data.order !== 'desc'}<input type="hidden" name="order" value={data.order} />{/if}
-					{#each data.filters.trust as t}<input type="hidden" name="trust" value={t} />{/each}
-					{#if data.filters.minScore > 0}<input type="hidden" name="min_score" value={data.filters.minScore} />{/if}
+					{#each new Set(data.filters.trust) as t (t)}<input
+							type="hidden"
+							name="trust"
+							value={t}
+						/>{/each}
+					{#if data.filters.minScore > 0}<input
+							type="hidden"
+							name="min_score"
+							value={data.filters.minScore}
+						/>{/if}
 					{#if data.filters.hasServices}<input type="hidden" name="services" value="true" />{/if}
 					{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
 					<button type="submit" class="pager" aria-label="Next page" title="Next page">
-						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+						<svg
+							class="h-3 w-3"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+							><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg
+						>
 					</button>
 				</form>
 			{/if}
@@ -301,7 +482,9 @@
 		padding: 7px 3px 7px 14px;
 		border-radius: 10px;
 		border: 0.5px solid color-mix(in oklch, var(--color-border) 50%, transparent);
-		transition: border-color 0.2s, box-shadow 0.3s;
+		transition:
+			border-color 0.2s,
+			box-shadow 0.3s;
 	}
 	.search-bar:focus-within {
 		border-color: color-mix(in oklch, var(--color-accent) 20%, transparent);
@@ -317,8 +500,13 @@
 		cursor: pointer;
 		transition: color 0.15s;
 	}
-	.sort-select:hover { color: var(--color-text-muted); }
-	.sort-select:focus { color: var(--color-accent); outline: none; }
+	.sort-select:hover {
+		color: var(--color-text-muted);
+	}
+	.sort-select:focus {
+		color: var(--color-accent);
+		outline: none;
+	}
 	.search-go {
 		padding: 5px 14px;
 		border-radius: 7px;
@@ -354,7 +542,9 @@
 		border-color: color-mix(in oklch, var(--color-border) 70%, transparent);
 		color: var(--color-text-muted);
 	}
-	.chip:active { transform: scale(0.97); }
+	.chip:active {
+		transform: scale(0.97);
+	}
 	.chip--on {
 		background: color-mix(in oklch, var(--color-accent) 5%, transparent);
 		border-color: color-mix(in oklch, var(--color-accent) 20%, transparent);
@@ -368,13 +558,30 @@
 		box-shadow: 0 0 10px color-mix(in oklch, var(--color-positive) 4%, transparent);
 	}
 	.dot {
-		width: 3.5px; height: 3.5px; border-radius: 50%;
+		width: 3.5px;
+		height: 3.5px;
+		border-radius: 50%;
 		background: var(--color-accent);
 		animation: blink 2.5s ease-in-out infinite;
 	}
-	.dot--green { background: var(--color-positive); }
-	@keyframes blink { 0%,100% { opacity:1 } 50% { opacity:0.3 } }
-	.divider { width:0.5px; height:12px; margin:0 4px; background: color-mix(in oklch, var(--color-border) 25%, transparent); }
+	.dot--green {
+		background: var(--color-positive);
+	}
+	@keyframes blink {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.3;
+		}
+	}
+	.divider {
+		width: 0.5px;
+		height: 12px;
+		margin: 0 4px;
+		background: color-mix(in oklch, var(--color-border) 25%, transparent);
+	}
 
 	/* -- Grid -- */
 	.grid-wrap {
@@ -393,28 +600,45 @@
 		padding: 11px 16px;
 		background: var(--color-surface);
 		text-decoration: none;
-		transition: background 0.15s, box-shadow 0.15s;
+		transition:
+			background 0.15s,
+			box-shadow 0.15s;
 		animation: fade-up 0.25s ease both;
 		animation-delay: calc(var(--i) * 18ms);
 	}
 	.row:hover {
 		background:
-			radial-gradient(300px circle at var(--mx, 50%) var(--my, 50%), color-mix(in oklch, var(--color-accent) 4%, transparent), transparent 70%),
+			radial-gradient(
+				300px circle at var(--mx, 50%) var(--my, 50%),
+				color-mix(in oklch, var(--color-accent) 4%, transparent),
+				transparent 70%
+			),
 			var(--color-surface-raised);
 		box-shadow: inset 2px 0 0 color-mix(in oklch, var(--color-accent) 30%, transparent);
 	}
 	@keyframes fade-up {
-		from { opacity:0; transform:translateY(3px) }
-		to { opacity:1; transform:none }
+		from {
+			opacity: 0;
+			transform: translateY(3px);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
 	}
 
 	/* -- Pager -- */
 	.pager {
-		display:flex; align-items:center; justify-content:center;
-		width:28px; height:28px; border-radius:7px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		border-radius: 7px;
 		border: 0.5px solid var(--color-border-subtle);
 		color: var(--color-text-dim);
-		background:transparent; cursor:pointer;
+		background: transparent;
+		cursor: pointer;
 		transition: all 0.15s;
 	}
 	.pager:hover {

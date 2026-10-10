@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { Buffer } from 'buffer';
 	import { getClients } from '$lib/sdk-client.js';
-	import { generateRequestNonce, validateStellarAddress, formatSorobanError } from '@trionlabs/stellar8004';
+	import {
+		generateRequestNonce,
+		validateStellarAddress,
+		formatSorobanError
+	} from '@trionlabs/stellar8004';
 	import { wallet } from '$lib/wallet.svelte.js';
 
 	let { agentId }: { agentId: number } = $props();
@@ -15,7 +19,12 @@
 	const busy = $derived(status === 'submitting');
 	const hasValidAddress = $derived.by(() => {
 		if (validatorAddress.length === 0) return true;
-		try { validateStellarAddress(validatorAddress); return true; } catch { return false; }
+		try {
+			validateStellarAddress(validatorAddress);
+			return true;
+		} catch {
+			return false;
+		}
 	});
 
 	async function submit() {
@@ -45,7 +54,7 @@
 				validator_address: validatorAddress,
 				agent_id: agentId,
 				request_uri: requestUri,
-				request_hash: Buffer.from(requestHash),
+				request_hash: Buffer.from(requestHash)
 			});
 			const sent = await tx.signAndSend();
 			txHash = sent.sendTransactionResponse?.hash ?? '';
@@ -63,7 +72,7 @@
 	{#if status === 'success'}
 		<div class="text-sm text-positive">
 			Validation requested. TX:
-			<code class="text-xs font-mono">{txHash.slice(0, 12)}...</code>
+			<code class="font-mono text-xs">{txHash.slice(0, 12)}...</code>
 		</div>
 	{:else if !wallet.connected}
 		<p class="text-sm text-text-dim">Connect your wallet to request validation.</p>
@@ -96,13 +105,15 @@
 			</p>
 
 			{#if wallet.networkMismatch}
-				<p class="text-xs text-warning">Switch Freighter to the correct network before submitting.</p>
+				<p class="text-xs text-warning">
+					Switch Freighter to the correct network before submitting.
+				</p>
 			{/if}
 
 			<button
 				onclick={submit}
 				disabled={!validatorAddress || !hasValidAddress || busy || wallet.networkMismatch}
-				class="w-full rounded-lg border border-accent/30 bg-accent-fill px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent-fill-hover hover:border-accent/45 disabled:opacity-40"
+				class="w-full rounded-lg border border-accent/30 bg-accent-fill px-4 py-2 text-sm font-medium text-accent transition hover:border-accent/45 hover:bg-accent-fill-hover disabled:opacity-40"
 			>
 				{status === 'submitting' ? 'Submitting...' : 'Request Validation'}
 			</button>

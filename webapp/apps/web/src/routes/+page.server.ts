@@ -1,5 +1,10 @@
 import { createServerSupabase } from '$lib/supabase-server.js';
-import { type AgentUriData, readUriField, assertSuccess, toDisplayScore } from '$lib/server/utils.js';
+import {
+	type AgentUriData,
+	readUriField,
+	assertSuccess,
+	toDisplayScore
+} from '$lib/server/utils.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {

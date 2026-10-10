@@ -28,7 +28,9 @@
 	<span
 		id={tipId}
 		role="tooltip"
-		class="pointer-events-none absolute z-50 hidden whitespace-nowrap rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-text-muted shadow-lg group-hover/tip:block group-focus-within/tip:block {positionClasses[position]}"
+		class="pointer-events-none absolute z-50 hidden rounded-md border border-border bg-surface px-2 py-1 text-[11px] whitespace-nowrap text-text-muted shadow-lg group-focus-within/tip:block group-hover/tip:block {positionClasses[
+			position
+		]}"
 	>
 		{text}
 	</span>

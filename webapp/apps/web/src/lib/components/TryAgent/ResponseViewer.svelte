@@ -45,7 +45,7 @@
 
 <div class="space-y-2">
 	<div class="flex items-center gap-2">
-		<span class="text-[10px] uppercase tracking-wider text-text-dim">Response</span>
+		<span class="text-[10px] tracking-wider text-text-dim uppercase">Response</span>
 		<span class="font-mono text-xs {statusColor}">{status}</span>
 	</div>
 
@@ -65,7 +65,7 @@
 			<a
 				href={explorerTxUrl(validTxHash)}
 				target="_blank"
-				rel="noopener noreferrer"
+				rel="external noopener noreferrer"
 				class="font-mono text-accent hover:underline"
 			>
 				{validTxHash.slice(0, 8)}...{validTxHash.slice(-8)}

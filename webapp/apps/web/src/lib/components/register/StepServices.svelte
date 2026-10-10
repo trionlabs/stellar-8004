@@ -14,7 +14,9 @@
 	const MAX_SERVICES = 20;
 
 	const endpointError = $derived(validateUrl(currentEndpoint.trim()));
-	const canSave = $derived(currentName.trim().length > 0 && currentEndpoint.trim().length > 0 && !endpointError);
+	const canSave = $derived(
+		currentName.trim().length > 0 && currentEndpoint.trim().length > 0 && !endpointError
+	);
 	const isAtLimit = $derived(services.length >= MAX_SERVICES);
 
 	function saveService() {
@@ -61,7 +63,9 @@
 				type="button"
 				onclick={() => switchTab(tab as 'MCP' | 'A2A' | 'Custom')}
 				class="rounded-xl border px-4 py-2 text-xs font-medium transition-colors
-					{activeTab === tab ? 'border-accent bg-accent/8 text-accent' : 'border-border text-text-muted hover:bg-surface-raised'}"
+					{activeTab === tab
+					? 'border-accent bg-accent/8 text-accent'
+					: 'border-border text-text-muted hover:bg-surface-raised'}"
 			>
 				{tab}
 			</button>
@@ -69,9 +73,13 @@
 	</div>
 
 	{#if activeTab === 'MCP'}
-		<p class="text-[11px] text-text-dim">Model Context Protocol service for AI tools, prompts, and resources</p>
+		<p class="text-[11px] text-text-dim">
+			Model Context Protocol service for AI tools, prompts, and resources
+		</p>
 	{:else if activeTab === 'A2A'}
-		<p class="text-[11px] text-text-dim">Agent-to-Agent communication service for inter-agent collaboration</p>
+		<p class="text-[11px] text-text-dim">
+			Agent-to-Agent communication service for inter-agent collaboration
+		</p>
 	{:else}
 		<p class="text-[11px] text-text-dim">Custom service type for other protocols or services</p>
 	{/if}
@@ -83,14 +91,20 @@
 					type="text"
 					bind:value={currentName}
 					placeholder="Service name (e.g. Web, REST, gRPC)"
-					class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors"
+					class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
 				/>
 			{/if}
 			<input
 				type="text"
 				bind:value={currentEndpoint}
-				placeholder={activeTab === 'MCP' ? 'https://api.example.com/mcp' : activeTab === 'A2A' ? 'https://api.example.com/.well-known/agent-card.json' : 'https://...'}
-				class="w-full rounded-xl border {endpointError ? 'border-negative' : 'border-border'} bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors"
+				placeholder={activeTab === 'MCP'
+					? 'https://api.example.com/mcp'
+					: activeTab === 'A2A'
+						? 'https://api.example.com/.well-known/agent-card.json'
+						: 'https://...'}
+				class="w-full rounded-xl border {endpointError
+					? 'border-negative'
+					: 'border-border'} bg-surface px-4 py-3 text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
 			/>
 			{#if endpointError}
 				<p class="text-[10px] text-negative">{endpointError}</p>
@@ -99,25 +113,25 @@
 				type="text"
 				bind:value={currentVersion}
 				placeholder="Version (e.g. 1.0.0)"
-				class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors"
+				class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
 			/>
 			<textarea
 				bind:value={currentDescription}
 				placeholder="What does this service do? (optional)"
 				rows="2"
-				class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors resize-y"
+				class="w-full resize-y rounded-xl border border-border bg-surface px-4 py-3 text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
 			></textarea>
 			<textarea
 				bind:value={currentInputExample}
 				placeholder={'Example input JSON (optional)\ne.g. { "url": "https://example.com" }'}
 				rows="2"
-				class="w-full rounded-xl border border-border bg-surface px-4 py-3 font-mono text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none transition-colors resize-y"
+				class="w-full resize-y rounded-xl border border-border bg-surface px-4 py-3 font-mono text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
 			></textarea>
 			<button
 				type="button"
 				onclick={saveService}
 				disabled={!canSave}
-				class="flex items-center gap-2 rounded-xl bg-accent/8 px-4 py-2.5 text-sm font-medium text-accent disabled:opacity-40 hover:bg-accent/15 transition-colors"
+				class="flex items-center gap-2 rounded-xl bg-accent/8 px-4 py-2.5 text-sm font-medium text-accent transition-colors hover:bg-accent/15 disabled:opacity-40"
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -132,9 +146,13 @@
 			<h3 class="text-xs font-medium text-text-muted">Added Services ({services.length})</h3>
 			{#each services as service, i (service.endpoint)}
 				<div class="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
-					<span class="rounded-md bg-accent/8 px-2 py-0.5 text-[10px] font-medium text-accent">{service.name}</span>
-					<div class="flex-1 min-w-0">
-						<span class="block truncate font-mono text-[11px] text-text-muted">{service.endpoint}</span>
+					<span class="rounded-md bg-accent/8 px-2 py-0.5 text-[10px] font-medium text-accent"
+						>{service.name}</span
+					>
+					<div class="min-w-0 flex-1">
+						<span class="block truncate font-mono text-[11px] text-text-muted"
+							>{service.endpoint}</span
+						>
 						{#if service.description}
 							<span class="block truncate text-[10px] text-text-dim">{service.description}</span>
 						{/if}
@@ -146,9 +164,15 @@
 						type="button"
 						onclick={() => removeService(i)}
 						aria-label="Remove service"
-						class="rounded-md p-1 text-text-dim hover:text-negative hover:bg-negative/5 transition-colors"
+						class="rounded-md p-1 text-text-dim transition-colors hover:bg-negative/5 hover:text-negative"
 					>
-						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<svg
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
 							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 						</svg>
 					</button>
@@ -156,7 +180,9 @@
 			{/each}
 		</div>
 	{:else}
-		<div class="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-dim">
+		<div
+			class="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-dim"
+		>
 			No services added yet
 		</div>
 	{/if}

@@ -23,7 +23,7 @@
 	const STAR_SIZES = [
 		{ outer: 1.5, inner: 0.5 },
 		{ outer: 2.5, inner: 0.85 },
-		{ outer: 4, inner: 1.3 },
+		{ outer: 4, inner: 1.3 }
 	];
 
 	let stamps: { canvas: OffscreenCanvas; size: number }[] = [];
@@ -32,7 +32,7 @@
 	function buildStarPath(ctx: OffscreenCanvasRenderingContext2D, outerR: number, innerR: number) {
 		ctx.beginPath();
 		for (let i = 0; i < 10; i++) {
-			const angle = -Math.PI / 2 + i * Math.PI / 5;
+			const angle = -Math.PI / 2 + (i * Math.PI) / 5;
 			const r = i % 2 === 0 ? outerR : innerR;
 			const x = r * Math.cos(angle);
 			const y = r * Math.sin(angle);
@@ -44,7 +44,9 @@
 
 	function buildStamps() {
 		// Read the CSS custom property for star color
-		starColor = getComputedStyle(document.documentElement).getPropertyValue('--color-star-fill').trim();
+		starColor = getComputedStyle(document.documentElement)
+			.getPropertyValue('--color-star-fill')
+			.trim();
 
 		stamps = STAR_SIZES.map(({ outer, inner }) => {
 			const pad = 2;
@@ -52,7 +54,7 @@
 			const oc = new OffscreenCanvas(dim, dim);
 			const octx = oc.getContext('2d')!;
 			octx.scale(devicePixelRatio, devicePixelRatio);
-			const center = (outer + pad);
+			const center = outer + pad;
 			octx.translate(center, center);
 			octx.lineJoin = 'round';
 			octx.lineCap = 'round';
@@ -181,7 +183,9 @@
 
 	// Re-build stamps when theme changes (star color changes)
 	function onThemeChange() {
-		const newColor = getComputedStyle(document.documentElement).getPropertyValue('--color-star-fill').trim();
+		const newColor = getComputedStyle(document.documentElement)
+			.getPropertyValue('--color-star-fill')
+			.trim();
 		if (newColor !== starColor) {
 			buildStamps();
 		}
@@ -195,7 +199,10 @@
 
 		// Watch for theme changes
 		const observer = new MutationObserver(onThemeChange);
-		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+		observer.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ['data-theme']
+		});
 
 		return () => {
 			window.removeEventListener('mousemove', onMove);
@@ -208,9 +215,6 @@
 </script>
 
 {#if browser}
-	<canvas
-		bind:this={canvas}
-		class="pointer-events-none fixed inset-0"
-		style="z-index: -1;"
+	<canvas bind:this={canvas} class="pointer-events-none fixed inset-0" style="z-index: -1;"
 	></canvas>
 {/if}

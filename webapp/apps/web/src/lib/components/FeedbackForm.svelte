@@ -11,19 +11,19 @@
 
 	// Score steps: 6 discrete levels (0-100 in steps of 20)
 	const SCORE_STEPS = [
-		{ value: 0,   label: 'Terrible', color: 'var(--fb-negative)' },
-		{ value: 20,  label: 'Poor',     color: 'var(--fb-warning)' },
-		{ value: 40,  label: 'Okay',     color: 'var(--fb-caution)' },
-		{ value: 60,  label: 'Good',     color: 'var(--fb-moderate)' },
-		{ value: 80,  label: 'Great',    color: 'var(--fb-positive)' },
-		{ value: 100, label: 'Perfect',  color: 'var(--fb-excellent)' }
+		{ value: 0, label: 'Terrible', color: 'var(--fb-negative)' },
+		{ value: 20, label: 'Poor', color: 'var(--fb-warning)' },
+		{ value: 40, label: 'Okay', color: 'var(--fb-caution)' },
+		{ value: 60, label: 'Good', color: 'var(--fb-moderate)' },
+		{ value: 80, label: 'Great', color: 'var(--fb-positive)' },
+		{ value: 100, label: 'Perfect', color: 'var(--fb-excellent)' }
 	] as const;
 
 	const TAG_OPTIONS = [
-		{ value: 'starred',      label: 'General' },
-		{ value: 'uptime',       label: 'Uptime' },
-		{ value: 'reachable',    label: 'Reachable' },
-		{ value: 'successRate',  label: 'Success Rate' },
+		{ value: 'starred', label: 'General' },
+		{ value: 'uptime', label: 'Uptime' },
+		{ value: 'reachable', label: 'Reachable' },
+		{ value: 'successRate', label: 'Success Rate' },
 		{ value: 'responseTime', label: 'Response Time' }
 	] as const;
 
@@ -104,7 +104,7 @@
 				tag2,
 				endpoint,
 				feedback_uri: feedbackUri,
-				feedback_hash: Buffer.from(feedbackHash),
+				feedback_hash: Buffer.from(feedbackHash)
 			});
 			const sent = await tx.signAndSend();
 			txHash = sent.sendTransactionResponse?.hash ?? '';
@@ -142,19 +142,34 @@
 					<a
 						href={explorerTxUrl(txHash)}
 						target="_blank"
-						rel="noopener noreferrer"
+						rel="external noopener noreferrer"
 						class="mt-1 block font-mono text-[11px] text-accent hover:underline"
-					>{txHash.slice(0, 16)}...</a>
+						>{txHash.slice(0, 16)}...</a
+					>
 				{/if}
 			</div>
-			<button type="button" onclick={reset} class="ml-auto text-xs text-text-dim hover:text-text transition">
+			<button
+				type="button"
+				onclick={reset}
+				class="ml-auto text-xs text-text-dim transition hover:text-text"
+			>
 				Submit another
 			</button>
 		</div>
 	{:else if !wallet.connected}
 		<div class="flex items-center gap-3 px-4 py-3">
-			<svg class="h-4 w-4 shrink-0 text-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+			<svg
+				class="h-4 w-4 shrink-0 text-text-dim"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+				stroke-width="1.5"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+				/>
 			</svg>
 			<p class="text-sm text-text-muted">Connect wallet to give feedback</p>
 		</div>
@@ -164,7 +179,7 @@
 			<div class="fb-score">
 				<div class="fb-score__header">
 					<span class="text-xs text-text-dim">Score</span>
-					{#each SCORE_STEPS.filter(s => s.value === value) as activeStep}
+					{#each SCORE_STEPS.filter((s) => s.value === value) as activeStep (activeStep.value)}
 						<span class="fb-score__badge" style="--step-color: {activeStep.color}">
 							<span class="fb-score__badge-dot"></span>
 							{activeStep.label}
@@ -179,7 +194,7 @@
 					onpointerup={handlePointerUp}
 					onpointercancel={handlePointerUp}
 				>
-					{#each SCORE_STEPS as step, i}
+					{#each SCORE_STEPS as step, i (step.value)}
 						<button
 							type="button"
 							onpointerdown={(e) => handlePointerDown(step.value, e)}
@@ -201,7 +216,7 @@
 			<div class="fb-tags">
 				<span class="text-xs text-text-dim">Category</span>
 				<div class="fb-tags__list">
-					{#each TAG_OPTIONS as tag}
+					{#each TAG_OPTIONS as tag (tag.value)}
 						<button
 							type="button"
 							onclick={() => (tag1 = tag.value)}
@@ -223,7 +238,10 @@
 				<svg
 					class="h-3 w-3 transition-transform duration-200"
 					class:rotate-90={showAdvanced}
-					fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
 				>
 					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
 				</svg>
@@ -269,15 +287,16 @@
 				<p class="text-xs text-negative">{errorMsg}</p>
 			{/if}
 
-			<button
-				onclick={submit}
-				disabled={busy || wallet.networkMismatch}
-				class="fb-submit"
-			>
+			<button onclick={submit} disabled={busy || wallet.networkMismatch} class="fb-submit">
 				{#if busy}
 					<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
 						<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.25" />
-						<path d="M12 2a10 10 0 019.95 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+						<path
+							d="M12 2a10 10 0 019.95 9"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+						/>
 					</svg>
 					Submitting...
 				{:else}
@@ -389,7 +408,9 @@
 		background: var(--color-surface-raised);
 		cursor: pointer;
 		overflow: hidden;
-		transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s;
+		transition:
+			transform 0.15s cubic-bezier(0.22, 1, 0.36, 1),
+			border-color 0.25s;
 		display: flex;
 		align-items: flex-end;
 		justify-content: center;
@@ -439,7 +460,9 @@
 		letter-spacing: 0.02em;
 		color: var(--color-text-dim);
 		opacity: 0;
-		transition: opacity 0.2s ease, transform 0.2s ease;
+		transition:
+			opacity 0.2s ease,
+			transform 0.2s ease;
 		transform: translateY(2px);
 		white-space: nowrap;
 	}
@@ -474,7 +497,10 @@
 		font-weight: 500;
 		letter-spacing: 0.01em;
 		cursor: pointer;
-		transition: border-color 0.2s, color 0.2s, background 0.2s;
+		transition:
+			border-color 0.2s,
+			color 0.2s,
+			background 0.2s;
 	}
 
 	.fb-tag:hover {
@@ -521,7 +547,9 @@
 		background: var(--color-surface-raised);
 		font-size: 12px;
 		color: var(--color-text-muted);
-		transition: border-color 0.25s, background 0.25s;
+		transition:
+			border-color 0.25s,
+			background 0.25s;
 	}
 
 	.fb-input::placeholder {
@@ -550,7 +578,10 @@
 		font-weight: 500;
 		letter-spacing: 0.01em;
 		cursor: pointer;
-		transition: background 0.2s, border-color 0.2s, transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+		transition:
+			background 0.2s,
+			border-color 0.2s,
+			transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
 	}
 
 	.fb-submit:hover:not(:disabled) {

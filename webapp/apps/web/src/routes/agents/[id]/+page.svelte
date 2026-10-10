@@ -7,7 +7,14 @@
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { explorerTxUrl, explorerContractUrl, explorerAccountUrl } from '$lib/explorer.js';
 	import { stellarConfig } from '$lib/sdk-client.js';
-	import { scoreFormatter, dateFormatter, dateTimeFormatter, shortAddress, sanitizeImageUrl, TRUST_DESCRIPTIONS } from '$lib/formatters.js';
+	import {
+		scoreFormatter,
+		dateFormatter,
+		dateTimeFormatter,
+		shortAddress,
+		sanitizeImageUrl,
+		TRUST_DESCRIPTIONS
+	} from '$lib/formatters.js';
 	import FeedbackForm from '$lib/components/FeedbackForm.svelte';
 	import ScoreBreakdown from '$lib/components/ScoreBreakdown.svelte';
 	import EvidenceViewer from '$lib/components/EvidenceViewer.svelte';
@@ -47,7 +54,10 @@
 
 	$effect(() => {
 		if (data.state !== 'indexing' && data.state !== 'resolving') {
-			if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+			if (pollTimer) {
+				clearInterval(pollTimer);
+				pollTimer = null;
+			}
 		}
 	});
 
@@ -73,7 +83,7 @@
 			const tx = await identity.set_agent_uri({
 				caller,
 				agent_id: data.agent.id,
-				new_uri: newUri.trim(),
+				new_uri: newUri.trim()
 			});
 			await tx.signAndSend();
 			uriUpdateStatus = 'success';
@@ -89,7 +99,9 @@
 	}
 
 	const showTryPanel = $derived(
-		(data.agent.x402Enabled || data.agent.mppEnabled) && data.agent.services.length > 0 && data.state === 'ready'
+		(data.agent.x402Enabled || data.agent.mppEnabled) &&
+			data.agent.services.length > 0 &&
+			data.state === 'ready'
 	);
 
 	const tabs = [
@@ -103,6 +115,16 @@
 	let activeTab = $state<TabId>('reputation');
 
 	const identityRegistryAddress = stellarConfig.contracts.identity;
+
+	function keyedValues<T>(values: T[]) {
+		const occurrences: Record<string, number> = {};
+		return values.map((value) => {
+			const serialized = JSON.stringify(value) ?? '';
+			const occurrence = occurrences[serialized] ?? 0;
+			occurrences[serialized] = occurrence + 1;
+			return { key: JSON.stringify([serialized, occurrence]), value };
+		});
+	}
 
 	// Parse registration data for structured display
 	const parsedRegistration = $derived.by(() => {
@@ -139,7 +161,9 @@
 		if (typeof navigator === 'undefined' || !navigator.clipboard) return;
 		await navigator.clipboard.writeText(text);
 		copySuccess = text;
-		setTimeout(() => { copySuccess = null; }, 1500);
+		setTimeout(() => {
+			copySuccess = null;
+		}, 1500);
 	}
 </script>
 
@@ -154,59 +178,82 @@
 {#if data.state === 'indexing'}
 	<!-- Full-page indexing UI -->
 	<div class="mx-auto max-w-lg space-y-8 py-12">
-		<div class="rounded-2xl border border-border bg-surface-raised/40 p-8 text-center space-y-6">
+		<div class="space-y-6 rounded-2xl border border-border bg-surface-raised/40 p-8 text-center">
 			{#if !pollTimedOut}
-				<div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-accent/12 bg-accent/4">
+				<div
+					class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-accent/12 bg-accent/4"
+				>
 					<svg class="h-8 w-8 animate-spin text-accent" viewBox="0 0 24 24" fill="none">
 						<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.25" />
-						<path d="M12 2a10 10 0 019.95 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+						<path
+							d="M12 2a10 10 0 019.95 9"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+						/>
 					</svg>
 				</div>
 				<div class="space-y-2">
 					<h1 class="text-xl font-light text-text">Indexing Agent #{data.agent.id}</h1>
 					<p class="text-sm text-text-muted">
-						Your registration was confirmed on Stellar. The indexer scans for new agents every 60 seconds.
+						Your registration was confirmed on Stellar. The indexer scans for new agents every 60
+						seconds.
 					</p>
 				</div>
 				<div class="flex items-center justify-center gap-2 text-xs text-text-dim">
-					<span class="h-1.5 w-1.5 rounded-full bg-accent animate-pulse"></span>
+					<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent"></span>
 					Waiting for indexer...
 				</div>
 			{:else}
-				<div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-warning/12 bg-warning/5">
-					<svg class="h-8 w-8 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+				<div
+					class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-warning/12 bg-warning/5"
+				>
+					<svg
+						class="h-8 w-8 text-warning"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+						/>
 					</svg>
 				</div>
 				<div class="space-y-2">
 					<h1 class="text-xl font-light text-text">Indexer hasn't caught up yet</h1>
 					<p class="text-sm text-text-muted">
-						This can happen during high network load. Try refreshing the page, or check the transaction on Stellar Explorer.
+						This can happen during high network load. Try refreshing the page, or check the
+						transaction on Stellar Explorer.
 					</p>
 				</div>
 			{/if}
 
 			{#if data.txHash}
 				<div class="rounded-lg border border-border bg-surface p-3">
-					<p class="text-[10px] text-text-dim uppercase tracking-wider">Transaction</p>
+					<p class="text-[10px] tracking-wider text-text-dim uppercase">Transaction</p>
 					<a
 						href={explorerTxUrl(data.txHash)}
 						target="_blank"
-						rel="noopener noreferrer"
-						class="mt-1 block font-mono text-xs text-accent hover:underline break-all"
-					>{data.txHash}</a>
+						rel="external noopener noreferrer"
+						class="mt-1 block font-mono text-xs break-all text-accent hover:underline"
+						>{data.txHash}</a
+					>
 				</div>
 			{/if}
 
 			<div class="flex flex-wrap justify-center gap-3 pt-2">
-				<a href={resolve('/register')}
-					class="text-xs text-text-muted hover:text-accent transition">
+				<a href={resolve('/register')} class="text-xs text-text-muted transition hover:text-accent">
 					Register another agent
 				</a>
 				{#if wallet.connected}
 					<span class="text-text-dim">-</span>
-					<a href={resolve('/agents') + `?owner=${wallet.address}`}
-						class="text-xs text-text-muted hover:text-accent transition">
+					<a
+						href={resolve(`/agents?owner=${wallet.address}`)}
+						class="text-xs text-text-muted transition hover:text-accent"
+					>
 						My agents
 					</a>
 				{/if}
@@ -214,664 +261,969 @@
 		</div>
 	</div>
 {:else}
-<div class="space-y-10">
-	{#if data.justRegistered && data.state === 'ready'}
-		<div class="flex items-center justify-between rounded-xl border border-positive/12 bg-positive/4 px-4 py-3">
-			<div class="flex items-center gap-2">
-				<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
-				<p class="text-sm text-positive">Agent registered</p>
-			</div>
-			<div class="flex items-center gap-3 text-xs">
-				<a href={resolve('/register')} class="text-text-muted hover:text-text transition">Register another</a>
-				{#if wallet.connected}
-					<a href={resolve('/agents') + `?owner=${wallet.address}`} class="text-accent hover:text-text transition">My agents</a>
-				{/if}
-			</div>
-		</div>
-	{/if}
-	<!-- State banners -->
-	{#if data.state === 'resolving'}
-		<div class="flex items-center gap-3 rounded-xl border border-accent/15 bg-accent/4 px-4 py-3">
-			<svg class="h-4 w-4 shrink-0 animate-spin text-accent" viewBox="0 0 24 24" fill="none">
-				<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.25" />
-				<path d="M12 2a10 10 0 019.95 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-			</svg>
-			<p class="text-sm text-accent">Resolving metadata from agent URI. This usually takes under a minute.</p>
-		</div>
-	{:else if data.state === 'failed'}
-		<div class="flex items-start gap-3 rounded-xl border border-warning/15 bg-warning/5 px-4 py-3">
-			<svg class="mt-0.5 h-4 w-4 shrink-0 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-			</svg>
-			<div class="flex-1 space-y-1">
-				<p class="text-sm font-medium text-warning">Metadata resolution failed</p>
-				<p class="text-xs text-text-muted">
-					<span class="font-mono">{data.agent.agentUri}</span> could not be resolved after {data.uriResolveAttempts} attempts.
-					Verify the URL is accessible and returns valid JSON.
-				</p>
-				{#if wallet.connected && isOwner}
-					<button onclick={() => { showUriEditor = true; newUri = data.agent.agentUri ?? ''; }}
-						class="mt-2 rounded-lg bg-warning-soft px-3 py-1.5 text-xs font-medium text-warning transition hover:bg-warning/15">
-						Update URI
-					</button>
-				{/if}
-			</div>
-		</div>
-	{:else if data.state === 'no-uri'}
-		<div class="flex items-center gap-3 rounded-xl border border-border bg-surface-raised/40 px-4 py-3">
-			<svg class="h-4 w-4 shrink-0 text-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
-			</svg>
-			<p class="text-sm text-text-muted">
-				This agent was registered without a metadata URI. Name, description, and services can be set by updating the agent URI on-chain.
-			</p>
-		</div>
-	{/if}
-
-	{#if showUriEditor}
-		<div class="rounded-xl border border-border bg-surface p-4 space-y-3">
-			<label class="text-xs font-medium text-text-muted" for="new-uri">New Metadata URI</label>
-			<input id="new-uri" type="text" bind:value={newUri}
-				placeholder="https://... or ipfs://..."
-				class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none" />
-			<div class="flex items-center gap-2">
-				<button onclick={submitUriUpdate}
-					disabled={uriUpdateStatus === 'submitting' || !newUri.trim()}
-					class="rounded-lg border border-accent/30 bg-accent-fill px-4 py-2 text-sm text-accent disabled:opacity-50 hover:bg-accent-fill-hover hover:border-accent/45 transition-colors">
-					{#if uriUpdateStatus === 'submitting'}
-						Submitting...
-					{:else}
-						Update URI
-					{/if}
-				</button>
-				<button onclick={() => { showUriEditor = false; uriUpdateStatus = 'idle'; }}
-					class="rounded-lg border border-border px-4 py-2 text-sm text-text-muted hover:bg-surface-raised">
-					Cancel
-				</button>
-				{#if uriUpdateStatus === 'success'}
-					<span class="text-xs text-positive">URI updated - waiting for indexer to re-resolve...</span>
-				{/if}
-			</div>
-			{#if uriUpdateStatus === 'error'}
-				<p class="text-xs text-negative">{uriUpdateError}</p>
-			{/if}
-		</div>
-	{/if}
-
-	<!-- Compact Hero: identity + inline trust signals -->
-	<section class="space-y-4 reveal">
-		<div class="flex items-start gap-4">
-			<div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/40 bg-surface-raised/50">
-				{#if data.agent.image}
-					<img src={sanitizeImageUrl(data.agent.image)} alt="" class="h-full w-full object-cover" />
-				{:else}
-					<StarIdenticon seed={String(data.agent.id)} size={56} />
-				{/if}
-			</div>
-			<div class="min-w-0 flex-1">
-				<div class="flex items-center gap-3">
-					<h1 class="truncate text-xl font-light tracking-tight text-text">{data.agent.name}</h1>
-					{#if data.scores?.totalScore != null}
-						<Tooltip text={`Rank #${data.scores.rank ?? '?'} of ${data.scores.totalAgents ?? '?'} agents`}>
-							<span class="shrink-0 rounded-full border border-positive/20 bg-positive/5 px-2 py-0.5 text-xs font-medium tabular-nums text-positive">
-								{scoreFormatter.format(data.scores.totalScore)}
-							</span>
-						</Tooltip>
-					{/if}
-					{#if data.scores && data.scores.feedbackCount > 0}
-						<span class="shrink-0 text-[11px] tabular-nums text-text-dim">
-							{data.scores.feedbackCount} review{data.scores.feedbackCount !== 1 ? 's' : ''}
-						</span>
-					{/if}
+	<div class="space-y-10">
+		{#if data.justRegistered && data.state === 'ready'}
+			<div
+				class="flex items-center justify-between rounded-xl border border-positive/12 bg-positive/4 px-4 py-3"
+			>
+				<div class="flex items-center gap-2">
+					<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
+					<p class="text-sm text-positive">Agent registered</p>
 				</div>
-				<div class="mt-1 flex items-center gap-2 text-[11px]">
-					<Tooltip text={copySuccess === data.agent.owner ? 'Copied!' : data.agent.owner}>
-						<button type="button" onclick={() => copyToClipboard(data.agent.owner)} class="font-mono text-text-dim/50 transition hover:text-text-muted cursor-pointer">
-							{shortAddress(data.agent.owner)}
-						</button>
-					</Tooltip>
-					{#if data.agent.owner}
+				<div class="flex items-center gap-3 text-xs">
+					<a href={resolve('/register')} class="text-text-muted transition hover:text-text"
+						>Register another</a
+					>
+					{#if wallet.connected}
 						<a
-							href={explorerAccountUrl(data.agent.owner)}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="text-text-dim/40 transition hover:text-accent"
-							title="View owner account on Stellar Explorer"
-							aria-label="View owner account on Stellar Explorer"
+							href={resolve(`/agents?owner=${wallet.address}`)}
+							class="text-accent transition hover:text-text">My agents</a
 						>
-							<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-						</a>
 					{/if}
-					<span class="text-text-dim/25">-</span>
-					<span class="text-text-dim/50">{dateFormatter.format(new Date(data.agent.createdAt))}</span>
-					<span class="text-text-dim/25">-</span>
-					<Tooltip text={copySuccess === String(data.agent.id) ? 'Copied!' : `Agent ID: ${data.agent.id}`}>
-						<button type="button" onclick={() => copyToClipboard(String(data.agent.id))} class="text-accent/60 transition hover:text-accent cursor-pointer">
-							#{data.agent.id}
+				</div>
+			</div>
+		{/if}
+		<!-- State banners -->
+		{#if data.state === 'resolving'}
+			<div class="flex items-center gap-3 rounded-xl border border-accent/15 bg-accent/4 px-4 py-3">
+				<svg class="h-4 w-4 shrink-0 animate-spin text-accent" viewBox="0 0 24 24" fill="none">
+					<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.25" />
+					<path
+						d="M12 2a10 10 0 019.95 9"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+					/>
+				</svg>
+				<p class="text-sm text-accent">
+					Resolving metadata from agent URI. This usually takes under a minute.
+				</p>
+			</div>
+		{:else if data.state === 'failed'}
+			<div
+				class="flex items-start gap-3 rounded-xl border border-warning/15 bg-warning/5 px-4 py-3"
+			>
+				<svg
+					class="mt-0.5 h-4 w-4 shrink-0 text-warning"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="1.5"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+					/>
+				</svg>
+				<div class="flex-1 space-y-1">
+					<p class="text-sm font-medium text-warning">Metadata resolution failed</p>
+					<p class="text-xs text-text-muted">
+						<span class="font-mono">{data.agent.agentUri}</span> could not be resolved after {data.uriResolveAttempts}
+						attempts. Verify the URL is accessible and returns valid JSON.
+					</p>
+					{#if wallet.connected && isOwner}
+						<button
+							onclick={() => {
+								showUriEditor = true;
+								newUri = data.agent.agentUri ?? '';
+							}}
+							class="mt-2 rounded-lg bg-warning-soft px-3 py-1.5 text-xs font-medium text-warning transition hover:bg-warning/15"
+						>
+							Update URI
 						</button>
-					</Tooltip>
-					{#if identityRegistryAddress}
-						<span class="text-text-dim/25">-</span>
-						<Tooltip text={`Identity Registry: ${identityRegistryAddress}`}>
-							<a
-								href={explorerContractUrl(identityRegistryAddress)}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="text-text-dim/40 transition hover:text-accent"
+					{/if}
+				</div>
+			</div>
+		{:else if data.state === 'no-uri'}
+			<div
+				class="flex items-center gap-3 rounded-xl border border-border bg-surface-raised/40 px-4 py-3"
+			>
+				<svg
+					class="h-4 w-4 shrink-0 text-text-dim"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="1.5"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+					/>
+				</svg>
+				<p class="text-sm text-text-muted">
+					This agent was registered without a metadata URI. Name, description, and services can be
+					set by updating the agent URI on-chain.
+				</p>
+			</div>
+		{/if}
+
+		{#if showUriEditor}
+			<div class="space-y-3 rounded-xl border border-border bg-surface p-4">
+				<label class="text-xs font-medium text-text-muted" for="new-uri">New Metadata URI</label>
+				<input
+					id="new-uri"
+					type="text"
+					bind:value={newUri}
+					placeholder="https://... or ipfs://..."
+					class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
+				/>
+				<div class="flex items-center gap-2">
+					<button
+						onclick={submitUriUpdate}
+						disabled={uriUpdateStatus === 'submitting' || !newUri.trim()}
+						class="rounded-lg border border-accent/30 bg-accent-fill px-4 py-2 text-sm text-accent transition-colors hover:border-accent/45 hover:bg-accent-fill-hover disabled:opacity-50"
+					>
+						{#if uriUpdateStatus === 'submitting'}
+							Submitting...
+						{:else}
+							Update URI
+						{/if}
+					</button>
+					<button
+						onclick={() => {
+							showUriEditor = false;
+							uriUpdateStatus = 'idle';
+						}}
+						class="rounded-lg border border-border px-4 py-2 text-sm text-text-muted hover:bg-surface-raised"
+					>
+						Cancel
+					</button>
+					{#if uriUpdateStatus === 'success'}
+						<span class="text-xs text-positive"
+							>URI updated - waiting for indexer to re-resolve...</span
+						>
+					{/if}
+				</div>
+				{#if uriUpdateStatus === 'error'}
+					<p class="text-xs text-negative">{uriUpdateError}</p>
+				{/if}
+			</div>
+		{/if}
+
+		<!-- Compact Hero: identity + inline trust signals -->
+		<section class="reveal space-y-4">
+			<div class="flex items-start gap-4">
+				<div
+					class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/40 bg-surface-raised/50"
+				>
+					{#if data.agent.image}
+						<img
+							src={sanitizeImageUrl(data.agent.image)}
+							alt=""
+							class="h-full w-full object-cover"
+						/>
+					{:else}
+						<StarIdenticon seed={String(data.agent.id)} size={56} />
+					{/if}
+				</div>
+				<div class="min-w-0 flex-1">
+					<div class="flex items-center gap-3">
+						<h1 class="truncate text-xl font-light tracking-tight text-text">{data.agent.name}</h1>
+						{#if data.scores?.totalScore != null}
+							<Tooltip
+								text={`Rank #${data.scores.rank ?? '?'} of ${data.scores.totalAgents ?? '?'} agents`}
 							>
-								registry
+								<span
+									class="shrink-0 rounded-full border border-positive/20 bg-positive/5 px-2 py-0.5 text-xs font-medium text-positive tabular-nums"
+								>
+									{scoreFormatter.format(data.scores.totalScore)}
+								</span>
+							</Tooltip>
+						{/if}
+						{#if data.scores && data.scores.feedbackCount > 0}
+							<span class="shrink-0 text-[11px] text-text-dim tabular-nums">
+								{data.scores.feedbackCount} review{data.scores.feedbackCount !== 1 ? 's' : ''}
+							</span>
+						{/if}
+					</div>
+					<div class="mt-1 flex items-center gap-2 text-[11px]">
+						<Tooltip text={copySuccess === data.agent.owner ? 'Copied!' : data.agent.owner}>
+							<button
+								type="button"
+								onclick={() => copyToClipboard(data.agent.owner)}
+								class="cursor-pointer font-mono text-text-dim/50 transition hover:text-text-muted"
+							>
+								{shortAddress(data.agent.owner)}
+							</button>
+						</Tooltip>
+						{#if data.agent.owner}
+							<a
+								href={explorerAccountUrl(data.agent.owner)}
+								target="_blank"
+								rel="external noopener noreferrer"
+								class="text-text-dim/40 transition hover:text-accent"
+								title="View owner account on Stellar Explorer"
+								aria-label="View owner account on Stellar Explorer"
+							>
+								<svg
+									class="h-3 w-3"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="1.5"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+									/></svg
+								>
 							</a>
+						{/if}
+						<span class="text-text-dim/25">-</span>
+						<span class="text-text-dim/50"
+							>{dateFormatter.format(new Date(data.agent.createdAt))}</span
+						>
+						<span class="text-text-dim/25">-</span>
+						<Tooltip
+							text={copySuccess === String(data.agent.id)
+								? 'Copied!'
+								: `Agent ID: ${data.agent.id}`}
+						>
+							<button
+								type="button"
+								onclick={() => copyToClipboard(String(data.agent.id))}
+								class="cursor-pointer text-accent/60 transition hover:text-accent"
+							>
+								#{data.agent.id}
+							</button>
+						</Tooltip>
+						{#if identityRegistryAddress}
+							<span class="text-text-dim/25">-</span>
+							<Tooltip text={`Identity Registry: ${identityRegistryAddress}`}>
+								<a
+									href={explorerContractUrl(identityRegistryAddress)}
+									target="_blank"
+									rel="external noopener noreferrer"
+									class="text-text-dim/40 transition hover:text-accent"
+								>
+									registry
+								</a>
+							</Tooltip>
+						{/if}
+					</div>
+					{#if data.agent.description}
+						<p class="mt-2 line-clamp-2 text-sm leading-relaxed text-text-muted">
+							{data.agent.description}
+						</p>
+					{/if}
+					{#if data.agent.supportedTrust.length > 0 || data.agent.x402Enabled || data.agent.mppEnabled}
+						<div class="mt-2 flex flex-wrap gap-1.5">
+							{#each keyedValues(data.agent.supportedTrust) as { key: trustKey, value: trust } (trustKey)}
+								<Tooltip text={TRUST_DESCRIPTIONS[trust] ?? trust}>
+									<span
+										class="rounded-full border border-positive/15 bg-positive/4 px-2 py-0.5 text-[10px] text-positive"
+										>{trust}</span
+									>
+								</Tooltip>
+							{/each}
+							{#if data.agent.x402Enabled}
+								<Tooltip text="Accepts x402 micropayments">
+									<span
+										class="rounded-full border border-accent/15 bg-accent/4 px-2 py-0.5 text-[10px] text-accent"
+										>x402</span
+									>
+								</Tooltip>
+							{/if}
+							{#if data.agent.mppEnabled}
+								<Tooltip text="Accepts MPP Charge payments (direct settlement)">
+									<span
+										class="rounded-full border border-accent/15 bg-accent/4 px-2 py-0.5 text-[10px] text-accent"
+										>mpp</span
+									>
+								</Tooltip>
+							{/if}
+						</div>
+					{/if}
+				</div>
+				{#if wallet.connected && isOwner && (data.state === 'ready' || data.state === 'no-uri' || data.state === 'failed')}
+					<a
+						href={resolve(`/agents/${data.agent.id}/edit`)}
+						class="flex shrink-0 items-center gap-1.5 rounded-lg border border-accent/25 bg-accent-fill-hover
+					       px-3 py-1.5 text-xs font-medium text-accent
+					       transition-all hover:border-accent/40"
+					>
+						<svg
+							class="h-3.5 w-3.5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="1.5"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+							/>
+						</svg>
+						Edit
+					</a>
+				{/if}
+			</div>
+		</section>
+
+		<!-- Trust stats — compact horizontal bar -->
+		<section class="reveal reveal-d1">
+			<div
+				class="stat-row grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border/30"
+			>
+				<div class="stat-cell px-4 py-3" title="Aggregate trust score from feedback and volume">
+					<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Score</p>
+					<p class="mt-1 text-lg font-light text-positive tabular-nums">
+						{#if data.scores?.totalScore != null}
+							{scoreFormatter.format(data.scores.totalScore)}
+						{:else}
+							<span class="text-text-dim/30">--</span>
+						{/if}
+					</p>
+					{#if data.scores?.rank != null}
+						<p class="mt-0.5 text-[10px] text-text-dim/40">
+							#{data.scores.rank}{data.scores.totalAgents ? ` / ${data.scores.totalAgents}` : ''}
+						</p>
+					{/if}
+				</div>
+				<div class="stat-cell px-4 py-3" title="Total feedback submissions">
+					<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
+					<p class="mt-1 text-lg font-light text-text tabular-nums">
+						{data.scores?.feedbackCount ?? 0}
+					</p>
+					{#if data.scores && data.scores.feedbackCount > 0}
+						<Tooltip text="Unique wallets that submitted feedback" position="bottom">
+							<p
+								class="mt-0.5 cursor-help border-b border-dashed border-text-dim/20 text-[10px] text-text-dim/40"
+							>
+								{data.scores.uniqueClients} user{data.scores.uniqueClients !== 1 ? 's' : ''}
+							</p>
 						</Tooltip>
 					{/if}
-				</div>
-				{#if data.agent.description}
-					<p class="mt-2 line-clamp-2 text-sm leading-relaxed text-text-muted">{data.agent.description}</p>
-				{/if}
-				{#if data.agent.supportedTrust.length > 0 || data.agent.x402Enabled || data.agent.mppEnabled}
-					<div class="mt-2 flex flex-wrap gap-1.5">
-						{#each data.agent.supportedTrust as trust}
-							<Tooltip text={TRUST_DESCRIPTIONS[trust] ?? trust}>
-							<span class="rounded-full border border-positive/15 bg-positive/4 px-2 py-0.5 text-[10px] text-positive">{trust}</span>
-							</Tooltip>
-						{/each}
-						{#if data.agent.x402Enabled}
-							<Tooltip text="Accepts x402 micropayments">
-							<span class="rounded-full border border-accent/15 bg-accent/4 px-2 py-0.5 text-[10px] text-accent">x402</span>
-							</Tooltip>
-						{/if}
-						{#if data.agent.mppEnabled}
-							<Tooltip text="Accepts MPP Charge payments (direct settlement)">
-							<span class="rounded-full border border-accent/15 bg-accent/4 px-2 py-0.5 text-[10px] text-accent">mpp</span>
-							</Tooltip>
-						{/if}
-					</div>
-				{/if}
-			</div>
-			{#if wallet.connected && isOwner && (data.state === 'ready' || data.state === 'no-uri' || data.state === 'failed')}
-				<a href={resolve(`/agents/${data.agent.id}/edit`)}
-					class="flex shrink-0 items-center gap-1.5 rounded-lg bg-accent-fill-hover px-3 py-1.5
-					       border border-accent/25 text-xs font-medium text-accent
-					       hover:border-accent/40 transition-all">
-					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-						<path stroke-linecap="round" stroke-linejoin="round"
-							d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-					</svg>
-					Edit
-				</a>
-			{/if}
-		</div>
-	</section>
-
-	<!-- Trust stats — compact horizontal bar -->
-	<section class="reveal reveal-d1">
-		<div class="stat-row grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border/30">
-			<div class="stat-cell px-4 py-3" title="Aggregate trust score from feedback and volume">
-				<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Score</p>
-				<p class="mt-1 text-lg font-light tabular-nums text-positive">
-					{#if data.scores?.totalScore != null}
-						{scoreFormatter.format(data.scores.totalScore)}
-					{:else}
-						<span class="text-text-dim/30">--</span>
+					{#if data.recentFeedbackCount > 0}
+						<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>
 					{/if}
-				</p>
-				{#if data.scores?.rank != null}
-					<p class="mt-0.5 text-[10px] text-text-dim/40">
-						#{data.scores.rank}{data.scores.totalAgents ? ` / ${data.scores.totalAgents}` : ''}
-					</p>
-				{/if}
-			</div>
-			<div class="stat-cell px-4 py-3" title="Total feedback submissions">
-				<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
-				<p class="mt-1 text-lg font-light tabular-nums text-text">{data.scores?.feedbackCount ?? 0}</p>
-				{#if data.scores && data.scores.feedbackCount > 0}
-					<Tooltip text="Unique wallets that submitted feedback" position="bottom">
-						<p class="mt-0.5 text-[10px] text-text-dim/40 cursor-help border-b border-dashed border-text-dim/20">
-							{data.scores.uniqueClients} user{data.scores.uniqueClients !== 1 ? 's' : ''}
-						</p>
-					</Tooltip>
-				{/if}
-				{#if data.recentFeedbackCount > 0}
-					<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>
-				{/if}
-			</div>
-			<div class="stat-cell px-4 py-3" title={data.metadataMissing.length > 0 ? `Missing: ${data.metadataMissing.join(', ')}` : 'All metadata fields complete'}>
-				<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Metadata</p>
-				<p class="mt-1 text-lg font-light tabular-nums {data.metadataCompleteness >= 80 ? 'text-positive' : data.metadataCompleteness >= 40 ? 'text-warning' : 'text-negative'}">
-					{data.metadataCompleteness}%
-				</p>
-			</div>
-		</div>
-		{#if data.scores}
-			<div class="mt-3">
-				<ScoreBreakdown
-					feedbackCount={data.scores.feedbackCount ?? 0}
-					totalScore={data.scores.totalScore ?? 0}
-				/>
-			</div>
-		{/if}
-	</section>
-
-	<!-- TRY PANEL — after stats -->
-	{#if showTryPanel}
-		<section class="reveal reveal-d2">
-			<TryAgentPanel
-				services={data.agent.services}
-				x402Enabled={data.agent.x402Enabled}
-				mppEnabled={data.agent.mppEnabled}
-				autoOpen={true}
-			/>
-		</section>
-	{/if}
-
-	<!-- Tabs -->
-	<section>
-		<nav class="flex gap-1 border-b border-border/30 pb-px">
-			{#each tabs as tab (tab.id)}
-				<button
-					type="button"
-					onclick={() => (activeTab = tab.id)}
-					class="relative px-3 py-2 text-[13px] transition {activeTab === tab.id ? 'text-accent' : 'text-text-dim hover:text-text-muted'}"
+				</div>
+				<div
+					class="stat-cell px-4 py-3"
+					title={data.metadataMissing.length > 0
+						? `Missing: ${data.metadataMissing.join(', ')}`
+						: 'All metadata fields complete'}
 				>
-					{tab.label}
-					{#if activeTab === tab.id}
-						<span class="absolute inset-x-0 -bottom-px h-px bg-accent/60"></span>
-					{/if}
-				</button>
-			{/each}
-		</nav>
-	</section>
+					<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Metadata</p>
+					<p
+						class="mt-1 text-lg font-light tabular-nums {data.metadataCompleteness >= 80
+							? 'text-positive'
+							: data.metadataCompleteness >= 40
+								? 'text-warning'
+								: 'text-negative'}"
+					>
+						{data.metadataCompleteness}%
+					</p>
+				</div>
+			</div>
+			{#if data.scores}
+				<div class="mt-3">
+					<ScoreBreakdown
+						feedbackCount={data.scores.feedbackCount ?? 0}
+						totalScore={data.scores.totalScore ?? 0}
+					/>
+				</div>
+			{/if}
+		</section>
 
-	{#if activeTab === 'metadata'}
-		{#if data.agent.services.length > 0}
-			<section class="space-y-4">
-				<div>
-					<h2 class="text-sm font-medium text-text">Services</h2>
-					<p class="mt-1 text-xs text-text-dim">Endpoints exposed by this agent</p>
-				</div>
-				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-					{#each data.agent.services as service}
-						<div class="rounded-lg border border-border bg-surface p-4 space-y-2.5 glass-card">
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-2">
-									<span class="flex h-7 w-7 items-center justify-center rounded-md border border-accent/20 bg-accent/5 text-xs font-medium text-accent">
-										{PROTOCOL_ICONS[service.name] ?? service.name.charAt(0)}
-									</span>
-									<span class="text-sm font-medium text-text">{service.name}</span>
-								</div>
-								{#if service.version}
-									<span class="rounded-full border border-border bg-surface-raised px-2 py-0.5 text-[10px] text-text-dim">
-										v{service.version}
-									</span>
-								{/if}
-							</div>
-							<div class="flex items-center gap-1.5">
-								<p class="min-w-0 flex-1 truncate font-mono text-[11px] text-text-muted">{service.endpoint}</p>
-								<button
-									type="button"
-									onclick={() => copyToClipboard(service.endpoint)}
-									class="shrink-0 rounded-md border border-border bg-surface-raised p-1 text-text-dim transition hover:text-text"
-									title="Copy endpoint URL"
-								>
-									{#if copySuccess === service.endpoint}
-										<svg class="h-3.5 w-3.5 text-positive" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-									{:else}
-										<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-									{/if}
-								</button>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</section>
-		{:else}
-			<section>
-				<div class="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-dim">
-					{#if data.state === 'resolving'}
-						Services will appear after metadata is resolved from the agent URI.
-					{:else if data.state === 'failed'}
-						Service discovery requires a valid metadata URI.
-					{:else}
-						No services registered
-					{/if}
-				</div>
+		<!-- TRY PANEL — after stats -->
+		{#if showTryPanel}
+			<section class="reveal reveal-d2">
+				<TryAgentPanel
+					services={data.agent.services}
+					x402Enabled={data.agent.x402Enabled}
+					mppEnabled={data.agent.mppEnabled}
+					autoOpen={true}
+				/>
 			</section>
 		{/if}
 
-		<section class="space-y-6">
-			<!-- On-chain metadata -->
-			{#if data.metadata.length > 0}
-				<div class="space-y-3">
-					<h2 class="text-sm font-medium text-text">On-chain Metadata</h2>
-					<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-						{#each data.metadata as entry (entry.key)}
-							<div class="rounded-lg border border-border/40 bg-surface px-3.5 py-2.5 glass-card">
-								<p class="text-[10px] text-text-dim/50 uppercase tracking-wider">{entry.key}</p>
-								<p class="mt-0.5 text-sm text-text-muted">{entry.value ?? ''}</p>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-
-			<!-- Registration payload — parsed fields + copy JSON -->
-			<div class="space-y-3">
-				<div class="flex items-center justify-between">
-					<div>
-						<h2 class="text-sm font-medium text-text">Registration Payload</h2>
-						{#if data.agent.agentUri}
-							<p class="mt-0.5 truncate font-mono text-[11px] text-text-dim/50">{data.agent.agentUri}</p>
+		<!-- Tabs -->
+		<section>
+			<nav class="flex gap-1 border-b border-border/30 pb-px">
+				{#each tabs as tab (tab.id)}
+					<button
+						type="button"
+						onclick={() => (activeTab = tab.id)}
+						class="relative px-3 py-2 text-[13px] transition {activeTab === tab.id
+							? 'text-accent'
+							: 'text-text-dim hover:text-text-muted'}"
+					>
+						{tab.label}
+						{#if activeTab === tab.id}
+							<span class="absolute inset-x-0 -bottom-px h-px bg-accent/60"></span>
 						{/if}
-					</div>
-					{#if data.agent.registrationData}
-						<button
-							type="button"
-							onclick={() => copyToClipboard(data.agent.registrationData ?? '')}
-							class="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text-dim transition hover:text-text hover:border-border"
-						>
-							{#if copySuccess === data.agent.registrationData}
-								<svg class="h-3 w-3 text-positive" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-								Copied
-							{:else}
-								<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-								Copy JSON
-							{/if}
-						</button>
-					{/if}
-				</div>
+					</button>
+				{/each}
+			</nav>
+		</section>
 
-				{#if parsedRegistration}
-					<div class="rounded-lg border border-border/40 bg-surface overflow-hidden glass-card">
-						{#each Object.entries(parsedRegistration) as [key, val]}
-							<div class="flex items-start gap-3 border-t border-border/30 px-4 py-2.5 first:border-t-0">
-								<span class="w-32 shrink-0 text-[11px] font-medium text-accent/70 pt-0.5">{key}</span>
-								<div class="min-w-0 flex-1 text-[12px] text-text-muted">
-									{#if val === null}
-										<span class="text-text-dim/30">null</span>
-									{:else if typeof val === 'boolean'}
-										<span class="{val ? 'text-positive' : 'text-text-dim'}">{val}</span>
-									{:else if typeof val === 'string'}
-										{val}
-									{:else if Array.isArray(val)}
-										<div class="flex flex-wrap gap-1.5">
-											{#each val as item}
-												{#if typeof item === 'string'}
-													<span class="rounded-md border border-border/40 bg-surface-raised px-2 py-0.5 text-[11px]">{item}</span>
-												{:else if typeof item === 'object' && item !== null}
-													<div class="w-full rounded-md border border-border/30 bg-surface-raised px-3 py-2 mt-1 first:mt-0">
-														{#each Object.entries(item) as [k, v]}
-															<div class="flex gap-2 text-[11px] py-0.5">
-																<span class="text-text-dim/50 shrink-0">{k}:</span>
-																<span class="text-text-muted truncate">{typeof v === 'string' ? v : JSON.stringify(v)}</span>
-															</div>
-														{/each}
-													</div>
-												{:else}
-													<span class="rounded-md border border-border/40 bg-surface-raised px-2 py-0.5 text-[11px]">{JSON.stringify(item)}</span>
-												{/if}
-											{/each}
-										</div>
-									{:else}
-										{JSON.stringify(val)}
+		{#if activeTab === 'metadata'}
+			{#if data.agent.services.length > 0}
+				<section class="space-y-4">
+					<div>
+						<h2 class="text-sm font-medium text-text">Services</h2>
+						<p class="mt-1 text-xs text-text-dim">Endpoints exposed by this agent</p>
+					</div>
+					<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+						{#each keyedValues(data.agent.services) as { key: serviceKey, value: service } (serviceKey)}
+							<div class="glass-card space-y-2.5 rounded-lg border border-border bg-surface p-4">
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-2">
+										<span
+											class="flex h-7 w-7 items-center justify-center rounded-md border border-accent/20 bg-accent/5 text-xs font-medium text-accent"
+										>
+											{PROTOCOL_ICONS[service.name] ?? service.name.charAt(0)}
+										</span>
+										<span class="text-sm font-medium text-text">{service.name}</span>
+									</div>
+									{#if service.version}
+										<span
+											class="rounded-full border border-border bg-surface-raised px-2 py-0.5 text-[10px] text-text-dim"
+										>
+											v{service.version}
+										</span>
 									{/if}
+								</div>
+								<div class="flex items-center gap-1.5">
+									<p class="min-w-0 flex-1 truncate font-mono text-[11px] text-text-muted">
+										{service.endpoint}
+									</p>
+									<button
+										type="button"
+										onclick={() => copyToClipboard(service.endpoint)}
+										class="shrink-0 rounded-md border border-border bg-surface-raised p-1 text-text-dim transition hover:text-text"
+										title="Copy endpoint URL"
+									>
+										{#if copySuccess === service.endpoint}
+											<svg
+												class="h-3.5 w-3.5 text-positive"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+												stroke-width="2"
+												><path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M5 13l4 4L19 7"
+												/></svg
+											>
+										{:else}
+											<svg
+												class="h-3.5 w-3.5"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+												stroke-width="2"
+												><path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+												/></svg
+											>
+										{/if}
+									</button>
 								</div>
 							</div>
 						{/each}
 					</div>
-				{:else if data.agent.registrationData}
-					<pre class="overflow-auto rounded-lg border border-border bg-surface p-4 text-xs leading-relaxed text-text-muted">{data.agent.registrationData}</pre>
-				{:else}
-					<div class="rounded-lg border border-dashed border-border/40 p-6 text-center text-sm text-text-dim">
-						No structured registration payload
+				</section>
+			{:else}
+				<section>
+					<div
+						class="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-dim"
+					>
+						{#if data.state === 'resolving'}
+							Services will appear after metadata is resolved from the agent URI.
+						{:else if data.state === 'failed'}
+							Service discovery requires a valid metadata URI.
+						{:else}
+							No services registered
+						{/if}
+					</div>
+				</section>
+			{/if}
+
+			<section class="space-y-6">
+				<!-- On-chain metadata -->
+				{#if data.metadata.length > 0}
+					<div class="space-y-3">
+						<h2 class="text-sm font-medium text-text">On-chain Metadata</h2>
+						<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+							{#each data.metadata as entry (entry.key)}
+								<div class="glass-card rounded-lg border border-border/40 bg-surface px-3.5 py-2.5">
+									<p class="text-[10px] tracking-wider text-text-dim/50 uppercase">{entry.key}</p>
+									<p class="mt-0.5 text-sm text-text-muted">{entry.value ?? ''}</p>
+								</div>
+							{/each}
+						</div>
 					</div>
 				{/if}
-			</div>
-		</section>
-	{:else if activeTab === 'reputation'}
-		<section class="space-y-6">
-			<!-- Give Feedback -->
-			{#if wallet.connected}
-				{#if isOwner}
-					<div class="rounded-lg border border-border/40 bg-surface-raised/30 px-4 py-3">
-						<p class="text-sm text-text-dim">You cannot give feedback to your own agent.</p>
+
+				<!-- Registration payload — parsed fields + copy JSON -->
+				<div class="space-y-3">
+					<div class="flex items-center justify-between">
+						<div>
+							<h2 class="text-sm font-medium text-text">Registration Payload</h2>
+							{#if data.agent.agentUri}
+								<p class="mt-0.5 truncate font-mono text-[11px] text-text-dim/50">
+									{data.agent.agentUri}
+								</p>
+							{/if}
+						</div>
+						{#if data.agent.registrationData}
+							<button
+								type="button"
+								onclick={() => copyToClipboard(data.agent.registrationData ?? '')}
+								class="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text-dim transition hover:border-border hover:text-text"
+							>
+								{#if copySuccess === data.agent.registrationData}
+									<svg
+										class="h-3 w-3 text-positive"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="2"
+										><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg
+									>
+									Copied
+								{:else}
+									<svg
+										class="h-3 w-3"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="2"
+										><path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+										/></svg
+									>
+									Copy JSON
+								{/if}
+							</button>
+						{/if}
 					</div>
+
+					{#if parsedRegistration}
+						<div class="glass-card overflow-hidden rounded-lg border border-border/40 bg-surface">
+							{#each Object.entries(parsedRegistration) as [key, val] (key)}
+								<div
+									class="flex items-start gap-3 border-t border-border/30 px-4 py-2.5 first:border-t-0"
+								>
+									<span class="w-32 shrink-0 pt-0.5 text-[11px] font-medium text-accent/70"
+										>{key}</span
+									>
+									<div class="min-w-0 flex-1 text-[12px] text-text-muted">
+										{#if val === null}
+											<span class="text-text-dim/30">null</span>
+										{:else if typeof val === 'boolean'}
+											<span class={val ? 'text-positive' : 'text-text-dim'}>{val}</span>
+										{:else if typeof val === 'string'}
+											{val}
+										{:else if Array.isArray(val)}
+											<div class="flex flex-wrap gap-1.5">
+												{#each keyedValues(val) as { key: itemKey, value: item } (itemKey)}
+													{#if typeof item === 'string'}
+														<span
+															class="rounded-md border border-border/40 bg-surface-raised px-2 py-0.5 text-[11px]"
+															>{item}</span
+														>
+													{:else if typeof item === 'object' && item !== null}
+														<div
+															class="mt-1 w-full rounded-md border border-border/30 bg-surface-raised px-3 py-2 first:mt-0"
+														>
+															{#each Object.entries(item) as [k, v] (k)}
+																<div class="flex gap-2 py-0.5 text-[11px]">
+																	<span class="shrink-0 text-text-dim/50">{k}:</span>
+																	<span class="truncate text-text-muted"
+																		>{typeof v === 'string' ? v : JSON.stringify(v)}</span
+																	>
+																</div>
+															{/each}
+														</div>
+													{:else}
+														<span
+															class="rounded-md border border-border/40 bg-surface-raised px-2 py-0.5 text-[11px]"
+															>{JSON.stringify(item)}</span
+														>
+													{/if}
+												{/each}
+											</div>
+										{:else}
+											{JSON.stringify(val)}
+										{/if}
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else if data.agent.registrationData}
+						<pre
+							class="overflow-auto rounded-lg border border-border bg-surface p-4 text-xs leading-relaxed text-text-muted">{data
+								.agent.registrationData}</pre>
+					{:else}
+						<div
+							class="rounded-lg border border-dashed border-border/40 p-6 text-center text-sm text-text-dim"
+						>
+							No structured registration payload
+						</div>
+					{/if}
+				</div>
+			</section>
+		{:else if activeTab === 'reputation'}
+			<section class="space-y-6">
+				<!-- Give Feedback -->
+				{#if wallet.connected}
+					{#if isOwner}
+						<div class="rounded-lg border border-border/40 bg-surface-raised/30 px-4 py-3">
+							<p class="text-sm text-text-dim">You cannot give feedback to your own agent.</p>
+						</div>
+					{:else}
+						<FeedbackForm agentId={data.agent.id} />
+					{/if}
 				{:else}
 					<FeedbackForm agentId={data.agent.id} />
 				{/if}
-			{:else}
-				<FeedbackForm agentId={data.agent.id} />
-			{/if}
 
-			<!-- Tag filter pills -->
-			<div class="flex items-center gap-2">
-				<span class="text-[11px] text-text-dim/50 uppercase tracking-wider">Filter</span>
-				<div class="flex flex-wrap gap-1.5">
-					{#each TAG_FILTER_OPTIONS as tag}
-						<button
-							type="button"
-							onclick={() => {
-								const url = new URL(window.location.href);
-								if (tag.value) {
-									url.searchParams.set('tag', tag.value);
-								} else {
-									url.searchParams.delete('tag');
-								}
-								goto(url.toString(), { replaceState: true, invalidateAll: true });
-							}}
-							class="rounded-md px-2.5 py-1 text-[11px] transition
+				<!-- Tag filter pills -->
+				<div class="flex items-center gap-2">
+					<span class="text-[11px] tracking-wider text-text-dim/50 uppercase">Filter</span>
+					<div class="flex flex-wrap gap-1.5">
+						{#each TAG_FILTER_OPTIONS as tag (tag.value)}
+							<button
+								type="button"
+								onclick={() => {
+									const url = new URL(window.location.href);
+									if (tag.value) {
+										url.searchParams.set('tag', tag.value);
+									} else {
+										url.searchParams.delete('tag');
+									}
+									goto(resolve(`/agents/${data.agent.id}${url.search}${url.hash}`), {
+										replaceState: true,
+										invalidateAll: true
+									});
+								}}
+								class="rounded-md px-2.5 py-1 text-[11px] transition
 								{data.tag === tag.value
-									? 'bg-accent/10 text-accent border border-accent/25'
-									: 'text-text-dim hover:text-text-muted border border-transparent hover:border-border/40'}"
-						>
-							{tag.label}
-						</button>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Feedback cards -->
-			<div class="space-y-2">
-				{#if data.feedback.length > 0}
-					{#each data.feedback as feedback (feedback.id)}
-						<div class="feedback-card" class:feedback-card--revoked={feedback.isRevoked}>
-							<!-- Score -->
-							<div class="feedback-card__score {feedback.score >= 60 ? 'text-positive' : feedback.score >= 30 ? 'text-warning' : 'text-negative'}">
-								{scoreFormatter.format(feedback.score)}
-							</div>
-
-							<!-- Main content -->
-							<div class="min-w-0 flex-1">
-								<div class="flex items-center gap-2 flex-wrap">
-									<span class="font-mono text-xs text-text-muted">{shortAddress(feedback.clientAddress)}</span>
-									{#if feedback.tag1}
-										<span class="rounded-md bg-accent/6 px-1.5 py-0.5 text-[10px] text-accent">{feedback.tag1}</span>
-									{/if}
-									{#if feedback.tag2}
-										<span class="rounded-md bg-accent/6 px-1.5 py-0.5 text-[10px] text-accent">{feedback.tag2}</span>
-									{/if}
-									{#if feedback.isRevoked}
-										<span class="rounded-md bg-negative/8 px-1.5 py-0.5 text-[10px] text-negative">Revoked</span>
-									{/if}
-								</div>
-
-								<div class="mt-1 flex items-center gap-3 text-[11px] text-text-dim/50">
-									<span>{dateTimeFormatter.format(new Date(feedback.createdAt))}</span>
-									{#if feedback.responses.length > 0}
-										<span>{feedback.responses.length} response{feedback.responses.length !== 1 ? 's' : ''}</span>
-									{/if}
-									{#if feedback.txHash}
-										<a
-											href={explorerTxUrl(feedback.txHash)}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="inline-flex items-center gap-1 text-accent/60 transition hover:text-accent"
-											title="Verify this feedback transaction on Stellar Explorer"
-										>
-											<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-											verify on-chain
-										</a>
-									{/if}
-								</div>
-
-								{#if feedback.feedbackHash}
-									<p class="mt-1 truncate font-mono text-[10px] text-text-dim/40" title={`On-chain feedback hash: ${feedback.feedbackHash}`}>
-										hash: {feedback.feedbackHash.startsWith('0x') ? feedback.feedbackHash : `0x${feedback.feedbackHash}`}
-									</p>
-								{/if}
-
-								<!-- Evidence (inline) -->
-								<EvidenceViewer
-									feedbackUri={feedback.feedbackUri}
-									feedbackHash={feedback.feedbackHash}
-								/>
-							</div>
-						</div>
-					{/each}
-				{:else}
-					<div class="rounded-lg border border-dashed border-border/40 px-4 py-8 text-center text-sm text-text-dim">
-						{#if data.state === 'resolving'}
-							Reputation entries will appear after users submit feedback.
-						{:else}
-							No feedback submitted yet.
-						{/if}
-					</div>
-				{/if}
-			</div>
-
-			<!-- Client breakdown (only if 3+ feedbacks) -->
-			{#if data.clientBreakdown.length >= 2}
-				<div class="space-y-3">
-					<h3 class="text-[11px] text-text-dim/50 uppercase tracking-wider">By Client</h3>
-					<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-						{#each data.clientBreakdown as client (client.clientAddress)}
-							<div class="flex items-center gap-3 rounded-lg border border-border/30 bg-surface px-3 py-2.5">
-								<span class="text-sm font-medium tabular-nums text-positive">{scoreFormatter.format(client.avgScore)}</span>
-								<div class="min-w-0 flex-1">
-									<p class="truncate font-mono text-[11px] text-text-muted">{shortAddress(client.clientAddress)}</p>
-									<p class="text-[10px] text-text-dim/40">{client.feedbackCount} review{client.feedbackCount !== 1 ? 's' : ''}</p>
-								</div>
-							</div>
+									? 'border border-accent/25 bg-accent/10 text-accent'
+									: 'border border-transparent text-text-dim hover:border-border/40 hover:text-text-muted'}"
+							>
+								{tag.label}
+							</button>
 						{/each}
 					</div>
 				</div>
-			{/if}
-		</section>
-	{:else if activeTab === 'validation'}
-		<section class="space-y-4">
-			<div>
-				<h2 class="text-sm font-medium text-text">Validation</h2>
-				<p class="mt-1 text-xs text-text-dim">
-					Independent third-party attestations (Validation Registry) - a distinct trust signal from crowd feedback.
-				</p>
-			</div>
 
-			<div class="space-y-2">
-				{#if data.validations.length > 0}
-					{#each data.validations as validation (validation.requestHash)}
-						<div class="rounded-lg border border-border/40 bg-surface px-4 py-3 space-y-2.5 glass-card">
-							<div class="flex items-start gap-3">
-								<!-- Score / pending -->
-								{#if validation.hasResponse && validation.response != null}
-									<div class="shrink-0 text-lg font-medium tabular-nums leading-none pt-0.5 {validation.response >= 60 ? 'text-positive' : validation.response >= 30 ? 'text-warning' : 'text-negative'}">
-										{validation.response}
-									</div>
-								{:else}
-									<span class="shrink-0 rounded-md bg-warning-soft px-2 py-0.5 text-[10px] text-warning">pending</span>
-								{/if}
+				<!-- Feedback cards -->
+				<div class="space-y-2">
+					{#if data.feedback.length > 0}
+						{#each data.feedback as feedback (feedback.id)}
+							<div class="feedback-card" class:feedback-card--revoked={feedback.isRevoked}>
+								<!-- Score -->
+								<div
+									class="feedback-card__score {feedback.score >= 60
+										? 'text-positive'
+										: feedback.score >= 30
+											? 'text-warning'
+											: 'text-negative'}"
+								>
+									{scoreFormatter.format(feedback.score)}
+								</div>
 
-								<!-- Validator (independent attester) -->
+								<!-- Main content -->
 								<div class="min-w-0 flex-1">
-									<div class="flex items-center gap-2 flex-wrap">
-										<span class="text-[10px] text-text-dim/50 uppercase tracking-wider">Validator</span>
-										<Tooltip text={validation.validatorAddress}>
-											<a
-												href={explorerAccountUrl(validation.validatorAddress)}
-												target="_blank"
-												rel="noopener noreferrer"
-												class="font-mono text-xs text-text-muted transition hover:text-accent"
+									<div class="flex flex-wrap items-center gap-2">
+										<span class="font-mono text-xs text-text-muted"
+											>{shortAddress(feedback.clientAddress)}</span
+										>
+										{#if feedback.tag1}
+											<span class="rounded-md bg-accent/6 px-1.5 py-0.5 text-[10px] text-accent"
+												>{feedback.tag1}</span
 											>
-												{shortAddress(validation.validatorAddress)}
-											</a>
-										</Tooltip>
-										{#if validation.tag}
-											<span class="rounded-md bg-accent/6 px-1.5 py-0.5 text-[10px] text-accent">{validation.tag}</span>
+										{/if}
+										{#if feedback.tag2}
+											<span class="rounded-md bg-accent/6 px-1.5 py-0.5 text-[10px] text-accent"
+												>{feedback.tag2}</span
+											>
+										{/if}
+										{#if feedback.isRevoked}
+											<span class="rounded-md bg-negative/8 px-1.5 py-0.5 text-[10px] text-negative"
+												>Revoked</span
+											>
 										{/if}
 									</div>
 
 									<div class="mt-1 flex items-center gap-3 text-[11px] text-text-dim/50">
-										<span>{dateTimeFormatter.format(new Date(validation.createdAt))}</span>
-										{#if validation.respondedAt}
-											<span>responded {dateTimeFormatter.format(new Date(validation.respondedAt))}</span>
+										<span>{dateTimeFormatter.format(new Date(feedback.createdAt))}</span>
+										{#if feedback.responses.length > 0}
+											<span
+												>{feedback.responses.length} response{feedback.responses.length !== 1
+													? 's'
+													: ''}</span
+											>
+										{/if}
+										{#if feedback.txHash}
+											<a
+												href={explorerTxUrl(feedback.txHash)}
+												target="_blank"
+												rel="external noopener noreferrer"
+												class="inline-flex items-center gap-1 text-accent/60 transition hover:text-accent"
+												title="Verify this feedback transaction on Stellar Explorer"
+											>
+												<svg
+													class="h-3 w-3"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+													stroke-width="1.5"
+													><path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+													/></svg
+												>
+												verify on-chain
+											</a>
 										{/if}
 									</div>
+
+									{#if feedback.feedbackHash}
+										<p
+											class="mt-1 truncate font-mono text-[10px] text-text-dim/40"
+											title={`On-chain feedback hash: ${feedback.feedbackHash}`}
+										>
+											hash: {feedback.feedbackHash.startsWith('0x')
+												? feedback.feedbackHash
+												: `0x${feedback.feedbackHash}`}
+										</p>
+									{/if}
+
+									<!-- Evidence (inline) -->
+									<EvidenceViewer
+										feedbackUri={feedback.feedbackUri}
+										feedbackHash={feedback.feedbackHash}
+									/>
 								</div>
 							</div>
-
-							<!-- URIs + hashes -->
-							<div class="space-y-1 text-[11px]">
-								{#if validation.requestUri}
-									<div class="flex items-start gap-2">
-										<span class="w-16 shrink-0 text-text-dim/40">request</span>
-										<span class="min-w-0 flex-1 truncate font-mono text-text-muted" title={validation.requestUri}>{validation.requestUri}</span>
-									</div>
-								{/if}
-								{#if validation.responseUri}
-									<div class="flex items-start gap-2">
-										<span class="w-16 shrink-0 text-text-dim/40">response</span>
-										<span class="min-w-0 flex-1 truncate font-mono text-text-muted" title={validation.responseUri}>{validation.responseUri}</span>
-									</div>
-								{/if}
-								<div class="flex items-start gap-2">
-									<span class="w-16 shrink-0 text-text-dim/40">req hash</span>
-									<span class="min-w-0 flex-1 truncate font-mono text-text-dim/50" title={validation.requestHash}>{validation.requestHashShort}</span>
-								</div>
-								{#if validation.responseHash}
-									<div class="flex items-start gap-2">
-										<span class="w-16 shrink-0 text-text-dim/40">res hash</span>
-										<span class="min-w-0 flex-1 truncate font-mono text-text-dim/50" title={validation.responseHash}>{validation.responseHash}</span>
-									</div>
-								{/if}
-							</div>
-
-							<!-- Per-record chain links -->
-							{#if validation.requestTxHash || validation.responseTxHash}
-								<div class="flex items-center gap-3 text-[11px]">
-									{#if validation.requestTxHash}
-										<a
-											href={explorerTxUrl(validation.requestTxHash)}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="inline-flex items-center gap-1 text-accent/60 transition hover:text-accent"
-											title="Verify validation request transaction"
-										>
-											<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-											request tx
-										</a>
-									{/if}
-									{#if validation.responseTxHash}
-										<a
-											href={explorerTxUrl(validation.responseTxHash)}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="inline-flex items-center gap-1 text-accent/60 transition hover:text-accent"
-											title="Verify validation response transaction"
-										>
-											<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-											response tx
-										</a>
-									{/if}
-								</div>
+						{/each}
+					{:else}
+						<div
+							class="rounded-lg border border-dashed border-border/40 px-4 py-8 text-center text-sm text-text-dim"
+						>
+							{#if data.state === 'resolving'}
+								Reputation entries will appear after users submit feedback.
+							{:else}
+								No feedback submitted yet.
 							{/if}
 						</div>
-					{/each}
-				{:else}
-					<div class="rounded-lg border border-dashed border-border/40 px-4 py-8 text-center text-sm text-text-dim">
-						No validation requests yet.
+					{/if}
+				</div>
+
+				<!-- Client breakdown (only if 3+ feedbacks) -->
+				{#if data.clientBreakdown.length >= 2}
+					<div class="space-y-3">
+						<h3 class="text-[11px] tracking-wider text-text-dim/50 uppercase">By Client</h3>
+						<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+							{#each data.clientBreakdown as client (client.clientAddress)}
+								<div
+									class="flex items-center gap-3 rounded-lg border border-border/30 bg-surface px-3 py-2.5"
+								>
+									<span class="text-sm font-medium text-positive tabular-nums"
+										>{scoreFormatter.format(client.avgScore)}</span
+									>
+									<div class="min-w-0 flex-1">
+										<p class="truncate font-mono text-[11px] text-text-muted">
+											{shortAddress(client.clientAddress)}
+										</p>
+										<p class="text-[10px] text-text-dim/40">
+											{client.feedbackCount} review{client.feedbackCount !== 1 ? 's' : ''}
+										</p>
+									</div>
+								</div>
+							{/each}
+						</div>
 					</div>
 				{/if}
-			</div>
-		</section>
-	{/if}
-</div>
+			</section>
+		{:else if activeTab === 'validation'}
+			<section class="space-y-4">
+				<div>
+					<h2 class="text-sm font-medium text-text">Validation</h2>
+					<p class="mt-1 text-xs text-text-dim">
+						Independent third-party attestations (Validation Registry) - a distinct trust signal
+						from crowd feedback.
+					</p>
+				</div>
+
+				<div class="space-y-2">
+					{#if data.validations.length > 0}
+						{#each data.validations as validation (validation.requestHash)}
+							<div
+								class="glass-card space-y-2.5 rounded-lg border border-border/40 bg-surface px-4 py-3"
+							>
+								<div class="flex items-start gap-3">
+									<!-- Score / pending -->
+									{#if validation.hasResponse && validation.response != null}
+										<div
+											class="shrink-0 pt-0.5 text-lg leading-none font-medium tabular-nums {validation.response >=
+											60
+												? 'text-positive'
+												: validation.response >= 30
+													? 'text-warning'
+													: 'text-negative'}"
+										>
+											{validation.response}
+										</div>
+									{:else}
+										<span
+											class="shrink-0 rounded-md bg-warning-soft px-2 py-0.5 text-[10px] text-warning"
+											>pending</span
+										>
+									{/if}
+
+									<!-- Validator (independent attester) -->
+									<div class="min-w-0 flex-1">
+										<div class="flex flex-wrap items-center gap-2">
+											<span class="text-[10px] tracking-wider text-text-dim/50 uppercase"
+												>Validator</span
+											>
+											<Tooltip text={validation.validatorAddress}>
+												<a
+													href={explorerAccountUrl(validation.validatorAddress)}
+													target="_blank"
+													rel="external noopener noreferrer"
+													class="font-mono text-xs text-text-muted transition hover:text-accent"
+												>
+													{shortAddress(validation.validatorAddress)}
+												</a>
+											</Tooltip>
+											{#if validation.tag}
+												<span class="rounded-md bg-accent/6 px-1.5 py-0.5 text-[10px] text-accent"
+													>{validation.tag}</span
+												>
+											{/if}
+										</div>
+
+										<div class="mt-1 flex items-center gap-3 text-[11px] text-text-dim/50">
+											<span>{dateTimeFormatter.format(new Date(validation.createdAt))}</span>
+											{#if validation.respondedAt}
+												<span
+													>responded {dateTimeFormatter.format(
+														new Date(validation.respondedAt)
+													)}</span
+												>
+											{/if}
+										</div>
+									</div>
+								</div>
+
+								<!-- URIs + hashes -->
+								<div class="space-y-1 text-[11px]">
+									{#if validation.requestUri}
+										<div class="flex items-start gap-2">
+											<span class="w-16 shrink-0 text-text-dim/40">request</span>
+											<span
+												class="min-w-0 flex-1 truncate font-mono text-text-muted"
+												title={validation.requestUri}>{validation.requestUri}</span
+											>
+										</div>
+									{/if}
+									{#if validation.responseUri}
+										<div class="flex items-start gap-2">
+											<span class="w-16 shrink-0 text-text-dim/40">response</span>
+											<span
+												class="min-w-0 flex-1 truncate font-mono text-text-muted"
+												title={validation.responseUri}>{validation.responseUri}</span
+											>
+										</div>
+									{/if}
+									<div class="flex items-start gap-2">
+										<span class="w-16 shrink-0 text-text-dim/40">req hash</span>
+										<span
+											class="min-w-0 flex-1 truncate font-mono text-text-dim/50"
+											title={validation.requestHash}>{validation.requestHashShort}</span
+										>
+									</div>
+									{#if validation.responseHash}
+										<div class="flex items-start gap-2">
+											<span class="w-16 shrink-0 text-text-dim/40">res hash</span>
+											<span
+												class="min-w-0 flex-1 truncate font-mono text-text-dim/50"
+												title={validation.responseHash}>{validation.responseHash}</span
+											>
+										</div>
+									{/if}
+								</div>
+
+								<!-- Per-record chain links -->
+								{#if validation.requestTxHash || validation.responseTxHash}
+									<div class="flex items-center gap-3 text-[11px]">
+										{#if validation.requestTxHash}
+											<a
+												href={explorerTxUrl(validation.requestTxHash)}
+												target="_blank"
+												rel="external noopener noreferrer"
+												class="inline-flex items-center gap-1 text-accent/60 transition hover:text-accent"
+												title="Verify validation request transaction"
+											>
+												<svg
+													class="h-3 w-3"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+													stroke-width="1.5"
+													><path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+													/></svg
+												>
+												request tx
+											</a>
+										{/if}
+										{#if validation.responseTxHash}
+											<a
+												href={explorerTxUrl(validation.responseTxHash)}
+												target="_blank"
+												rel="external noopener noreferrer"
+												class="inline-flex items-center gap-1 text-accent/60 transition hover:text-accent"
+												title="Verify validation response transaction"
+											>
+												<svg
+													class="h-3 w-3"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+													stroke-width="1.5"
+													><path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+													/></svg
+												>
+												response tx
+											</a>
+										{/if}
+									</div>
+								{/if}
+							</div>
+						{/each}
+					{:else}
+						<div
+							class="rounded-lg border border-dashed border-border/40 px-4 py-8 text-center text-sm text-text-dim"
+						>
+							No validation requests yet.
+						</div>
+					{/if}
+				</div>
+			</section>
+		{/if}
+	</div>
 {/if}
 
 <style>

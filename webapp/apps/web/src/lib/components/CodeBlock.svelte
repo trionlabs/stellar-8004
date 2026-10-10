@@ -2,7 +2,11 @@
 	import { codeToHtml } from 'shiki/bundle/web';
 	import { theme } from '$lib/theme.svelte.js';
 
-	let { code, lang = 'json', class: className = '' }: { code: string; lang?: string; class?: string } = $props();
+	let {
+		code,
+		lang = 'json',
+		class: className = ''
+	}: { code: string; lang?: string; class?: string } = $props();
 
 	let html = $state('');
 
@@ -10,14 +14,18 @@
 		const shikiTheme = theme.resolved === 'light' ? 'github-light-default' : 'github-dark-default';
 		codeToHtml(code, {
 			lang,
-			theme: shikiTheme,
+			theme: shikiTheme
 		}).then((result) => {
 			html = result;
 		});
 	});
 </script>
 
-<div class="overflow-x-auto rounded-lg bg-surface p-3 font-mono text-[11px] leading-relaxed ring-1 ring-border/50 {className}">
+<div
+	class="overflow-x-auto rounded-lg bg-surface p-3 font-mono text-[11px] leading-relaxed ring-1 ring-border/50 {className}"
+>
+	<!-- Shiki generates this markup and escapes the source code as text. -->
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 	{@html html}
 </div>
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import type { ResolvedPathname } from '$app/types';
 
 	let {
 		href = undefined,
@@ -10,7 +11,7 @@
 		full = false,
 		children
 	}: {
-		href?: string;
+		href?: ResolvedPathname;
 		onclick?: () => void;
 		variant?: 'primary' | 'secondary' | 'ghost';
 		size?: 'sm' | 'md' | 'lg';
@@ -23,12 +24,9 @@
 		'group relative inline-flex items-center justify-center font-medium tracking-wide transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 focus-visible:ring-offset-1 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-40';
 
 	const variants: Record<string, string> = {
-		primary:
-			'cta-btn cta-btn--primary text-accent active:scale-[0.98]',
-		secondary:
-			'cta-btn cta-btn--secondary text-accent active:scale-[0.98]',
-		ghost:
-			'text-text-muted hover:text-accent hover:bg-accent/4 active:scale-[0.98]'
+		primary: 'cta-btn cta-btn--primary text-accent active:scale-[0.98]',
+		secondary: 'cta-btn cta-btn--secondary text-accent active:scale-[0.98]',
+		ghost: 'text-text-muted hover:text-accent hover:bg-accent/4 active:scale-[0.98]'
 	};
 
 	const sizes: Record<string, string> = {

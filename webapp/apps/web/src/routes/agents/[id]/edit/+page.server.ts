@@ -18,9 +18,10 @@ export const load: PageServerLoad = async ({ params }) => {
 		throw error(404, 'Agent not found');
 	}
 
-	const parsedUriData = agent.agent_uri_data && !Array.isArray(agent.agent_uri_data)
-		? agent.agent_uri_data as Record<string, unknown>
-		: {};
+	const parsedUriData =
+		agent.agent_uri_data && !Array.isArray(agent.agent_uri_data)
+			? (agent.agent_uri_data as Record<string, unknown>)
+			: {};
 
 	return {
 		agent: {

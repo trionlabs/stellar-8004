@@ -57,10 +57,14 @@ function createThemeStore() {
 	}
 
 	return {
-		get choice() { return choice; },
-		get resolved() { return resolved; },
+		get choice() {
+			return choice;
+		},
+		get resolved() {
+			return resolved;
+		},
 		set,
-		init,
+		init
 	};
 }
 

@@ -1,9 +1,5 @@
 import { env } from '$env/dynamic/public';
-import {
-	createClients,
-	getConfig,
-	type StellarConfig,
-} from '@trionlabs/stellar8004';
+import { createClients, getConfig, type StellarConfig } from '@trionlabs/stellar8004';
 import { FreighterSigner } from '@trionlabs/stellar8004/signers/freighter';
 
 const network = env.PUBLIC_STELLAR_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
@@ -15,8 +11,8 @@ export const stellarConfig: StellarConfig = {
 	contracts: {
 		identity: env.PUBLIC_IDENTITY_REGISTRY || baseConfig.contracts.identity,
 		reputation: env.PUBLIC_REPUTATION_REGISTRY || baseConfig.contracts.reputation,
-		validation: env.PUBLIC_VALIDATION_REGISTRY || baseConfig.contracts.validation,
-	},
+		validation: env.PUBLIC_VALIDATION_REGISTRY || baseConfig.contracts.validation
+	}
 };
 
 export const signer = new FreighterSigner();

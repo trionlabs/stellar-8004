@@ -37,8 +37,7 @@ export const load: LayoutServerLoad = async () => {
 			}
 		}
 
-		const stale =
-			lastAdvancedAt === null || Date.now() - lastAdvancedAt > STALE_THRESHOLD_MS;
+		const stale = lastAdvancedAt === null || Date.now() - lastAdvancedAt > STALE_THRESHOLD_MS;
 
 		return {
 			indexerStatus: {

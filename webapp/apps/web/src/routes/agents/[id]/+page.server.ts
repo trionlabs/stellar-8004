@@ -10,7 +10,13 @@ function feedbackKey(agentId: number, clientAddress: string, feedbackIndex: numb
 	return `${agentId}:${clientAddress}:${feedbackIndex}`;
 }
 
-function normalizeServices(raw: unknown): Array<{ name: string; endpoint: string; version?: string; description?: string; inputExample?: string }> {
+function normalizeServices(raw: unknown): Array<{
+	name: string;
+	endpoint: string;
+	version?: string;
+	description?: string;
+	inputExample?: string;
+}> {
 	if (!Array.isArray(raw)) return [];
 	return raw
 		.filter((s): s is Record<string, unknown> => s != null && typeof s === 'object')
@@ -81,7 +87,12 @@ export const load: PageServerLoad = async ({ params, url }) => {
 					createdAt: string;
 					txHash: string | null;
 					createdLedger: number | null;
-					responses: Array<{ id: number; responder: string; responseUri: string | null; createdAt: string }>;
+					responses: Array<{
+						id: number;
+						responder: string;
+						responseUri: string | null;
+						createdAt: string;
+					}>;
 				}>,
 				validations: [] as Array<{
 					requestHash: string;
@@ -149,9 +160,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			.eq('agent_id', agentId)
 			.order('created_at', { ascending: false })
 			.limit(200),
-		db
-			.from('agents')
-			.select('id', { count: 'exact', head: true }),
+		db.from('agents').select('id', { count: 'exact', head: true }),
 		db
 			.from('validations')
 			.select('*')
@@ -202,10 +211,12 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		const record = uriData as Record<string, unknown>;
 		const missing: string[] = [];
 		if (!(typeof record.name === 'string' && record.name.length > 0)) missing.push('name');
-		if (!(typeof record.description === 'string' && record.description.length > 0)) missing.push('description');
+		if (!(typeof record.description === 'string' && record.description.length > 0))
+			missing.push('description');
 		if (!(typeof record.image === 'string' && record.image.length > 0)) missing.push('image');
 		if (!(Array.isArray(record.services) && record.services.length > 0)) missing.push('services');
-		if (!(Array.isArray(record.supportedTrust) && record.supportedTrust.length > 0)) missing.push('trust');
+		if (!(Array.isArray(record.supportedTrust) && record.supportedTrust.length > 0))
+			missing.push('trust');
 		return { score: (5 - missing.length) * 20, missing };
 	})();
 
@@ -227,7 +238,11 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			existing.totalScore += score;
 			if (fb.created_at > existing.lastFeedback) existing.lastFeedback = fb.created_at;
 		} else {
-			clientMap.set(fb.client_address, { count: 1, totalScore: score, lastFeedback: fb.created_at });
+			clientMap.set(fb.client_address, {
+				count: 1,
+				totalScore: score,
+				lastFeedback: fb.created_at
+			});
 		}
 	}
 	const clientBreakdown = [...clientMap.entries()]
@@ -260,7 +275,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			updatedAt: agent.updated_at,
 			x402Enabled: agent.x402_enabled ?? false,
 			mppEnabled: agent.mpp_enabled ?? false,
-				registrationData: agent.agent_uri_data ? JSON.stringify(agent.agent_uri_data, null, 2) : null
+			registrationData: agent.agent_uri_data ? JSON.stringify(agent.agent_uri_data, null, 2) : null
 		},
 		metadata: metadataRows,
 		feedback: feedbackRows.map((feedback) => ({

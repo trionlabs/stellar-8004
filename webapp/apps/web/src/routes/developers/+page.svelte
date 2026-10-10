@@ -3,33 +3,35 @@
 
 	const skills = [
 		{
-			name: '8004stellar',
-			slash: '/8004stellar',
-			desc: 'Full agent onboarding playbook for ERC-8004 on Stellar. Covers metadata preparation, on-chain registration (register, register_with_uri, register_full), indexer discovery, reputation system (give/read/revoke feedback, get_summary with running aggregates), validation workflow, trust verification, x402 and MPP payment integration, and storage vs event architecture.',
-			install: 'npx skills add trionlabs/stellar-8004 --skill 8004stellar',
-			repo: 'https://github.com/trionlabs/stellar-8004'
-		},
-		{
-			name: 'x402stellar',
-			slash: '/x402stellar',
-			desc: 'x402 HTTP-native micropayments on Stellar. Implements HTTP 402 Payment Required flows with USDC on Soroban — server middleware (Express), client signing (private key and browser wallet), fee sponsorship, facilitator setup (Coinbase/OpenZeppelin), and Freighter 6.x integration.',
-			install: 'npx skills add trionlabs/stellar-8004 --skill x402stellar',
-			repo: 'https://github.com/trionlabs/stellar-8004'
-		},
-		{
-			name: 'stellar-dev',
-			slash: '/stellar-dev',
-			desc: 'End-to-end Stellar development playbook. Soroban smart contracts (Rust SDK), stellar-cli, JS/Python/Go SDKs, Stellar RPC and Horizon API, Assets vs Soroban tokens (SAC bridge), Freighter wallet integration, and testnet/mainnet deployment.',
-			install: 'npx skills add stellar/stellar-dev-skill --skill stellar-dev',
+			name: 'stellar-development',
+			label: 'Stellar development skills',
+			desc: 'Official skills for Soroban contracts, Stellar apps, assets, data, payments, standards, cross-chain integrations, and zero-knowledge proofs.',
+			install: 'npx skills add https://github.com/stellar/stellar-dev-skill',
 			repo: 'https://github.com/stellar/stellar-dev-skill'
 		}
 	];
 
 	const endpoints = [
-		{ method: 'GET', path: '/api/v1/agents', desc: 'List all agents with pagination and filtering' },
-		{ method: 'GET', path: '/api/v1/agents/:id', desc: 'Get agent details including metadata and scores' },
-		{ method: 'GET', path: '/api/v1/agents/:id/feedback', desc: 'List feedback for a specific agent' },
-		{ method: 'GET', path: '/api/v1/accounts/:address/agents', desc: 'List agents owned by a wallet address' },
+		{
+			method: 'GET',
+			path: '/api/v1/agents',
+			desc: 'List all agents with pagination and filtering'
+		},
+		{
+			method: 'GET',
+			path: '/api/v1/agents/:id',
+			desc: 'Get agent details including metadata and scores'
+		},
+		{
+			method: 'GET',
+			path: '/api/v1/agents/:id/feedback',
+			desc: 'List feedback for a specific agent'
+		},
+		{
+			method: 'GET',
+			path: '/api/v1/accounts/:address/agents',
+			desc: 'List agents owned by a wallet address'
+		},
 		{ method: 'GET', path: '/api/v1/search?q=...', desc: 'Full-text search across agents' },
 		{ method: 'GET', path: '/api/v1/stats', desc: 'Aggregate network statistics' },
 		{ method: 'GET', path: '/api/v1/health', desc: 'Indexer health status' }
@@ -341,24 +343,29 @@ console.log('Indexer status:', health.data.status);`;
 </svelte:head>
 
 <div class="space-y-10">
-	<section class="cta-banner group/cta relative overflow-hidden rounded-2xl border border-border/50 bg-linear-to-br from-surface-raised via-surface-overlay to-surface-raised p-5 sm:p-10">
-		<div class="pointer-events-none absolute inset-0 cta-noise"></div>
+	<section
+		class="cta-banner group/cta relative overflow-hidden rounded-2xl border border-border/50 bg-linear-to-br from-surface-raised via-surface-overlay to-surface-raised p-5 sm:p-10"
+	>
+		<div class="cta-noise pointer-events-none absolute inset-0"></div>
 		<div class="cta-leak cta-leak--warm"></div>
 		<div class="cta-leak cta-leak--cool"></div>
 
 		<div class="relative z-10 space-y-6">
 			<div class="space-y-2">
 				<div class="flex items-center gap-3">
-					<span class="inline-flex items-center gap-1.5 rounded-full border border-accent/12 bg-accent/4 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase">
-						<span class="h-1 w-1 rounded-full bg-accent animate-pulse"></span>
-						Agent Skills
+					<span
+						class="inline-flex items-center gap-1.5 rounded-full border border-accent/12 bg-accent/4 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase"
+					>
+						<span class="h-1 w-1 animate-pulse rounded-full bg-accent"></span>
+						Stellar Development Skills
 					</span>
 				</div>
 				<h2 class="text-2xl font-light tracking-tight text-text">
-					Build on <span class="text-accent">Stellar8004</span> from your terminal
+					Build on <span class="text-accent">Stellar</span> from your terminal
 				</h2>
 				<p class="max-w-2xl text-[13px] leading-relaxed text-text-muted">
-					Open-source skills that give your agent full context on 8004 smart contracts, Stellar SDK patterns, and x402 payment flows. One command to install - then use slash commands like <code class="rounded bg-accent/8 px-1.5 py-0.5 text-[11px] text-accent">/8004stellar</code> in any skills-compatible agent.
+					Install the official Stellar development skills, then choose the topics relevant to your
+					project. The API reference and Stellar8004 SDK examples are below.
 				</p>
 			</div>
 
@@ -366,12 +373,22 @@ console.log('Indexer status:', health.data.status);`;
 				{#each skills as skill, i (skill.name)}
 					<div class="skill-card {i === 0 ? 'sm:col-span-2' : ''}">
 						<div class="flex items-center justify-between">
-							<code class="text-[13px] font-semibold text-accent">{skill.slash}</code>
-							<a href={skill.repo} target="_blank" rel="noopener noreferrer" class="text-text-muted/50 transition hover:text-accent" aria-label={`GitHub repo for ${skill.name}`}>
-								<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+							<code class="text-[13px] font-semibold text-accent">{skill.label}</code>
+							<a
+								href={skill.repo}
+								target="_blank"
+								rel="external noopener noreferrer"
+								class="text-text-muted/50 transition hover:text-accent"
+								aria-label={`GitHub repo for ${skill.name}`}
+							>
+								<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"
+									><path
+										d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+									/></svg
+								>
 							</a>
 						</div>
-						<p class="mt-2 text-[12px] text-text/70 leading-[1.6]">{skill.desc}</p>
+						<p class="mt-2 text-[12px] leading-[1.6] text-text/70">{skill.desc}</p>
 						<button
 							type="button"
 							onclick={() => copyText(`skill:${skill.name}`, skill.install)}
@@ -379,9 +396,27 @@ console.log('Indexer status:', health.data.status);`;
 						>
 							<code class="flex-1 truncate">{skill.install}</code>
 							{#if copiedKey === `skill:${skill.name}`}
-								<svg class="h-3.5 w-3.5 shrink-0 text-positive" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+								<svg
+									class="h-3.5 w-3.5 shrink-0 text-positive"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2"
+									><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg
+								>
 							{:else}
-								<svg class="h-3.5 w-3.5 shrink-0 text-text-dim transition group-hover/cmd:text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+								<svg
+									class="h-3.5 w-3.5 shrink-0 text-text-dim transition group-hover/cmd:text-accent"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+									/></svg
+								>
 							{/if}
 						</button>
 					</div>
@@ -391,13 +426,19 @@ console.log('Indexer status:', health.data.status);`;
 	</section>
 
 	<div class="space-y-4">
-		<span class="inline-flex items-center gap-1.5 rounded-full border border-accent/12 bg-accent/4 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase">
+		<span
+			class="inline-flex items-center gap-1.5 rounded-full border border-accent/12 bg-accent/4 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase"
+		>
 			<span class="h-1 w-1 rounded-full bg-accent"></span>
 			REST API v1
 		</span>
 		<h1 class="text-2xl font-light tracking-tight text-text sm:text-3xl">API Reference</h1>
 		<p class="text-sm text-text-muted">
-			Public read-only API for indexed agent data and the matching TypeScript SDK for writes plus explorer reads. Base URL: <code class="rounded bg-surface-raised px-1.5 py-0.5 text-[11px] text-text font-mono">https://stellar8004.com</code>
+			Public read-only API for indexed agent data and the matching TypeScript SDK for writes plus
+			explorer reads. Base URL: <code
+				class="rounded bg-surface-raised px-1.5 py-0.5 font-mono text-[11px] text-text"
+				>https://stellar8004.com</code
+			>
 		</p>
 	</div>
 
@@ -406,7 +447,9 @@ console.log('Indexer status:', health.data.status);`;
 
 		<div class="hidden overflow-x-auto rounded-lg border border-border bg-surface sm:block">
 			<table class="min-w-full text-sm">
-				<thead class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase">
+				<thead
+					class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase"
+				>
 					<tr>
 						<th class="px-4 py-3 font-medium">Method</th>
 						<th class="px-4 py-3 font-medium">Path</th>
@@ -417,7 +460,10 @@ console.log('Indexer status:', health.data.status);`;
 					{#each endpoints as ep (ep.path)}
 						<tr class="border-t border-border">
 							<td class="px-4 py-3">
-								<span class="rounded-full bg-accent/5 px-2 py-0.5 text-[10px] font-medium text-accent">{ep.method}</span>
+								<span
+									class="rounded-full bg-accent/5 px-2 py-0.5 text-[10px] font-medium text-accent"
+									>{ep.method}</span
+								>
 							</td>
 							<td class="px-4 py-3 font-mono text-xs text-text">{ep.path}</td>
 							<td class="px-4 py-3 text-text-muted">{ep.desc}</td>
@@ -429,9 +475,11 @@ console.log('Indexer status:', health.data.status);`;
 
 		<div class="space-y-2 sm:hidden">
 			{#each endpoints as ep (ep.path)}
-				<div class="rounded-lg border border-border bg-surface p-3 space-y-1.5">
+				<div class="space-y-1.5 rounded-lg border border-border bg-surface p-3">
 					<div class="flex items-center gap-2">
-						<span class="rounded-full bg-accent/5 px-2 py-0.5 text-[10px] font-medium text-accent">{ep.method}</span>
+						<span class="rounded-full bg-accent/5 px-2 py-0.5 text-[10px] font-medium text-accent"
+							>{ep.method}</span
+						>
 						<code class="truncate font-mono text-[11px] text-text">{ep.path}</code>
 					</div>
 					<p class="text-[12px] text-text-muted">{ep.desc}</p>
@@ -443,7 +491,11 @@ console.log('Indexer status:', health.data.status);`;
 	<section class="space-y-4">
 		<div class="flex flex-wrap items-center justify-between gap-3">
 			<h2 class="text-lg font-medium text-text">Quick Start</h2>
-			<button type="button" class="copy-btn" onclick={() => copyText(`rest:${activeLang}`, codeExamples[activeLang])}>
+			<button
+				type="button"
+				class="copy-btn"
+				onclick={() => copyText(`rest:${activeLang}`, codeExamples[activeLang])}
+			>
 				{#if copiedKey === `rest:${activeLang}`}
 					Copied
 				{:else}
@@ -452,18 +504,14 @@ console.log('Indexer status:', health.data.status);`;
 			</button>
 		</div>
 		<div class="flex flex-wrap gap-2">
-			{#each [
-				{ id: 'curl' as const, label: 'cURL' },
-				{ id: 'js' as const, label: 'JS' },
-				{ id: 'py' as const, label: 'Python' }
-			] as lang (lang.id)}
+			{#each [{ id: 'curl' as const, label: 'cURL' }, { id: 'js' as const, label: 'JS' }, { id: 'py' as const, label: 'Python' }] as lang (lang.id)}
 				<button
 					type="button"
-					onclick={() => activeLang = lang.id}
+					onclick={() => (activeLang = lang.id)}
 					class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors
 						{activeLang === lang.id
-							? 'border-accent/20 bg-accent/6 text-accent'
-							: 'border-border/50 text-text-dim hover:border-border hover:text-text-muted'}"
+						? 'border-accent/20 bg-accent/6 text-accent'
+						: 'border-border/50 text-text-dim hover:border-border hover:text-text-muted'}"
 				>
 					{lang.label}
 				</button>
@@ -474,32 +522,55 @@ console.log('Indexer status:', health.data.status);`;
 
 	<section class="space-y-6">
 		<div class="space-y-3">
-			<span class="inline-flex items-center gap-1.5 rounded-full border border-accent/12 bg-accent/4 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase">
+			<span
+				class="inline-flex items-center gap-1.5 rounded-full border border-accent/12 bg-accent/4 px-3 py-1 text-[10px] tracking-[0.18em] text-accent uppercase"
+			>
 				<span class="h-1 w-1 rounded-full bg-accent"></span>
 				TypeScript SDK
 			</span>
 			<h2 class="text-2xl font-light tracking-tight text-text">SDK Quick Start</h2>
 			<p class="max-w-3xl text-sm leading-relaxed text-text-muted">
-				The SDK gives you one surface for testnet funding, metadata building, automatic storage selection, Soroban contract writes, and read-only explorer queries. The fastest onboarding path is: fund -> signer -> client -> metadata -> storage -> register.
+				The SDK gives you one surface for testnet funding, metadata building, automatic storage
+				selection, Soroban contract writes, and read-only explorer queries. The fastest onboarding
+				path is: fund -> signer -> client -> metadata -> storage -> register.
 			</p>
 		</div>
 
 		<div class="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]">
-			<div class="rounded-xl border border-border bg-surface p-5 space-y-4">
+			<div class="space-y-4 rounded-xl border border-border bg-surface p-5">
 				<div class="flex items-center justify-between gap-3">
 					<h3 class="text-sm font-medium text-text">Install</h3>
-					<button type="button" class="copy-btn" onclick={() => copyText('sdk:install', sdkInstallCommand)}>
+					<button
+						type="button"
+						class="copy-btn"
+						onclick={() => copyText('sdk:install', sdkInstallCommand)}
+					>
 						{#if copiedKey === 'sdk:install'}Copied{:else}Copy{/if}
 					</button>
 				</div>
 				<CodeBlock code={sdkInstallCommand} lang="bash" />
 				<div class="grid gap-2 sm:grid-cols-2">
 					{#each sdkLinks as link (link.title)}
-						<a href={link.href} target="_blank" rel="noopener noreferrer" class="doc-card hover:border-accent/20 hover:text-text">
+						<a
+							href={link.href}
+							target="_blank"
+							rel="external noopener noreferrer"
+							class="doc-card hover:border-accent/20 hover:text-text"
+						>
 							<div class="flex items-center justify-between gap-3">
 								<h4 class="text-sm font-medium text-text">{link.title}</h4>
-								<svg class="h-3.5 w-3.5 shrink-0 text-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 10.5v7.5h7.5" />
+								<svg
+									class="h-3.5 w-3.5 shrink-0 text-text-dim"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="1.7"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 10.5v7.5h7.5"
+									/>
 								</svg>
 							</div>
 							<p class="mt-2 text-[12px] leading-relaxed text-text-muted">{link.desc}</p>
@@ -508,7 +579,7 @@ console.log('Indexer status:', health.data.status);`;
 				</div>
 			</div>
 
-			<div class="rounded-xl border border-border bg-surface p-5 space-y-4">
+			<div class="space-y-4 rounded-xl border border-border bg-surface p-5">
 				<h3 class="text-sm font-medium text-text">Prerequisites</h3>
 				<div class="space-y-3">
 					{#each prerequisites as item (item.title)}
@@ -527,17 +598,24 @@ console.log('Indexer status:', health.data.status);`;
 				<ol class="mt-4 space-y-3">
 					{#each sdkChecklist as item, index (item)}
 						<li class="flex items-start gap-3">
-							<span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/6 text-[10px] font-semibold text-accent">{index + 1}</span>
+							<span
+								class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/6 text-[10px] font-semibold text-accent"
+								>{index + 1}</span
+							>
 							<p class="text-[13px] leading-relaxed text-text-muted">{item}</p>
 						</li>
 					{/each}
 				</ol>
 			</div>
 
-			<div class="rounded-xl border border-border bg-surface p-5 space-y-4">
+			<div class="space-y-4 rounded-xl border border-border bg-surface p-5">
 				<div class="flex items-center justify-between gap-3">
 					<h3 class="text-sm font-medium text-text">Minimal register example</h3>
-					<button type="button" class="copy-btn" onclick={() => copyText('sdk:quickstart', sdkQuickStart)}>
+					<button
+						type="button"
+						class="copy-btn"
+						onclick={() => copyText('sdk:quickstart', sdkQuickStart)}
+					>
 						{#if copiedKey === 'sdk:quickstart'}Copied{:else}Copy{/if}
 					</button>
 				</div>
@@ -549,12 +627,17 @@ console.log('Indexer status:', health.data.status);`;
 	<section class="space-y-4">
 		<div class="flex flex-wrap items-center justify-between gap-3">
 			<h2 class="text-lg font-medium text-text">Registration Flow</h2>
-			<button type="button" class="copy-btn" onclick={() => copyText('sdk:flow', registrationFlowDiagram)}>
+			<button
+				type="button"
+				class="copy-btn"
+				onclick={() => copyText('sdk:flow', registrationFlowDiagram)}
+			>
 				{#if copiedKey === 'sdk:flow'}Copied{:else}Copy diagram{/if}
 			</button>
 		</div>
 		<p class="text-sm text-text-muted">
-			The diagram below shows the happy path from local script or browser app to on-chain registration and indexed discovery.
+			The diagram below shows the happy path from local script or browser app to on-chain
+			registration and indexed discovery.
 		</p>
 		<CodeBlock code={registrationFlowDiagram} lang="text" />
 	</section>
@@ -564,7 +647,13 @@ console.log('Indexer status:', health.data.status);`;
 			<div>
 				<h2 class="text-lg font-medium text-text">Example Register Script</h2>
 				<p class="mt-1 text-sm text-text-muted">
-					Save as <code class="rounded bg-surface-raised px-1.5 py-0.5 text-[11px] font-mono">register.ts</code> and run <code class="rounded bg-surface-raised px-1.5 py-0.5 text-[11px] font-mono">npx tsx register.ts</code>.
+					Save as <code class="rounded bg-surface-raised px-1.5 py-0.5 font-mono text-[11px]"
+						>register.ts</code
+					>
+					and run
+					<code class="rounded bg-surface-raised px-1.5 py-0.5 font-mono text-[11px]"
+						>npx tsx register.ts</code
+					>.
 				</p>
 			</div>
 			<button type="button" class="copy-btn" onclick={() => copyText('sdk:script', registerScript)}>
@@ -582,16 +671,34 @@ console.log('Indexer status:', health.data.status);`;
 			</button>
 		</div>
 		<div class="grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
-			<div class="rounded-xl border border-border bg-surface p-5 space-y-4">
+			<div class="space-y-4 rounded-xl border border-border bg-surface p-5">
 				<CodeBlock code={apiClientExample} lang="ts" />
 			</div>
-			<div class="rounded-xl border border-border bg-surface p-5 space-y-4">
+			<div class="space-y-4 rounded-xl border border-border bg-surface p-5">
 				<h3 class="text-sm font-medium text-text">Browser and CORS notes</h3>
 				<ul class="space-y-3 text-[13px] leading-relaxed text-text-muted">
-					<li>ExplorerClient wraps the same public GET endpoints documented above, so it works anywhere <code class="rounded bg-surface-raised px-1.5 py-0.5 text-[11px] font-mono">fetch</code> is available.</li>
-					<li>For browser apps, point it at <code class="rounded bg-surface-raised px-1.5 py-0.5 text-[11px] font-mono">https://stellar8004.com</code> for direct public reads.</li>
-					<li>If your own mirror or proxy tightens cross-origin rules, call the explorer from your backend instead and keep the client code unchanged.</li>
-					<li>Writes use the contract binding clients (e.g. <code class="rounded bg-surface-raised px-1.5 py-0.5 text-[11px] font-mono">IdentityClient</code>), which sign locally and submit directly to Soroban RPC.</li>
+					<li>
+						ExplorerClient wraps the same public GET endpoints documented above, so it works
+						anywhere <code class="rounded bg-surface-raised px-1.5 py-0.5 font-mono text-[11px]"
+							>fetch</code
+						> is available.
+					</li>
+					<li>
+						For browser apps, point it at <code
+							class="rounded bg-surface-raised px-1.5 py-0.5 font-mono text-[11px]"
+							>https://stellar8004.com</code
+						> for direct public reads.
+					</li>
+					<li>
+						If your own mirror or proxy tightens cross-origin rules, call the explorer from your
+						backend instead and keep the client code unchanged.
+					</li>
+					<li>
+						Writes use the contract binding clients (e.g. <code
+							class="rounded bg-surface-raised px-1.5 py-0.5 font-mono text-[11px]"
+							>IdentityClient</code
+						>), which sign locally and submit directly to Soroban RPC.
+					</li>
 				</ul>
 			</div>
 		</div>
@@ -600,7 +707,11 @@ console.log('Indexer status:', health.data.status);`;
 	<section class="space-y-4">
 		<div class="flex flex-wrap items-center justify-between gap-3">
 			<h2 class="text-lg font-medium text-text">Response Format</h2>
-			<button type="button" class="copy-btn" onclick={() => copyText('rest:response', responseFormatExample)}>
+			<button
+				type="button"
+				class="copy-btn"
+				onclick={() => copyText('rest:response', responseFormatExample)}
+			>
 				{#if copiedKey === 'rest:response'}Copied{:else}Copy schema{/if}
 			</button>
 		</div>
@@ -623,7 +734,9 @@ console.log('Indexer status:', health.data.status);`;
 
 		<div class="hidden overflow-x-auto rounded-lg border border-border bg-surface sm:block">
 			<table class="min-w-full text-sm">
-				<thead class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase">
+				<thead
+					class="bg-surface-raised text-left text-xs tracking-[0.12em] text-text-dim uppercase"
+				>
 					<tr>
 						<th class="px-4 py-3 font-medium">Code</th>
 						<th class="px-4 py-3 font-medium">HTTP</th>
@@ -656,15 +769,12 @@ console.log('Indexer status:', health.data.status);`;
 		</div>
 
 		<div class="space-y-2 sm:hidden">
-			{#each [
-				{ code: 'INVALID_PARAMS', http: '400', desc: 'Missing or invalid query parameters' },
-				{ code: 'NOT_FOUND', http: '404', desc: 'Agent or endpoint not found' },
-				{ code: 'RATE_LIMITED', http: '429', desc: 'Too many requests - try again later' },
-				{ code: 'INTERNAL_ERROR', http: '500', desc: 'Server error - retry with backoff' }
-			] as err (err.code)}
-				<div class="rounded-lg border border-border bg-surface p-3 space-y-1">
+			{#each [{ code: 'INVALID_PARAMS', http: '400', desc: 'Missing or invalid query parameters' }, { code: 'NOT_FOUND', http: '404', desc: 'Agent or endpoint not found' }, { code: 'RATE_LIMITED', http: '429', desc: 'Too many requests - try again later' }, { code: 'INTERNAL_ERROR', http: '500', desc: 'Server error - retry with backoff' }] as err (err.code)}
+				<div class="space-y-1 rounded-lg border border-border bg-surface p-3">
 					<div class="flex items-center gap-2">
-						<span class="rounded bg-negative/6 px-1.5 py-0.5 font-mono text-[10px] text-negative">{err.http}</span>
+						<span class="rounded bg-negative/6 px-1.5 py-0.5 font-mono text-[10px] text-negative"
+							>{err.http}</span
+						>
 						<code class="font-mono text-[11px] text-text">{err.code}</code>
 					</div>
 					<p class="text-[12px] text-text-muted">{err.desc}</p>
@@ -681,7 +791,10 @@ console.log('Indexer status:', health.data.status);`;
 		border-radius: 10px;
 		border: 0.5px solid var(--color-border);
 		background: var(--color-surface-raised);
-		transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+		transition:
+			border-color 0.2s,
+			box-shadow 0.2s,
+			transform 0.2s;
 	}
 
 	.skill-card:hover,
@@ -706,7 +819,9 @@ console.log('Indexer status:', health.data.status);`;
 		color: var(--color-text-muted);
 		text-align: left;
 		cursor: pointer;
-		transition: border-color 0.15s, color 0.15s;
+		transition:
+			border-color 0.15s,
+			color 0.15s;
 	}
 
 	.install-cmd:hover {
@@ -722,7 +837,10 @@ console.log('Indexer status:', health.data.status);`;
 		font-size: 11px;
 		font-weight: 600;
 		color: var(--color-accent);
-		transition: border-color 0.15s, background 0.15s, color 0.15s;
+		transition:
+			border-color 0.15s,
+			background 0.15s,
+			color 0.15s;
 	}
 
 	.copy-btn:hover {

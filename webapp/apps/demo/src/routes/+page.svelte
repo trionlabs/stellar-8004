@@ -70,7 +70,7 @@
 						'On-chain identity as an NFT on Stellar',
 						'Earn reputation through real user feedback',
 						'Accept micropayments via x402 or MPP',
-						'SDK + Claude Code skills for fast integration',
+						'SDK and API documentation for fast integration',
 					] as item}
 						<div class="flex items-start gap-2 text-[12px] text-text-muted">
 							<span class="text-accent text-[8px] mt-1">&#9654;</span>
@@ -79,7 +79,7 @@
 					{/each}
 				</div>
 				<div class="pt-2 border-t border-border">
-					<p class="text-[11px] font-mono text-accent">npx skills add trionlabs/stellar-8004 --skill '*'</p>
+					<a class="text-[11px] font-mono text-accent" href="https://stellar8004.com/developers">Explore SDK documentation</a>
 				</div>
 			</div>
 
@@ -181,7 +181,7 @@
 				{ n: '03', t: 'TypeScript SDK', c: 'positive', items: ['@trionlabs/stellar8004', 'Full contract client wrappers', 'Metadata builder & auto-storage'], f: 'Query, register, feedback, validate' },
 				{ n: '04', t: 'Explorer Web App', c: 'accent', items: ['Search & advanced filtering', 'Agent profiles with scores', 'TryAgent: pay agents in-browser'], f: 'SvelteKit · stellar8004.com' },
 				{ n: '05', t: 'Event Indexer', c: 'accent', items: ['Real-time Soroban event indexing', 'URI resolution & metadata extraction', 'REST API — 7 public endpoints'], f: 'Supabase · PostgreSQL' },
-				{ n: '06', t: 'Claude Code Skills', c: 'accent', items: ['/8004stellar — trust playbook', '/x402stellar — payment integration', '/stellar-dev — full Stellar guide'], f: 'AI-native DX' },
+				{ n: '06', t: 'Developer Guides', c: 'accent', items: ['Agent registration with the SDK', 'Payment integration examples', 'Stellar development resources'], f: 'Integration documentation' },
 			] as d}
 				<div class="rounded-xl border border-border bg-surface p-4 space-y-2">
 					<div class="flex items-center gap-2">
@@ -504,26 +504,30 @@
 		<div class="space-y-3">
 			<p class="text-[11px] font-mono tracking-[0.25em] text-accent uppercase">Developer Experience</p>
 			<h2 class="text-3xl font-light tracking-tight">Build on 8004 in Minutes</h2>
-			<p class="text-[15px] text-text-muted font-light leading-relaxed max-w-2xl">TypeScript SDK, Claude Code skills, REST API, and full documentation.</p>
+			<p class="text-[15px] text-text-muted font-light leading-relaxed max-w-2xl">TypeScript SDK, REST API, and integration documentation.</p>
 		</div>
 		<div class="grid sm:grid-cols-2 gap-4">
 			<div class="rounded-xl border border-border bg-surface p-5 space-y-3">
 				<div class="flex justify-between items-center"><p class="text-[11px] font-mono tracking-[0.18em] text-accent uppercase">TypeScript SDK</p><span class="rounded-full bg-accent-soft border border-accent/20 px-2 py-0.5 text-[10px] font-mono text-accent">@trionlabs/stellar8004</span></div>
 				<div class="rounded-lg bg-surface-overlay border border-border p-3 font-mono text-[11px] leading-relaxed">
-					<p><span class="text-accent">import</span> {'{'} IdentityRegistryClient {'}'}</p>
+					<p><span class="text-accent">import</span> {'{'} IdentityClient, MAINNET_CONFIG {'}'}</p>
 					<p class="pl-2 text-text-dim"><span class="text-accent">from</span> <span class="text-positive">'@trionlabs/stellar8004'</span>;</p>
-					<p class="mt-2"><span class="text-accent">const</span> client = <span class="text-accent">new</span> <span class="text-warning">IdentityRegistryClient</span>({'{'}</p>
-					<p class="pl-2">network: <span class="text-positive">'mainnet'</span> {'}'});</p>
-					<p class="mt-2 text-text-dim">// Query any agent</p>
-					<p><span class="text-accent">const</span> agent = <span class="text-accent">await</span> client.<span class="text-warning">getAgent</span>(<span class="text-positive">1</span>);</p>
+					<p class="mt-2"><span class="text-accent">const</span> identity = <span class="text-accent">new</span> <span class="text-warning">IdentityClient</span>({'{'}</p>
+					<p class="pl-2">rpcUrl: MAINNET_CONFIG.rpcUrl,</p>
+					<p class="pl-2">networkPassphrase: MAINNET_CONFIG.networkPassphrase,</p>
+					<p class="pl-2">contractId: MAINNET_CONFIG.contracts.identity</p>
+					<p>{'}'});</p>
+					<p class="mt-2"><span class="text-accent">const</span> {'{'} result: owner {'}'} = <span class="text-accent">await</span></p>
+					<p class="pl-2">identity.<span class="text-warning">owner_of</span>({'{'} token_id: <span class="text-positive">1</span> {'}'});</p>
+					<p>console.log(owner);</p>
 				</div>
 			</div>
 			<div class="rounded-xl border border-border bg-surface p-5 space-y-3">
-				<div class="flex justify-between items-center"><p class="text-[11px] font-mono tracking-[0.18em] text-accent uppercase">Claude Code Skills</p><span class="rounded-full bg-accent-soft border border-accent/20 px-2 py-0.5 text-[10px] font-mono text-accent">AI-native DX</span></div>
+				<div class="flex justify-between items-center"><p class="text-[11px] font-mono tracking-[0.18em] text-accent uppercase">Developer Documentation</p><span class="rounded-full bg-accent-soft border border-accent/20 px-2 py-0.5 text-[10px] font-mono text-accent">SDK + API</span></div>
 				<div class="rounded-lg bg-surface-overlay border border-border p-3 font-mono text-[11px] leading-relaxed space-y-2">
-					<div><p class="text-text-dim"># Install</p><p><span class="text-positive">$</span> npx skills add trionlabs/stellar-8004 --skill '*'</p></div>
-					<div><p><span class="text-positive">$</span> /8004stellar <span class="text-text-dim">&mdash; agent trust playbook</span></p></div>
-					<div><p><span class="text-positive">$</span> /x402stellar <span class="text-text-dim">&mdash; payment integration</span></p></div>
+					<div><a class="text-positive" href="https://stellar8004.com/developers">Open the developer guide</a></div>
+					<div><p>Register and query agents with the SDK</p></div>
+					<div><p>Integrate x402 and MPP payments</p></div>
 				</div>
 			</div>
 			<div class="rounded-xl border border-border bg-surface p-5 space-y-3">
@@ -570,7 +574,7 @@
 				{ w: 'Discover.', d: 'Find any AI agent on Stellar', c: 'text-accent' },
 				{ w: 'Use.', d: 'Pay per request with x402 + MPP', c: 'text-warning' },
 				{ w: 'Trust.', d: 'On-chain reputation from real users', c: 'text-positive' },
-				{ w: 'Build.', d: 'SDK, skills, open source tools', c: 'text-text' },
+				{ w: 'Build.', d: 'SDK, docs, open source tools', c: 'text-text' },
 			] as item}
 				<div class="text-center space-y-1"><p class="text-xl font-medium {item.c}">{item.w}</p><p class="text-[11px] text-text-muted max-w-32">{item.d}</p></div>
 			{/each}

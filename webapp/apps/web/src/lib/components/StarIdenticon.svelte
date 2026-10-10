@@ -29,7 +29,7 @@
 
 	const light = $derived(theme.resolved === 'light');
 	const cta1 = $derived(`oklch(${light ? 0.72 : 0.35} 0.06 ${hue})`);
-	const cta2 = $derived(`oklch(${light ? 0.48 : 0.60} 0.08 ${hue})`);
+	const cta2 = $derived(`oklch(${light ? 0.48 : 0.6} 0.08 ${hue})`);
 	const cta3 = $derived(light ? 'oklch(0.18 0.005 250)' : 'oklch(0.92 0.005 250)');
 	const palette = $derived([cta1, cta2, cta3]);
 	const grid = $derived.by(() => {
@@ -57,15 +57,9 @@
 	aria-hidden="true"
 	class="identicon"
 >
-	{#each grid as row, y}
-		{#each row as colorIdx, x}
-			<rect
-				x={x * 8}
-				y={y * 8}
-				width="8"
-				height="8"
-				fill={palette[colorIdx]}
-			/>
+	{#each grid as row, y (y)}
+		{#each row as colorIdx, x (x)}
+			<rect x={x * 8} y={y * 8} width="8" height="8" fill={palette[colorIdx]} />
 		{/each}
 	{/each}
 </svg>

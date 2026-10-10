@@ -25,11 +25,7 @@ export const load: PageServerLoad = async () => {
 					endpoint: 'https://weather-oracle.example.com/api/v1/forecast',
 					version: '1.2.0',
 					description: 'Get weather forecast for a location',
-					inputExample: JSON.stringify(
-						{ lat: 41.0082, lng: 28.9784, days: 3 },
-						null,
-						2
-					)
+					inputExample: JSON.stringify({ lat: 41.0082, lng: 28.9784, days: 3 }, null, 2)
 				},
 				{
 					name: 'MCP',

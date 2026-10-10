@@ -9,16 +9,22 @@ const FORWARDED_HEADERS = [
 	'access-control-allow-headers',
 	'x-ratelimit-limit',
 	'x-ratelimit-remaining',
-	'x-ratelimit-reset',
+	'x-ratelimit-reset'
 ];
 
 const handler: RequestHandler = async ({ params, url, request, getClientAddress }) => {
 	const kongUrl = env.SUPABASE_URL;
 	if (!kongUrl) {
-		return new Response(JSON.stringify({ success: false, error: { code: 'CONFIG_ERROR', message: 'API backend not configured' } }), {
-			status: 502,
-			headers: { 'Content-Type': 'application/json' },
-		});
+		return new Response(
+			JSON.stringify({
+				success: false,
+				error: { code: 'CONFIG_ERROR', message: 'API backend not configured' }
+			}),
+			{
+				status: 502,
+				headers: { 'Content-Type': 'application/json' }
+			}
+		);
 	}
 
 	// SSRF/traversal guard combining both hardening passes:
@@ -30,10 +36,16 @@ const handler: RequestHandler = async ({ params, url, request, getClientAddress 
 	const PREFIX = '/functions/v1/api/v1/';
 	const ALLOWED_ENDPOINTS = new Set(['agents', 'accounts', 'search', 'stats', 'health']);
 	const notFound = () =>
-		new Response(JSON.stringify({ success: false, error: { code: 'NOT_FOUND', message: 'Endpoint not found' } }), {
-			status: 404,
-			headers: { 'Content-Type': 'application/json' },
-		});
+		new Response(
+			JSON.stringify({
+				success: false,
+				error: { code: 'NOT_FOUND', message: 'Endpoint not found' }
+			}),
+			{
+				status: 404,
+				headers: { 'Content-Type': 'application/json' }
+			}
+		);
 
 	let target: URL;
 	try {
@@ -74,15 +86,21 @@ const handler: RequestHandler = async ({ params, url, request, getClientAddress 
 			method: request.method,
 			headers: {
 				'x-real-ip': getClientAddress(),
-				...(anonKey ? { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } : {}),
+				...(anonKey ? { apikey: anonKey, Authorization: `Bearer ${anonKey}` } : {})
 			},
-			body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
+			body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined
 		});
 	} catch {
-		return new Response(JSON.stringify({ success: false, error: { code: 'UPSTREAM_ERROR', message: 'API backend unavailable' } }), {
-			status: 502,
-			headers: { 'Content-Type': 'application/json' },
-		});
+		return new Response(
+			JSON.stringify({
+				success: false,
+				error: { code: 'UPSTREAM_ERROR', message: 'API backend unavailable' }
+			}),
+			{
+				status: 502,
+				headers: { 'Content-Type': 'application/json' }
+			}
+		);
 	}
 
 	const headers = new Headers();
@@ -93,7 +111,7 @@ const handler: RequestHandler = async ({ params, url, request, getClientAddress 
 
 	return new Response(resp.body, {
 		status: resp.status,
-		headers,
+		headers
 	});
 };
 
