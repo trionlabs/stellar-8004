@@ -52,19 +52,16 @@ function operationEvents(tx: SourceTransaction): xdr.ContractEvent[][] {
   // than silently treating an older response shape as an eventless transaction.
   const meta = tx.resultMetaXdr;
   if (!meta) throw new Error(`Missing transaction metadata: ${tx.txHash}`);
-  switch (meta.switch()) {
-    case 1:
-    case 2:
+  switch (meta.type) {
+    case 'v1':
+    case 'v2':
       return [];
-    case 3:
-      return [meta.v3().sorobanMeta()?.events() ?? []];
-    case 4:
-      return meta
-        .v4()
-        .operations()
-        .map((op) => op.events());
+    case 'v3':
+      return [meta.v3.sorobanMeta?.events ?? []];
+    case 'v4':
+      return meta.v4.operations.map((op) => op.events);
     default:
-      throw new Error(`Unsupported transaction metadata version: ${meta.switch()}`);
+      throw new Error(`Unsupported transaction metadata version: ${meta.type}`);
   }
 }
 
@@ -83,13 +80,13 @@ export function eventsFromTransaction(
   for (const [operationIndex, events] of operationEvents(tx).entries()) {
     for (const [eventIndex, event] of events.entries()) {
       const id = canonicalEventId(tx.ledger, tx.applicationOrder, operationIndex, eventIndex);
-      const address = event.contractId();
-      if (event.type().name !== 'contract' || !address) continue;
+      const address = event.contractId;
+      if (event.type !== xdr.ContractEventType.contract || !address) continue;
       const contractId = Address.fromScAddress(
         xdr.ScAddress.scAddressTypeContract(address),
       ).toString();
       if (!contracts.has(contractId)) continue;
-      if (event.body().switch() !== 0) throw new Error(`Unsupported contract event body: ${id}`);
+      if (event.body.type !== 'v0') throw new Error(`Unsupported contract event body: ${id}`);
       result.push({
         id,
         type: 'contract',
@@ -100,8 +97,8 @@ export function eventsFromTransaction(
         transactionIndex: tx.applicationOrder,
         operationIndex,
         inSuccessfulContractCall: true,
-        topic: event.body().v0().topics(),
-        value: event.body().v0().data(),
+        topic: event.body.v0.topics,
+        value: event.body.v0.data,
       });
     }
   }

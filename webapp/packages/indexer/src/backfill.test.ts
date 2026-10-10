@@ -1,4 +1,4 @@
-import { Address, nativeToScVal, rpc, xdr } from '@stellar/stellar-sdk';
+import { nativeToScVal, rpc, StrKey, xdr } from '@stellar/stellar-sdk';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { indexHistory, type HistoricalState } from './backfill.js';
 import { TESTNET } from './config.js';
@@ -18,11 +18,10 @@ function tx(count: number, ledger = 10, order = 1): rpc.Api.TransactionInfo {
     { length: count },
     (_, i) =>
       new xdr.ContractEvent({
-        ext: new xdr.ExtensionPoint(0),
-        contractId: new Address(config.contracts.identity).toScAddress().contractId(),
-        type: xdr.ContractEventType.contract(),
-        body: new xdr.ContractEventBody(
-          0,
+        ext: xdr.ExtensionPoint.v0(),
+        contractId: new xdr.ContractId(StrKey.decodeContract(config.contracts.identity)),
+        type: xdr.ContractEventType.contract,
+        body: xdr.ContractEventBody.v0(
           new xdr.ContractEventV0({
             topics: [
               nativeToScVal('registered', { type: 'symbol' }),
@@ -243,7 +242,13 @@ describe('bounded historical indexing', () => {
   });
   it('does not acknowledge malformed recognized input later in the transaction', async () => {
     const malformed = tx(250);
-    malformed.events.contractEventsXdr[0][249].body().v0().data(nativeToScVal({}));
+    const event = malformed.events.contractEventsXdr[0][249];
+    malformed.events.contractEventsXdr[0][249] = new xdr.ContractEvent({
+      ...event,
+      body: xdr.ContractEventBody.v0(new xdr.ContractEventV0({
+        ...event.body.v0, data: nativeToScVal({}),
+      })),
+    });
     getTransactions.mockResolvedValue(page([malformed]));
     await expect(run()).rejects.toThrow(/Invalid event/);
     expect(store.events).toEqual([]);
@@ -251,19 +256,21 @@ describe('bounded historical indexing', () => {
   it('does not checkpoint a historical validation request with a missing URI field', async () => {
     const malformed = tx(1);
     const event = malformed.events.contractEventsXdr[0][0];
-    event.contractId(new Address(config.contracts.validation).toScAddress().contractId());
-    event
-      .body()
-      .v0()
-      .topics([
+    malformed.events.contractEventsXdr[0][0] = new xdr.ContractEvent({
+      ...event,
+      contractId: new xdr.ContractId(StrKey.decodeContract(config.contracts.validation)),
+      body: xdr.ContractEventBody.v0(new xdr.ContractEventV0({
+        topics: [
         nativeToScVal('validation_request', { type: 'symbol' }),
         nativeToScVal('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', {
           type: 'address',
         }),
         nativeToScVal(1, { type: 'u32' }),
         nativeToScVal(new Uint8Array(32)),
-      ]);
-    event.body().v0().data(nativeToScVal({}));
+        ],
+        data: nativeToScVal({}),
+      })),
+    });
     getTransactions.mockImplementation(async (query) =>
       query.pagination?.cursor ? page([]) : page([malformed]),
     );

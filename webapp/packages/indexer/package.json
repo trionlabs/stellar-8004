@@ -11,13 +11,13 @@
     "sync:shared": "node ../../scripts/sync-indexer-to-shared.js"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "^15.0.0",
-    "@supabase/supabase-js": "^2.49.0",
+    "@stellar/stellar-sdk": "^17.2.1",
+    "@supabase/supabase-js": "^2.117.3",
     "@trionlabs/stellar8004": "workspace:*"
   },
   "devDependencies": {
     "@stellar8004/db": "workspace:*",
-    "typescript": "^5.7.0",
-    "vitest": "^3.2.4"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }

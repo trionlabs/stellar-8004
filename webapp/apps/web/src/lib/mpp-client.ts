@@ -1,15 +1,17 @@
 // Browser-only — always lazy-import behind onMount in Svelte components.
 // mppx may reference globalThis.fetch and will crash during SSR.
 import { Challenge, Credential, Receipt } from 'mppx';
+import { Buffer } from 'buffer';
 import {
 	Account,
 	Address,
+	authorizeEntry,
 	BASE_FEE,
 	Contract,
+	Operation,
 	TransactionBuilder,
 	nativeToScVal,
-	rpc,
-	xdr as StellarXdr
+	rpc
 } from '@stellar/stellar-sdk';
 import { signer as freighterSigner, stellarConfig } from './sdk-client.js';
 
@@ -23,7 +25,7 @@ const DEFAULT_TIMEOUT = 180;
 // what the display assumes (7 decimals / USDC).
 const USDC_ALLOWLIST = new Set([
 	'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA', // testnet USDC
-	'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75', // mainnet USDC
+	'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75' // mainnet USDC
 ]);
 
 export interface MppPricingInfo {
@@ -108,19 +110,25 @@ export async function createMppCredential(
 		throw new Error(`Unsupported payment token: ${currency}. Only USDC is supported.`);
 	}
 
-	const networkPassphrase = network.includes('pubnet') || network.includes('mainnet')
+	if (!['stellar:testnet', 'stellar:pubnet', 'stellar:mainnet'].includes(network)) {
+		throw new Error(`Unsupported payment network: ${network}`);
+	}
+	const isMainnet = network === 'stellar:pubnet' || network === 'stellar:mainnet';
+	const networkPassphrase = isMainnet
 		? 'Public Global Stellar Network ; September 2015'
 		: 'Test SDF Network ; September 2015';
-
-	const isMainnet = network.includes('pubnet') || network.includes('mainnet');
 
 	// Network mismatch guard: compare challenge network with app's configured network
 	const appIsTestnet = stellarConfig.networkPassphrase === 'Test SDF Network ; September 2015';
 	if (isMainnet && appIsTestnet) {
-		throw new Error('Network mismatch: agent requires Mainnet but your wallet is on Testnet. Switch to Mainnet.');
+		throw new Error(
+			'Network mismatch: agent requires Mainnet but your wallet is on Testnet. Switch to Mainnet.'
+		);
 	}
 	if (!isMainnet && !appIsTestnet) {
-		throw new Error('Network mismatch: agent requires Testnet but your wallet is on Mainnet. Switch to Testnet.');
+		throw new Error(
+			'Network mismatch: agent requires Testnet but your wallet is on Mainnet. Switch to Testnet.'
+		);
 	}
 
 	// Use the app's configured RPC for whichever network it runs on. The guard
@@ -134,6 +142,13 @@ export async function createMppCredential(
 	const expiresTimestamp = challenge.expires
 		? Math.floor(new Date(challenge.expires).getTime() / 1000)
 		: undefined;
+
+	if (
+		expiresTimestamp !== undefined &&
+		(!Number.isFinite(expiresTimestamp) || expiresTimestamp <= Math.floor(Date.now() / 1000))
+	) {
+		throw new Error('Payment challenge has an invalid or expired expiration time.');
+	}
 
 	if (isServerSponsored) {
 		// Sponsored path: build tx with placeholder source, sign only auth entries
@@ -160,54 +175,72 @@ export async function createMppCredential(
 		const prepared = await server.prepareTransaction(unsignedTx);
 
 		// Calculate auth entry expiration ledger
-		const latestLedger = await server.getLatestLedger();
+		const health = await server.getHealth();
 		let validUntilLedger: number;
 		if (expiresTimestamp) {
 			const nowSecs = Math.floor(Date.now() / 1000);
 			const secsUntilExpiry = Math.max(expiresTimestamp - nowSecs, 0);
-			validUntilLedger = latestLedger.sequence + Math.ceil(secsUntilExpiry / DEFAULT_LEDGER_CLOSE_TIME);
+			validUntilLedger =
+				health.latestLedger + Math.ceil(secsUntilExpiry / DEFAULT_LEDGER_CLOSE_TIME);
 		} else {
-			validUntilLedger = latestLedger.sequence + Math.ceil(DEFAULT_TIMEOUT / DEFAULT_LEDGER_CLOSE_TIME) + 10;
+			validUntilLedger =
+				health.latestLedger + Math.ceil(DEFAULT_TIMEOUT / DEFAULT_LEDGER_CLOSE_TIME) + 10;
 		}
 
-		// Sign auth entries via Freighter (not full envelope)
-		const envelope = prepared.toEnvelope();
-		const v1 = envelope.v1();
-		for (const op of v1.tx().operations()) {
-			const body = op.body();
-			if (body.switch().value !== StellarXdr.OperationType.invokeHostFunction().value) {
-				continue;
-			}
-			const authEntries = body.invokeHostFunctionOp().auth();
-			for (let i = 0; i < authEntries.length; i++) {
-				const entry = authEntries[i];
-				if (
-					entry.credentials().switch().value ===
-					StellarXdr.SorobanCredentialsType.sorobanCredentialsAddress().value
-				) {
-					// Bound the signed auth entry to the challenge expiry before
-					// signing, so the wallet's signature can't be replayed beyond it.
-					// validUntilLedger (computed above) was previously dead code —
-					// the entry was signed with whatever expiration simulation left.
-					entry.credentials().address().signatureExpirationLedger(validUntilLedger);
-					// Use Freighter to sign the auth entry
-					const entryXdr = entry.toXDR('base64');
-					const result = await freighterSigner.signAuthEntry(entryXdr, {
-						networkPassphrase,
-						address: walletAddress
-					});
-					if (result.error) {
-						throw new Error(String(result.error));
-					}
-					authEntries[i] = StellarXdr.SorobanAuthorizationEntry.fromXDR(
-						result.signedAuthEntry,
-						'base64'
-					);
-				}
-			}
+		const operation = prepared.operations[0];
+		if (prepared.operations.length !== 1 || operation.type !== 'invokeHostFunction') {
+			throw new Error('Unexpected sponsored payment operation.');
 		}
+		const auth = [];
+		for (const entry of operation.auth ?? []) {
+			const credentials =
+				entry.credentials.type === 'sorobanCredentialsAddress'
+					? entry.credentials.address
+					: entry.credentials.type === 'sorobanCredentialsAddressV2'
+						? entry.credentials.addressV2
+						: null;
+			if (!credentials || Address.fromScAddress(credentials.address).toString() !== walletAddress) {
+				throw new Error('Unexpected payment authorization address.');
+			}
+			// Freighter signs a HashIdPreimage and returns signature bytes.
+			// authorizeEntry binds the network/expiry and verifies the signature.
+			auth.push(
+				await authorizeEntry(
+					entry,
+					async (preimage) => {
+						const result = await freighterSigner.signAuthEntry(preimage.toXdr('base64'), {
+							networkPassphrase,
+							address: walletAddress
+						});
+						if (result.error) {
+							throw new Error(result.error.message ?? String(result.error));
+						}
+						if (!result.signedAuthEntry)
+							throw new Error('Wallet returned no authorization signature.');
+						return {
+							signature: Buffer.from(result.signedAuthEntry, 'base64'),
+							publicKey: walletAddress
+						};
+					},
+					validUntilLedger,
+					networkPassphrase
+				)
+			);
+		}
+		if (auth.length === 0) throw new Error('Payment simulation returned no authorization entries.');
+		// The sponsor rebuilds and simulates this authorization proof before submission.
+		const signedXdr = TransactionBuilder.cloneFrom(prepared)
+			.clearOperations()
+			.addOperation(
+				Operation.invokeHostFunction({
+					source: operation.source,
+					func: operation.func,
+					auth
+				})
+			)
+			.build()
+			.toXdr();
 
-		const signedXdr = envelope.toXDR('base64');
 		const source = `did:pkh:stellar:${network.replace('stellar:', '')}:${walletAddress}`;
 
 		return Credential.serialize({
@@ -241,15 +274,18 @@ export async function createMppCredential(
 	const prepared = await server.prepareTransaction(transaction);
 
 	// Sign full transaction via Freighter signTransaction
-	const { signedTxXdr } = await freighterSigner.signTransaction(prepared.toXDR(), {
+	const result = await freighterSigner.signTransaction(prepared.toXDR(), {
 		networkPassphrase
 	});
+
+	if (result.error) throw new Error(result.error.message ?? String(result.error));
+	if (!result.signedTxXdr) throw new Error('Wallet returned no signed transaction.');
 
 	const source = `did:pkh:stellar:${network.replace('stellar:', '')}:${walletAddress}`;
 
 	return Credential.serialize({
 		challenge,
-		payload: { type: 'transaction', transaction: signedTxXdr },
+		payload: { type: 'transaction', transaction: result.signedTxXdr },
 		source
 	});
 }

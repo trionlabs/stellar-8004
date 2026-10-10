@@ -3,3 +3,10 @@ packages:
   - "packages/*"
 onlyBuiltDependencies:
   - esbuild
+overrides:
+  # The SDK 16 dependency used by x402 still pins an older Axios release.
+  "@stellar/stellar-sdk>axios": "1.20.0"
+  # tsup still selects esbuild 0.27, which has a development-server file-read advisory.
+  "esbuild@<0.28.1": "^0.28.1"
+  # SvelteKit's cookie 0.6 range excludes the input-validation security fix.
+  "@sveltejs/kit>cookie": "^0.7.2"

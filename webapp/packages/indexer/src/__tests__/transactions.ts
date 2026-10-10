@@ -1,4 +1,4 @@
-import { rpc, xdr } from '@stellar/stellar-sdk';
+import { rpc, StrKey, xdr } from '@stellar/stellar-sdk';
 import fixture from './fixtures/rpc29-paired-v4.json';
 
 /** Constructed source transactions, not additional captured network evidence. */
@@ -21,11 +21,10 @@ export function transactionWithEvents(events: rpc.Api.EventResponse[]): rpc.Api.
         events.map(
           (e) =>
             new xdr.ContractEvent({
-              ext: new xdr.ExtensionPoint(0),
-              contractId: e.contractId!.address().toScAddress().contractId(),
-              type: xdr.ContractEventType.contract(),
-              body: new xdr.ContractEventBody(
-                0,
+              ext: xdr.ExtensionPoint.v0(),
+              contractId: new xdr.ContractId(StrKey.decodeContract(e.contractId!.contractId())),
+              type: xdr.ContractEventType.contract,
+              body: xdr.ContractEventBody.v0(
                 new xdr.ContractEventV0({ topics: e.topic, data: e.value }),
               ),
             }),

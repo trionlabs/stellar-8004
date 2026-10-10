@@ -1,4 +1,4 @@
-import * as jose from 'https://deno.land/x/jose@v4.14.4/index.ts'
+import * as jose from 'jose'
 
 console.log('main function started')
 
@@ -37,7 +37,7 @@ async function isValidLegacyJWT(jwt: string): Promise<boolean> {
   const encoder = new TextEncoder()
   const secretKey = encoder.encode(JWT_SECRET)
   try {
-    await jose.jwtVerify(jwt, secretKey)
+    await jose.jwtVerify(jwt, secretKey, { algorithms: ['HS256'] })
   } catch (e) {
     console.error('Symmetric Legacy JWT verification error', e)
     return false
@@ -51,7 +51,7 @@ async function isValidJWT(jwt: string): Promise<boolean> {
     return false
   }
   try {
-    await jose.jwtVerify(jwt, SUPABASE_JWT_KEYS)
+    await jose.jwtVerify(jwt, SUPABASE_JWT_KEYS, { algorithms: ['ES256', 'RS256'] })
   } catch (e) {
     console.error('Asymmetric JWT verification error', e)
     return false
@@ -83,7 +83,7 @@ Deno.serve(async (req: Request) => {
       }
     } catch (e) {
       console.error(e)
-      return new Response(JSON.stringify({ msg: e.toString() }), {
+      return new Response(JSON.stringify({ msg: String(e) }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       })
@@ -108,7 +108,7 @@ Deno.serve(async (req: Request) => {
   try {
     return await dispatchToWorker(service_name, servicePath, req)
   } catch (e) {
-    const error = { msg: e.toString() }
+    const error = { msg: String(e) }
     return new Response(JSON.stringify(error), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
@@ -159,7 +159,7 @@ const WORKER_CONFIG: Record<string, WorkerConfig> = {
 // new isolate is ready before edge-runtime force-terminates the old one.
 const REFRESH_RATIO = 0.70
 
-type CachedWorker = { worker: unknown; createdAt: number; cfg: WorkerConfig }
+type CachedWorker = { worker: EdgeWorker; createdAt: number; cfg: WorkerConfig }
 
 const workerCache = new Map<string, CachedWorker>()
 const inflightCreate = new Map<string, Promise<CachedWorker>>()
@@ -199,7 +199,7 @@ async function createCachedWorker(
 async function getWorker(
   serviceName: string,
   servicePath: string
-): Promise<unknown> {
+): Promise<EdgeWorker> {
   const cached = workerCache.get(serviceName)
   if (cached && isFresh(cached)) {
     return cached.worker
@@ -227,9 +227,7 @@ async function dispatchToWorker(
   servicePath: string,
   req: Request
 ): Promise<Response> {
-  let worker = (await getWorker(serviceName, servicePath)) as {
-    fetch: (r: Request) => Promise<Response>
-  }
+  let worker = await getWorker(serviceName, servicePath)
   try {
     return await worker.fetch(req)
   } catch (e) {
@@ -239,9 +237,7 @@ async function dispatchToWorker(
       e instanceof Error ? e.message : String(e)
     )
     workerCache.delete(serviceName)
-    worker = (await getWorker(serviceName, servicePath)) as {
-      fetch: (r: Request) => Promise<Response>
-    }
+    worker = await getWorker(serviceName, servicePath)
     return await worker.fetch(req)
   }
 }

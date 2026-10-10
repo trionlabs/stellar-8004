@@ -7,11 +7,13 @@ const requests: string[] = [];
 let releaseFails: boolean;
 let acquireReply: unknown;
 let network: string;
+let rpcVersion: string;
 beforeEach(() => {
   requests.length = 0;
   releaseFails = false;
   acquireReply = true;
   network = TESTNET.networkPassphrase;
+  rpcVersion = '23.0.0';
   vi.stubEnv('SUPABASE_URL', 'http://localhost:54321');
   vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
   vi.stubGlobal(
@@ -41,8 +43,8 @@ beforeEach(() => {
         request.method === 'getNetwork'
           ? { passphrase: network, protocolVersion: '29' }
           : request.method === 'getVersionInfo'
-            ? { version: '29.0.0' }
-            : { sequence: 100 };
+            ? { version: rpcVersion }
+            : { status: 'healthy', latestLedger: 100, oldestLedger: 1, ledgerRetentionWindow: 100 };
       return new Response(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }), {
         headers: { 'Content-Type': 'application/json' },
       });
@@ -56,10 +58,13 @@ afterEach(() => {
 });
 
 describe('bounded runtime with the real SDK transport', () => {
-  it('acquires only after RPC network/version checks and always releases successful work', async () => {
+  it.each(['23.0.0', '24.0.0', '29.0.0'])('acquires from RPC %s health without requiring ledger XDR', async (version) => {
+    rpcVersion = version;
     const work = vi.fn(async () => 'done');
     expect(await withIndexerLease(config, 'live', {}, work)).toBe('done');
     expect(requests.slice(-2)).toEqual(['acquire_indexer_lease', 'release_indexer_lock']);
+    expect(requests).toContain('getHealth');
+    expect(requests).not.toContain('getLatestLedger');
     expect(work).toHaveBeenCalledOnce();
   });
   it('cleans up its timer when client setup fails before acquisition', async () => {
@@ -124,7 +129,7 @@ describe('bounded runtime with the real SDK transport', () => {
     await rejected;
     expect(sawAbort).toBe(true);
   });
-  it('enforces the per-request timeout in SDK15 where the constructor timeout is ignored', async () => {
+  it('enforces the per-request timeout when the SDK constructor timeout is ignored', async () => {
     vi.useFakeTimers();
     let sawAbort = false;
     vi.stubGlobal(

@@ -1,4 +1,3 @@
-import { Buffer } from "buffer";
 import { Address } from "@stellar/stellar-sdk";
 import {
   AssembledTransaction,
@@ -25,10 +24,6 @@ export * from "@stellar/stellar-sdk";
 export * as contract from "@stellar/stellar-sdk/contract";
 export * as rpc from "@stellar/stellar-sdk/rpc";
 
-if (typeof window !== "undefined") {
-  //@ts-ignore Buffer exists
-  window.Buffer = window.Buffer || Buffer;
-}
 
 
 export const networks = {
@@ -64,7 +59,7 @@ export const ValidationError = {
 
 export interface UpgradeProposal {
   proposed_at: u32;
-  wasm_hash: Buffer;
+  wasm_hash: Uint8Array;
 }
 
 
@@ -73,7 +68,7 @@ export interface ValidationStatus {
   has_response: boolean;
   last_update: u64;
   response: u32;
-  response_hash: Buffer;
+  response_hash: Uint8Array;
   tag: string;
   validator_address: string;
 }
@@ -91,23 +86,23 @@ export interface Client {
   /**
    * Construct and simulate a validation_request transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  validation_request: ({caller, validator_address, agent_id, request_uri, request_hash}: {caller: string, validator_address: string, agent_id: u32, request_uri: string, request_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+  validation_request: ({caller, validator_address, agent_id, request_uri, request_hash}: {caller: string, validator_address: string, agent_id: u32, request_uri: string, request_hash: Uint8Array}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a validation_response transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Responses are updateable (progressive validation); only original validator can update.
    */
-  validation_response: ({caller, request_hash, response, response_uri, response_hash, tag}: {caller: string, request_hash: Buffer, response: u32, response_uri: string, response_hash: Buffer, tag: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+  validation_response: ({caller, request_hash, response, response_uri, response_hash, tag}: {caller: string, request_hash: Uint8Array, response: u32, response_uri: string, response_hash: Uint8Array, tag: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a get_validation_status transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  get_validation_status: ({request_hash}: {request_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<ValidationStatus>>>
+  get_validation_status: ({request_hash}: {request_hash: Uint8Array}, options?: MethodOptions) => Promise<AssembledTransaction<Result<ValidationStatus>>>
 
   /**
    * Construct and simulate a request_exists transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  request_exists: ({request_hash}: {request_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<boolean>>
+  request_exists: ({request_hash}: {request_hash: Uint8Array}, options?: MethodOptions) => Promise<AssembledTransaction<boolean>>
 
   /**
    * Construct and simulate a get_summary transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -117,12 +112,12 @@ export interface Client {
   /**
    * Construct and simulate a get_agent_validations_paginated transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  get_agent_validations_paginated: ({agent_id, start, limit}: {agent_id: u32, start: u32, limit: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Array<Buffer>>>
+  get_agent_validations_paginated: ({agent_id, start, limit}: {agent_id: u32, start: u32, limit: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Array<Uint8Array>>>
 
   /**
    * Construct and simulate a get_validator_requests_paginated transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  get_validator_requests_paginated: ({validator_address, start, limit}: {validator_address: string, start: u32, limit: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Array<Buffer>>>
+  get_validator_requests_paginated: ({validator_address, start, limit}: {validator_address: string, start: u32, limit: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Array<Uint8Array>>>
 
   /**
    * Construct and simulate a get_identity_registry transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -137,7 +132,7 @@ export interface Client {
   /**
    * Construct and simulate a propose_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  propose_upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+  propose_upgrade: ({new_wasm_hash}: {new_wasm_hash: Uint8Array}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a cancel_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -253,9 +248,9 @@ export class Client extends ContractClient {
     options: MethodOptions &
       Omit<ContractClientOptions, "contractId"> & {
         /** The hash of the Wasm blob, which must already be installed on-chain. */
-        wasmHash: Buffer | string;
+        wasmHash: Uint8Array | string;
         /** Salt used to generate the contract's ID. Passed through to {@link Operation.createCustomContract}. Default: random. */
-        salt?: Buffer | Uint8Array;
+        salt?: Uint8Array;
         /** The format used to decode `wasmHash`, if it's provided as a string. */
         format?: "hex" | "base64";
       }
@@ -301,8 +296,8 @@ export class Client extends ContractClient {
         get_validation_status: this.txFromJSON<Result<ValidationStatus>>,
         request_exists: this.txFromJSON<boolean>,
         get_summary: this.txFromJSON<ValidationSummary>,
-        get_agent_validations_paginated: this.txFromJSON<Array<Buffer>>,
-        get_validator_requests_paginated: this.txFromJSON<Array<Buffer>>,
+        get_agent_validations_paginated: this.txFromJSON<Array<Uint8Array>>,
+        get_validator_requests_paginated: this.txFromJSON<Array<Uint8Array>>,
         get_identity_registry: this.txFromJSON<string>,
         extend_ttl: this.txFromJSON<null>,
         propose_upgrade: this.txFromJSON<Result<void>>,

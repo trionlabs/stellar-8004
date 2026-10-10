@@ -1,4 +1,3 @@
-import { Buffer } from "buffer";
 import { Address } from "@stellar/stellar-sdk";
 import {
   AssembledTransaction,
@@ -25,10 +24,6 @@ export * from "@stellar/stellar-sdk";
 export * as contract from "@stellar/stellar-sdk/contract";
 export * as rpc from "@stellar/stellar-sdk/rpc";
 
-if (typeof window !== "undefined") {
-  //@ts-ignore Buffer exists
-  window.Buffer = window.Buffer || Buffer;
-}
 
 
 export const networks = {
@@ -66,7 +61,7 @@ export const ReputationError = {
 
 export interface UpgradeProposal {
   proposed_at: u32;
-  wasm_hash: Buffer;
+  wasm_hash: Uint8Array;
 }
 
 
@@ -92,7 +87,7 @@ export interface Client {
   /**
    * Construct and simulate a give_feedback transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  give_feedback: ({caller, agent_id, value, value_decimals, tag1, tag2, endpoint, feedback_uri, feedback_hash}: {caller: string, agent_id: u32, value: i128, value_decimals: u32, tag1: string, tag2: string, endpoint: string, feedback_uri: string, feedback_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+  give_feedback: ({caller, agent_id, value, value_decimals, tag1, tag2, endpoint, feedback_uri, feedback_hash}: {caller: string, agent_id: u32, value: i128, value_decimals: u32, tag1: string, tag2: string, endpoint: string, feedback_uri: string, feedback_hash: Uint8Array}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a revoke_feedback transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -103,7 +98,7 @@ export interface Client {
    * Construct and simulate a append_response transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Callable by anyone.
    */
-  append_response: ({caller, agent_id, client_address, feedback_index, response_uri, response_hash}: {caller: string, agent_id: u32, client_address: string, feedback_index: u64, response_uri: string, response_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+  append_response: ({caller, agent_id, client_address, feedback_index, response_uri, response_hash}: {caller: string, agent_id: u32, client_address: string, feedback_index: u64, response_uri: string, response_hash: Uint8Array}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a read_feedback transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -145,7 +140,7 @@ export interface Client {
   /**
    * Construct and simulate a propose_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  propose_upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+  propose_upgrade: ({new_wasm_hash}: {new_wasm_hash: Uint8Array}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a cancel_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -261,9 +256,9 @@ export class Client extends ContractClient {
     options: MethodOptions &
       Omit<ContractClientOptions, "contractId"> & {
         /** The hash of the Wasm blob, which must already be installed on-chain. */
-        wasmHash: Buffer | string;
+        wasmHash: Uint8Array | string;
         /** Salt used to generate the contract's ID. Passed through to {@link Operation.createCustomContract}. Default: random. */
-        salt?: Buffer | Uint8Array;
+        salt?: Uint8Array;
         /** The format used to decode `wasmHash`, if it's provided as a string. */
         format?: "hex" | "base64";
       }

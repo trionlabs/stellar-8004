@@ -20,7 +20,7 @@ export class BudgetExceeded extends Error {
   }
 }
 
-/** SDK15's constructor ignores timeout. Install a per-instance transport so
+/** The SDK constructor ignores timeout. Install a per-instance transport so
  * Node and Deno share effective cancellation, including response-body reads. */
 export function createRpcServer(url: string, signal: AbortSignal): rpc.Server {
   const server = new rpc.Server(url, { allowHttp: url.startsWith('http://') });
@@ -105,10 +105,10 @@ export async function withIndexerLease<T>(
       controller.signal,
     );
     budget.check();
-    const [network, version, latest] = await Promise.all([
+    const [network, version, health] = await Promise.all([
       server.getNetwork(),
       server.getVersionInfo(),
-      server.getLatestLedger(),
+      server.getHealth(),
     ]);
     budget.check();
     if (network.passphrase !== config.networkPassphrase)
@@ -117,15 +117,15 @@ export async function withIndexerLease<T>(
     if (!Number.isSafeInteger(major) || major < 23)
       throw new Error('Indexer requires RPC v23+ operation-event identities');
     if (
-      !Number.isSafeInteger(latest.sequence) ||
-      latest.sequence < 1 ||
-      latest.sequence > 0x7fffffff
+      !Number.isSafeInteger(health.latestLedger) ||
+      health.latestLedger < 1 ||
+      health.latestLedger > 0x7fffffff
     )
       throw new Error('Invalid RPC head ledger');
     acquired = await store.acquire(kind);
     if (!acquired) return null;
     budget.check();
-    return await work({ rpc: server, store, budget, head: latest.sequence });
+    return await work({ rpc: server, store, budget, head: health.latestLedger });
   } finally {
     if (acquired && store) {
       try {

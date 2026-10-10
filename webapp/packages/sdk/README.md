@@ -12,7 +12,9 @@ npm install @trionlabs/stellar8004 @stellar/stellar-sdk
 npm install @stellar/freighter-api
 ```
 
-Node 18+ is supported.
+Node 22.12+ and Stellar SDK 17 are required. Contract byte fields and results use
+`Uint8Array`; decode text with `new TextDecoder().decode(bytes)` or convert to
+`Buffer` explicitly in Node before using encoding-specific methods.
 
 ## Quick Start
 

@@ -134,13 +134,13 @@ export function estimateGas(
 		throw new Error(`Simulation failed: ${simulation.error}`);
 	}
 
-	const resources = simulation.transactionData.build().resources();
+	const resources = simulation.transactionData.build().resources;
 
 	return {
 		minResourceFee: simulation.minResourceFee,
-		instructions: resources.instructions().toString(),
-		readBytes: Number(resources.diskReadBytes()),
-		writeBytes: Number(resources.writeBytes()),
+		instructions: resources.instructions.toString(),
+		readBytes: resources.diskReadBytes,
+		writeBytes: resources.writeBytes,
 		footprint: {
 			readOnly: simulation.transactionData.getReadOnly().length,
 			readWrite: simulation.transactionData.getReadWrite().length

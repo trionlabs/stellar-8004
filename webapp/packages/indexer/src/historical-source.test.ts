@@ -1,4 +1,4 @@
-import { Address, Contract, rpc, xdr } from '@stellar/stellar-sdk';
+import { Contract, rpc, StrKey, xdr } from '@stellar/stellar-sdk';
 import { describe, expect, it } from 'vitest';
 import fixture from './__tests__/fixtures/rpc29-paired-v4.json';
 import {
@@ -27,15 +27,14 @@ function transaction(patch: Partial<SourceTransaction> = {}): SourceTransaction 
 // Constructed serialized metadata, deliberately containing filtered prefixes.
 // Only the captured v4 fixture above is paired network evidence.
 function metaV3(events: xdr.ContractEvent[]): xdr.TransactionMeta {
-  const meta = new xdr.TransactionMeta(
-    3,
+  const meta = xdr.TransactionMeta.v3(
     new xdr.TransactionMetaV3({
-      ext: new xdr.ExtensionPoint(0),
+      ext: xdr.ExtensionPoint.v0(),
       txChangesBefore: [],
       operations: [],
       txChangesAfter: [],
       sorobanMeta: new xdr.SorobanTransactionMeta({
-        ext: new xdr.SorobanTransactionMetaExt(0),
+        ext: xdr.SorobanTransactionMetaExt.v0(),
         events,
         returnValue: xdr.ScVal.scvVoid(),
         diagnosticEvents: [],
@@ -47,25 +46,21 @@ function metaV3(events: xdr.ContractEvent[]): xdr.TransactionMeta {
 
 function metaV4(operations: xdr.ContractEvent[][]): xdr.TransactionMeta {
   const meta = xdr.TransactionMeta.fromXDR(raw.resultMetaXdr, 'base64');
-  const template = meta.v4().operations()[0];
-  meta.v4().operations(
-    operations.map((events) => {
-      const op = xdr.OperationMetaV2.fromXDR(template.toXDR());
-      op.events(events);
-      return op;
-    }),
-  );
-  return xdr.TransactionMeta.fromXDR(meta.toXDR());
+  const v4 = xdr.expectUnionVariant(meta, 'v4').v4;
+  const rebuilt = xdr.TransactionMeta.v4(new xdr.TransactionMetaV4({
+    ...v4,
+    operations: operations.map((events) => new xdr.OperationMetaV2({
+      ...v4.operations[0], events,
+    })),
+  }));
+  return xdr.TransactionMeta.fromXDR(rebuilt.toXDR());
 }
 
-const system = xdr.ContractEvent.fromXDR(event.toXDR());
-system.type(xdr.ContractEventType.system());
-const unrelated = xdr.ContractEvent.fromXDR(event.toXDR());
-unrelated.contractId(
-  new Address('CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4')
-    .toScAddress()
-    .contractId(),
-);
+const system = new xdr.ContractEvent({ ...event, type: xdr.ContractEventType.system });
+const unrelated = new xdr.ContractEvent({
+  ...event,
+  contractId: new xdr.ContractId(StrKey.decodeContract('CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4')),
+});
 
 describe('historical RPC normalization', () => {
   it('matches a real RPC29 getEvents/getTransactions pair byte for byte', () => {

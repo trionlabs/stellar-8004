@@ -85,13 +85,13 @@ function parseValidationEventInner(
 
   switch (eventName) {
     case 'validation_request': {
-      const requestUri = event.value
-        .map()
-        ?.find((entry) => scValToNative(entry.key()) === 'request_uri')
-        ?.val();
+      if (event.value.type !== 'scvMap') return null;
+      const requestUri = event.value.map
+        ?.find((entry) => scValToNative(entry.key) === 'request_uri')
+        ?.val;
       // Validate before native conversion, which also turns addresses and
       // symbols into strings and allows bytes to pass through text decoding.
-      if (requestUri?.switch().name !== 'scvString') return null;
+      if (requestUri?.type !== 'scvString') return null;
 
       return {
         type: 'ValidationRequest',

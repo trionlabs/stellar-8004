@@ -1,12 +1,32 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SorobanDataBuilder, rpc, xdr } from '@stellar/stellar-sdk';
 import {
 	fundTestnet,
 	validateTag,
 	MAX_TAG_LENGTH,
 	validateStellarAddress,
 	formatSorobanError,
-	generateRequestNonce
+	generateRequestNonce,
+	estimateGas
 } from '../src/core/helpers.js';
+
+describe('estimateGas', () => {
+	it('reads resource usage and footprint sizes from real simulation data', () => {
+		const simulation: rpc.Api.SimulateTransactionSuccessResponse = {
+			id: 'simulation', latestLedger: 100, events: [], _parsed: true,
+			minResourceFee: '12345',
+			transactionData: new SorobanDataBuilder()
+				.setResources(120000, 2048, 512)
+				.setFootprint([xdr.LedgerKey.contractCode(new xdr.LedgerKeyContractCode({
+					hash: new Uint8Array(32)
+				}))], [])
+		};
+		expect(estimateGas(simulation)).toEqual({
+			minResourceFee: '12345', instructions: '120000', readBytes: 2048, writeBytes: 512,
+			footprint: { readOnly: 1, readWrite: 0 }
+		});
+	});
+});
 
 describe('fundTestnet', () => {
 	afterEach(() => {

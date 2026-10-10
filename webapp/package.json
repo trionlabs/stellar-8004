@@ -17,13 +17,13 @@
     "check": "pnpm -r check"
   },
   "devDependencies": {
-    "@stellar/stellar-sdk": "^15.0.1",
+    "@stellar/stellar-sdk": "^17.2.1",
     "@trionlabs/stellar8004": "workspace:*",
-    "tsx": "^4.21.0",
-    "typescript": "^5.7.0"
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
   },
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=22.12.0",
     "pnpm": ">=9.0.0"
   },
   "packageManager": "pnpm@10.18.0"

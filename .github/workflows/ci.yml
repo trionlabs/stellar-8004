@@ -14,6 +14,13 @@ permissions:
   contents: read
 
 jobs:
+  repository-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tracked Markdown files
+        run: python3 .github/scripts/check-markdown-policy.py
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -22,6 +29,7 @@ jobs:
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
         with:
+          toolchain: nightly-2025-08-11
           targets: wasm32v1-none
           components: rustfmt
 
@@ -100,6 +108,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: webapp/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=low
       - run: pnpm --filter @trionlabs/stellar8004 build
       - run: pnpm --filter @trionlabs/stellar8004 test
       - run: pnpm --filter @trionlabs/stellar8004 check
@@ -115,5 +124,10 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - run: deno check --config supabase/functions/indexer/deno.json supabase/functions/indexer/index.ts
+      - run: |
+          for function in indexer api resolve-uris main; do
+            deno check --frozen --config "supabase/functions/$function/deno.json" "supabase/functions/$function/index.ts"
+          done
+      - run: pnpm --filter @stellar8004/web test
       - run: pnpm --filter @stellar8004/web check
+      - run: pnpm --filter @stellar8004/web build
