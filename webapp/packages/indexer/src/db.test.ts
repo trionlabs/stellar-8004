@@ -299,22 +299,20 @@ describe('recordDeadLetter', () => {
     expect((ins?.payload as { event_id?: string }).event_id).toBe('1000-0-0');
   });
 
-  it('never throws when the insert returns an error (best-effort, returned-error path)', async () => {
+  it('rejects a returned persistence error before a gap can be acknowledged', async () => {
     const { db } = fakeDb({ message: 'dead-letter table missing' });
     await expect(
       recordDeadLetter(db, { contract: 'identity', reason: 'retention-clamp', ledger: 10 }),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow('dead-letter table missing');
   });
 
-  it('never throws when the insert call itself throws (best-effort, thrown path)', async () => {
-    // A dead-letter failure must never re-wedge the loop it exists to observe,
-    // so even a synchronous throw from the client is swallowed.
+  it('propagates a thrown persistence failure before a gap can be acknowledged', async () => {
     const db = {
       from: () => ({ insert: () => { throw new Error('connection reset'); } }),
     } as unknown as SupabaseClient;
     await expect(
       recordDeadLetter(db, { contract: 'reputation', reason: 'skip-nonretryable', ledger: 7 }),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow('connection reset');
   });
 });
 

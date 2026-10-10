@@ -99,6 +99,7 @@ describe('runIndexer', () => {
     mocks.bulkUpsertMetadataSet.mockResolvedValue(undefined);
     mocks.bulkUpsertNewFeedback.mockResolvedValue(undefined);
     mocks.bulkUpsertValidationRequest.mockResolvedValue(undefined);
+    mocks.recordDeadLetter.mockResolvedValue(undefined);
     mocks.updateCheckpoint.mockResolvedValue(undefined);
     mocks.refreshLeaderboard.mockResolvedValue(undefined);
 
@@ -434,22 +435,19 @@ describe('runIndexer', () => {
     expect(warnings).toContain('Retryable write failure - deferring batch to next run');
   });
 
-  it('skips the event and advances once defer attempts exceed the max', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    // identity has already been deferred too many times; reputation/validation
-    // are caught up. The escape hatch should skip the failing event so the
-    // checkpoint advances instead of deferring forever.
+  it.each([5, 100])('keeps retrying a dependency failure after %i deferrals', async (deferAttempts) => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
     mocks.getCheckpointState.mockImplementation((_db: unknown, contractName: string) =>
       Promise.resolve({
         lastLedger: contractName === 'identity' ? 10 : 20,
         expectedNext: null,
-        deferAttempts: contractName === 'identity' ? 5 : 0,
+        deferAttempts: contractName === 'identity' ? deferAttempts : 0,
       }),
     );
     mocks.getEvents.mockResolvedValue({
       events: [{ id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true }],
       cursor: undefined,
+      oldestLedger: 1,
     });
     mocks.parseIdentityEvent.mockReturnValue({ type: 'Registered' });
     mocks.writeIdentityEvent.mockRejectedValue(
@@ -458,33 +456,14 @@ describe('runIndexer', () => {
 
     const result = await runIndexer();
 
+    expect(result.processed).toBe(0);
     expect(result.errors).toBe(1);
-    expect(result.skippedEvents).toBe(1);
-    // Scan is treated as complete: the checkpoint advances past the bad event
-    // and the defer counter resets to 0.
-    expect(result.contracts.identity.lastLedger).toBe(20);
-    expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
-      1,
-      mocks.db,
-      'identity',
-      20,
-      21,
-      0,
-      true,
+    expect(result.skippedEvents).toBe(0);
+    expect(result.contracts.identity.lastLedger).toBe(10);
+    expect(mocks.updateCheckpoint).toHaveBeenCalledWith(
+      mocks.db, 'identity', 10, undefined, deferAttempts + 1, false,
     );
-
-    const errors = (console.error as ReturnType<typeof vi.fn>).mock.calls.map(
-      ([line]) => JSON.parse(line).msg,
-    );
-    expect(errors).toContain(
-      'Retryable write failure exceeded max defer attempts - skipping event',
-    );
-    // The skipped event is durably dead-lettered so the drop is replayable,
-    // not merely logged (8004 faithful-mirror auditing).
-    expect(mocks.recordDeadLetter).toHaveBeenCalledWith(
-      mocks.db,
-      expect.objectContaining({ contract: 'identity', reason: 'skip-retryable', eventId: 'evt-1' }),
-    );
+    expect(mocks.recordDeadLetter).not.toHaveBeenCalled();
   });
 
   it('defers (does not advance) the checkpoint on a NON-retryable write failure', async () => {
@@ -531,52 +510,59 @@ describe('runIndexer', () => {
     expect(errors).toContain('Write failure - deferring batch to next run');
   });
 
-  it('skips a NON-retryable write failure once defer attempts exceed the max', async () => {
-    // The escape hatch must also cover non-retryable failures: a
-    // deterministically poison event cannot wedge the stream forever.
+  it.each([5, 100])('never discards an unclassified outage after %i deferrals', async (deferAttempts) => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-
     mocks.getCheckpointState.mockImplementation((_db: unknown, contractName: string) =>
       Promise.resolve({
         lastLedger: contractName === 'identity' ? 10 : 20,
         expectedNext: null,
-        deferAttempts: contractName === 'identity' ? 5 : 0,
+        deferAttempts: contractName === 'identity' ? deferAttempts : 0,
       }),
     );
     mocks.getEvents.mockResolvedValue({
       events: [{ id: 'evt-1', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true }],
       cursor: undefined,
+      oldestLedger: 1,
     });
     mocks.parseIdentityEvent.mockReturnValue({ type: 'Registered' });
-    mocks.writeIdentityEvent.mockRejectedValue(
-      Object.assign(new Error('still failing'), { retryable: false }),
-    );
+    mocks.writeIdentityEvent.mockRejectedValue(new Error('connection reset'));
 
     const result = await runIndexer();
 
+    expect(result.processed).toBe(0);
     expect(result.errors).toBe(1);
-    expect(result.skippedEvents).toBe(1);
-    // Checkpoint advances past the poison event; defer counter resets.
-    expect(result.contracts.identity.lastLedger).toBe(20);
-    expect(mocks.updateCheckpoint).toHaveBeenNthCalledWith(
-      1,
-      mocks.db,
-      'identity',
-      20,
-      21,
-      0,
-      true,
+    expect(result.skippedEvents).toBe(0);
+    expect(result.contracts.identity.lastLedger).toBe(10);
+    expect(mocks.updateCheckpoint).toHaveBeenCalledWith(
+      mocks.db, 'identity', 10, undefined, deferAttempts + 1, false,
     );
+    expect(mocks.recordDeadLetter).not.toHaveBeenCalled();
+  });
 
-    const errors = (console.error as ReturnType<typeof vi.fn>).mock.calls.map(
-      ([line]) => JSON.parse(line).msg,
-    );
-    expect(errors).toContain('Write failure exceeded max defer attempts - skipping event');
-    // The skipped non-retryable event is durably dead-lettered too (replayable).
-    expect(mocks.recordDeadLetter).toHaveBeenCalledWith(
-      mocks.db,
-      expect.objectContaining({ contract: 'identity', reason: 'skip-nonretryable', eventId: 'evt-1' }),
-    );
+  it('retains coverage when a high-defer bulk fallback fails after a successful event', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mocks.getCheckpointState.mockImplementation((_db: unknown, name: string) => Promise.resolve({
+      lastLedger: name === 'identity' ? 10 : 20, expectedNext: null, deferAttempts: 100,
+    }));
+    mocks.getEvents.mockResolvedValue({
+      events: [
+        { id: 'evt-1', ledger: 14, topic: ['t1'], inSuccessfulContractCall: true },
+        { id: 'evt-2', ledger: 15, topic: ['t1'], inSuccessfulContractCall: true },
+      ],
+      oldestLedger: 1,
+    });
+    mocks.parseIdentityEvent.mockReturnValue({ type: 'Registered' });
+    mocks.bulkUpsertRegistered.mockRejectedValue(new Error('bulk unavailable'));
+    mocks.writeIdentityEvent.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('network reset'));
+
+    const result = await runIndexer();
+
+    expect(result.processed).toBe(1);
+    expect(result.errors).toBe(1);
+    expect(result.skippedEvents).toBe(0);
+    expect(result.contracts.identity.lastLedger).toBe(10);
+    expect(mocks.updateCheckpoint).toHaveBeenCalledWith(mocks.db, 'identity', 10, undefined, 101, false);
   });
 
   it('clamps a cold-start scan to the oldest retained ledger', async () => {
@@ -601,9 +587,22 @@ describe('runIndexer', () => {
     );
     expect(scanCall).toBeDefined();
     expect(result.contracts.identity.lastLedger).toBe(20000);
-    // A cold start is an expected first-run jump from the deploy ledger, NOT a
-    // data-loss event, so it must not be dead-lettered.
-    expect(mocks.recordDeadLetter).not.toHaveBeenCalled();
+    // Unavailable deployment history is still a coverage gap on a first run.
+    expect(mocks.recordDeadLetter).toHaveBeenCalledWith(
+      mocks.db,
+      expect.objectContaining({ contract: 'identity', reason: 'retention-clamp', ledger: 100 }),
+    );
+  });
+
+  it('does not advance coverage when the retention gap cannot be recorded', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mocks.getCheckpointState.mockResolvedValue({ lastLedger: 0, expectedNext: null, deferAttempts: 0 });
+    mocks.getLatestLedger.mockResolvedValue({ sequence: 20000 });
+    mocks.getEvents.mockResolvedValue({ events: [], oldestLedger: 5000 });
+    mocks.recordDeadLetter.mockRejectedValue(new Error('gap persistence failed'));
+
+    await expect(runIndexer()).rejects.toThrow('gap persistence failed');
+    expect(mocks.updateCheckpoint).not.toHaveBeenCalled();
   });
 
   it('clamps a resumed checkpoint that has aged out of the retention window', async () => {
@@ -711,6 +710,50 @@ describe('runIndexer', () => {
       'release_indexer_lock',
       expect.objectContaining({ p_owner: expect.any(String) }),
     );
+  });
+
+  it('rejects a returned acquire error instead of reporting contention', async () => {
+    (mocks.db.rpc as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: null, error: { message: 'database unavailable', code: '08006' },
+    });
+
+    await expect(runIndexer()).rejects.toThrow('database unavailable');
+    expect(mocks.getLatestLedger).not.toHaveBeenCalled();
+    expect(mocks.updateCheckpoint).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid acquisition result instead of claiming contention', async () => {
+    (mocks.db.rpc as ReturnType<typeof vi.fn>).mockResolvedValue({ data: null, error: null });
+    await expect(runIndexer()).rejects.toThrow('Invalid indexer lock acquisition result');
+  });
+
+  it('logs a returned release error while preserving committed results', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    (mocks.db.rpc as ReturnType<typeof vi.fn>).mockImplementation((name: string) =>
+      Promise.resolve(name === 'acquire_indexer_lock'
+        ? { data: true, error: null }
+        : { data: null, error: { message: 'release unavailable' } }),
+    );
+
+    const result = await runIndexer();
+
+    expect(result.contracts.identity.lastLedger).toBe(20);
+    const entries = (console.error as ReturnType<typeof vi.fn>).mock.calls.map(([line]) => JSON.parse(line));
+    expect(entries).toContainEqual(expect.objectContaining({ error: 'release unavailable' }));
+  });
+
+  it('preserves the primary run failure when release also returns an error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.getCheckpointState.mockRejectedValue(new Error('checkpoint read failed'));
+    (mocks.db.rpc as ReturnType<typeof vi.fn>).mockImplementation((name: string) =>
+      Promise.resolve(name === 'acquire_indexer_lock'
+        ? { data: true, error: null }
+        : { data: null, error: { message: 'release unavailable' } }),
+    );
+
+    await expect(runIndexer()).rejects.toThrow('checkpoint read failed');
+    const entries = (console.error as ReturnType<typeof vi.fn>).mock.calls.map(([line]) => JSON.parse(line));
+    expect(entries).toContainEqual(expect.objectContaining({ error: 'release unavailable' }));
   });
 
   it('fences the lock: acquire and release use the same owner token', async () => {

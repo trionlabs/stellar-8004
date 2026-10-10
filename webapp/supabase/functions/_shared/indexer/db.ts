@@ -122,8 +122,7 @@ export interface CheckpointState {
 
 /**
  * Reads all checkpoint columns for a contract in a single round-trip.
- * `defer_attempts` drives the escape hatch that eventually skips a
- * permanently-unresolvable event so the stream can advance.
+ * `defer_attempts` is diagnostic only; it never authorizes skipping an event.
  */
 export async function getCheckpointState(
   db: SupabaseClient,
@@ -174,11 +173,8 @@ export async function updateCheckpoint(
 }
 
 /**
- * Durably record an on-chain event (or ledger range) the indexer is about to
- * SKIP past — the MAX_DEFER_ATTEMPTS escape hatch and the RPC retention clamp
- * both advance the checkpoint over events they could not write. Best-effort: a
- * dead-letter failure is logged but never thrown, so it can never re-wedge the
- * loop it exists to make observable. See migration 045.
+ * Persist a coverage gap before acknowledging it. Failure must propagate:
+ * logs alone cannot justify advancing past unavailable history.
  */
 export async function recordDeadLetter(
   db: SupabaseClient,
@@ -190,32 +186,14 @@ export async function recordDeadLetter(
     detail?: string | null;
   },
 ): Promise<void> {
-  try {
-    const result = await db.from('indexer_dead_letter').insert({
-      contract: entry.contract,
-      reason: entry.reason,
-      event_id: entry.eventId ?? null,
-      ledger: entry.ledger ?? null,
-      detail: entry.detail ?? null,
-    });
-    if (result.error) {
-      log({
-        level: 'warn',
-        msg: 'Failed to record dead-letter entry',
-        contract: entry.contract,
-        reason: entry.reason,
-        error: result.error.message,
-      });
-    }
-  } catch (error) {
-    log({
-      level: 'warn',
-      msg: 'Failed to record dead-letter entry',
-      contract: entry.contract,
-      reason: entry.reason,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  const result = await db.from('indexer_dead_letter').insert({
+    contract: entry.contract,
+    reason: entry.reason,
+    event_id: entry.eventId ?? null,
+    ledger: entry.ledger ?? null,
+    detail: entry.detail ?? null,
+  });
+  assertNoError(result, `[indexer_dead_letter] failed to persist gap for ${entry.contract}`);
 }
 
 export async function writeIdentityEvent(

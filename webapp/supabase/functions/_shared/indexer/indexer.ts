@@ -94,7 +94,7 @@ function defineContract<E extends { type: string }>(cfg: {
 interface ContractIndexerResult {
   processed: number;
   errors: number;
-  /** Events dropped by the escape hatch after exceeding MAX_DEFER_ATTEMPTS. */
+  /** Reserved for explicitly quarantined events; failed writes are never skipped. */
   skipped: number;
   lastLedger: number;
   events: Record<string, number>;
@@ -108,16 +108,10 @@ const GAP_THRESHOLD = 100;
 // walks the full window).
 const EVENTS_PAGE_LIMIT = 10000;
 
-// After this many consecutive runs deferring a contract's batch on a retryable
-// (foreign-key) write failure, give up deferring and skip the offending event
-// so a permanently-unresolvable parent (e.g. a dropped/unparseable Registered)
-// cannot wedge the stream forever. The skip is logged at error level.
-const MAX_DEFER_ATTEMPTS = 5;
-
 export interface IndexerResult {
   processed: number;
   errors: number;
-  /** Total events dropped by the escape hatch across all contracts. */
+  /** Total explicitly quarantined events; failed writes are never skipped. */
   skippedEvents: number;
   contracts: Record<string, ContractIndexerResult & { expectedNextLedger?: number }>;
   /** True when another instance held the lock and this run did nothing. */
@@ -162,9 +156,15 @@ export async function runIndexer(options: RunIndexerOptions = {}): Promise<Index
   // successor's freshly-acquired lock when it eventually finishes.
   const lockOwner = crypto.randomUUID();
   const lockResult = await db.rpc('acquire_indexer_lock', { p_owner: lockOwner });
-  if (!lockResult.data) {
+  if (lockResult.error) {
+    throw new Error(`Failed to acquire indexer lock: ${lockResult.error.message}`);
+  }
+  if (lockResult.data === false) {
     log({ level: 'warn', msg: 'Another instance is running, skipping' });
     return { processed: 0, errors: 0, skippedEvents: 0, contracts: {}, skipped: true, gaps: [] };
+  }
+  if (lockResult.data !== true) {
+    throw new Error('Invalid indexer lock acquisition result');
   }
 
   try {
@@ -174,7 +174,10 @@ export async function runIndexer(options: RunIndexerOptions = {}): Promise<Index
     // already committed, and a lock left behind is reaped by acquire's 180s
     // stale-sweep. Throwing here would turn a successful run into a 500.
     try {
-      await db.rpc('release_indexer_lock', { p_owner: lockOwner });
+      const releaseResult = await db.rpc('release_indexer_lock', { p_owner: lockOwner });
+      if (releaseResult.error) {
+        throw new Error(releaseResult.error.message);
+      }
     } catch (error) {
       log({
         level: 'error',
@@ -290,11 +293,6 @@ async function runIndexerLoop(
     };
 
     const { lastLedger, expectedNext, deferAttempts } = await getCheckpointState(db, contract.name);
-    // Once we have deferred this batch too many times, the failure is almost
-    // certainly not transient. Switch to skip mode so the checkpoint can move
-    // past the offending event instead of stalling the stream indefinitely.
-    const skipRetryableErrors = deferAttempts >= MAX_DEFER_ATTEMPTS;
-
     if (lastLedger >= latestLedger) {
       contractResult.lastLedger = lastLedger;
       result.contracts[contract.name] = { ...contractResult, expectedNextLedger: expectedNext ?? undefined };
@@ -341,23 +339,25 @@ async function runIndexerLoop(
         oldestLedger: oldestRetained,
         coldStart: lastLedger === 0,
       });
-      // Durably record the skipped range so the loss is replayable (backfill
-      // over [requestedStartLedger, oldestRetained)) rather than just an
-      // ephemeral log. A cold start (lastLedger === 0) is an expected first-run
-      // jump from the deploy ledger, not a data-loss event, so don't dead-letter
-      // it. See migration 045.
-      if (lastLedger !== 0) {
-        await recordDeadLetter(db, {
-          contract: contract.name,
-          reason: 'retention-clamp',
-          ledger: startLedger,
-          detail: `start ledger ${startLedger} aged out of RPC retention; clamped forward to ${oldestRetained} (skipped range [${startLedger}, ${oldestRetained}))`,
-        });
-      }
+      // Missing deployment history is a real coverage gap, including cold
+      // starts. Do not acknowledge the jump unless its record is persisted.
+      await recordDeadLetter(db, {
+        contract: contract.name,
+        reason: 'retention-clamp',
+        ledger: startLedger,
+        detail: `start ledger ${startLedger} aged out of RPC retention; clamped forward to ${oldestRetained} (skipped range [${startLedger}, ${oldestRetained}))`,
+      });
+      result.gaps.push({
+        contract: contract.name,
+        expectedLedger: startLedger,
+        actualLedger: oldestRetained,
+        gapSize: oldestRetained - startLedger,
+      });
       startLedger = oldestRetained;
     }
 
-    if (expectedNext != null && startLedger > expectedNext + GAP_THRESHOLD) {
+    if (expectedNext != null && startLedger > expectedNext + GAP_THRESHOLD &&
+        !result.gaps.some((gap) => gap.contract === contract.name)) {
       const gapSize = startLedger - expectedNext;
       log({
         level: 'error',
@@ -391,13 +391,11 @@ async function runIndexerLoop(
     //   - transient non-retryable failure the PG-code classifier can't see
     //     (network reset, 5xx, too_many_connections): deferring instead of
     //     advancing prevents silently dropping the event.
-    // Writes are idempotent upserts, so re-processing is safe.
+    // Earlier successful writes may be replayed; writers own their replay rules.
     let retryableWriteFailure = false;
     // Set when the scan stops because getEvents itself failed (a transient RPC
-    // error), as opposed to a write defer. A fetch failure means nothing was
-    // processed, so it must NOT increment the write-defer counter — that counter
-    // arms the skip-after-N escape hatch, and conflating it with RPC flakiness
-    // can prematurely drop a genuine event (report #5).
+    // error), as opposed to a write defer. Fetch failures must not increment
+    // the diagnostic write-defer counter.
     let fetchFailed = false;
 
     log({
@@ -455,9 +453,9 @@ async function runIndexerLoop(
       // type collapses into one multi-row upsert (the dominant backfill shape:
       // long runs of NewFeedback / ValidationRequest / Registered) — one
       // round-trip instead of one-per-event. On ANY failure we fall through to
-      // the per-event loop, which keeps the FK-defer / skip-after-N handling and
-      // re-applies safely (all writes are idempotent upserts; a failed PostgREST
-      // statement rolls back wholesale, so nothing partial leaks through).
+      // the per-event loop, which retains failure deferral. Chunked bulk
+      // writes may already have committed an earlier chunk; fallback can replay
+      // those rows. Mutable ordering safeguards are a separate writer concern.
       // maxLedger only advances on a successful bulk write, so a deferred page
       // is never checkpoint-skipped.
       // Parse the page once; the result feeds BOTH the fast path and the
@@ -528,84 +526,22 @@ async function runIndexerLoop(
         } catch (error) {
           contractResult.errors++;
 
-          if (isRetryableWriteError(error)) {
-            if (skipRetryableErrors) {
-              // Escape hatch: we have deferred this batch MAX_DEFER_ATTEMPTS
-              // times, so treat the failure as permanent and skip the event
-              // (the checkpoint will advance past it). Logged at error level so
-              // monitoring can surface the dropped event.
-              contractResult.skipped++;
-              log({
-                level: 'error',
-                msg: 'Retryable write failure exceeded max defer attempts - skipping event',
-                contract: contract.name,
-                eventId: event.id,
-                deferAttempts,
-                error: error instanceof Error ? error.message : String(error),
-              });
-              await recordDeadLetter(db, {
-                contract: contract.name,
-                reason: 'skip-retryable',
-                eventId: event.id,
-                ledger: event.ledger,
-                detail: error instanceof Error ? error.message : String(error),
-              });
-            } else {
-              // A referenced parent row is not present yet (e.g. feedback for
-              // an agent identity has not indexed). Abandon this batch without
-              // advancing the checkpoint so it is retried on the next run.
-              log({
-                level: 'warn',
-                msg: 'Retryable write failure - deferring batch to next run',
-                contract: contract.name,
-                eventId: event.id,
-                deferAttempts,
-                error: error instanceof Error ? error.message : String(error),
-              });
-              retryableWriteFailure = true;
-              break;
-            }
-          } else {
-            // Non-retryable per the PG-code classifier, but this branch also
-            // catches TRANSIENT infrastructure failures the classifier cannot
-            // see: postgrest-js sets code='' on client-side network errors, a
-            // 5xx with a non-JSON body carries no code, and some genuinely
-            // transient PG codes are absent from RETRYABLE_PG_CODES. Advancing
-            // the checkpoint past such a failure would SILENTLY and PERMANENTLY
-            // drop an on-chain event. Defer the batch (leave the checkpoint
-            // un-advanced) so the event is retried next run; the
-            // MAX_DEFER_ATTEMPTS escape hatch still skips a deterministically
-            // poison event so it cannot wedge the stream forever.
-            if (skipRetryableErrors) {
-              contractResult.skipped++;
-              log({
-                level: 'error',
-                msg: 'Write failure exceeded max defer attempts - skipping event',
-                contract: contract.name,
-                eventId: event.id,
-                deferAttempts,
-                error: error instanceof Error ? error.message : String(error),
-              });
-              await recordDeadLetter(db, {
-                contract: contract.name,
-                reason: 'skip-nonretryable',
-                eventId: event.id,
-                ledger: event.ledger,
-                detail: error instanceof Error ? error.message : String(error),
-              });
-            } else {
-              log({
-                level: 'error',
-                msg: 'Write failure - deferring batch to next run',
-                contract: contract.name,
-                eventId: event.id,
-                deferAttempts,
-                error: error instanceof Error ? error.message : String(error),
-              });
-              retryableWriteFailure = true;
-              break;
-            }
-          }
+          // Repetition is not evidence of a poison event. Database/network
+          // outages and missing prerequisites remain retryable indefinitely.
+          // A future quarantine path must classify invalid input explicitly
+          // and persist its raw event before allowing progress past it.
+          log({
+            level: isRetryableWriteError(error) ? 'warn' : 'error',
+            msg: isRetryableWriteError(error)
+              ? 'Retryable write failure - deferring batch to next run'
+              : 'Write failure - deferring batch to next run',
+            contract: contract.name,
+            eventId: event.id,
+            deferAttempts,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          retryableWriteFailure = true;
+          break;
         }
 
         if (event.ledger > maxLedger) {
@@ -650,8 +586,8 @@ async function runIndexerLoop(
     // Reset the defer counter on a completed scan; increment it ONLY when we
     // leave the checkpoint un-advanced because of a retryable WRITE failure. A
     // deadline-triggered stop or a transient getEvents FETCH failure is not a
-    // write defer (nothing was processed), so it preserves the counter unchanged
-    // and never arms the skip-after-N escape hatch on its own.
+    // write defer, so it preserves the diagnostic counter unchanged. The
+    // counter never authorizes dropping an event.
     const nextDeferAttempts = scanCompleted
       ? 0
       : deadlineStopped || fetchFailed
