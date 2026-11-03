@@ -1,0 +1,54 @@
+{
+  "success": true,
+  "data": {
+    "id": 67,
+    "owner": "GDKDJTO6YADKXWK7Y6RTKDWYRQS5JKM6O44NT635NOVUSQPQWMLYHAAF",
+    "name": "ROZO MPP Router",
+    "description": "Pay 90+ upstream API services with Stellar USDC, settled per request over a 402 challenge — including OpenAI, Anthropic, DeepSeek, Mistral, Gemini, Grok, Groq, OpenRouter, Perplexity, Exa, Firecrawl, Tavily and Parallel.ai. One Stellar USDC balance, no per-service API key or subscription. 670 endpoints from 94 providers in the live catalog; every verified service is backed by a real paid call with a published Stellar transaction hash.",
+    "image": "https://rozo.ai/rozo-logo.png",
+    "supportedTrust": [
+      "reputation"
+    ],
+    "x402Enabled": true,
+    "mppEnabled": true,
+    "hasServices": true,
+    "createdAt": "2026-08-11T00:49:01+00:00",
+    "totalScore": 100,
+    "avgScore": 100,
+    "feedbackCount": 1,
+    "uniqueClients": 1,
+    "wallet": null,
+    "agentUri": "data:application/json;base64,eyJ0eXBlIjoiaHR0cHM6Ly9laXBzLmV0aGVyZXVtLm9yZy9FSVBTL2VpcC04MDA0I3JlZ2lzdHJhdGlvbi12MSIsIm5hbWUiOiJST1pPIE1QUCBSb3V0ZXIiLCJkZXNjcmlwdGlvbiI6IlBheSA5MCsgdXBzdHJlYW0gQVBJIHNlcnZpY2VzIHdpdGggU3RlbGxhciBVU0RDLCBzZXR0bGVkIHBlciByZXF1ZXN0IG92ZXIgYSA0MDIgY2hhbGxlbmdlIOKAlCBpbmNsdWRpbmcgT3BlbkFJLCBBbnRocm9waWMsIERlZXBTZWVrLCBNaXN0cmFsLCBHZW1pbmksIEdyb2ssIEdyb3EsIE9wZW5Sb3V0ZXIsIFBlcnBsZXhpdHksIEV4YSwgRmlyZWNyYXdsLCBUYXZpbHkgYW5kIFBhcmFsbGVsLmFpLiBPbmUgU3RlbGxhciBVU0RDIGJhbGFuY2UsIG5vIHBlci1zZXJ2aWNlIEFQSSBrZXkgb3Igc3Vic2NyaXB0aW9uLiA2NzAgZW5kcG9pbnRzIGZyb20gOTQgcHJvdmlkZXJzIGluIHRoZSBsaXZlIGNhdGFsb2c7IGV2ZXJ5IHZlcmlmaWVkIHNlcnZpY2UgaXMgYmFja2VkIGJ5IGEgcmVhbCBwYWlkIGNhbGwgd2l0aCBhIHB1Ymxpc2hlZCBTdGVsbGFyIHRyYW5zYWN0aW9uIGhhc2guIiwiaW1hZ2UiOiJodHRwczovL3Jvem8uYWkvcm96by1sb2dvLnBuZyIsInNlcnZpY2VzIjpbeyJuYW1lIjoieDQwMiIsImVuZHBvaW50IjoiaHR0cHM6Ly9hcGlzZXJ2ZXIubXBwcm91dGVyLmRldi92MS9zZXJ2aWNlcy9jYXRhbG9nIiwidmVyc2lvbiI6IjEuMCIsImRlc2NyaXB0aW9uIjoiTGl2ZSBzZXJ2aWNlIGNhdGFsb2cuIEV2ZXJ5IGVudHJ5IGlzIGEgNDAyLWdhdGVkIGVuZHBvaW50IHBheWFibGUgaW4gU3RlbGxhciBVU0RDOyB0aGUgNDAyIHJlc3BvbnNlIGNhcnJpZXMgYm90aCB0aGUgeDQwMiBhbmQgTVBQIGRpYWxlY3RzLiIsImlucHV0RXhhbXBsZSI6Int9In0seyJuYW1lIjoicmVzdCIsImVuZHBvaW50IjoiaHR0cHM6Ly9hcGlzZXJ2ZXIubXBwcm91dGVyLmRldi9oZWFsdGgiLCJkZXNjcmlwdGlvbiI6IlJvdXRlciBoZWFsdGggY2hlY2suIn1dLCJzdXBwb3J0ZWRUcnVzdCI6WyJyZXB1dGF0aW9uIl0sIng0MDIiOnRydWUsIm1wcCI6dHJ1ZX0=",
+    "services": [
+      {
+        "name": "x402",
+        "endpoint": "https://apiserver.mpprouter.dev/v1/services/catalog",
+        "version": "1.0",
+        "description": "Live service catalog. Every entry is a 402-gated endpoint payable in Stellar USDC; the 402 response carries both the x402 and MPP dialects.",
+        "inputExample": "{}"
+      },
+      {
+        "name": "rest",
+        "endpoint": "https://apiserver.mpprouter.dev/health",
+        "description": "Router health check."
+      }
+    ],
+    "metadata": {},
+    "scores": {
+      "total": 100,
+      "average": 100,
+      "feedbackCount": 1,
+      "uniqueClients": 1
+    },
+    "resolveStatus": "ready",
+    "createdLedger": 63895362,
+    "txHash": "2614fc2fcd78f6c24b10efcce12100f826500606da54867d2136d0e7f6cb48a9"
+  },
+  "meta": {
+    "version": "1.0.0",
+    "chain": "stellar",
+    "network": "mainnet",
+    "timestamp": "2026-11-03T20:43:51.026Z",
+    "requestId": "140be669-69b3-43d5-a219-ec48a6ed168b"
+  }
+}

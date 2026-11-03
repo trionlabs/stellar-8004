@@ -22,9 +22,9 @@ Node 22.12+ and Stellar SDK 17 are required. Contract byte fields and results us
 import { Keypair } from '@stellar/stellar-sdk';
 import {
   AutoStorage,
-  SorobanClient,
   TESTNET_CONFIG,
   buildMetadataJson,
+  createClients,
   fundTestnet,
   wrapBasicSigner
 } from '@trionlabs/stellar8004';
@@ -34,7 +34,7 @@ if (!secret) throw new Error('Missing STELLAR_SECRET_KEY');
 
 const keypair = Keypair.fromSecret(secret);
 const signer = wrapBasicSigner(keypair, TESTNET_CONFIG.networkPassphrase);
-const client = new SorobanClient(signer, TESTNET_CONFIG);
+const { identity } = createClients(TESTNET_CONFIG, signer);
 
 await fundTestnet(signer.publicKey);
 
@@ -46,7 +46,8 @@ const metadata = buildMetadataJson({
     { name: 'quotes', endpoint: 'https://api.example.com/quotes', version: 'v1' }
   ],
   supportedTrust: ['crypto-economic'],
-  x402Enabled: true
+  x402Enabled: true,
+  mppEnabled: false
 });
 
 const storage = new AutoStorage({
@@ -54,23 +55,23 @@ const storage = new AutoStorage({
 });
 
 const agentUri = await storage.upload(metadata);
-const result = await client.registerAgent(agentUri);
+const tx = await identity.register_with_uri({ caller: signer.publicKey, agent_uri: agentUri });
+const sent = await tx.signAndSend();
 
-console.log(result.agentId, result.hash);
+console.log(sent.result, sent.sendTransactionResponse?.hash); // agent ID, transaction hash
 ```
 
 ## Main APIs
 
-### `SorobanClient`
+### `createClients(config, signer)`
 
-Write client for on-chain contract actions:
+Returns `{ identity, reputation, validation }`, one typed client per registry. Each
+method builds and simulates a transaction; call `signAndSend()` on it to submit, and
+read the return value from `.result`.
 
-- `registerAgent(agentUri?)`
-- `updateAgentUri(agentId, newUri)`
-- `setAgentWallet(agentId, newWallet)`
-- `unsetAgentWallet(agentId)`
-- `giveFeedback(params)`
-- `requestValidation(params)`
+- `identity`: `register`, `register_with_uri`, `register_full`, `set_agent_uri`, `set_metadata`, `set_agent_wallet`, `unset_agent_wallet`, and reads such as `agent_uri`, `owner_of`, `total_agents`
+- `reputation`: `give_feedback`, `revoke_feedback`, `append_response`, `read_feedback`, `get_summary`
+- `validation`: `validation_request`, `validation_response`, `get_validation_status`, `get_summary`
 
 ### `ExplorerClient`
 
@@ -94,7 +95,7 @@ const stats = await explorer.getStats();
 
 - `wrapBasicSigner(keypair, networkPassphrase)` for Node scripts and automation.
 - `FreighterSigner` for browser wallet flows. `@stellar/freighter-api` remains an optional peer dependency.
-- `WalletSigner` is the shared interface used by `SorobanClient`.
+- `WalletSigner` is the shared signer interface. Any object with `publicKey` and `signTransaction` can be passed to `createClients`.
 
 ## Subpath Imports
 
@@ -103,6 +104,16 @@ import { FreighterSigner } from '@trionlabs/stellar8004/signers/freighter';
 import { wrapBasicSigner } from '@trionlabs/stellar8004/signers/basic';
 import { AutoStorage } from '@trionlabs/stellar8004/storage/auto';
 ```
+
+## Changelog
+
+### 0.0.12
+
+- **Protocol 30:** requires `@stellar/stellar-sdk` 17.4+ (was 15). Older versions cannot read Protocol 30 ledger headers, which reach mainnet on 2026-11-23.
+- **Breaking:** Node.js 22.12+ is required (was 18+). Contract byte fields are `Uint8Array` instead of `Buffer`.
+- `ExplorerClient` keeps service `description` and `inputExample` ([#20](https://github.com/trionlabs/stellar-8004/issues/20)) and returns on-chain `metadata` keys verbatim.
+- `formatSorobanError(err, registry?)` decodes contract error codes per registry. New: `isValidStellarAddress`, `InvalidInputError`.
+- The Quick Start uses `createClients`. The previous example referenced a client that does not exist.
 
 ## Links
 
