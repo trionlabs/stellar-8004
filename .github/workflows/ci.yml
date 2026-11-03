@@ -15,14 +15,14 @@ permissions:
 
 jobs:
   repository-policy:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - name: Check tracked Markdown files
         run: python3 .github/scripts/check-markdown-policy.py
 
   test:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
 
@@ -63,7 +63,7 @@ jobs:
         run: cargo fmt --all -- --check
 
   indexer-db:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     env:
       PG_BINDIR: /usr/lib/postgresql/17/bin
@@ -82,7 +82,7 @@ jobs:
         run: python3 webapp/packages/indexer/tests/postgres.py
 
   webapp:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     defaults:
       run:
         working-directory: webapp
