@@ -154,7 +154,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			has_services_filter: hasServices ?? undefined,
 			result_limit: perPage,
 			result_offset: offset,
-			owner_filter: ownerFilter || undefined
+			owner_filter: ownerFilter || null
 		});
 
 		if (rpcResult.error) {
@@ -191,11 +191,14 @@ export const load: PageServerLoad = async ({ url }) => {
 	}
 
 	if (query.length > 0) {
+		// Send owner_filter as null, never undefined: undefined is dropped from the request, and
+		// PostgREST then can't choose between the 3- and 4-argument search_agents overloads in
+		// the database, so every search failed and fell through to the unfiltered list.
 		const searchResult = await db.rpc('search_agents', {
 			search_query: query,
 			result_limit: perPage,
 			result_offset: offset,
-			owner_filter: ownerFilter || undefined
+			owner_filter: ownerFilter || null
 		});
 
 		if (!searchResult.error) {
