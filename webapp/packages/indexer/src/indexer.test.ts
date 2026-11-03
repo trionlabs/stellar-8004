@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   },
   db: {} as Record<string, unknown>,
   serverCtor: vi.fn(),
-  getLatestLedger: vi.fn(),
+  getHealth: vi.fn(),
   getEvents: vi.fn(),
   createSupabaseAdmin: vi.fn(),
   getCheckpointState: vi.fn(),
@@ -79,12 +79,12 @@ describe('runIndexer', () => {
     vi.clearAllMocks();
 
     mocks.serverCtor.mockImplementation(() => ({
-      getLatestLedger: mocks.getLatestLedger,
+      getHealth: mocks.getHealth,
       getEvents: mocks.getEvents,
     }));
 
     mocks.createSupabaseAdmin.mockReturnValue(mocks.db);
-    mocks.getLatestLedger.mockResolvedValue({ sequence: 20 });
+    mocks.getHealth.mockResolvedValue({ latestLedger: 20 });
     mocks.getCheckpointState.mockResolvedValue({ lastLedger: 10, expectedNext: null, deferAttempts: 0 });
     mocks.getEvents.mockResolvedValue({ events: [], cursor: undefined, oldestLedger: 1 });
 
@@ -206,7 +206,7 @@ describe('runIndexer', () => {
   });
 
   it('detects ledger gaps when startLedger exceeds expectedNextLedger + GAP_THRESHOLD', async () => {
-    mocks.getLatestLedger.mockResolvedValue({ sequence: 2000 });
+    mocks.getHealth.mockResolvedValue({ latestLedger: 2000 });
     mocks.getCheckpointState.mockResolvedValue({ lastLedger: 1000, expectedNext: 800, deferAttempts: 0 });
 
     const result = await runIndexer();
@@ -585,7 +585,7 @@ describe('runIndexer', () => {
     // Fresh checkpoint: deployLedger (100) predates the retention window, whose
     // oldest retained ledger is 5000. The first getEvents (the oldest-ledger
     // probe) reports oldestLedger; the scan must start there, not at 100.
-    mocks.getLatestLedger.mockResolvedValue({ sequence: 20000 });
+    mocks.getHealth.mockResolvedValue({ latestLedger: 20000 });
     mocks.getCheckpointState.mockResolvedValue({ lastLedger: 0, expectedNext: null, deferAttempts: 0 });
     mocks.getEvents.mockResolvedValue({ events: [], cursor: undefined, oldestLedger: 5000 });
 
@@ -613,7 +613,7 @@ describe('runIndexer', () => {
     // checkpoint (1000) is now older than the oldest retained ledger (5000).
     // Without clamping, getEvents(startLedger=1001) would hard-fail forever.
     // Only identity has fallen behind; reputation/validation are caught up.
-    mocks.getLatestLedger.mockResolvedValue({ sequence: 20000 });
+    mocks.getHealth.mockResolvedValue({ latestLedger: 20000 });
     mocks.getCheckpointState.mockImplementation((_db: unknown, contractName: string) =>
       Promise.resolve({
         lastLedger: contractName === 'identity' ? 1000 : 20000,
@@ -697,9 +697,9 @@ describe('runIndexer', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(Math, 'random').mockReturnValue(0);
 
-    // getLatestLedger is wrapped in withRetry, so an always-failing RPC retries
+    // getHealth is wrapped in withRetry, so an always-failing RPC retries
     // (with backoff) before the run rejects. Drive the backoff timers.
-    mocks.getLatestLedger.mockRejectedValue(new Error('rpc down'));
+    mocks.getHealth.mockRejectedValue(new Error('rpc down'));
 
     const settled = runIndexer().catch((e) => e);
     await vi.runAllTimersAsync();

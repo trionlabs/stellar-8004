@@ -249,7 +249,10 @@ async function runIndexerLoop(
   // Wrapped in withRetry like the other RPC calls: a single transient failure
   // here would otherwise throw out of the loop and strand the whole run
   // (all contracts), skipping the entire cron cycle.
-  const { sequence: latestLedger } = await withRetry(() => rpcServer.getLatestLedger(), {
+  // getHealth, not getLatestLedger: from Protocol 30 (CAP-88) the ledger header that
+  // getLatestLedger decodes uses a new StellarValue type, which stellar-sdk >=15.1
+  // and <16.4/17.3 cannot read. getHealth returns the same sequence as plain JSON.
+  const { latestLedger } = await withRetry(() => rpcServer.getHealth(), {
     maxAttempts: 3,
     baseDelayMs: 1000,
   });
