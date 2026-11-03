@@ -23,12 +23,18 @@ function toSqlValue(value: unknown): SQLInputValue {
 	throw new TypeError(`D1_TYPE_ERROR: Type "${typeof value}" is not supported`);
 }
 
+// Plain fields rather than constructor parameter properties, so this file also runs under
+// Node's built-in TypeScript type stripping (scripts import it directly).
 export class TestD1Statement {
-	constructor(
-		private readonly db: DatabaseSync,
-		private readonly sql: string,
-		private readonly params: SQLInputValue[] = []
-	) {}
+	private readonly db: DatabaseSync;
+	private readonly sql: string;
+	private readonly params: SQLInputValue[];
+
+	constructor(db: DatabaseSync, sql: string, params: SQLInputValue[] = []) {
+		this.db = db;
+		this.sql = sql;
+		this.params = params;
+	}
 
 	bind(...values: unknown[]): TestD1Statement {
 		if (values.length > MAX_BOUND_PARAMETERS) {
