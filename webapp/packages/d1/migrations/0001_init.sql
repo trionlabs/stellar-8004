@@ -136,12 +136,12 @@ CREATE VIRTUAL TABLE agents_fts USING fts5 (
 );
 CREATE TRIGGER agents_fts_insert AFTER INSERT ON agents BEGIN
   INSERT INTO agents_fts (rowid, name, description)
-  VALUES (NEW.id, NEW.agent_uri_data ->> '$.name', NEW.agent_uri_data ->> '$.description');
+  VALUES (NEW.id, CAST(NEW.agent_uri_data ->> '$.name' AS TEXT), CAST(NEW.agent_uri_data ->> '$.description' AS TEXT));
 END;
 CREATE TRIGGER agents_fts_update AFTER UPDATE OF agent_uri_data ON agents BEGIN
   DELETE FROM agents_fts WHERE rowid = OLD.id;
   INSERT INTO agents_fts (rowid, name, description)
-  VALUES (NEW.id, NEW.agent_uri_data ->> '$.name', NEW.agent_uri_data ->> '$.description');
+  VALUES (NEW.id, CAST(NEW.agent_uri_data ->> '$.name' AS TEXT), CAST(NEW.agent_uri_data ->> '$.description' AS TEXT));
 END;
 CREATE TRIGGER agents_fts_delete AFTER DELETE ON agents BEGIN
   DELETE FROM agents_fts WHERE rowid = OLD.id;
@@ -192,8 +192,8 @@ WITH fb AS (
   FROM x
 )
 SELECT a.id                              AS agent_id,
-       a.agent_uri_data ->> '$.name'     AS agent_name,
-       a.agent_uri_data ->> '$.image'    AS agent_image,
+       CAST(a.agent_uri_data ->> '$.name' AS TEXT)  AS agent_name,  -- ->> returns numbers as numbers; Postgres gave text
+       CAST(a.agent_uri_data ->> '$.image' AS TEXT) AS agent_image,
        a.owner,
        a.supported_trust,
        json_array_length(a.services) > 0 AS has_services,

@@ -77,6 +77,16 @@ describe('leaderboard_scores', () => {
 		expect(await score(1)).toMatchObject({ total_score: 0, feedback_count: 0, unique_clients: 0, score_exact: 1 });
 	});
 
+	it('returns agent_name and agent_image as text even when the agent JSON has other types', async () => {
+		// agent_uri_data is whatever the agent's URI serves. Postgres ->> always gave text;
+		// SQLite ->> gives numbers as numbers, which crashed string handling downstream.
+		await agent(1, { name: 123, image: true });
+		const row = await score(1);
+		expect(typeof row?.agent_name).toBe('string');
+		expect(row?.agent_name).toBe('123');
+		expect(typeof row?.agent_image).toBe('string');
+	});
+
 	it('keeps working for the largest value the contract allows', async () => {
 		await agent(1);
 		await feedback(1, 'GA', '1' + '0'.repeat(38));
