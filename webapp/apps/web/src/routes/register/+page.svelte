@@ -121,7 +121,7 @@
 			sessionStorage.removeItem(STORAGE_KEY);
 			await goto(resolve(`/agents/${agentId}?registered=true&tx=${txHash}`));
 		} catch (err) {
-			errorMsg = formatSorobanError(err);
+			errorMsg = formatSorobanError(err, 'identity');
 			status = 'error';
 		}
 	}
@@ -150,7 +150,7 @@
 			status = 'success';
 			await goto(resolve(`/agents/${resultAgentId}?registered=true&tx=${txHash}`));
 		} catch (err) {
-			errorMsg = formatSorobanError(err);
+			errorMsg = formatSorobanError(err, 'identity');
 			status = 'error';
 		}
 	}

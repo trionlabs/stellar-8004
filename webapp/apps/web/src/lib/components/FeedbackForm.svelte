@@ -3,7 +3,7 @@
 	import { slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { getClients } from '$lib/sdk-client.js';
-	import { validateTag, formatSorobanError } from '@trionlabs/stellar8004';
+	import { validateTag, formatSorobanError, InvalidInputError } from '@trionlabs/stellar8004';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { explorerTxUrl } from '$lib/explorer.js';
 
@@ -87,7 +87,7 @@
 
 			if (feedbackUri) {
 				if (!['https://', 'http://', 'ipfs://'].some((s) => feedbackUri.startsWith(s))) {
-					throw new Error('Evidence URI must use https://, http://, or ipfs:// scheme');
+					throw new InvalidInputError('Evidence URI must use https://, http://, or ipfs:// scheme');
 				}
 				feedbackHash = await sha256Hash(feedbackUri);
 			} else {
@@ -110,7 +110,7 @@
 			txHash = sent.sendTransactionResponse?.hash ?? '';
 			status = 'success';
 		} catch (err) {
-			errorMsg = formatSorobanError(err);
+			errorMsg = formatSorobanError(err, 'reputation');
 			status = 'error';
 		}
 	}

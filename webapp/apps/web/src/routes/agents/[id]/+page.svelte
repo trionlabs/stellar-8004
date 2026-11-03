@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { getClients } from '$lib/sdk-client.js';
-	import { validateAgentUri } from '@trionlabs/stellar8004';
+	import { validateAgentUri, formatSorobanError } from '@trionlabs/stellar8004';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { explorerTxUrl, explorerContractUrl, explorerAccountUrl } from '$lib/explorer.js';
 	import { stellarConfig } from '$lib/sdk-client.js';
@@ -93,7 +93,7 @@
 			}, 1500);
 			invalidateAll();
 		} catch (err) {
-			uriUpdateError = err instanceof Error ? err.message : 'Update failed';
+			uriUpdateError = formatSorobanError(err, 'identity');
 			uriUpdateStatus = 'error';
 		}
 	}

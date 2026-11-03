@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { validateStellarAddress } from '@trionlabs/stellar8004';
+	import { validateStellarAddress, formatSorobanError } from '@trionlabs/stellar8004';
 	import { getClients } from '$lib/sdk-client.js';
 	import { wallet } from '$lib/wallet.svelte.js';
 
@@ -58,7 +58,7 @@
 			status = 'success';
 			invalidateAll();
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Failed to bind wallet';
+			errorMsg = formatSorobanError(err, 'identity');
 			status = 'error';
 		}
 	}
@@ -84,7 +84,7 @@
 			status = 'success';
 			invalidateAll();
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Failed to unbind wallet';
+			errorMsg = formatSorobanError(err, 'identity');
 			status = 'error';
 		}
 	}

@@ -138,7 +138,7 @@
 				goto(resolve(`/agents/${data.agent.id}`), { invalidateAll: true });
 			}, 1500);
 		} catch (err) {
-			saveError = formatSorobanError(err);
+			saveError = formatSorobanError(err, 'identity');
 			saveStatus = 'error';
 		}
 	}

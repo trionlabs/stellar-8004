@@ -5,7 +5,9 @@ import {
 	validateTag,
 	MAX_TAG_LENGTH,
 	validateStellarAddress,
+	isValidStellarAddress,
 	formatSorobanError,
+	InvalidInputError,
 	generateRequestNonce,
 	estimateGas
 } from '../src/core/helpers.js';
@@ -108,6 +110,19 @@ describe('validateStellarAddress', () => {
 	});
 });
 
+describe('isValidStellarAddress', () => {
+	const g = 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7';
+
+	it('accepts G... and C... addresses', () => {
+		expect(isValidStellarAddress(g)).toBe(true);
+		expect(isValidStellarAddress('CDGNYED4CKOFL6FIJTQY76JU7ZMOSUB5JQTOD545CXNVSC7H7UL4TRGZ')).toBe(true);
+	});
+
+	it('rejects a 56-char G... address with a bad checksum', () => {
+		expect(isValidStellarAddress(g.slice(0, -1) + 'A')).toBe(false);
+	});
+});
+
 describe('formatSorobanError', () => {
 	it('returns friendly message for user declined', () => {
 		expect(formatSorobanError(new Error('User declined the transaction'))).toBe('Transaction cancelled in wallet.');
@@ -119,10 +134,39 @@ describe('formatSorobanError', () => {
 		);
 	});
 
-	it('returns friendly message for network mismatch', () => {
-		expect(formatSorobanError(new Error('network mismatch detected'))).toBe(
-			'Wallet is on a different network than the app.'
-		);
+	it('passes the Freighter network-mismatch message through unchanged', () => {
+		const msg = 'Freighter is on PUBLIC but this app requires Testnet. Switch network in Freighter settings.';
+		expect(formatSorobanError(new Error(msg))).toBe(msg);
+	});
+
+	it('maps the Freighter user rejection', () => {
+		expect(formatSorobanError(new Error('The user rejected this request.'))).toBe('Transaction cancelled in wallet.');
+	});
+
+	it('does not relabel RPC or network rejections as wallet cancellations', () => {
+		expect(formatSorobanError(new Error('403 Access denied'))).toBe('403 Access denied');
+		expect(formatSorobanError(new Error('transaction rejected: txBAD_SEQ'))).toBe('transaction rejected: txBAD_SEQ');
+	});
+
+	it('maps txTOO_LATE to expired', () => {
+		expect(formatSorobanError(new Error('Transaction failed: txTOO_LATE'))).toBe('Transaction expired. Please try again.');
+	});
+
+	it('does not map unrelated "expired" text', () => {
+		expect(formatSorobanError(new Error('certificate has expired'))).toBe('certificate has expired');
+	});
+
+	it('passes InvalidInputError through without heuristics or truncation', () => {
+		const msg = 'Tag denied: ' + 'x'.repeat(300);
+		expect(formatSorobanError(new InvalidInputError(msg))).toBe(msg);
+	});
+
+	it('still decodes contract error codes', () => {
+		const err = new Error('HostError: Error(Contract, #8)');
+		expect(formatSorobanError(err, 'identity')).toBe('Value cannot be empty.');
+		expect(formatSorobanError(err, 'reputation')).toBe('Feedback value is out of the allowed range.');
+		// Without the registry the code is ambiguous, so no registry's message is guessed.
+		expect(formatSorobanError(err)).toBe('Contract error #8.');
 	});
 
 	it('returns friendly message for timeout', () => {

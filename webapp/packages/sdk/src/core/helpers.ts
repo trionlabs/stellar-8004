@@ -23,13 +23,21 @@ export async function fundTestnet(address: string): Promise<void> {
 	}
 }
 
+/**
+ * Thrown by SDK input validators. formatSorobanError passes these through
+ * unchanged, so local validation messages are never relabelled as wallet errors.
+ */
+export class InvalidInputError extends Error {
+	override name = 'InvalidInputError';
+}
+
 /** Maximum tag length for feedback tags. Soroban String has practical limits; keeping tags short avoids simulation failures with unhelpful errors. */
 export const MAX_TAG_LENGTH = 64;
 
 /** Validates feedback tag length. Throws if tag exceeds MAX_TAG_LENGTH. */
 export function validateTag(tag: string, label = 'Tag'): void {
 	if (tag.length > MAX_TAG_LENGTH) {
-		throw new Error(`${label} too long (${tag.length} chars, max ${MAX_TAG_LENGTH})`);
+		throw new InvalidInputError(`${label} too long (${tag.length} chars, max ${MAX_TAG_LENGTH})`);
 	}
 }
 
@@ -65,16 +73,21 @@ export async function generateRequestNonce(
 }
 
 /**
- * Validates that a string is a valid Stellar address.
+ * True if the string is a valid Stellar address, checksum included.
  * Accepts both ed25519 public keys (G...) and contract addresses (C...) so that
  * smart-contract / passkey wallets can be used as agent owners or wallets.
  */
+export function isValidStellarAddress(address: string): boolean {
+	return (
+		StellarSdk.StrKey.isValidEd25519PublicKey(address) ||
+		StellarSdk.StrKey.isValidContract(address)
+	);
+}
+
+/** Validates a Stellar address (G... or C...). Throws InvalidInputError if invalid. */
 export function validateStellarAddress(address: string, label = 'Address'): void {
-	if (
-		!StellarSdk.StrKey.isValidEd25519PublicKey(address) &&
-		!StellarSdk.StrKey.isValidContract(address)
-	) {
-		throw new Error(`${label} is not a valid Stellar address`);
+	if (!isValidStellarAddress(address)) {
+		throw new InvalidInputError(`${label} is not a valid Stellar address`);
 	}
 }
 
@@ -99,24 +112,32 @@ const CONTRACT_ERRORS: Record<string, Record<number, string>> = {
 	},
 };
 
-/** Maps opaque Soroban/wallet errors to user-friendly messages. */
-export function formatSorobanError(err: unknown): string {
+/**
+ * Maps opaque Soroban/wallet errors to user-friendly messages.
+ * Contract error codes are only meaningful per registry (identity #8 and
+ * reputation #8 differ), so pass the registry that was called to decode them.
+ */
+export function formatSorobanError(err: unknown, registry?: keyof typeof CONTRACT_ERRORS): string {
 	const msg = err instanceof Error ? err.message : String(err);
-	if (/User declined|rejected|denied/i.test(msg)) return 'Transaction cancelled in wallet.';
-	if (/network.*mismatch/i.test(msg)) return 'Wallet is on a different network than the app.';
+	// SDK input validators throw InvalidInputError: show the message as-is.
+	if (err instanceof Error && err.name === 'InvalidInputError') return msg;
+	// Only explicit wallet rejections (Freighter: "The user rejected this request.").
+	// A bare "rejected"/"denied" also matches RPC 403s and network-rejected transactions.
+	if (/user declined|user rejected|rejected by (the )?user|denied by (the )?user/i.test(msg)) {
+		return 'Transaction cancelled in wallet.';
+	}
+	// FreighterSigner's network-mismatch error is already user-facing and names both
+	// networks, so it passes through unchanged.
 	if (/Budget.*LimitExceeded/i.test(msg)) return 'Transaction resource limit exceeded. Try a simpler operation.';
 	if (/insufficient.*balance/i.test(msg)) return 'Insufficient XLM balance for transaction fees.';
-	if (/expired/i.test(msg)) return 'Transaction expired. Please try again.';
+	if (/tx_?TOO_?LATE/i.test(msg)) return 'Transaction expired. Please try again.';
 	if (/timeout|ETIMEDOUT/i.test(msg)) return 'Network timeout. Check your connection and try again.';
 
 	// Try to decode Soroban contract error codes (e.g. "Error(Contract, #1)")
 	const contractMatch = msg.match(/Error\(Contract,\s*#(\d+)\)/);
 	if (contractMatch) {
 		const code = parseInt(contractMatch[1], 10);
-		for (const registry of Object.values(CONTRACT_ERRORS)) {
-			if (registry[code]) return registry[code];
-		}
-		return `Contract error #${code}.`;
+		return (registry && CONTRACT_ERRORS[registry][code]) || `Contract error #${code}.`;
 	}
 
 	if (msg.length > 200) {
