@@ -1,7 +1,7 @@
 {
   "version": "5",
   "specifiers": {
-    "npm:@stellar/stellar-sdk@17.2.1": "17.2.1",
+    "npm:@stellar/stellar-sdk@17.4.0": "17.4.0",
     "npm:@supabase/supabase-js@2.117.3": "2.117.3"
   },
   "npm": {
@@ -23,8 +23,8 @@
     "@stellar/js-xdr@5.0.0": {
       "integrity": "sha512-HBDNKnxr+ecdaEmbZ0mcKkirOF8tXXEbWSw34P3wT40Tn3g+u+cCH17xAWZymzscq8cojHB8340pR8QNVaD32w=="
     },
-    "@stellar/stellar-sdk@17.2.1": {
-      "integrity": "sha512-kIyfnZ2zCOqV8SUJcsk9buBOvhH1wsLU7KAzqAJyY7AgmD+KdvLTMpI1gcYdhGSakuDG5s6xSO4EN9HZTxpm8g==",
+    "@stellar/stellar-sdk@17.4.0": {
+      "integrity": "sha512-IX6gi62yWQ+6Oz56LsVEEeSViSOWJL3BkttftwVmVsu+62nLTWNVsCmTWEzwgNLT/q5HGP25OnlU+hhy2E4wwA==",
       "dependencies": [
         "@exodus/bytes",
         "@noble/ed25519",
@@ -179,8 +179,8 @@
         "is-retry-allowed"
       ]
     },
-    "follow-redirects@1.16.1": {
-      "integrity": "sha512-FNvFGzoMLWmE6Yj9spb/zjd7yiNCHiAW9/Tg9CXrQ8wuu32HtlJOwWO11OJafl5FfY3DxTdQ0vj42zU1kvv5jg=="
+    "follow-redirects@1.16.2": {
+      "integrity": "sha512-/kVP2U8z596Ia0gwFrwyIeo74ta5aVmSeU1FfAUMAmcEP5EP7zydmag3SLiN64NaRKef3lxsq7i/g7ltJQDGow=="
     },
     "form-data@4.0.6": {
       "integrity": "sha512-vKatAh4SlVfgbv+YtmhiRjhEMJsYpsG1Y2rMQtR+SVSbytsSD1YGzDIcrAJmdFec88u/+VoGmxnl+80gL1tRCQ==",
@@ -278,7 +278,7 @@
   },
   "workspace": {
     "dependencies": [
-      "npm:@stellar/stellar-sdk@17.2.1",
+      "npm:@stellar/stellar-sdk@17.4.0",
       "npm:@supabase/supabase-js@2.117.3"
     ]
   }

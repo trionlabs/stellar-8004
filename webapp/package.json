@@ -17,7 +17,7 @@
     "check": "pnpm -r check"
   },
   "devDependencies": {
-    "@stellar/stellar-sdk": "^17.2.1",
+    "@stellar/stellar-sdk": "^17.4.0",
     "@trionlabs/stellar8004": "workspace:*",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"

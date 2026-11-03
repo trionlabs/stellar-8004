@@ -58,7 +58,7 @@
   },
   "workspace": {
     "dependencies": [
-      "npm:@stellar/stellar-sdk@17.2.1",
+      "npm:@stellar/stellar-sdk@17.4.0",
       "npm:@supabase/supabase-js@2.117.3"
     ]
   }

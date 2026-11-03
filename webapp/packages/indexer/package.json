@@ -11,7 +11,7 @@
     "sync:shared": "node ../../scripts/sync-indexer-to-shared.js"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "^17.2.1",
+    "@stellar/stellar-sdk": "^17.4.0",
     "@supabase/supabase-js": "^2.117.3",
     "@trionlabs/stellar8004": "workspace:*"
   },
