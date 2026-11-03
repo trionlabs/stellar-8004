@@ -6,6 +6,7 @@ settings:
 
 overrides:
   '@stellar/stellar-sdk>axios': 1.20.0
+  '@x402/stellar>@stellar/stellar-sdk': ^16.4.1
   esbuild@<0.28.1: ^0.28.1
   '@sveltejs/kit>cookie': ^0.7.2
 
@@ -14,8 +15,8 @@ importers:
   .:
     devDependencies:
       '@stellar/stellar-sdk':
-        specifier: ^17.2.1
-        version: 17.2.1
+        specifier: ^17.4.0
+        version: 17.4.0
       '@trionlabs/stellar8004':
         specifier: workspace:*
         version: link:packages/sdk
@@ -56,8 +57,8 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1
       '@stellar/stellar-sdk':
-        specifier: ^17.2.1
-        version: 17.2.1
+        specifier: ^17.4.0
+        version: 17.4.0
       '@stellar8004/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -162,8 +163,8 @@ importers:
   packages/indexer:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: ^17.2.1
-        version: 17.2.1
+        specifier: ^17.4.0
+        version: 17.4.0
       '@supabase/supabase-js':
         specifier: ^2.117.3
         version: 2.117.3
@@ -184,8 +185,8 @@ importers:
   packages/sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: ^17.2.1
-        version: 17.2.1
+        specifier: ^17.4.0
+        version: 17.4.0
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
@@ -945,13 +946,13 @@ packages:
     resolution: {integrity: sha512-HBDNKnxr+ecdaEmbZ0mcKkirOF8tXXEbWSw34P3wT40Tn3g+u+cCH17xAWZymzscq8cojHB8340pR8QNVaD32w==}
     engines: {node: '>=22.0.0', pnpm: '>=10.0.0'}
 
-  '@stellar/stellar-sdk@16.3.1':
-    resolution: {integrity: sha512-PPM1JA51NChSPyMkh+T9sHxJtP/v9e9Gcyc2BMNvnGvbZwqoKJclRSdPgmalLDAmTnTewGs7VMM9nRxDeCzzgQ==}
+  '@stellar/stellar-sdk@16.4.1':
+    resolution: {integrity: sha512-0kT+ShOUE6dc0smLEsajuizss1hvlGDsCooM88FqgxNOCKpY8IuQPzCs75RNKMSMITz+dX7KZ5qGhQ2EWGMTTg==}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
-  '@stellar/stellar-sdk@17.2.1':
-    resolution: {integrity: sha512-kIyfnZ2zCOqV8SUJcsk9buBOvhH1wsLU7KAzqAJyY7AgmD+KdvLTMpI1gcYdhGSakuDG5s6xSO4EN9HZTxpm8g==}
+  '@stellar/stellar-sdk@17.4.0':
+    resolution: {integrity: sha512-IX6gi62yWQ+6Oz56LsVEEeSViSOWJL3BkttftwVmVsu+62nLTWNVsCmTWEzwgNLT/q5HGP25OnlU+hhy2E4wwA==}
     engines: {node: '>=22.12.0'}
     hasBin: true
 
@@ -3202,7 +3203,7 @@ snapshots:
 
   '@stellar/js-xdr@5.0.0': {}
 
-  '@stellar/stellar-sdk@16.3.1':
+  '@stellar/stellar-sdk@16.4.1':
     dependencies:
       '@noble/ed25519': 3.2.0
       '@noble/hashes': 2.4.0
@@ -3220,7 +3221,7 @@ snapshots:
       - debug
       - supports-color
 
-  '@stellar/stellar-sdk@17.2.1':
+  '@stellar/stellar-sdk@17.4.0':
     dependencies:
       '@exodus/bytes': 1.16.0(@noble/hashes@2.4.0)
       '@noble/ed25519': 3.2.0
@@ -3574,7 +3575,7 @@ snapshots:
 
   '@x402/stellar@2.28.0':
     dependencies:
-      '@stellar/stellar-sdk': 16.3.1
+      '@stellar/stellar-sdk': 16.4.1
       '@x402/core': 2.28.0
     transitivePeerDependencies:
       - debug

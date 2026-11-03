@@ -16,7 +16,7 @@
 	},
 	"dependencies": {
 		"@stellar/freighter-api": "^6.0.1",
-		"@stellar/stellar-sdk": "^17.2.1",
+		"@stellar/stellar-sdk": "^17.4.0",
 		"@stellar8004/db": "workspace:*",
 		"@supabase/supabase-js": "^2.117.3",
 		"@trionlabs/stellar8004": "workspace:*",

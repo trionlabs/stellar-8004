@@ -6,6 +6,9 @@ onlyBuiltDependencies:
 overrides:
   # The SDK 16 dependency used by x402 still pins an older Axios release.
   "@stellar/stellar-sdk>axios": "1.20.0"
+  # Protocol 30 (CAP-88) changes the ledger header format. On the 16.x line only
+  # 16.4.0+ decodes it, and x402 2.28 still resolves 16.3.1 within its ^16.3.0 range.
+  "@x402/stellar>@stellar/stellar-sdk": "^16.4.1"
   # tsup still selects esbuild 0.27, which has a development-server file-read advisory.
   "esbuild@<0.28.1": "^0.28.1"
   # SvelteKit's cookie 0.6 range excludes the input-validation security fix.
