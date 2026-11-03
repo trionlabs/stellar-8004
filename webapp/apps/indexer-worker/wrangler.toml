@@ -8,10 +8,11 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = false
 preview_urls = false
 
-# Off by default. Set crons = ["* * * * *"] only when the Supabase-hosted indexer
-# cannot be redeployed. Both writers are lock-serialized and idempotent.
+# On since 2026-11-03 so this worker indexes through Protocol 30 (2026-11-23), running
+# next to the Supabase-hosted indexer. Both writers are lock-serialized and idempotent.
+# A deploy applies this list, so leaving it empty would switch the cron off.
 [triggers]
-crons = []
+crons = ["* * * * *"]
 
 [vars]
 STELLAR_NETWORK = "mainnet"
