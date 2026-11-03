@@ -8,6 +8,7 @@
  * database lock (acquire_indexer_lock) and its writes are idempotent upserts.
  */
 import { getConfig } from '../../../packages/indexer/src/config.js';
+import { env } from '../../../packages/indexer/src/env.js';
 import { runIndexer, type IndexerResult } from '../../../packages/indexer/src/indexer.js';
 
 const MAINNET_PASSPHRASE = 'Public Global Stellar Network ; September 2015';
@@ -21,7 +22,44 @@ type Sleep = (ms: number) => Promise<void>;
 
 const sleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function runOnce(run: Run = runIndexer, wait: Sleep = sleep): Promise<IndexerResult> {
+const RPC_PROBE_TIMEOUT_MS = 5_000;
+
+/**
+ * Returns the first RPC whose getHealth reports "healthy", or the first URL if none does.
+ * A provider that misses the Protocol 30 upgrade stops advancing and turns unhealthy, so
+ * runs route around it.
+ */
+export async function pickRpc(urls: string[], fetchFn: typeof fetch = fetch): Promise<string> {
+	for (const url of urls) {
+		try {
+			const res = await fetchFn(url, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getHealth' }),
+				signal: AbortSignal.timeout(RPC_PROBE_TIMEOUT_MS),
+			});
+			const body = (await res.json()) as { result?: { status?: string } };
+			if (body.result?.status === 'healthy') return url;
+		} catch {
+			// Unreachable or not JSON-RPC: try the next one.
+		}
+	}
+	return urls[0];
+}
+
+export async function runOnce(
+	run: Run = runIndexer,
+	wait: Sleep = sleep,
+	choose: (urls: string[]) => Promise<string> = pickRpc,
+): Promise<IndexerResult> {
+	// getConfig() reads STELLAR_MAINNET_RPC_URL. Set it for this run from the two configured
+	// providers, so the primary stays primary across runs.
+	const rpcs = [env('STELLAR_MAINNET_RPC_PRIMARY_URL'), env('STELLAR_MAINNET_RPC_FALLBACK_URL')].filter(
+		(url): url is string => url !== undefined,
+	);
+	const processEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+	if (rpcs.length > 0 && processEnv) processEnv.STELLAR_MAINNET_RPC_URL = await choose(rpcs);
+
 	const { networkPassphrase } = getConfig();
 	if (networkPassphrase !== MAINNET_PASSPHRASE) {
 		// getConfig() falls back to testnet when STELLAR_NETWORK is unset, which would

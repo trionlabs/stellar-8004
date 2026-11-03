@@ -15,9 +15,11 @@ crons = []
 
 [vars]
 STELLAR_NETWORK = "mainnet"
-# Already on a Protocol 30 release when checked on 2026-11-03, while the default
-# (mainnet.sorobanrpc.com) was still on 29.x. Both keep 7 days of events.
-STELLAR_MAINNET_RPC_URL = "https://soroban-rpc.mainnet.stellar.gateway.fm"
+# Each run uses the first of these whose getHealth is "healthy" (pickRpc in src/index.ts).
+# gateway.fm was already on a Protocol 30 release on 2026-11-03, while
+# mainnet.sorobanrpc.com was still on 29.x. Both keep 7 days of events.
+STELLAR_MAINNET_RPC_PRIMARY_URL = "https://soroban-rpc.mainnet.stellar.gateway.fm"
+STELLAR_MAINNET_RPC_FALLBACK_URL = "https://mainnet.sorobanrpc.com"
 
 [observability]
 enabled = true
