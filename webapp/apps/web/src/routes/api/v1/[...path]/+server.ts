@@ -1,5 +1,6 @@
 import type { RequestHandler } from './$types';
 import { env } from '$env/dynamic/private';
+import { fetchWithRetry } from '$lib/server/fetch-with-retry.js';
 
 const FORWARDED_HEADERS = [
 	'content-type',
@@ -82,7 +83,7 @@ const handler: RequestHandler = async ({ params, url, request, getClientAddress 
 
 	let resp: Response;
 	try {
-		resp = await fetch(target, {
+		resp = await fetchWithRetry(target, {
 			method: request.method,
 			headers: {
 				'x-real-ip': getClientAddress(),
