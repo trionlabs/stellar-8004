@@ -394,7 +394,7 @@ export type Database = {
       release_indexer_lock: { Args: { p_owner?: string }; Returns: undefined }
       search_agents: {
         Args: {
-          owner_filter?: string
+          owner_filter?: string | null
           result_limit?: number
           result_offset?: number
           search_query: string
@@ -426,7 +426,7 @@ export type Database = {
         Args: {
           has_services_filter?: boolean
           min_score?: number
-          owner_filter?: string
+          owner_filter?: string | null
           result_limit?: number
           result_offset?: number
           search_query?: string
