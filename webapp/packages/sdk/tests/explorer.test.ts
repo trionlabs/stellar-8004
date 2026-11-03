@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	ExplorerClient,
@@ -5,6 +6,7 @@ import {
 	RateLimitError,
 	type ApiResponse
 } from '../src/api/explorer.js';
+import type { ServiceEntry } from '../src/core/types.js';
 
 function jsonResponse(body: unknown, init?: ResponseInit): Response {
 	return new Response(JSON.stringify(body), {
@@ -84,6 +86,54 @@ describe('ExplorerClient', () => {
 			total: 25,
 			hasMore: true
 		});
+	});
+
+	it('keeps every service field of a real API agent payload', async () => {
+		// Captured from the public GET https://stellar8004.com/api/v1/agents/67 so the
+		// SDK is tested against what the API actually serves (issue #20).
+		const fixture = JSON.parse(
+			readFileSync(new URL('./fixtures/api-v1-agent-67.json', import.meta.url), 'utf8')
+		) as ApiResponse<{ services: ServiceEntry[] }>;
+		expect(fixture.data.services.some((s) => s.description && s.inputExample)).toBe(true);
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(fixture)));
+
+		const response = await new ExplorerClient('https://stellar8004.com').getAgent(67);
+
+		expect(response.data.services).toStrictEqual(fixture.data.services);
+	});
+
+	it('omits absent optional service fields and keeps only declared ones', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(
+				jsonResponse(
+					buildEnvelope([
+						{
+							id: 1,
+							owner: 'GOWNER',
+							services: [
+								{ name: 'A2A', endpoint: 'https://a.example' },
+								{
+									name: 'MCP',
+									endpoint: 'https://m.example',
+									description: 'tools',
+									input_example: '{"q":1}',
+									extra: 'not in ServiceEntry'
+								},
+								{ name: 'no-endpoint', description: 'dropped' }
+							]
+						}
+					])
+				)
+			)
+		);
+
+		const response = await new ExplorerClient('https://stellar8004.com').getAgents();
+
+		expect(response.data[0].services).toStrictEqual([
+			{ name: 'A2A', endpoint: 'https://a.example' },
+			{ name: 'MCP', endpoint: 'https://m.example', description: 'tools', inputExample: '{"q":1}' }
+		]);
 	});
 
 	it('preserves arbitrary on-chain metadata keys verbatim (does not camelCase them)', async () => {

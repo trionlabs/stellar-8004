@@ -168,16 +168,29 @@ function toCamelCase(value: string): string {
 	return value.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
 }
 
+const OPTIONAL_SERVICE_FIELDS = ['version', 'description', 'inputExample'] as const;
+
+/**
+ * Normalization rule: `name` and `endpoint` are always set, and services without an
+ * endpoint are dropped. The optional fields are copied verbatim when they are strings
+ * and omitted otherwise. `inputExample` is opaque data; it is never parsed or run here.
+ */
 function normalizeServices(raw: unknown): ServiceEntry[] | undefined {
 	if (!Array.isArray(raw)) return undefined;
 
 	return raw
 		.filter((service): service is Record<string, unknown> => service != null && typeof service === 'object')
-		.map((service) => ({
-			name: typeof service.name === 'string' ? service.name : 'unknown',
-			endpoint: typeof service.endpoint === 'string' ? service.endpoint : '',
-			version: typeof service.version === 'string' ? service.version : undefined
-		}))
+		.map((service) => {
+			const entry: ServiceEntry = {
+				name: typeof service.name === 'string' ? service.name : 'unknown',
+				endpoint: typeof service.endpoint === 'string' ? service.endpoint : ''
+			};
+			for (const field of OPTIONAL_SERVICE_FIELDS) {
+				const value = service[field];
+				if (typeof value === 'string') entry[field] = value;
+			}
+			return entry;
+		})
 		.filter((service) => service.endpoint.length > 0);
 }
 
