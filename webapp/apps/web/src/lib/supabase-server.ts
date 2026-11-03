@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@stellar8004/db';
 import { env } from '$env/dynamic/private';
+import { fetchWithRetry } from './server/fetch-with-retry.js';
 
 // Module-level singletons — one client per role, reused across requests.
 let _serviceClient: SupabaseClient<Database> | null = null;
@@ -18,7 +19,7 @@ export function createServerSupabase(): SupabaseClient<Database> {
 	if (!url || !key) {
 		throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (server-only env vars)');
 	}
-	_serviceClient = createClient<Database>(url, key);
+	_serviceClient = createClient<Database>(url, key, { global: { fetch: fetchWithRetry } });
 	return _serviceClient;
 }
 
@@ -33,6 +34,6 @@ export function createAnonSupabase(): SupabaseClient<Database> {
 	if (!url || !key) {
 		throw new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY (server-only env vars)');
 	}
-	_anonClient = createClient<Database>(url, key);
+	_anonClient = createClient<Database>(url, key, { global: { fetch: fetchWithRetry } });
 	return _anonClient;
 }
