@@ -28,6 +28,7 @@
 		"viem": "^2.57.4"
 	},
 	"devDependencies": {
+		"@stellar8004/d1": "workspace:*",
 		"@eslint/compat": "^2.1.1",
 		"@eslint/js": "^10.0.1",
 		"@sveltejs/adapter-cloudflare": "^7.2.9",
