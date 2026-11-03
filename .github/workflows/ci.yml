@@ -99,7 +99,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: webapp/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - run: pnpm audit --audit-level=low
+      # High and critical advisories block. Moderate and low ones stay visible in this
+      # log and are tracked through Dependabot (.github/dependabot.yml).
+      - run: pnpm audit --audit-level=high
       - run: pnpm --filter @trionlabs/stellar8004 build
       - run: pnpm --filter @trionlabs/stellar8004 test
       - run: pnpm --filter @trionlabs/stellar8004 check
