@@ -3,7 +3,7 @@
 	import { getClients } from '$lib/sdk-client.js';
 	import {
 		generateRequestNonce,
-		validateStellarAddress,
+		isValidStellarAddress,
 		formatSorobanError
 	} from '@trionlabs/stellar8004';
 	import { wallet } from '$lib/wallet.svelte.js';
@@ -17,15 +17,8 @@
 	let txHash = $state('');
 
 	const busy = $derived(status === 'submitting');
-	const hasValidAddress = $derived.by(() => {
-		if (validatorAddress.length === 0) return true;
-		try {
-			validateStellarAddress(validatorAddress);
-			return true;
-		} catch {
-			return false;
-		}
-	});
+	const address = $derived(validatorAddress.trim());
+	const hasValidAddress = $derived(isValidStellarAddress(address));
 
 	async function submit() {
 		const caller = wallet.address;
@@ -35,23 +28,17 @@
 			return;
 		}
 
-		try {
-			validateStellarAddress(validatorAddress, 'Validator address');
-		} catch (e) {
-			errorMsg = e instanceof Error ? e.message : 'Invalid validator address';
-			status = 'error';
-			return;
-		}
+		if (!hasValidAddress) return;
 
 		status = 'submitting';
 		errorMsg = '';
 
 		try {
 			const { validation } = getClients();
-			const requestHash = await generateRequestNonce(agentId, validatorAddress);
+			const requestHash = await generateRequestNonce(agentId, address);
 			const tx = await validation.validation_request({
 				caller,
-				validator_address: validatorAddress,
+				validator_address: address,
 				agent_id: agentId,
 				request_uri: requestUri,
 				request_hash: Buffer.from(requestHash)
@@ -82,13 +69,14 @@
 				type="text"
 				bind:value={validatorAddress}
 				aria-label="Validator Stellar address"
-				placeholder="Validator Stellar address (G...)"
-				maxlength="56"
+				placeholder="Validator Stellar address (G... or C...)"
 				class="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
 			/>
 
-			{#if validatorAddress && !hasValidAddress}
-				<p class="text-xs text-negative">Validator address must start with G and be 56 chars.</p>
+			{#if address && !hasValidAddress}
+				<p class="text-xs text-negative">
+					Not a valid Stellar address (G... or C...). Check for typos.
+				</p>
 			{/if}
 
 			<input
@@ -112,7 +100,7 @@
 
 			<button
 				onclick={submit}
-				disabled={!validatorAddress || !hasValidAddress || busy || wallet.networkMismatch}
+				disabled={!hasValidAddress || busy || wallet.networkMismatch}
 				class="w-full rounded-lg border border-accent/30 bg-accent-fill px-4 py-2 text-sm font-medium text-accent transition hover:border-accent/45 hover:bg-accent-fill-hover disabled:opacity-40"
 			>
 				{status === 'submitting' ? 'Submitting...' : 'Request Validation'}
