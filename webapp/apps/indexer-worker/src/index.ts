@@ -8,6 +8,7 @@
  * database lock (acquire_indexer_lock) and its writes are idempotent upserts.
  */
 import { getConfig } from '../../../packages/indexer/src/config.js';
+import { createSupabaseAdmin, refreshLeaderboard } from '../../../packages/indexer/src/db.js';
 import { env } from '../../../packages/indexer/src/env.js';
 import { runIndexer, type IndexerResult } from '../../../packages/indexer/src/indexer.js';
 
@@ -84,7 +85,7 @@ export default {
 	): Promise<void> {
 		ctx.waitUntil(
 			runOnce().then(
-				(r) =>
+				async (r) => {
 					console.log(
 						JSON.stringify({
 							msg: 'indexer run',
@@ -94,7 +95,14 @@ export default {
 							timedOut: r.timedOut ?? false,
 							gaps: r.gaps.length,
 						}),
-					),
+					);
+					// /api/v1/search reads the leaderboard view, which the indexer only refreshes after
+					// feedback and validation events, so new agents and resolved names never showed up
+					// there. Refresh it every run; the database function itself runs at most every 2 min.
+					await refreshLeaderboard(createSupabaseAdmin()).catch((error: unknown) =>
+						console.error(JSON.stringify({ msg: 'leaderboard refresh failed', error: String(error) })),
+					);
+				},
 				(error: unknown) => {
 					console.error(JSON.stringify({ msg: 'indexer run failed', error: String(error) }));
 					throw error;
