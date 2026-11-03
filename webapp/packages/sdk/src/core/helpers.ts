@@ -112,8 +112,12 @@ const CONTRACT_ERRORS: Record<string, Record<number, string>> = {
 	},
 };
 
-/** Maps opaque Soroban/wallet errors to user-friendly messages. */
-export function formatSorobanError(err: unknown): string {
+/**
+ * Maps opaque Soroban/wallet errors to user-friendly messages.
+ * Contract error codes are only meaningful per registry (identity #8 and
+ * reputation #8 differ), so pass the registry that was called to decode them.
+ */
+export function formatSorobanError(err: unknown, registry?: keyof typeof CONTRACT_ERRORS): string {
 	const msg = err instanceof Error ? err.message : String(err);
 	// SDK input validators throw InvalidInputError: show the message as-is.
 	if (err instanceof Error && err.name === 'InvalidInputError') return msg;
@@ -133,10 +137,7 @@ export function formatSorobanError(err: unknown): string {
 	const contractMatch = msg.match(/Error\(Contract,\s*#(\d+)\)/);
 	if (contractMatch) {
 		const code = parseInt(contractMatch[1], 10);
-		for (const registry of Object.values(CONTRACT_ERRORS)) {
-			if (registry[code]) return registry[code];
-		}
-		return `Contract error #${code}.`;
+		return (registry && CONTRACT_ERRORS[registry][code]) || `Contract error #${code}.`;
 	}
 
 	if (msg.length > 200) {

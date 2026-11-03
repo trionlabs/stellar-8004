@@ -58,7 +58,7 @@
 			status = 'success';
 			invalidateAll();
 		} catch (err) {
-			errorMsg = formatSorobanError(err);
+			errorMsg = formatSorobanError(err, 'identity');
 			status = 'error';
 		}
 	}
@@ -84,7 +84,7 @@
 			status = 'success';
 			invalidateAll();
 		} catch (err) {
-			errorMsg = formatSorobanError(err);
+			errorMsg = formatSorobanError(err, 'identity');
 			status = 'error';
 		}
 	}

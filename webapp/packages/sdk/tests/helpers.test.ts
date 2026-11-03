@@ -162,7 +162,11 @@ describe('formatSorobanError', () => {
 	});
 
 	it('still decodes contract error codes', () => {
-		expect(formatSorobanError(new Error('HostError: Error(Contract, #8)'))).toBe('Value cannot be empty.');
+		const err = new Error('HostError: Error(Contract, #8)');
+		expect(formatSorobanError(err, 'identity')).toBe('Value cannot be empty.');
+		expect(formatSorobanError(err, 'reputation')).toBe('Feedback value is out of the allowed range.');
+		// Without the registry the code is ambiguous, so no registry's message is guessed.
+		expect(formatSorobanError(err)).toBe('Contract error #8.');
 	});
 
 	it('returns friendly message for timeout', () => {

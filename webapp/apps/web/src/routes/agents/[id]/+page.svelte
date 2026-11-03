@@ -93,7 +93,7 @@
 			}, 1500);
 			invalidateAll();
 		} catch (err) {
-			uriUpdateError = formatSorobanError(err);
+			uriUpdateError = formatSorobanError(err, 'identity');
 			uriUpdateStatus = 'error';
 		}
 	}

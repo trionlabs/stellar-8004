@@ -110,7 +110,7 @@
 			txHash = sent.sendTransactionResponse?.hash ?? '';
 			status = 'success';
 		} catch (err) {
-			errorMsg = formatSorobanError(err);
+			errorMsg = formatSorobanError(err, 'reputation');
 			status = 'error';
 		}
 	}
