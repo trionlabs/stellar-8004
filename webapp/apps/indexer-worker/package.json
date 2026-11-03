@@ -1,0 +1,13 @@
+{
+	"name": "@stellar8004/indexer-worker",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"check": "tsc --noEmit -p tsconfig.json",
+		"test": "vitest run"
+	},
+	"devDependencies": {
+		"typescript": "^5.7.0",
+		"vitest": "^3.2.4"
+	}
+}

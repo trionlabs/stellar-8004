@@ -1,0 +1,24 @@
+# Protocol 30 fallback indexer (see src/index.ts). Deploy target is set per deploy
+# through CLOUDFLARE_ACCOUNT_ID, so no account details live in this public repo.
+name = "stellar8004-indexer"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+# nodejs_compat also populates process.env from vars and secrets, which the indexer reads.
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+preview_urls = false
+
+# Off by default. Set crons = ["* * * * *"] only when the Supabase-hosted indexer
+# cannot be redeployed. Both writers are lock-serialized and idempotent.
+[triggers]
+crons = []
+
+[vars]
+STELLAR_NETWORK = "mainnet"
+
+[observability]
+enabled = true
+
+# Secrets, set with `wrangler secret put` and never committed:
+#   SUPABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY
