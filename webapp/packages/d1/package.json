@@ -1,0 +1,18 @@
+{
+	"name": "@stellar8004/d1",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./test-db": "./src/test-db.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"devDependencies": {
+		"@types/node": "^24.19.2",
+		"typescript": "^5.9.3",
+		"vitest": "^4.1.12"
+	}
+}
