@@ -215,3 +215,5 @@ CREATE INDEX agents_owner ON agents (owner);
 CREATE INDEX agents_created_at ON agents (created_at);
 CREATE INDEX feedback_created_at ON feedback (created_at);
 CREATE INDEX validations_agent_id ON validations (agent_id);
+-- The indexer records each dead letter once per (event, reason) and checks before inserting.
+CREATE INDEX indexer_dead_letter_event ON indexer_dead_letter (event_id, reason);

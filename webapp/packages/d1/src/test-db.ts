@@ -6,6 +6,14 @@ const MIGRATIONS_DIR = new URL('../migrations/', import.meta.url);
 const MAX_BOUND_PARAMETERS = 100;
 // D1's maximum string, BLOB or row size, in bytes.
 const MAX_LENGTH = 2_000_000;
+// D1's maximum length of one SQL statement, in bytes.
+const MAX_STATEMENT_BYTES = 100_000;
+
+function assertStatementSize(sql: string): void {
+	if (Buffer.byteLength(sql) > MAX_STATEMENT_BYTES) {
+		throw new Error(`D1_ERROR: statement too long (${Buffer.byteLength(sql)} > ${MAX_STATEMENT_BYTES} bytes)`);
+	}
+}
 
 type Row = Record<string, unknown>;
 
@@ -92,7 +100,10 @@ export function createTestD1() {
 	}
 
 	return {
-		prepare: (sql: string) => new TestD1Statement(sqlite, sql),
+		prepare: (sql: string) => {
+			assertStatementSize(sql);
+			return new TestD1Statement(sqlite, sql);
+		},
 		async batch<T = Row>(statements: TestD1Statement[]): Promise<TestD1Result<T>[]> {
 			sqlite.exec('BEGIN');
 			try {
@@ -105,6 +116,8 @@ export function createTestD1() {
 			}
 		},
 		async exec(sql: string) {
+			// Files are imported statement by statement; every statement here ends a line.
+			for (const statement of sql.split(/;[ \t]*\n/)) assertStatementSize(statement);
 			sqlite.exec(sql);
 			return { count: 1, duration: 0 };
 		}

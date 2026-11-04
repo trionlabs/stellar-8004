@@ -3,6 +3,7 @@
 // behaviours: the proxy's path guard, then the edge function's router.
 import type { RequestHandler } from './$types';
 import { getDb, type Db } from '$lib/server/d1.js';
+import { withinRateLimit } from '$lib/server/rate-limit.js';
 import { errorResponse } from '$lib/server/api/response.js';
 import {
 	handleAccounts,
@@ -65,20 +66,6 @@ function route(db: Db, parts: string[], url: URL): Promise<Response> | Response 
 		if (endpoint === 'accounts' && sub === 'agents') return handleAccounts(db, param, url);
 	}
 	return errorResponse('NOT_FOUND', 'Endpoint not found', 404);
-}
-
-/** Workers rate limiting binding, keyed by client IP. Fails open, as the old limiter did. */
-async function withinRateLimit(
-	platform: App.Platform | undefined,
-	clientAddress: () => string
-): Promise<boolean> {
-	try {
-		const outcome = await platform?.env.API_RATE_LIMITER.limit({ key: clientAddress() });
-		return outcome?.success ?? true;
-	} catch (err) {
-		console.error('[rate-limit] binding failed, allowing request:', err);
-		return true;
-	}
 }
 
 // Only a fallback export, so every method lands here (with a GET export SvelteKit would answer

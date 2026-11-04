@@ -951,6 +951,18 @@ describe('/api/agents/count', () => {
 		expect(await (await get(`owner=G${'C'.repeat(55)}`)).json()).toEqual({ count: 0 });
 	});
 
+	it('applies the rate limiting binding with its own key', async () => {
+		await seedDirectory();
+		const limit = vi.fn().mockResolvedValue({ success: false });
+		const res = await countAgents({
+			url: new URL(`https://stellar8004.com/api/agents/count?owner=${OWNER_A}`),
+			getClientAddress: () => '203.0.113.7',
+			platform: { env: { DB: db, API_RATE_LIMITER: { limit } } }
+		} as never);
+		expect(res.status).toBe(429);
+		expect(limit).toHaveBeenCalledWith({ key: 'count:203.0.113.7' });
+	});
+
 	it('rejects malformed owners and reports database failures', async () => {
 		const bad = await get('owner=nope');
 		expect([bad.status, await bad.json()]).toEqual([400, { count: null }]);

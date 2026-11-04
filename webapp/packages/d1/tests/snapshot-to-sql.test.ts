@@ -113,6 +113,29 @@ describe('snapshotToSql', () => {
 		expect(await db.prepare('SELECT count(*) AS n FROM agents').first('n')).toBe(1);
 	});
 
+	it('keeps every statement under D1\'s 100 KB limit and still loads large values exactly', async () => {
+		const description = "Çok büyük 'agent' açıklaması ✓ ".repeat(8_000); // ~250 KB, multi-byte, quotes
+		const uriData = JSON.stringify({ name: 'Big Agent', description });
+		const services = JSON.stringify(Array.from({ length: 1_500 }, (_, i) => ({ name: `s${i}`, endpoint: `https://x/${'p'.repeat(60)}/${i}` })));
+		const dataUri = 'data:application/json,' + encodeURIComponent(uriData).slice(0, 120_000);
+		const sql = snapshotToSql(
+			writeSnapshot({
+				agents: [agentRow(1, { agent_uri: dataUri, agent_uri_data_text: uriData, services_text: services })],
+				feedback: [],
+				indexer_state: []
+			})
+		);
+		const longest = Math.max(...sql.split('\n').map((line) => Buffer.byteLength(line)));
+		expect(longest).toBeLessThanOrEqual(100_000);
+
+		const db = createTestD1(); // enforces the statement limit too
+		await db.exec(sql);
+		const row = await db.prepare('SELECT agent_uri, agent_uri_data, services FROM agents WHERE id = 1').first<Record<string, string>>();
+		expect(row).toEqual({ agent_uri: dataUri, agent_uri_data: uriData, services });
+		expect(await db.prepare("SELECT rowid FROM agents_fts WHERE agents_fts MATCH '\"big\"'").first('rowid')).toBe(1);
+		expect(await db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name = 'load_pieces'").first('n')).toBe(0);
+	});
+
 	it('refuses to load after the cutover removed the copy fence', async () => {
 		const db = createTestD1();
 		const sql = snapshotToSql(writeSnapshot({ agents: [agentRow(1)], feedback: [], indexer_state: [] }));

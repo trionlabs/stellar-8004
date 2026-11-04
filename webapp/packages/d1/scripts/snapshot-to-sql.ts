@@ -19,10 +19,12 @@ type Column = string | [name: string, read: (row: Row) => unknown];
 const jsonText = (text: string, value: string) => (row: Row) =>
 	row[text] ?? (row[value] == null ? null : JSON.stringify(row[value]));
 
-// Children are listed after their parents; deletes run in the reverse order.
-const TABLES: Array<{ table: string; columns: Column[] }> = [
+// Children are listed after their parents; deletes run in the reverse order. `key` lists the
+// primary key columns, used to finish a row whose large values are loaded in pieces.
+const TABLES: Array<{ table: string; key: string[]; columns: Column[] }> = [
 	{
 		table: 'agents',
+		key: ['id'],
 		columns: [
 			'id', 'owner', 'agent_uri',
 			['agent_uri_data', jsonText('agent_uri_data_text', 'agent_uri_data')],
@@ -33,9 +35,10 @@ const TABLES: Array<{ table: string; columns: Column[] }> = [
 			'x402_enabled', 'mpp_enabled', 'uri_updated_ledger', 'transferred_ledger'
 		]
 	},
-	{ table: 'agent_metadata', columns: ['agent_id', 'key', 'value'] },
+	{ table: 'agent_metadata', key: ['agent_id', 'key'], columns: ['agent_id', 'key', 'value'] },
 	{
 		table: 'feedback',
+		key: ['id'],
 		columns: [
 			'id', 'agent_id', 'client_address', 'feedback_index',
 			['value', (row) => {
@@ -48,6 +51,7 @@ const TABLES: Array<{ table: string; columns: Column[] }> = [
 	},
 	{
 		table: 'feedback_responses',
+		key: ['id'],
 		columns: [
 			'id', 'agent_id', 'client_address', 'feedback_index', 'response_index', 'responder',
 			'response_uri', 'response_hash', 'created_at', 'tx_hash', 'event_id'
@@ -55,18 +59,47 @@ const TABLES: Array<{ table: string; columns: Column[] }> = [
 	},
 	{
 		table: 'validations',
+		key: ['request_hash'],
 		columns: [
 			'request_hash', 'agent_id', 'validator_address', 'request_uri', 'response', 'response_uri',
 			'response_hash', 'tag', 'has_response', 'created_at', 'responded_at', 'request_tx_hash',
 			'response_tx_hash', 'response_ledger'
 		]
 	},
-	{ table: 'indexer_dead_letter', columns: ['id', 'contract', 'reason', 'event_id', 'ledger', 'detail', 'created_at'] },
+	{
+		table: 'indexer_dead_letter',
+		key: ['id'],
+		columns: ['id', 'contract', 'reason', 'event_id', 'ledger', 'detail', 'created_at']
+	},
 	{
 		table: 'indexer_state',
+		key: ['id'],
 		columns: ['id', 'last_ledger', 'updated_at', 'expected_next_ledger', 'defer_attempts', 'last_advanced_at']
 	}
 ];
+
+// D1 rejects statements longer than 100,000 bytes. Text longer than PIECE_BYTES goes into the
+// row as a placeholder and is then written in pieces (each at most 2 * PIECE_BYTES once
+// quotes are doubled), joined into the column with one UPDATE so CHECKs see the whole value.
+const PIECE_BYTES = 40_000;
+const PLACEHOLDERS: Record<string, string> = { 'agents.services': "'[]'", 'agents.supported_trust': "'[]'" };
+
+function pieces(text: string): string[] {
+	const out: string[] = [];
+	let current = '';
+	let bytes = 0;
+	for (const char of text) {
+		const size = Buffer.byteLength(char);
+		if (bytes + size > PIECE_BYTES) {
+			out.push(current);
+			current = '';
+			bytes = 0;
+		}
+		current += char;
+		bytes += size;
+	}
+	return current ? [...out, current] : out;
+}
 
 function literal(value: unknown, where: string): string {
 	if (value === null || value === undefined) return 'NULL';
@@ -89,21 +122,37 @@ export function snapshotToSql(dir: string): string {
 		// data. The CHECK fails, and a D1 file import is atomic, so nothing below is applied.
 		'CREATE TABLE copy_guard (fence_present INTEGER NOT NULL CHECK (fence_present = 1));',
 		"INSERT INTO copy_guard SELECT EXISTS (SELECT 1 FROM indexer_locks WHERE lock_name = 'indexer' AND owner = 'copy-fence');",
-		'DROP TABLE copy_guard;'
+		'DROP TABLE copy_guard;',
+		'DROP TABLE IF EXISTS load_pieces;',
+		'CREATE TABLE load_pieces (k TEXT NOT NULL, i INTEGER NOT NULL, v TEXT NOT NULL, PRIMARY KEY (k, i));'
 	];
 	for (const { table } of [...TABLES].reverse()) lines.push(`DELETE FROM ${table};`);
-	for (const { table, columns } of TABLES) {
+	for (const { table, key, columns } of TABLES) {
 		const file = join(dir, `${table}.json`);
 		if (!existsSync(file)) throw new Error(`${table}.json is missing from the snapshot`);
 		const names = columns.map((c) => (typeof c === 'string' ? c : c[0]));
-		for (const row of JSON.parse(readFileSync(file, 'utf8')) as Row[]) {
+		for (const [index, row] of (JSON.parse(readFileSync(file, 'utf8')) as Row[]).entries()) {
+			const finish: string[] = [];
 			const values = columns.map((c) => {
 				const [name, read] = typeof c === 'string' ? [c, (r: Row) => r[c]] : c;
-				return literal(read(row), `${table}.${name}`);
+				const value = read(row);
+				if (typeof value !== 'string' || Buffer.byteLength(value) <= PIECE_BYTES) {
+					return literal(value, `${table}.${name}`);
+				}
+				const k = `${table}.${name}.${index}`;
+				for (const [i, piece] of pieces(value).entries()) {
+					finish.push(`INSERT INTO load_pieces VALUES (${literal(k, k)}, ${i}, ${literal(piece, k)});`);
+				}
+				const where = key.map((col) => `${col} = ${literal(row[col], `${table}.${col}`)}`).join(' AND ');
+				finish.push(
+					`UPDATE ${table} SET ${name} = (SELECT group_concat(v, '' ORDER BY i) FROM load_pieces WHERE k = ${literal(k, k)}) WHERE ${where};`
+				);
+				return PLACEHOLDERS[`${table}.${name}`] ?? 'NULL';
 			});
-			lines.push(`INSERT INTO ${table} (${names.join(', ')}) VALUES (${values.join(', ')});`);
+			lines.push(`INSERT INTO ${table} (${names.join(', ')}) VALUES (${values.join(', ')});`, ...finish);
 		}
 	}
+	lines.push('DROP TABLE load_pieces;');
 	return lines.join('\n') + '\n';
 }
 
