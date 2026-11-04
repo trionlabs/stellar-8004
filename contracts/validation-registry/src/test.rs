@@ -7,10 +7,12 @@ use soroban_sdk::{
 };
 
 use crate::contract::{
-    ValidationRegistryContract, ValidationRegistryContractClient, MAX_SUMMARY_VALIDATIONS,
+    ValidationRegistryContract, ValidationRegistryContractClient, MAX_INDEX_BATCH,
+    MAX_SUMMARY_VALIDATIONS, MAX_SUMMARY_VALIDATORS,
 };
 use crate::errors::ValidationError;
-use crate::storage::{DataKey, TTL_BUMP};
+use crate::storage::{self, DataKey, TTL_BUMP};
+use crate::types::ValidationStatus;
 
 mod mock_identity {
     use soroban_sdk::{contract, contractimpl, contracttype, Address, Env};
@@ -521,8 +523,9 @@ fn test_validator_cannot_be_agent_wallet() {
 
 #[test]
 fn test_get_summary_reads_only_recent_validations() {
-    // H2: get_summary reads at most MAX_SUMMARY_VALIDATIONS validations, the
-    // most recent ones, so a long history cannot exceed the read limits.
+    // H2: get_summary reads at most MAX_SUMMARY_VALIDATIONS answered
+    // validations, the most recent ones, so a long history cannot exceed the
+    // read limits.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, agent_owner, validator) = setup(&env);
@@ -542,4 +545,315 @@ fn test_get_summary_reads_only_recent_validations() {
         summary.average_response, 100,
         "older validations must not count"
     );
+}
+
+/// Distinct request hashes beyond the 256 that `test_hash` covers.
+fn hash_n(e: &Env, n: u32) -> BytesN<32> {
+    let mut arr = [0xAAu8; 32];
+    arr[..4].copy_from_slice(&n.to_be_bytes());
+    BytesN::from_array(e, &arr)
+}
+
+/// Owner requests a validation from `validator`, which answers `response`.
+fn answer(
+    client: &ValidationRegistryContractClient<'_>,
+    owner: &Address,
+    validator: &Address,
+    hash: &BytesN<32>,
+    response: u32,
+    tag: &str,
+) {
+    let e = &client.env;
+    let empty = String::from_str(e, "");
+    client.validation_request(owner, validator, &0, &empty, hash);
+    client.validation_response(
+        validator,
+        hash,
+        &response,
+        &empty,
+        hash,
+        &String::from_str(e, tag),
+    );
+}
+
+fn summary(
+    client: &ValidationRegistryContractClient<'_>,
+    validators: &[&Address],
+    tag: &str,
+) -> (u64, u32) {
+    let e = &client.env;
+    let mut list = Vec::new(e);
+    for v in validators {
+        list.push_back((*v).clone());
+    }
+    let s = client.get_summary(&0, &list, &String::from_str(e, tag));
+    (s.count, s.average_response)
+}
+
+/// Total ledger entries of the last invocation: the count that mainnet's
+/// `tx_max_footprint_entries` (400 since protocol 23) bounds. The test
+/// environment enforces the SDK's older limits (100 entries, 50 writes), so
+/// tests that read full windows switch them off and check this instead.
+fn footprint_entries(env: &Env) -> u32 {
+    let r = env.cost_estimate().resources();
+    r.disk_read_entries + r.memory_read_entries
+}
+
+#[test]
+fn test_unanswered_requests_cannot_hide_an_answer() {
+    // The review's attack: the owner files more unanswered requests than the
+    // window holds, to another validator, after A's bad answer. Only answers
+    // enter the window, so A's answer still counts with and without a filter.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, owner, validator_a) = setup(&env);
+    let validator_b = Address::generate(&env);
+    let empty = String::from_str(&env, "");
+
+    answer(&client, &owner, &validator_a, &test_hash(&env, 1), 10, "");
+    for i in 0..MAX_SUMMARY_VALIDATIONS * 2 {
+        client.validation_request(&owner, &validator_b, &0, &empty, &hash_n(&env, i));
+    }
+
+    assert_eq!(summary(&client, &[&validator_a], ""), (1, 10));
+    assert_eq!(summary(&client, &[], ""), (1, 10));
+    assert_eq!(summary(&client, &[&validator_b], ""), (0, 0));
+}
+
+#[test]
+fn test_get_summary_windows_each_validator_separately() {
+    // Each listed validator contributes its own most recent answers; answers
+    // by other validators cannot push them out.
+    let env = Env::default();
+    env.mock_all_auths();
+    env.cost_estimate().disable_resource_limits();
+    let (client, _, owner, validator_a) = setup(&env);
+    let validator_b = Address::generate(&env);
+
+    answer(&client, &owner, &validator_a, &test_hash(&env, 1), 0, "");
+    for i in 0..MAX_SUMMARY_VALIDATIONS {
+        answer(&client, &owner, &validator_b, &hash_n(&env, i), 100, "");
+    }
+
+    // The agent-wide window is now all of B's answers: the documented ceiling
+    // of the unfiltered view.
+    assert_eq!(
+        summary(&client, &[], ""),
+        (MAX_SUMMARY_VALIDATIONS as u64, 100)
+    );
+    // Filtered by A, A's answer is still there.
+    assert_eq!(summary(&client, &[&validator_a], ""), (1, 0));
+    // A's own newer answers do push its oldest one out.
+    let older = 3;
+    for i in 0..MAX_SUMMARY_VALIDATIONS + older {
+        answer(
+            &client,
+            &owner,
+            &validator_a,
+            &hash_n(&env, 1_000 + i),
+            50,
+            "",
+        );
+    }
+    assert_eq!(
+        summary(&client, &[&validator_a], ""),
+        (MAX_SUMMARY_VALIDATIONS as u64, 50)
+    );
+    // Two validators: both windows, and a repeated address counts once.
+    assert_eq!(
+        summary(&client, &[&validator_a, &validator_b, &validator_a], ""),
+        (2 * MAX_SUMMARY_VALIDATIONS as u64, 75)
+    );
+}
+
+#[test]
+fn test_get_summary_caps_validator_count() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, owner, validator) = setup(&env);
+    answer(&client, &owner, &validator, &test_hash(&env, 1), 70, "");
+
+    let mut validators = Vec::new(&env);
+    validators.push_back(validator.clone());
+    for _ in 1..MAX_SUMMARY_VALIDATORS {
+        validators.push_back(Address::generate(&env));
+    }
+    let empty = String::from_str(&env, "");
+    let s = client.get_summary(&0, &validators, &empty);
+    assert_eq!((s.count, s.average_response), (1, 70));
+
+    validators.push_back(Address::generate(&env));
+    assert_eq!(
+        client.try_get_summary(&0, &validators, &empty).err(),
+        Some(Ok(ValidationError::TooManyValidators))
+    );
+}
+
+#[test]
+fn test_get_summary_filters_tag_within_window() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, owner, validator) = setup(&env);
+    answer(
+        &client,
+        &owner,
+        &validator,
+        &test_hash(&env, 1),
+        80,
+        "security",
+    );
+    answer(
+        &client,
+        &owner,
+        &validator,
+        &test_hash(&env, 2),
+        40,
+        "uptime",
+    );
+    answer(
+        &client,
+        &owner,
+        &validator,
+        &test_hash(&env, 3),
+        60,
+        "security",
+    );
+
+    assert_eq!(summary(&client, &[&validator], "security"), (2, 70));
+    assert_eq!(summary(&client, &[], "uptime"), (1, 40));
+    assert_eq!(summary(&client, &[], "none"), (0, 0));
+    assert_eq!(summary(&client, &[], ""), (3, 60));
+}
+
+#[test]
+fn test_updated_response_is_indexed_once() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, owner, validator) = setup(&env);
+    let hash = test_hash(&env, 1);
+    answer(&client, &owner, &validator, &hash, 90, "");
+    let empty = String::from_str(&env, "");
+    client.validation_response(&validator, &hash, &30, &empty, &hash, &empty);
+
+    assert_eq!(summary(&client, &[&validator], ""), (1, 30));
+    assert_eq!(summary(&client, &[], ""), (1, 30));
+    assert_eq!(client.index_answered(&Vec::from_array(&env, [hash])), 0);
+}
+
+/// Stores an answered validation the way v1 did: in the request indexes,
+/// not in the answered ones.
+fn store_v1_answer(
+    env: &Env,
+    client: &ValidationRegistryContractClient<'_>,
+    validator: &Address,
+    hash: &BytesN<32>,
+    response: u32,
+) {
+    env.as_contract(&client.address, || {
+        let status = ValidationStatus {
+            validator_address: validator.clone(),
+            agent_id: 0,
+            response,
+            response_hash: hash.clone(),
+            tag: String::from_str(env, ""),
+            last_update: 0,
+            has_response: true,
+        };
+        storage::set_validation(env, hash, &status);
+        storage::add_agent_validation(env, 0, hash).unwrap();
+        storage::add_validator_request(env, validator, hash).unwrap();
+    });
+}
+
+#[test]
+fn test_index_answered_backfills_v1_answers_once() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, owner, validator) = setup(&env);
+    let old = test_hash(&env, 1);
+    store_v1_answer(&env, &client, &validator, &old, 20);
+    assert_eq!(summary(&client, &[&validator], ""), (0, 0));
+
+    // Repeats within a batch and across calls are indexed once.
+    let batch = Vec::from_array(&env, [old.clone(), old.clone()]);
+    assert_eq!(client.index_answered(&batch), 1);
+    assert_eq!(client.index_answered(&batch), 0);
+    assert_eq!(summary(&client, &[&validator], ""), (1, 20));
+    assert_eq!(summary(&client, &[], ""), (1, 20));
+
+    // A v1 answer updated under v2 is indexed by the update instead.
+    let updated = test_hash(&env, 2);
+    store_v1_answer(&env, &client, &validator, &updated, 40);
+    let empty = String::from_str(&env, "");
+    client.validation_response(&validator, &updated, &60, &empty, &updated, &empty);
+    assert_eq!(client.index_answered(&Vec::from_array(&env, [updated])), 0);
+    assert_eq!(summary(&client, &[&validator], ""), (2, 40));
+
+    // Unknown and unanswered hashes fail the whole call.
+    let unanswered = test_hash(&env, 3);
+    client.validation_request(&owner, &validator, &0, &empty, &unanswered);
+    let late = test_hash(&env, 4);
+    store_v1_answer(&env, &client, &validator, &late, 0);
+    assert_eq!(
+        client.try_index_answered(&Vec::from_array(&env, [late.clone(), unanswered])),
+        Err(Ok(ValidationError::RequestNotAnswered))
+    );
+    assert_eq!(
+        client.try_index_answered(&Vec::from_array(&env, [late, test_hash(&env, 5)])),
+        Err(Ok(ValidationError::RequestNotFound))
+    );
+    assert_eq!(summary(&client, &[&validator], ""), (2, 40));
+
+    let mut too_many = Vec::new(&env);
+    for _ in 0..=MAX_INDEX_BATCH {
+        too_many.push_back(old.clone());
+    }
+    assert_eq!(
+        client.try_index_answered(&too_many),
+        Err(Ok(ValidationError::BatchTooLarge))
+    );
+}
+
+#[test]
+fn test_worst_case_calls_fit_mainnet_limits() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.cost_estimate().disable_resource_limits();
+    let (client, _, owner, _) = setup(&env);
+
+    // Five validators, each with a full window of answers.
+    let mut validators = Vec::new(&env);
+    for v in 0..MAX_SUMMARY_VALIDATORS {
+        let validator = Address::generate(&env);
+        for i in 0..MAX_SUMMARY_VALIDATIONS + 1 {
+            let hash = hash_n(&env, v * 1_000 + i);
+            answer(&client, &owner, &validator, &hash, 50, "");
+        }
+        validators.push_back(validator);
+    }
+    let s = client.get_summary(&0, &validators, &String::from_str(&env, ""));
+    assert_eq!(
+        s.count,
+        (MAX_SUMMARY_VALIDATORS * MAX_SUMMARY_VALIDATIONS) as u64
+    );
+    // 5 counts + 5 x 32 x 2 + instance; the deployed WASM adds its code
+    // entry: 327.
+    assert_eq!(footprint_entries(&env), 326);
+
+    // A full backfill batch of hashes never indexed.
+    let validator = Address::generate(&env);
+    let mut batch = Vec::new(&env);
+    for i in 0..MAX_INDEX_BATCH {
+        let hash = hash_n(&env, 100_000 + i);
+        store_v1_answer(&env, &client, &validator, &hash, 50);
+        batch.push_back(hash);
+    }
+    assert_eq!(client.index_answered(&batch), MAX_INDEX_BATCH);
+    std::println!(
+        "index_answered x{MAX_INDEX_BATCH}: {} entries, {} writes",
+        footprint_entries(&env),
+        env.cost_estimate().resources().write_entries
+    );
+    assert!(footprint_entries(&env) < 400);
+    assert!(env.cost_estimate().resources().write_entries <= 200);
 }
