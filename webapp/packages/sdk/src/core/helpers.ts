@@ -114,6 +114,9 @@ const CONTRACT_ERRORS: Record<string, Record<number, string>> = {
 		4: 'A validation request with this hash already exists.',
 		5: 'Only the designated validator can respond.',
 		12: 'The validator cannot be the agent itself: its owner, an approved operator, its agentWallet or the requester.',
+		14: 'Too many validators for a summary (max 5).',
+		15: 'This validation has not been answered yet.',
+		16: 'Too many request hashes in one call (max 20).',
 	},
 };
 

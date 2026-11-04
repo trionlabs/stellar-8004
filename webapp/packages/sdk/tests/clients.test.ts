@@ -94,7 +94,7 @@ describe('createClients', () => {
 			const { validation } = createClients(TESTNET_CONFIG, mockSigner);
 			const expectedMethods = [
 				'validation_request', 'validation_response',
-				'get_validation_status', 'request_exists', 'get_summary',
+				'get_validation_status', 'request_exists', 'get_summary', 'index_answered',
 				'get_agent_validations_paginated', 'get_validator_requests_paginated',
 				'get_identity_registry', 'extend_ttl',
 				'propose_upgrade', 'cancel_upgrade', 'execute_upgrade', 'pending_upgrade', 'version',
