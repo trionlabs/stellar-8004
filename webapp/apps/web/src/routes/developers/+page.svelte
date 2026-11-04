@@ -34,7 +34,12 @@
 		},
 		{ method: 'GET', path: '/api/v1/search?q=...', desc: 'Full-text search across agents' },
 		{ method: 'GET', path: '/api/v1/stats', desc: 'Aggregate network statistics' },
-		{ method: 'GET', path: '/api/v1/health', desc: 'Indexer health status' }
+		{ method: 'GET', path: '/api/v1/health', desc: 'Indexer health status' },
+		{
+			method: 'GET',
+			path: '/api/v2/discovery?network=mainnet',
+			desc: 'Cursor-paged discovery: strict filters, stable score/newest/id order, 0-100 score'
+		}
 	];
 
 	const codeExamples = {
