@@ -1,0 +1,30 @@
+# Indexes the identity, reputation and validation registries into D1 on a Cron Trigger and
+# resolves agent URIs (src/index.ts). The deploy target is set per deploy through
+# CLOUDFLARE_ACCOUNT_ID, so no account details live in this public repo.
+name = "stellar8004-indexer-d1"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+# nodejs_compat: @stellar/stellar-sdk needs node builtins. global_fetch_strictly_public: URI
+# resolution fetches addresses that agent owners choose, so fetch() only reaches the public internet.
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+workers_dev = false
+preview_urls = false
+
+# Off until cutover. Runs also stay blocked until the cutover step deletes the copy-fence row
+# in indexer_locks. A deploy applies this list, so it is the switch.
+[triggers]
+crons = []
+
+[vars]
+STELLAR_NETWORK = "mainnet"
+# Each run uses the first of these whose getHealth is "healthy" (pickRpc in src/index.ts).
+STELLAR_MAINNET_RPC_PRIMARY_URL = "https://soroban-rpc.mainnet.stellar.gateway.fm"
+STELLAR_MAINNET_RPC_FALLBACK_URL = "https://mainnet.sorobanrpc.com"
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "stellar8004"
+migrations_dir = "../../packages/d1/migrations"
