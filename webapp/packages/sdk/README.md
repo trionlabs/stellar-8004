@@ -73,6 +73,11 @@ read the return value from `.result`.
 - `reputation`: `give_feedback`, `revoke_feedback`, `append_response`, `read_feedback`, `get_summary`
 - `validation`: `validation_request`, `validation_response`, `get_validation_status`, `get_summary`
 
+Validation `get_summary` averages answered validations only: up to 32 recent answers
+from each of at most 5 listed validators, or the agent's 32 most recent answers when
+the list is empty. Answers given before the v2 upgrade count once their validator
+updates them. Validation and feedback tags are limited to 64 bytes (`validateTag`).
+
 ### `ExplorerClient`
 
 Read-only wrapper for the public explorer API:

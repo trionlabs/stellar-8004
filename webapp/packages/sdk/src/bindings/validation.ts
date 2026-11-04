@@ -71,8 +71,7 @@ export const ValidationError = {
   12: {message:"ValidatorNotIndependent"},
   13: {message:"RenounceDisabled"},
   14: {message:"TooManyValidators"},
-  15: {message:"RequestNotAnswered"},
-  16: {message:"BatchTooLarge"}
+  15: {message:"TagTooLong"}
 }
 
 
@@ -127,13 +126,15 @@ export interface Client {
    * Construct and simulate a get_summary transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Averages answered validations of `agent_id`. With `validator_addresses`
    * (at most 5, duplicates ignored) it reads each validator's 32 most recent
-   * answers for the agent, so only that validator's own answers can push one
-   * out. With an empty list it reads the agent's 32 most recent answers from
-   * any validator: the owner picks validators, so an owner with 32
-   * cooperating answers can still push an answer out of this view; filter
-   * by validator for a result the owner cannot steer. Answers count in the
-   * order of their first response; validations answered under v1 count once
-   * indexed (`index_answered`). Summarize larger histories off-chain.
+   * answers for the agent; with an empty list, the agent's 32 most recent
+   * answers from any validator. The tag filter applies inside that window.
+   * Requests nobody answers never enter it, but the owner chooses which
+   * validators to ask: by filing many requests to one validator (routine
+   * checks under another tag, say) the owner can push that validator's
+   * older answer out of a tag-filtered view, and validators the owner picks
+   * can fill the unfiltered view. Answers count in the order of their first
+   * v2 response. Answers given under v1 count only once their validator
+   * updates them under v2. Summarize larger histories off-chain.
    */
   get_summary: ({agent_id, validator_addresses, tag}: {agent_id: u32, validator_addresses: Array<string>, tag: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<ValidationSummary>>>
 
@@ -141,16 +142,6 @@ export interface Client {
    * Construct and simulate a cancel_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   cancel_upgrade: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
-
-  /**
-   * Construct and simulate a index_answered transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Indexes validations answered before the upgrade to v2, which v1 did
-   * not index, so get_summary counts them. Anyone may call it: it only
-   * records answers already stored. Takes at most 20 hashes; hashes already
-   * indexed are skipped; unknown or unanswered hashes fail the call.
-   * Returns how many were added.
-   */
-  index_answered: ({request_hashes}: {request_hashes: Array<Uint8Array>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<u32>>>
 
   /**
    * Construct and simulate a request_exists transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -283,7 +274,7 @@ export class Client extends ContractClient {
     super(
       new ContractSpec([ "AAAAAQAAAAAAAAAAAAAAEFZhbGlkYXRpb25TdGF0dXMAAAAHAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAAAAAAADGhhc19yZXNwb25zZQAAAAEAAAAAAAAAC2xhc3RfdXBkYXRlAAAAAAYAAAAAAAAACHJlc3BvbnNlAAAABAAAAAAAAAANcmVzcG9uc2VfaGFzaAAAAAAAA+4AAAAgAAAAAAAAAAN0YWcAAAAAEAAAAAAAAAARdmFsaWRhdG9yX2FkZHJlc3MAAAAAAAAT",
         "AAAAAQAAAAAAAAAAAAAAEVZhbGlkYXRpb25TdW1tYXJ5AAAAAAAAAgAAAAAAAAAQYXZlcmFnZV9yZXNwb25zZQAAAAQAAAAAAAAABWNvdW50AAAAAAAABg==",
-        "AAAABAAAAAAAAAAAAAAAD1ZhbGlkYXRpb25FcnJvcgAAAAAQAAAAAAAAABJOb3RPd25lck9yQXBwcm92ZWQAAAAAAAEAAAAAAAAAD1JlcXVlc3ROb3RGb3VuZAAAAAACAAAAAAAAAA9JbnZhbGlkUmVzcG9uc2UAAAAAAwAAAAAAAAAUUmVxdWVzdEFscmVhZHlFeGlzdHMAAAAEAAAAAAAAABZOb3REZXNpZ25hdGVkVmFsaWRhdG9yAAAAAAAFAAAAKFJldGFpbmVkIGZvciBBQkkgc3RhYmlsaXR5IChub3cgdW51c2VkKS4AAAAQQWxyZWFkeVJlc3BvbmRlZAAAAAYAAAAAAAAADUFnZW50Tm90Rm91bmQAAAAAAAAHAAAAAAAAAA9Db3VudGVyT3ZlcmZsb3cAAAAACAAAAAAAAAARTm9VcGdyYWRlUHJvcG9zZWQAAAAAAAAJAAAAAAAAABJUaW1lbG9ja05vdEV4cGlyZWQAAAAAAAoAAAAAAAAAFlVwZ3JhZGVBbHJlYWR5UHJvcG9zZWQAAAAAAAsAAAAAAAAAF1ZhbGlkYXRvck5vdEluZGVwZW5kZW50AAAAAAwAAAAAAAAAEFJlbm91bmNlRGlzYWJsZWQAAAANAAAAAAAAABFUb29NYW55VmFsaWRhdG9ycwAAAAAAAA4AAAAAAAAAElJlcXVlc3ROb3RBbnN3ZXJlZAAAAAAADwAAAAAAAAANQmF0Y2hUb29MYXJnZQAAAAAAABA=",
+        "AAAABAAAAAAAAAAAAAAAD1ZhbGlkYXRpb25FcnJvcgAAAAAPAAAAAAAAABJOb3RPd25lck9yQXBwcm92ZWQAAAAAAAEAAAAAAAAAD1JlcXVlc3ROb3RGb3VuZAAAAAACAAAAAAAAAA9JbnZhbGlkUmVzcG9uc2UAAAAAAwAAAAAAAAAUUmVxdWVzdEFscmVhZHlFeGlzdHMAAAAEAAAAAAAAABZOb3REZXNpZ25hdGVkVmFsaWRhdG9yAAAAAAAFAAAAKFJldGFpbmVkIGZvciBBQkkgc3RhYmlsaXR5IChub3cgdW51c2VkKS4AAAAQQWxyZWFkeVJlc3BvbmRlZAAAAAYAAAAAAAAADUFnZW50Tm90Rm91bmQAAAAAAAAHAAAAAAAAAA9Db3VudGVyT3ZlcmZsb3cAAAAACAAAAAAAAAARTm9VcGdyYWRlUHJvcG9zZWQAAAAAAAAJAAAAAAAAABJUaW1lbG9ja05vdEV4cGlyZWQAAAAAAAoAAAAAAAAAFlVwZ3JhZGVBbHJlYWR5UHJvcG9zZWQAAAAAAAsAAAAAAAAAF1ZhbGlkYXRvck5vdEluZGVwZW5kZW50AAAAAAwAAAAAAAAAEFJlbm91bmNlRGlzYWJsZWQAAAANAAAAAAAAABFUb29NYW55VmFsaWRhdG9ycwAAAAAAAA4AAAAAAAAAClRhZ1Rvb0xvbmcAAAAAAA8=",
         "AAAABQAAAAAAAAAAAAAAD1VwZ3JhZGVFeGVjdXRlZAAAAAABAAAAEHVwZ3JhZGVfZXhlY3V0ZWQAAAABAAAAAAAAAAl3YXNtX2hhc2gAAAAAAAPuAAAAIAAAAAAAAAAC",
         "AAAABQAAAF1FbWl0dGVkIGJ5IGBwcm9wb3NlX3VwZ3JhZGVgLiBgZXhlY3V0ZV91cGdyYWRlYCBzdWNjZWVkcyBmcm9tIGxlZGdlcgpgZXhlY3V0YWJsZV9hdGAgb253YXJkcy4AAAAAAAAAAAAAD1VwZ3JhZGVQcm9wb3NlZAAAAAABAAAAEHVwZ3JhZGVfcHJvcG9zZWQAAAACAAAAAAAAAAl3YXNtX2hhc2gAAAAAAAPuAAAAIAAAAAAAAAAAAAAADWV4ZWN1dGFibGVfYXQAAAAAAAAEAAAAAAAAAAI=",
         "AAAABQAAAAAAAAAAAAAAEFVwZ3JhZGVDYW5jZWxsZWQAAAABAAAAEXVwZ3JhZGVfY2FuY2VsbGVkAAAAAAAAAQAAAAAAAAAJd2FzbV9oYXNoAAAAAAAD7gAAACAAAAAAAAAAAg==",
@@ -293,10 +284,9 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAAHdmVyc2lvbgAAAAAAAAAAAQAAABA=",
         "AAAAAAAAAJBSZXR1cm5zIGBTb21lKEFkZHJlc3MpYCBpZiBvd25lcnNoaXAgaXMgc2V0LCBvciBgTm9uZWAgaWYgb3duZXJzaGlwIGhhcwpiZWVuIHJlbm91bmNlZC4KCiMgQXJndW1lbnRzCgoqIGBlYCAtIEFjY2VzcyB0byB0aGUgU29yb2JhbiBlbnZpcm9ubWVudC4AAAAJZ2V0X293bmVyAAAAAAAAAAAAAAEAAAPoAAAAEw==",
         "AAAAAAAAAAAAAAAKZXh0ZW5kX3R0bAAAAAAAAAAAAAA=",
-        "AAAAAAAAAnhBdmVyYWdlcyBhbnN3ZXJlZCB2YWxpZGF0aW9ucyBvZiBgYWdlbnRfaWRgLiBXaXRoIGB2YWxpZGF0b3JfYWRkcmVzc2VzYAooYXQgbW9zdCA1LCBkdXBsaWNhdGVzIGlnbm9yZWQpIGl0IHJlYWRzIGVhY2ggdmFsaWRhdG9yJ3MgMzIgbW9zdCByZWNlbnQKYW5zd2VycyBmb3IgdGhlIGFnZW50LCBzbyBvbmx5IHRoYXQgdmFsaWRhdG9yJ3Mgb3duIGFuc3dlcnMgY2FuIHB1c2ggb25lCm91dC4gV2l0aCBhbiBlbXB0eSBsaXN0IGl0IHJlYWRzIHRoZSBhZ2VudCdzIDMyIG1vc3QgcmVjZW50IGFuc3dlcnMgZnJvbQphbnkgdmFsaWRhdG9yOiB0aGUgb3duZXIgcGlja3MgdmFsaWRhdG9ycywgc28gYW4gb3duZXIgd2l0aCAzMgpjb29wZXJhdGluZyBhbnN3ZXJzIGNhbiBzdGlsbCBwdXNoIGFuIGFuc3dlciBvdXQgb2YgdGhpcyB2aWV3OyBmaWx0ZXIKYnkgdmFsaWRhdG9yIGZvciBhIHJlc3VsdCB0aGUgb3duZXIgY2Fubm90IHN0ZWVyLiBBbnN3ZXJzIGNvdW50IGluIHRoZQpvcmRlciBvZiB0aGVpciBmaXJzdCByZXNwb25zZTsgdmFsaWRhdGlvbnMgYW5zd2VyZWQgdW5kZXIgdjEgY291bnQgb25jZQppbmRleGVkIChgaW5kZXhfYW5zd2VyZWRgKS4gU3VtbWFyaXplIGxhcmdlciBoaXN0b3JpZXMgb2ZmLWNoYWluLgAAAAtnZXRfc3VtbWFyeQAAAAADAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAAAAAAAE3ZhbGlkYXRvcl9hZGRyZXNzZXMAAAAD6gAAABMAAAAAAAAAA3RhZwAAAAAQAAAAAQAAA+kAAAfQAAAAEVZhbGlkYXRpb25TdW1tYXJ5AAAAAAAH0AAAAA9WYWxpZGF0aW9uRXJyb3IA",
+        "AAAAAAAAAvpBdmVyYWdlcyBhbnN3ZXJlZCB2YWxpZGF0aW9ucyBvZiBgYWdlbnRfaWRgLiBXaXRoIGB2YWxpZGF0b3JfYWRkcmVzc2VzYAooYXQgbW9zdCA1LCBkdXBsaWNhdGVzIGlnbm9yZWQpIGl0IHJlYWRzIGVhY2ggdmFsaWRhdG9yJ3MgMzIgbW9zdCByZWNlbnQKYW5zd2VycyBmb3IgdGhlIGFnZW50OyB3aXRoIGFuIGVtcHR5IGxpc3QsIHRoZSBhZ2VudCdzIDMyIG1vc3QgcmVjZW50CmFuc3dlcnMgZnJvbSBhbnkgdmFsaWRhdG9yLiBUaGUgdGFnIGZpbHRlciBhcHBsaWVzIGluc2lkZSB0aGF0IHdpbmRvdy4KUmVxdWVzdHMgbm9ib2R5IGFuc3dlcnMgbmV2ZXIgZW50ZXIgaXQsIGJ1dCB0aGUgb3duZXIgY2hvb3NlcyB3aGljaAp2YWxpZGF0b3JzIHRvIGFzazogYnkgZmlsaW5nIG1hbnkgcmVxdWVzdHMgdG8gb25lIHZhbGlkYXRvciAocm91dGluZQpjaGVja3MgdW5kZXIgYW5vdGhlciB0YWcsIHNheSkgdGhlIG93bmVyIGNhbiBwdXNoIHRoYXQgdmFsaWRhdG9yJ3MKb2xkZXIgYW5zd2VyIG91dCBvZiBhIHRhZy1maWx0ZXJlZCB2aWV3LCBhbmQgdmFsaWRhdG9ycyB0aGUgb3duZXIgcGlja3MKY2FuIGZpbGwgdGhlIHVuZmlsdGVyZWQgdmlldy4gQW5zd2VycyBjb3VudCBpbiB0aGUgb3JkZXIgb2YgdGhlaXIgZmlyc3QKdjIgcmVzcG9uc2UuIEFuc3dlcnMgZ2l2ZW4gdW5kZXIgdjEgY291bnQgb25seSBvbmNlIHRoZWlyIHZhbGlkYXRvcgp1cGRhdGVzIHRoZW0gdW5kZXIgdjIuIFN1bW1hcml6ZSBsYXJnZXIgaGlzdG9yaWVzIG9mZi1jaGFpbi4AAAAAAAtnZXRfc3VtbWFyeQAAAAADAAAAAAAAAAhhZ2VudF9pZAAAAAQAAAAAAAAAE3ZhbGlkYXRvcl9hZGRyZXNzZXMAAAAD6gAAABMAAAAAAAAAA3RhZwAAAAAQAAAAAQAAA+kAAAfQAAAAEVZhbGlkYXRpb25TdW1tYXJ5AAAAAAAH0AAAAA9WYWxpZGF0aW9uRXJyb3IA",
         "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAIAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAARaWRlbnRpdHlfcmVnaXN0cnkAAAAAAAATAAAAAA==",
         "AAAAAAAAAAAAAAAOY2FuY2VsX3VwZ3JhZGUAAAAAAAAAAAABAAAD6QAAAAIAAAfQAAAAD1ZhbGlkYXRpb25FcnJvcgA=",
-        "AAAAAAAAASxJbmRleGVzIHZhbGlkYXRpb25zIGFuc3dlcmVkIGJlZm9yZSB0aGUgdXBncmFkZSB0byB2Miwgd2hpY2ggdjEgZGlkCm5vdCBpbmRleCwgc28gZ2V0X3N1bW1hcnkgY291bnRzIHRoZW0uIEFueW9uZSBtYXkgY2FsbCBpdDogaXQgb25seQpyZWNvcmRzIGFuc3dlcnMgYWxyZWFkeSBzdG9yZWQuIFRha2VzIGF0IG1vc3QgMjAgaGFzaGVzOyBoYXNoZXMgYWxyZWFkeQppbmRleGVkIGFyZSBza2lwcGVkOyB1bmtub3duIG9yIHVuYW5zd2VyZWQgaGFzaGVzIGZhaWwgdGhlIGNhbGwuClJldHVybnMgaG93IG1hbnkgd2VyZSBhZGRlZC4AAAAOaW5kZXhfYW5zd2VyZWQAAAAAAAEAAAAAAAAADnJlcXVlc3RfaGFzaGVzAAAAAAPqAAAD7gAAACAAAAABAAAD6QAAAAQAAAfQAAAAD1ZhbGlkYXRpb25FcnJvcgA=",
         "AAAAAAAAAAAAAAAOcmVxdWVzdF9leGlzdHMAAAAAAAEAAAAAAAAADHJlcXVlc3RfaGFzaAAAA+4AAAAgAAAAAQAAAAE=",
         "AAAAAAAAAAAAAAAPZXhlY3V0ZV91cGdyYWRlAAAAAAAAAAABAAAD6QAAAAIAAAfQAAAAD1ZhbGlkYXRpb25FcnJvcgA=",
         "AAAAAAAAAAAAAAAPcGVuZGluZ191cGdyYWRlAAAAAAAAAAABAAAD6AAAB9AAAAAPVXBncmFkZVByb3Bvc2FsAA==",
@@ -323,7 +313,6 @@ export class Client extends ContractClient {
         extend_ttl: this.txFromJSON<null>,
         get_summary: this.txFromJSON<Result<ValidationSummary>>,
         cancel_upgrade: this.txFromJSON<Result<void>>,
-        index_answered: this.txFromJSON<Result<u32>>,
         request_exists: this.txFromJSON<boolean>,
         execute_upgrade: this.txFromJSON<Result<void>>,
         pending_upgrade: this.txFromJSON<Option<UpgradeProposal>>,

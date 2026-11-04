@@ -180,10 +180,7 @@ describe('formatSorobanError', () => {
 			'Too many validators for a summary (max 5).',
 		);
 		expect(formatSorobanError(new Error('Error(Contract, #15)'), 'validation')).toBe(
-			'This validation has not been answered yet.',
-		);
-		expect(formatSorobanError(new Error('Error(Contract, #16)'), 'validation')).toBe(
-			'Too many request hashes in one call (max 20).',
+			'A tag is too long (max 64 bytes).',
 		);
 	});
 
