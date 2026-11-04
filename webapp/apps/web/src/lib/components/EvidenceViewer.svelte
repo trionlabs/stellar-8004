@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import { dataUriBytes } from '$lib/data-uri.js';
 
 	const IPFS_GATEWAYS = ['https://gateway.pinata.cloud/ipfs/', 'https://ipfs.io/ipfs/'];
 
@@ -54,6 +55,19 @@
 		return null;
 	}
 
+	/** Evidence bytes from an inline data: URI, or from IPFS gateways for an ipfs:// URI. */
+	async function fetchEvidence(uri: string): Promise<{ raw: ArrayBuffer; text: string } | string> {
+		if (uri.startsWith('data:')) {
+			const bytes = dataUriBytes(uri);
+			if (!bytes) return 'Invalid data: URI';
+			const raw = bytes.slice().buffer;
+			return { raw, text: new TextDecoder().decode(bytes) };
+		}
+		const cid = extractCid(uri);
+		if (!cid) return 'Unsupported evidence URI (expected ipfs:// or data:)';
+		return (await fetchFromGateways(cid)) ?? 'Evidence unavailable - all IPFS gateways failed';
+	}
+
 	async function verifyHash(raw: ArrayBuffer, expectedHash: string): Promise<boolean> {
 		const hashBuffer = await crypto.subtle.digest('SHA-256', raw);
 		const hashHex = Array.from(new Uint8Array(hashBuffer))
@@ -65,21 +79,15 @@
 	async function loadEvidence() {
 		if (!feedbackUri || loading) return;
 
-		const cid = extractCid(feedbackUri);
-		if (!cid) {
-			errorMsg = 'Invalid IPFS URI';
-			return;
-		}
-
 		loading = true;
 		errorMsg = '';
 		evidenceJson = null;
 		hashStatus = null;
 
 		try {
-			const result = await fetchFromGateways(cid);
-			if (!result) {
-				errorMsg = 'Evidence unavailable - all IPFS gateways failed';
+			const result = await fetchEvidence(feedbackUri);
+			if (typeof result === 'string') {
+				errorMsg = result;
 				return;
 			}
 
