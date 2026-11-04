@@ -167,6 +167,9 @@ describe('formatSorobanError', () => {
 		expect(formatSorobanError(err, 'reputation')).toBe('Feedback value is out of the allowed range.');
 		// Without the registry the code is ambiguous, so no registry's message is guessed.
 		expect(formatSorobanError(err)).toBe('Contract error #8.');
+		expect(formatSorobanError(new Error('Error(Contract, #12)'), 'validation')).toBe(
+			'The validator cannot be the agent owner or the requester.',
+		);
 	});
 
 	it('returns friendly message for timeout', () => {

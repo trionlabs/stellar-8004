@@ -109,6 +109,7 @@ const CONTRACT_ERRORS: Record<string, Record<number, string>> = {
 		1: 'Not authorized (must be agent owner or approved operator).',
 		4: 'A validation request with this hash already exists.',
 		5: 'Only the designated validator can respond.',
+		12: 'The validator cannot be the agent owner or the requester.',
 	},
 };
 
