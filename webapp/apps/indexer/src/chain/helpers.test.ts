@@ -82,7 +82,7 @@ describe('isValidStellarAddress', () => {
   it('rejects an address with the wrong first character', () => {
     expect(
       isValidStellarAddress(
-        'SAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7',
+        'S' + 'A'.repeat(55),
       ),
     ).toBe(false);
   });

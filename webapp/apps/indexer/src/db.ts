@@ -1,6 +1,6 @@
 import type { Db, DbStatement } from '@stellar8004/d1';
-import type { EventPacket } from '../../../packages/indexer/src/events.js';
-import { log } from '../../../packages/indexer/src/logger.js';
+import type { EventPacket } from './chain/events.js';
+import { log } from './chain/logger.js';
 
 /** A run that has held the lock this long is presumed dead and can be taken over. */
 export const LOCK_STALE_MS = 180_000;

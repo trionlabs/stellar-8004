@@ -5,8 +5,8 @@
  */
 import { Networks, rpc } from '@stellar/stellar-sdk';
 import type { Db } from '@stellar8004/d1';
-import { log } from '../../../packages/indexer/src/logger.js';
-import { MAINNET_CONFIG } from '../../../packages/indexer/src/sdk-config.js';
+import { log } from './chain/logger.js';
+import { MAINNET_CONFIG } from './chain/sdk-config.js';
 import { acquireLock, releaseLock } from './db.js';
 import { indexContracts, type IndexResult, type Rpc } from './indexer.js';
 import { resolvePending, type ResolveResult } from './resolve.js';

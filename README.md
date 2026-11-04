@@ -45,8 +45,8 @@ contracts/
 webapp/
   apps/web/             - SvelteKit frontend (stellar8004.com)
   packages/sdk/         - @trionlabs/stellar8004
-  packages/indexer/     - Soroban event indexer
-  supabase/             - Migrations, edge functions, schema
+  apps/indexer/         - Soroban event indexer (Cloudflare cron Worker)
+  packages/d1/          - Cloudflare D1 schema
 ```
 
 ## Build and Test
@@ -156,7 +156,7 @@ usage examples are in [the SDK guide](webapp/packages/sdk/README.md).
 
 ## Tech Stack
 
-Rust/Soroban contracts, TypeScript SDK, SvelteKit, Supabase (Postgres + Edge Functions), Stellar x402.
+Rust/Soroban contracts, TypeScript SDK, SvelteKit, Cloudflare Workers and D1, Stellar x402.
 
 ## Dependencies
 

@@ -1,7 +1,7 @@
 // `.ts` specifiers: scripts/wallets-to-sql.ts runs this file under plain node (type stripping).
 import { StrKey } from '@stellar/stellar-sdk';
 import { IdentityClient } from '@trionlabs/stellar8004/bindings';
-import { MAINNET_CONFIG } from '../../../packages/indexer/src/sdk-config.ts';
+import { MAINNET_CONFIG } from './chain/sdk-config.ts';
 
 /** The identity contract client for reads; simulation needs no account or signer. */
 export function identityClient(rpcUrl: string): IdentityClient {

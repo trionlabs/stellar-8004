@@ -62,25 +62,6 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-  indexer-db:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    env:
-      PG_BINDIR: /usr/lib/postgresql/17/bin
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      # Configure PGDG explicitly: the hosted image removes its apt source.
-      # The harness starts a private cluster as the unprivileged runner.
-      - name: Install PostgreSQL 17
-        run: |
-          sudo install -d /usr/share/postgresql-common/pgdg
-          sudo curl --fail --silent --show-error -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
-          printf '%s\n' 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-17
-      - name: Run indexer PostgreSQL integration tests
-        run: python3 webapp/packages/indexer/tests/postgres.py
-
   webapp:
     runs-on: ubuntu-latest
     defaults:
@@ -105,26 +86,10 @@ jobs:
       - run: pnpm --filter @trionlabs/stellar8004 build
       - run: pnpm --filter @trionlabs/stellar8004 test
       - run: pnpm --filter @trionlabs/stellar8004 check
-      - run: pnpm --filter @stellar8004/indexer test
-      - run: pnpm --filter @stellar8004/indexer check
       - run: pnpm --filter @stellar8004/d1 test
       - run: pnpm --filter @stellar8004/d1 check
       - run: pnpm --filter @stellar8004/indexer-d1 test
       - run: pnpm --filter @stellar8004/indexer-d1 check
-      # Fail if the committed Deno edge copy has drifted from the indexer
-      # source. The copy is the deployed artifact, so drift = shipping stale code.
-      - run: node scripts/sync-indexer-to-shared.js --check
-      # tsc uses Node module resolution and cannot see Deno-only failures (a
-      # relative specifier that resolves under Node but 404s under Deno, npm:
-      # specifiers, Deno.* APIs). Type-check the real edge entrypoint with Deno
-      # — the only faithful pre-deploy gate for the deployed artifact.
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
-        with:
-          deno-version: v2.x
-      - run: |
-          for function in indexer api resolve-uris main; do
-            deno check --frozen --config "supabase/functions/$function/deno.json" "supabase/functions/$function/index.ts"
-          done
       - run: pnpm --filter @stellar8004/web test
       - run: pnpm --filter @stellar8004/web lint
       - run: pnpm --filter @stellar8004/web check

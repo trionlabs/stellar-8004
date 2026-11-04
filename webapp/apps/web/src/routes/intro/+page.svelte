@@ -698,7 +698,7 @@
 			</div>
 			<div class="flex justify-center gap-3">
 				<div class="rounded-lg border border-border bg-surface-overlay px-6 py-2.5 text-center">
-					<p class="text-[13px] font-medium">Supabase</p>
+					<p class="text-[13px] font-medium">Cloudflare D1</p>
 				</div>
 				<span class="self-center text-text-dim">&rarr;</span>
 				<div class="rounded-lg border border-border bg-surface-overlay px-6 py-2.5 text-center">
@@ -720,7 +720,7 @@
 		<div
 			class="flex flex-wrap items-center justify-center gap-2.5 font-mono text-[10px] text-text-dim"
 		>
-			{#each ['Rust / Soroban', 'TypeScript', 'SvelteKit', 'Supabase', 'Stellar SDK', 'OpenZeppelin'] as t (t)}
+			{#each ['Rust / Soroban', 'TypeScript', 'SvelteKit', 'Cloudflare', 'Stellar SDK', 'OpenZeppelin'] as t (t)}
 				<span class="rounded-full border border-border px-3 py-1">{t}</span>
 			{/each}
 		</div>
@@ -1125,7 +1125,7 @@
 		<div
 			class="flex flex-wrap items-center justify-center gap-2.5 font-mono text-[10px] text-text-dim"
 		>
-			{#each ['Rust', 'Soroban', 'TypeScript', 'SvelteKit', 'Supabase', 'Stellar'] as t (t)}
+			{#each ['Rust', 'Soroban', 'TypeScript', 'SvelteKit', 'Cloudflare', 'Stellar'] as t (t)}
 				<span class="rounded-full border border-border px-3 py-1">{t}</span>
 			{/each}
 		</div>

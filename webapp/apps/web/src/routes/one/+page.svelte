@@ -151,7 +151,7 @@
 				'URI resolution & metadata extraction',
 				'REST API with 7 public endpoints'
 			],
-			footer: 'Supabase Edge Functions · PostgreSQL'
+			footer: 'Cloudflare Workers · D1'
 		},
 		{
 			num: '06',
@@ -750,8 +750,8 @@
 					class="rounded-lg px-4 py-2 text-center"
 					style={s({ background: c.overlay, border: `1px solid ${c.border}` })}
 				>
-					<p class="font-mono text-[9px] text-text-dim">PostgreSQL</p>
-					<p class="text-[13px] font-medium">Supabase</p>
+					<p class="font-mono text-[9px] text-text-dim">SQLite</p>
+					<p class="text-[13px] font-medium">Cloudflare D1</p>
 				</div>
 				<span class="text-text-dim">→</span>
 				<div
@@ -809,7 +809,7 @@
 		<div
 			class="flex flex-wrap items-center justify-center gap-2 font-mono text-[10px] text-text-dim"
 		>
-			{#each ['Rust / Soroban', 'TypeScript', 'SvelteKit', 'Supabase', 'Stellar SDK', 'OpenZeppelin'] as t (t)}
+			{#each ['Rust / Soroban', 'TypeScript', 'SvelteKit', 'Cloudflare', 'Stellar SDK', 'OpenZeppelin'] as t (t)}
 				<span class="rounded-full px-2.5 py-0.5" style={s({ border: `1px solid ${c.border}` })}
 					>{t}</span
 				>
@@ -1460,7 +1460,7 @@
 		<div
 			class="flex flex-wrap items-center justify-center gap-2 font-mono text-[10px] text-text-dim"
 		>
-			{#each ['Rust', 'Soroban', 'TypeScript', 'SvelteKit', 'Supabase', 'Stellar'] as t (t)}
+			{#each ['Rust', 'Soroban', 'TypeScript', 'SvelteKit', 'Cloudflare', 'Stellar'] as t (t)}
 				<span class="rounded-full px-3 py-1" style={s({ border: `1px solid ${c.border}` })}
 					>{t}</span
 				>

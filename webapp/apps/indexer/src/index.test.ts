@@ -1,7 +1,7 @@
 import { Networks } from '@stellar/stellar-sdk';
 import { createTestD1, type TestD1 } from '@stellar8004/d1/test-db';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MAINNET_CONFIG } from '../../../packages/indexer/src/sdk-config.js';
+import { MAINNET_CONFIG } from './chain/sdk-config.js';
 import { pickRpc, runOnce, type Env } from './index.js';
 import { account, ev, fakeRpc, rows, seedCheckpoints } from './test-helpers.js';
 

@@ -1,7 +1,7 @@
 // Test-only: event builders and a fake Stellar RPC. Not imported by the Worker.
 import { Address, Keypair, Networks, type rpc } from '@stellar/stellar-sdk';
 import type { TestD1 } from '@stellar8004/d1/test-db';
-import { mockEvent } from '../../../packages/indexer/src/parsers/__tests__/helpers.js';
+import { mockEvent } from './chain/parsers/__tests__/helpers.js';
 
 export const IDS = {
 	identity: 'CIDENTITY',
