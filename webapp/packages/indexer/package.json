@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^17.4.0",
-    "@supabase/supabase-js": "^2.117.3",
+    "@supabase/supabase-js": "^2.118.0",
     "@trionlabs/stellar8004": "workspace:*"
   },
   "devDependencies": {
