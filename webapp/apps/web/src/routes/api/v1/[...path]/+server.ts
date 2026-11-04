@@ -2,9 +2,9 @@
 // (supabase/functions/api) and the proxy that used to forward to it, and keeps both
 // behaviours: the proxy's path guard, then the edge function's router.
 import type { RequestHandler } from './$types';
-import { getDb, type Db } from '$lib/server/d1.js';
-import { withinRateLimit } from '$lib/server/rate-limit.js';
+import type { Db } from '$lib/server/d1.js';
 import { errorResponse } from '$lib/server/api/response.js';
+import { serveApi } from '$lib/server/api/serve.js';
 import {
 	handleAccounts,
 	handleAgentDetail,
@@ -16,13 +16,6 @@ import {
 } from '$lib/server/api/handlers.js';
 
 const ALLOWED_ENDPOINTS = new Set(['agents', 'accounts', 'search', 'stats', 'health']);
-
-const PREFLIGHT_HEADERS = {
-	'Access-Control-Allow-Origin': '*',
-	'Access-Control-Allow-Methods': 'GET, OPTIONS',
-	'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-	'Access-Control-Max-Age': '86400'
-};
 
 /**
  * The proxy's traversal guard: fully percent-decode (beats %252e and deeper encodings),
@@ -70,37 +63,8 @@ function route(db: Db, parts: string[], url: URL): Promise<Response> | Response 
 
 // Only a fallback export, so every method lands here (with a GET export SvelteKit would answer
 // HEAD itself): OPTIONS gets the preflight answer and everything but GET a 405, as before.
-export const fallback: RequestHandler = async ({
-	params,
-	url,
-	request,
-	platform,
-	getClientAddress
-}) => {
-	const parts = guard(params.path);
+export const fallback: RequestHandler = async (event) => {
+	const parts = guard(event.params.path);
 	if (!parts) return errorResponse('NOT_FOUND', 'Endpoint not found', 404);
-	if (request.method === 'OPTIONS') {
-		return new Response(null, { status: 204, headers: PREFLIGHT_HEADERS });
-	}
-	if (request.method !== 'GET') {
-		return errorResponse('METHOD_NOT_ALLOWED', 'Only GET requests are supported', 405);
-	}
-
-	let response: Response;
-	if (await withinRateLimit(platform, getClientAddress)) {
-		try {
-			response = await route(getDb(platform), parts, url);
-		} catch (err) {
-			console.error('API error:', err);
-			response = errorResponse('INTERNAL_ERROR', 'An unexpected error occurred', 500);
-		}
-	} else {
-		response = errorResponse('RATE_LIMITED', 'Too many requests. Try again later.', 429);
-		response.headers.set('X-RateLimit-Remaining', '0');
-	}
-	// No Retry-After, and a Reset that is not a number: the SDK sleeps on either before it
-	// retries, which would leave MCP tool calls hanging for minutes.
-	response.headers.set('X-RateLimit-Limit', '30');
-	response.headers.set('X-RateLimit-Reset', new Date(Date.now() + 60_000).toISOString());
-	return response;
+	return serveApi(event, (db) => route(db, parts, event.url));
 };

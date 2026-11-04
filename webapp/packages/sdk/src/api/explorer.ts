@@ -20,6 +20,37 @@ export interface ApiMeta {
 	[key: string]: unknown;
 }
 
+/** GET /api/v2/discovery query. `network` must name the network the explorer indexes. */
+export interface DiscoveryParams {
+	network: 'mainnet' | 'testnet';
+	text?: string;
+	x402?: boolean;
+	mpp?: boolean;
+	hasServices?: boolean;
+	/** Comma-separated trust models; matches agents that support any of them. */
+	trust?: string;
+	/** 0-100, compared with `score`. */
+	minScore?: number;
+	sort?: 'score' | 'newest' | 'id';
+	/** 1-100 (default 20). May change between pages of one walk. */
+	limit?: number;
+	/** `meta.pagination.nextCursor` of the previous page; only valid for the same query. */
+	cursor?: string;
+}
+
+export interface DiscoveryAgent extends AgentResponse {
+	/** The feedback average clamped to 0-100: the value `sort=score` and `minScore` use. */
+	score: number;
+}
+
+export interface DiscoveryMeta extends Omit<ApiMeta, 'pagination'> {
+	pagination: { limit: number; hasMore: boolean; nextCursor: string | null };
+	/** Lowest ledger all three registries are indexed to. */
+	asOfLedger: number;
+	indexedAt: string | null;
+	coverage: { scope: 'indexed_projection'; queryComplete: true; snapshot: false };
+}
+
 export interface ApiResponse<T> {
 	success: boolean;
 	data: T;
@@ -152,8 +183,10 @@ export interface ExplorerClientOptions {
 }
 
 interface RequestOptions {
-	params?: Record<string, string | number | boolean | undefined>;
+	params?: object;
 	resource?: string;
+	/** Keep meta.pagination as sent (cursor pages have no page or total). */
+	rawPagination?: boolean;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -397,6 +430,19 @@ export class ExplorerClient {
 		});
 	}
 
+	/**
+	 * One page of GET /api/v2/discovery. Walk the registry by passing each page's
+	 * `meta.pagination.nextCursor` back as `cursor` until it is null.
+	 */
+	async discover(params: DiscoveryParams) {
+		const response = await this.request<DiscoveryAgent[]>('/api/v2/discovery', {
+			params,
+			resource: 'Discovery',
+			rawPagination: true
+		});
+		return response as unknown as Omit<ApiResponse<DiscoveryAgent[]>, 'meta'> & { meta: DiscoveryMeta };
+	}
+
 	async getStats() {
 		return this.request<StatsResponse>('/api/v1/stats', {
 			resource: 'Stats'
@@ -416,7 +462,7 @@ export class ExplorerClient {
 		for (let attempt = 0; attempt <= this.retries; attempt += 1) {
 			try {
 				const url = new URL(path, this.baseUrl);
-				for (const [key, value] of Object.entries(options.params ?? {})) {
+				for (const [key, value] of Object.entries(options.params ?? {}) as [string, unknown][]) {
 					if (value !== undefined) {
 						url.searchParams.set(key, String(value));
 					}
@@ -442,9 +488,8 @@ export class ExplorerClient {
 						);
 					}
 
-					const normalizedMeta = normalizePagination(
-						normalizeRecord(body.meta) as ApiMeta
-					);
+					const meta = normalizeRecord(body.meta) as ApiMeta;
+					const normalizedMeta = options.rawPagination ? meta : normalizePagination(meta);
 
 					return {
 						...body,

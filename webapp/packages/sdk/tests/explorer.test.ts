@@ -299,4 +299,39 @@ describe('ExplorerClient', () => {
 		});
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
+
+	it('discover() sends the strict v2 query through the injected fetch and keeps the cursor', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			jsonResponse({
+				success: true,
+				data: [{ id: 3, owner: 'GOWNER', score: 87.5, total_score: 87.5 }],
+				meta: {
+					version: '2.0.0',
+					chain: 'stellar',
+					network: 'mainnet',
+					timestamp: '2026-11-04T00:00:00.000Z',
+					requestId: 'req-2',
+					pagination: { limit: 1, hasMore: true, nextCursor: 'abc' },
+					asOfLedger: 500,
+					indexedAt: '2026-11-04T00:00:00+00:00',
+					coverage: { scope: 'indexed_projection', queryComplete: true, snapshot: false }
+				}
+			})
+		);
+
+		const client = new ExplorerClient('https://stellar8004.com', { fetch: fetchMock });
+		const page = await client.discover({ network: 'mainnet', x402: true, limit: 1, cursor: 'prev' });
+
+		const url = new URL(fetchMock.mock.calls[0][0]);
+		expect(url.pathname).toBe('/api/v2/discovery');
+		expect(Object.fromEntries(url.searchParams)).toEqual({
+			network: 'mainnet',
+			x402: 'true',
+			limit: '1',
+			cursor: 'prev'
+		});
+		expect(page.data[0]).toMatchObject({ id: 3, score: 87.5, totalScore: 87.5 });
+		expect(page.meta.pagination).toEqual({ limit: 1, hasMore: true, nextCursor: 'abc' });
+		expect(page.meta.asOfLedger).toBe(500);
+	});
 });

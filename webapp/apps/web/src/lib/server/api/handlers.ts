@@ -16,17 +16,17 @@ import {
 type Row = Record<string, unknown>;
 
 // Agents with their scores; the view has a row for every agent.
-const AGENTS = `SELECT a.id, a.owner, a.wallet, a.agent_uri, a.agent_uri_data, a.supported_trust,
+export const AGENTS = `SELECT a.id, a.owner, a.wallet, a.agent_uri, a.agent_uri_data, a.supported_trust,
 	a.x402_enabled, a.mpp_enabled, a.services, a.created_at, a.created_ledger, a.tx_hash,
 	s.total_score, s.avg_score, s.feedback_count, s.unique_clients
 	FROM agents a LEFT JOIN leaderboard_scores s ON s.agent_id = a.id`;
-const FTS_MATCH = 'a.id IN (SELECT rowid FROM agents_fts WHERE agents_fts MATCH ?)';
+export const FTS_MATCH = 'a.id IN (SELECT rowid FROM agents_fts WHERE agents_fts MATCH ?)';
 // supported_trust shares a value with the bound JSON array (Postgres &&).
-const TRUST_OVERLAP =
+export const TRUST_OVERLAP =
 	'EXISTS (SELECT 1 FROM json_each(a.supported_trust) t WHERE t.value IN (SELECT value FROM json_each(?)))';
 
 // PostgREST sent /agents' trust list as an array literal, which trims each value.
-const trustValues = (trust: string) => JSON.stringify(trust.split(',').map((t) => t.trim()));
+export const trustValues = (trust: string) => JSON.stringify(trust.split(',').map((t) => t.trim()));
 const decoded = (rows: Row[]) => rows.map((row) => decodeRow<Row>(row));
 
 function pageParams(url: URL) {
@@ -252,23 +252,39 @@ export async function handleStats(db: Db): Promise<Response> {
 
 const STALE_AFTER_MS = 5 * 60_000;
 
-export async function handleHealth(db: Db): Promise<Response> {
+/** Per-contract checkpoints and whether each has stopped moving forward. */
+export async function indexerStatus(db: Db) {
 	const { results } = await db
 		.prepare('SELECT id, last_ledger, updated_at, last_advanced_at FROM indexer_state')
 		.all();
 	const now = Date.now();
 	const check = (id: string) => {
 		const row = results.find((r) => r.id === id);
-		if (!row) return { lastLedger: 0, stale: true };
+		if (!row) return { lastLedger: 0, updatedAt: null, stale: true };
 		// Staleness tracks forward progress (last_advanced_at), not mere run activity (updated_at).
 		const progressAt = new Date((row.last_advanced_at ?? row.updated_at) as string).getTime();
-		return { lastLedger: row.last_ledger ?? 0, stale: now - progressAt > STALE_AFTER_MS };
+		return {
+			lastLedger: Number(row.last_ledger ?? 0),
+			updatedAt: row.updated_at as string,
+			stale: now - progressAt > STALE_AFTER_MS
+		};
 	};
-	const indexer = {
+	return {
 		identity: check('identity'),
 		reputation: check('reputation'),
 		validation: check('validation')
 	};
-	const status = Object.values(indexer).some((contract) => contract.stale) ? 'degraded' : 'healthy';
-	return successWithCache({ status, indexer, network: env.PUBLIC_STELLAR_NETWORK }, 10, 30);
+}
+
+export async function handleHealth(db: Db): Promise<Response> {
+	const status = await indexerStatus(db);
+	const indexer = Object.fromEntries(
+		Object.entries(status).map(([name, c]) => [name, { lastLedger: c.lastLedger, stale: c.stale }])
+	);
+	const degraded = Object.values(status).some((contract) => contract.stale);
+	return successWithCache(
+		{ status: degraded ? 'degraded' : 'healthy', indexer, network: env.PUBLIC_STELLAR_NETWORK },
+		10,
+		30
+	);
 }
