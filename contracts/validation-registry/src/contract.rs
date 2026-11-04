@@ -1,4 +1,6 @@
-use soroban_sdk::{contract, contractclient, contractimpl, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{
+    contract, contractclient, contractimpl, panic_with_error, Address, BytesN, Env, String, Vec,
+};
 use stellar_access::ownable::{self as ownable, Ownable};
 use stellar_macros::only_owner;
 
@@ -6,6 +8,10 @@ use crate::errors::ValidationError;
 use crate::events;
 use crate::storage;
 use crate::types::{ValidationStatus, ValidationSummary};
+
+// get_summary reads at most this many of the agent's most recent validations,
+// two ledger entries each (index slot and status).
+pub(crate) const MAX_SUMMARY_VALIDATIONS: u32 = 45;
 
 // Cross-contract auth delegates to identity registry; share custody.
 #[contractclient(name = "IdentityRegistryClient")]
@@ -41,6 +47,11 @@ impl ValidationRegistryContract {
         let owner = identity
             .find_owner(&agent_id)
             .ok_or(ValidationError::AgentNotFound)?;
+        // The agent's owner, or whoever files the request, must not validate it.
+        // Independence beyond that cannot be checked on-chain.
+        if validator_address == owner || validator_address == caller {
+            return Err(ValidationError::ValidatorNotIndependent);
+        }
         if caller != owner {
             let mut authorized = false;
             if let Some(approved) = identity.get_approved(&agent_id) {
@@ -135,6 +146,8 @@ impl ValidationRegistryContract {
         storage::has_validation(e, &request_hash)
     }
 
+    /// Aggregates the `MAX_SUMMARY_VALIDATIONS` most recent validations.
+    /// Summarize larger histories off-chain from the paginated reads.
     pub fn get_summary(
         e: &Env,
         agent_id: u32,
@@ -145,7 +158,7 @@ impl ValidationRegistryContract {
         let mut total_response = 0u64;
         let mut match_count = 0u64;
 
-        for i in 0..count {
+        for i in count.saturating_sub(MAX_SUMMARY_VALIDATIONS)..count {
             if let Some(hash) = storage::get_agent_validation_at(e, agent_id, i) {
                 if let Some(status) = storage::get_validation(e, &hash) {
                     if !status.has_response {
@@ -214,22 +227,30 @@ impl ValidationRegistryContract {
         if storage::get_pending_upgrade(e).is_some() {
             return Err(ValidationError::UpgradeAlreadyProposed);
         }
+        let proposed_at = e.ledger().sequence();
         storage::set_pending_upgrade(
             e,
             &storage::UpgradeProposal {
-                wasm_hash: new_wasm_hash,
-                proposed_at: e.ledger().sequence(),
+                wasm_hash: new_wasm_hash.clone(),
+                proposed_at,
             },
         );
+        events::UpgradeProposed {
+            wasm_hash: new_wasm_hash,
+            executable_at: proposed_at.saturating_add(storage::TIMELOCK_LEDGERS),
+        }
+        .publish(e);
         Ok(())
     }
 
     #[only_owner]
     pub fn cancel_upgrade(e: &Env) -> Result<(), ValidationError> {
-        if storage::get_pending_upgrade(e).is_none() {
-            return Err(ValidationError::NoUpgradeProposed);
-        }
+        let proposal = storage::get_pending_upgrade(e).ok_or(ValidationError::NoUpgradeProposed)?;
         storage::remove_pending_upgrade(e);
+        events::UpgradeCancelled {
+            wasm_hash: proposal.wasm_hash,
+        }
+        .publish(e);
         Ok(())
     }
 
@@ -241,6 +262,10 @@ impl ValidationRegistryContract {
             return Err(ValidationError::TimelockNotExpired);
         }
         storage::remove_pending_upgrade(e);
+        events::UpgradeExecuted {
+            wasm_hash: proposal.wasm_hash.clone(),
+        }
+        .publish(e);
         e.deployer()
             .update_current_contract_wasm(proposal.wasm_hash);
         Ok(())
@@ -251,9 +276,15 @@ impl ValidationRegistryContract {
     }
 
     pub fn version(e: &Env) -> String {
-        String::from_str(e, "0.1.0")
+        String::from_str(e, "0.2.0")
     }
 }
 
 #[contractimpl(contracttrait)]
-impl Ownable for ValidationRegistryContract {}
+impl Ownable for ValidationRegistryContract {
+    /// Disabled: without an owner the contract could never be upgraded again.
+    /// Hand ownership over with `transfer_ownership` and `accept_ownership`.
+    fn renounce_ownership(e: &Env) {
+        panic_with_error!(e, ValidationError::RenounceDisabled);
+    }
+}

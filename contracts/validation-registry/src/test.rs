@@ -6,7 +6,10 @@ use soroban_sdk::{
     Address, BytesN, Env, String, Vec,
 };
 
-use crate::contract::{ValidationRegistryContract, ValidationRegistryContractClient};
+use crate::contract::{
+    ValidationRegistryContract, ValidationRegistryContractClient, MAX_SUMMARY_VALIDATIONS,
+};
+use crate::errors::ValidationError;
 use crate::storage::{DataKey, TTL_BUMP};
 
 mod mock_identity {
@@ -230,7 +233,7 @@ fn test_pagination() {
 fn test_version() {
     let env = Env::default();
     let (client, _, _, _) = setup(&env);
-    assert_eq!(client.version(), String::from_str(&env, "0.1.0"));
+    assert_eq!(client.version(), String::from_str(&env, "0.2.0"));
 }
 
 // --- Negative tests ---
@@ -440,4 +443,67 @@ fn test_validation_ttl_survives_long_idle_periods_via_reads() {
             "get_validation_status should re-extend the validation TTL to TTL_BUMP"
         );
     });
+}
+
+#[test]
+fn test_renounce_ownership_is_disabled() {
+    // #14: renouncing would leave no owner to run the timelocked upgrade.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, _) = setup(&env);
+    let owner = client.get_owner();
+    assert!(owner.is_some());
+
+    assert_eq!(
+        client.try_renounce_ownership(),
+        Err(Ok(soroban_sdk::Error::from_contract_error(
+            ValidationError::RenounceDisabled as u32
+        )))
+    );
+    assert_eq!(client.get_owner(), owner);
+}
+
+#[test]
+fn test_validator_cannot_be_agent_owner() {
+    // M3: an owner naming itself validator could answer its own request.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, agent_owner, _) = setup(&env);
+
+    assert_eq!(
+        client.try_validation_request(
+            &agent_owner,
+            &agent_owner,
+            &0,
+            &String::from_str(&env, ""),
+            &test_hash(&env, 1),
+        ),
+        Err(Ok(ValidationError::ValidatorNotIndependent))
+    );
+    assert!(!client.request_exists(&test_hash(&env, 1)));
+}
+
+#[test]
+fn test_get_summary_reads_only_recent_validations() {
+    // H2: get_summary reads at most MAX_SUMMARY_VALIDATIONS validations, the
+    // most recent ones, so a long history cannot exceed the read limits.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, agent_owner, validator) = setup(&env);
+    let empty = String::from_str(&env, "");
+
+    let older = 5;
+    for i in 0..MAX_SUMMARY_VALIDATIONS + older {
+        let hash = test_hash(&env, i as u8);
+        client.validation_request(&agent_owner, &validator, &0, &empty, &hash);
+        let response = if i < older { 0 } else { 100 };
+        client.validation_response(&validator, &hash, &response, &empty, &hash, &empty);
+    }
+
+    let summary = client.get_summary(&0, &Vec::new(&env), &empty);
+    assert_eq!(summary.count, MAX_SUMMARY_VALIDATIONS as u64);
+    assert_eq!(
+        summary.average_response, 100,
+        "older validations must not count"
+    );
 }

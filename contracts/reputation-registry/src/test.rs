@@ -6,8 +6,12 @@ use soroban_sdk::{
     Address, BytesN, Env, String, Vec,
 };
 
-use crate::contract::{ReputationRegistryContract, ReputationRegistryContractClient};
+use crate::contract::{
+    ReputationRegistryContract, ReputationRegistryContractClient, MAX_SUMMARY_FEEDBACK_PER_CLIENT,
+};
+use crate::errors::ReputationError;
 use crate::storage::{DataKey, TTL_BUMP};
+use crate::types::{FeedbackData, SummaryResult};
 
 // Mock identity registry for cross-contract calls. Tracks owners + an
 // optional "approved" address per agent so we can drive both the
@@ -19,6 +23,7 @@ mod mock_identity {
     pub enum DataKey {
         Owner(u32),
         Approved(u32),
+        Wallet(u32),
     }
 
     #[contract]
@@ -40,6 +45,16 @@ mod mock_identity {
             e.storage()
                 .persistent()
                 .set(&DataKey::Approved(token_id), &operator);
+        }
+
+        pub fn set_wallet(e: &Env, token_id: u32, wallet: Address) {
+            e.storage()
+                .persistent()
+                .set(&DataKey::Wallet(token_id), &wallet);
+        }
+
+        pub fn get_agent_wallet(e: &Env, agent_id: u32) -> Option<Address> {
+            e.storage().persistent().get(&DataKey::Wallet(agent_id))
         }
 
         pub fn find_owner(e: &Env, agent_id: u32) -> Option<Address> {
@@ -398,7 +413,7 @@ fn test_append_response() {
 fn test_version() {
     let env = Env::default();
     let (client, _, _, _) = setup(&env);
-    assert_eq!(client.version(), String::from_str(&env, "0.1.0"));
+    assert_eq!(client.version(), String::from_str(&env, "0.2.0"));
 }
 
 // --- Negative tests ---
@@ -534,59 +549,23 @@ fn test_timelocked_upgrade() {
 
 #[test]
 fn test_value_out_of_range_rejected() {
-    // Values outside [-1e38, 1e38] are rejected.
+    // Values outside [-1e38, 1e38] are rejected. At 18 decimals no
+    // normalization is needed, so only this flat bound applies.
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _, reviewer) = setup(&env);
 
-    // 1e38 + 1 must be rejected.
-    let too_big: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_001;
-    let result = client.try_give_feedback(
-        &reviewer,
-        &0,
-        &too_big,
-        &0,
-        &empty_str(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-        &zero_hash(&env),
-    );
-    assert!(
-        result.is_err(),
-        "values above MAX_ABS_VALUE must be rejected"
-    );
-
-    // Negative bound symmetric.
-    let result = client.try_give_feedback(
-        &reviewer,
-        &0,
-        &(-too_big),
-        &0,
-        &empty_str(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-        &zero_hash(&env),
-    );
-    assert!(
-        result.is_err(),
-        "values below -MAX_ABS_VALUE must be rejected"
-    );
-
-    // Exactly at the bound is accepted.
     let max_abs: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_000;
-    client.give_feedback(
-        &reviewer,
-        &0,
-        &max_abs,
-        &0,
-        &empty_str(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-        &empty_str(&env),
-        &zero_hash(&env),
+    assert_eq!(
+        give(&client, &reviewer, max_abs + 1, 18),
+        Err(Ok(ReputationError::ValueOutOfRange))
     );
+    assert_eq!(
+        give(&client, &reviewer, -max_abs - 1, 18),
+        Err(Ok(ReputationError::ValueOutOfRange))
+    );
+    assert_eq!(give(&client, &reviewer, max_abs, 18), Ok(Ok(())));
+    assert_eq!(give(&client, &reviewer, -max_abs, 18), Ok(Ok(())));
 }
 
 #[test]
@@ -721,4 +700,199 @@ fn test_feedback_ttl_survives_long_idle_periods_via_reads() {
             "read_feedback should re-extend the feedback TTL to TTL_BUMP"
         );
     });
+}
+
+type GiveResult = Result<
+    Result<(), soroban_sdk::ConversionError>,
+    Result<ReputationError, soroban_sdk::InvokeError>,
+>;
+
+/// give_feedback on agent 0 with empty tags, URIs and hash.
+fn give(
+    client: &ReputationRegistryContractClient,
+    reviewer: &Address,
+    value: i128,
+    decimals: u32,
+) -> GiveResult {
+    let e = &client.env;
+    client.try_give_feedback(
+        reviewer,
+        &0,
+        &value,
+        &decimals,
+        &empty_str(e),
+        &empty_str(e),
+        &empty_str(e),
+        &empty_str(e),
+        &zero_hash(e),
+    )
+}
+
+fn summary(client: &ReputationRegistryContractClient, reviewers: &[&Address]) -> SummaryResult {
+    let e = &client.env;
+    let mut clients = Vec::new(e);
+    for reviewer in reviewers {
+        clients.push_back((*reviewer).clone());
+    }
+    client.get_summary(&0, &clients, &empty_str(e), &empty_str(e))
+}
+
+// Largest value that still fits i128 once normalized to 18 decimals from 0.
+const MAX_AT_DECIMALS_0: i128 = i128::MAX / 1_000_000_000_000_000_000;
+
+#[test]
+fn test_renounce_ownership_is_disabled() {
+    // #14: renouncing would leave no owner to run the timelocked upgrade.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, _) = setup(&env);
+    let owner = client.get_owner();
+    assert!(owner.is_some());
+
+    assert_eq!(
+        client.try_renounce_ownership(),
+        Err(Ok(soroban_sdk::Error::from_contract_error(
+            ReputationError::RenounceDisabled as u32
+        )))
+    );
+    assert_eq!(client.get_owner(), owner);
+}
+
+#[test]
+fn test_bound_agent_wallet_rejected_from_self_feedback() {
+    // C1: the agent's bound wallet is neither its owner nor an approved
+    // operator, yet it must not rate its own agent.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, identity, _, reviewer) = setup(&env);
+    let wallet = Address::generate(&env);
+    identity.set_wallet(&0, &wallet);
+
+    assert_eq!(
+        give(&client, &wallet, 100, 0),
+        Err(Ok(ReputationError::SelfFeedback))
+    );
+    // A wallet bound to another agent is still an ordinary reviewer here.
+    identity.set_owner(&1, &Address::generate(&env));
+    identity.set_wallet(&1, &reviewer);
+    assert_eq!(give(&client, &reviewer, 80, 0), Ok(Ok(())));
+}
+
+#[test]
+fn test_give_feedback_rejects_unnormalizable_value() {
+    // H1/#14: inside the flat 1e38 bound, a value that overflows i128 once
+    // normalized to 18 decimals used to be stored and then broke get_summary.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+
+    assert_eq!(
+        give(&client, &reviewer, MAX_AT_DECIMALS_0 + 1, 0),
+        Err(Ok(ReputationError::ValueOutOfRange))
+    );
+    assert_eq!(
+        give(&client, &reviewer, -MAX_AT_DECIMALS_0 - 1, 0),
+        Err(Ok(ReputationError::ValueOutOfRange))
+    );
+    // The bound depends on the decimals: the same value fits at 18 decimals.
+    assert_eq!(
+        give(&client, &reviewer, MAX_AT_DECIMALS_0 + 1, 18),
+        Ok(Ok(()))
+    );
+    assert_eq!(give(&client, &reviewer, MAX_AT_DECIMALS_0, 0), Ok(Ok(())));
+    assert_eq!(client.get_last_index(&0, &reviewer), 2);
+}
+
+#[test]
+fn test_get_summary_skips_unnormalizable_legacy_entry() {
+    // H1, read side: an entry stored before the write check that cannot be
+    // normalized is skipped instead of failing the whole summary.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+
+    env.as_contract(&client.address, || {
+        for (index, value) in [(1u64, i128::MAX), (2, 50)] {
+            crate::storage::set_feedback(
+                &env,
+                0,
+                &reviewer,
+                index,
+                &FeedbackData {
+                    value,
+                    value_decimals: 0,
+                    is_revoked: false,
+                    tag1: empty_str(&env),
+                    tag2: empty_str(&env),
+                },
+            );
+        }
+        crate::storage::set_last_index(&env, 0, &reviewer, 2);
+    });
+
+    let result = summary(&client, &[&reviewer]);
+    assert_eq!(result.count, 1);
+    assert_eq!(result.summary_value, 50);
+}
+
+#[test]
+fn test_get_summary_sum_cannot_overflow() {
+    // Two values at the normalization limit sum past i128::MAX at 18
+    // decimals. The i128 sum returned AggregateOverflow; the 256-bit sum
+    // returns their mean.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, a) = setup(&env);
+    let [b, c, d] = [0; 3].map(|_| Address::generate(&env));
+    for (reviewer, value) in [
+        (&a, MAX_AT_DECIMALS_0),
+        (&b, MAX_AT_DECIMALS_0),
+        (&c, -MAX_AT_DECIMALS_0),
+        (&d, -MAX_AT_DECIMALS_0),
+    ] {
+        assert_eq!(give(&client, reviewer, value, 0), Ok(Ok(())));
+    }
+
+    let positive = summary(&client, &[&a, &b]);
+    assert_eq!(positive.count, 2);
+    assert_eq!(positive.summary_value, MAX_AT_DECIMALS_0);
+    let negative = summary(&client, &[&c, &d]);
+    assert_eq!(negative.count, 2);
+    assert_eq!(negative.summary_value, -MAX_AT_DECIMALS_0);
+}
+
+#[test]
+fn test_summary_rounds_to_nearest_non_divisible() {
+    // M4: one division rounded half away from zero. Two floor divisions
+    // turned the mean 1.5 into 1.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, a) = setup(&env);
+    let [b, c, d] = [0; 3].map(|_| Address::generate(&env));
+    for (reviewer, value) in [(&a, 1), (&b, 2), (&c, -1), (&d, -2)] {
+        assert_eq!(give(&client, reviewer, value, 0), Ok(Ok(())));
+    }
+
+    let positive = summary(&client, &[&a, &b]);
+    assert_eq!(positive.summary_value, 2);
+    assert_eq!(positive.summary_value_decimals, 0);
+    assert_eq!(summary(&client, &[&c, &d]).summary_value, -2);
+}
+
+#[test]
+fn test_get_summary_reads_only_recent_feedback_per_client() {
+    // #14: past MAX_SUMMARY_FEEDBACK_PER_CLIENT entries a client's oldest
+    // entries drop out, so the reads per client are bounded.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+
+    assert_eq!(give(&client, &reviewer, 100, 0), Ok(Ok(())));
+    for _ in 0..MAX_SUMMARY_FEEDBACK_PER_CLIENT {
+        assert_eq!(give(&client, &reviewer, 0, 0), Ok(Ok(())));
+    }
+
+    let result = summary(&client, &[&reviewer]);
+    assert_eq!(result.count, MAX_SUMMARY_FEEDBACK_PER_CLIENT);
+    assert_eq!(result.summary_value, 0, "the oldest entry must not count");
 }

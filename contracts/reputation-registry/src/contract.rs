@@ -1,4 +1,7 @@
-use soroban_sdk::{contract, contractclient, contractimpl, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{
+    contract, contractclient, contractimpl, panic_with_error, Address, BytesN, Env, String, Vec,
+    I256,
+};
 use stellar_access::ownable::{self as ownable, Ownable};
 use stellar_macros::only_owner;
 
@@ -8,6 +11,11 @@ use crate::storage;
 use crate::types::{FeedbackData, SummaryResult};
 
 const MAX_SUMMARY_CLIENTS: u32 = 5;
+// get_summary reads at most this many of each client's most recent entries.
+// 5 clients x 64 entries + 5 last-index entries + instance + code = 327
+// ledger entries, within mainnet's per-transaction footprint limit of 400
+// (tx_max_footprint_entries).
+pub(crate) const MAX_SUMMARY_FEEDBACK_PER_CLIENT: u64 = 64;
 const MAX_ABS_VALUE: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_000; // 1e38
 
 // Cross-contract auth delegates to identity registry; trust its admin.
@@ -16,6 +24,7 @@ pub trait IdentityRegistryInterface {
     fn find_owner(e: &Env, agent_id: u32) -> Option<Address>;
     fn agent_exists(e: &Env, agent_id: u32) -> bool;
     fn is_authorized_or_owner(e: &Env, spender: Address, agent_id: u32) -> bool;
+    fn get_agent_wallet(e: &Env, agent_id: u32) -> Option<Address>;
 }
 
 #[contract]
@@ -45,7 +54,11 @@ impl ReputationRegistryContract {
         if value_decimals > 18 {
             return Err(ReputationError::InvalidValueDecimals);
         }
-        if !(-MAX_ABS_VALUE..=MAX_ABS_VALUE).contains(&value) {
+        // The value must also survive get_summary's WAD normalization
+        // (value x 10^(18 - decimals) within i128), so it can always be summarized.
+        if !(-MAX_ABS_VALUE..=MAX_ABS_VALUE).contains(&value)
+            || value.checked_mul(pow10(18 - value_decimals)).is_none()
+        {
             return Err(ReputationError::ValueOutOfRange);
         }
 
@@ -55,6 +68,11 @@ impl ReputationRegistryContract {
             return Err(ReputationError::AgentNotFound);
         }
         if identity.is_authorized_or_owner(&caller, &agent_id) {
+            return Err(ReputationError::SelfFeedback);
+        }
+        // The bound agentWallet acts for the agent too, and it need not be the
+        // owner or an approved operator.
+        if identity.get_agent_wallet(&agent_id) == Some(caller.clone()) {
             return Err(ReputationError::SelfFeedback);
         }
 
@@ -161,7 +179,9 @@ impl ReputationRegistryContract {
     }
 
     /// WAD-normalized average for given clients. Rejects empty client list.
-    /// i128 WAD overflow at |value| > ~1.7e20 with decimals=0 returns AggregateOverflow.
+    /// Reads at most the `MAX_SUMMARY_FEEDBACK_PER_CLIENT` most recent entries
+    /// per client. Entries stored before give_feedback checked normalization
+    /// and that do not fit i128 once normalized are skipped.
     pub fn get_summary(
         e: &Env,
         agent_id: u32,
@@ -174,14 +194,15 @@ impl ReputationRegistryContract {
         }
 
         let limit = core::cmp::min(client_addresses.len(), MAX_SUMMARY_CLIENTS);
-        let mut sum_wad: i128 = 0;
+        let mut sum_wad = I256::from_i32(e, 0);
         let mut count: u64 = 0;
         let mut decimal_counts = [0u64; 19];
 
         for idx in 0..limit {
             let client = client_addresses.get(idx).unwrap();
             let last = storage::get_last_index(e, agent_id, &client);
-            for i in 1..=last {
+            let first = last.saturating_sub(MAX_SUMMARY_FEEDBACK_PER_CLIENT) + 1;
+            for i in first..=last {
                 if let Some(fb) = storage::get_feedback(e, agent_id, &client, i) {
                     if fb.is_revoked {
                         continue;
@@ -198,13 +219,11 @@ impl ReputationRegistryContract {
                         fb.value_decimals
                     };
                     let factor = pow10(18 - dec);
-                    let normalized = fb
-                        .value
-                        .checked_mul(factor)
-                        .ok_or(ReputationError::AggregateOverflow)?;
-                    sum_wad = sum_wad
-                        .checked_add(normalized)
-                        .ok_or(ReputationError::AggregateOverflow)?;
+                    let Some(normalized) = fb.value.checked_mul(factor) else {
+                        continue;
+                    };
+                    // 256-bit sum: up to 320 i128 values cannot overflow it.
+                    sum_wad = sum_wad.add(&I256::from_i128(e, normalized));
                     decimal_counts[dec as usize] += 1;
                     count = count
                         .checked_add(1)
@@ -232,8 +251,19 @@ impl ReputationRegistryContract {
             }
         }
 
-        let avg_wad = sum_wad / (count as i128);
-        let summary_value = avg_wad / pow10(18 - mode_dec);
+        // One division, rounded half away from zero; dividing twice compounded
+        // the truncation. Every summed value fits i128, so their mean does too.
+        let divisor = I256::from_i128(e, count as i128 * pow10(18 - mode_dec));
+        let half = divisor.div(&I256::from_i32(e, 2));
+        let rounded = if sum_wad >= I256::from_i32(e, 0) {
+            sum_wad.add(&half)
+        } else {
+            sum_wad.sub(&half)
+        };
+        let summary_value = rounded
+            .div(&divisor)
+            .to_i128()
+            .ok_or(ReputationError::AggregateOverflow)?;
 
         Ok(SummaryResult {
             count,
@@ -276,22 +306,30 @@ impl ReputationRegistryContract {
         if storage::get_pending_upgrade(e).is_some() {
             return Err(ReputationError::UpgradeAlreadyProposed);
         }
+        let proposed_at = e.ledger().sequence();
         storage::set_pending_upgrade(
             e,
             &storage::UpgradeProposal {
-                wasm_hash: new_wasm_hash,
-                proposed_at: e.ledger().sequence(),
+                wasm_hash: new_wasm_hash.clone(),
+                proposed_at,
             },
         );
+        events::UpgradeProposed {
+            wasm_hash: new_wasm_hash,
+            executable_at: proposed_at.saturating_add(storage::TIMELOCK_LEDGERS),
+        }
+        .publish(e);
         Ok(())
     }
 
     #[only_owner]
     pub fn cancel_upgrade(e: &Env) -> Result<(), ReputationError> {
-        if storage::get_pending_upgrade(e).is_none() {
-            return Err(ReputationError::NoUpgradeProposed);
-        }
+        let proposal = storage::get_pending_upgrade(e).ok_or(ReputationError::NoUpgradeProposed)?;
         storage::remove_pending_upgrade(e);
+        events::UpgradeCancelled {
+            wasm_hash: proposal.wasm_hash,
+        }
+        .publish(e);
         Ok(())
     }
 
@@ -303,6 +341,10 @@ impl ReputationRegistryContract {
             return Err(ReputationError::TimelockNotExpired);
         }
         storage::remove_pending_upgrade(e);
+        events::UpgradeExecuted {
+            wasm_hash: proposal.wasm_hash.clone(),
+        }
+        .publish(e);
         e.deployer()
             .update_current_contract_wasm(proposal.wasm_hash);
         Ok(())
@@ -313,12 +355,18 @@ impl ReputationRegistryContract {
     }
 
     pub fn version(e: &Env) -> String {
-        String::from_str(e, "0.1.0")
+        String::from_str(e, "0.2.0")
     }
 }
 
 #[contractimpl(contracttrait)]
-impl Ownable for ReputationRegistryContract {}
+impl Ownable for ReputationRegistryContract {
+    /// Disabled: without an owner the contract could never be upgraded again.
+    /// Hand ownership over with `transfer_ownership` and `accept_ownership`.
+    fn renounce_ownership(e: &Env) {
+        panic_with_error!(e, ReputationError::RenounceDisabled);
+    }
+}
 
 const POW10: [i128; 19] = [
     1,

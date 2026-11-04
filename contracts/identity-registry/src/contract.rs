@@ -1,4 +1,6 @@
-use soroban_sdk::{contract, contractimpl, Address, Bytes, BytesN, Env, String, Vec};
+use soroban_sdk::{
+    contract, contractimpl, panic_with_error, Address, Bytes, BytesN, Env, String, Vec,
+};
 use stellar_access::ownable::{self as ownable, Ownable};
 use stellar_macros::only_owner;
 use stellar_tokens::non_fungible::{Base, ContractOverrides, NonFungibleToken};
@@ -74,27 +76,22 @@ impl IdentityRegistryContract {
         caller: Address,
         agent_uri: String,
         metadata: Vec<MetadataEntry>,
-    ) -> u32 {
+    ) -> Result<u32, IdentityError> {
         caller.require_auth();
-        // Panics on invalid input (returns u32, not Result).
         let reserved_wallet_key = agent_wallet_key(e);
-        assert!(
-            metadata.len() <= MAX_METADATA_KEYS,
-            "too many metadata entries"
-        );
+        if metadata.len() > MAX_METADATA_KEYS {
+            return Err(IdentityError::TooManyMetadataKeys);
+        }
         for entry in metadata.iter() {
-            assert!(
-                entry.key.len() <= MAX_METADATA_KEY_LEN,
-                "metadata key too long"
-            );
-            assert!(
-                entry.value.len() <= MAX_METADATA_VALUE_LEN,
-                "metadata value too long"
-            );
-            assert!(
-                entry.key != reserved_wallet_key,
-                "agentWallet is a reserved metadata key - use set_agent_wallet"
-            );
+            if entry.key.len() > MAX_METADATA_KEY_LEN {
+                return Err(IdentityError::MetadataKeyTooLong);
+            }
+            if entry.value.len() > MAX_METADATA_VALUE_LEN {
+                return Err(IdentityError::MetadataValueTooLong);
+            }
+            if entry.key == reserved_wallet_key {
+                return Err(IdentityError::ReservedMetadataKey);
+            }
         }
         let agent_id = Base::sequential_mint(e, &caller);
         storage::set_agent_uri(e, agent_id, &agent_uri);
@@ -104,7 +101,7 @@ impl IdentityRegistryContract {
             events::metadata_set(e, agent_id, &entry.key, &entry.value);
         }
         events::registered(e, agent_id, &caller, &agent_uri);
-        agent_id
+        Ok(agent_id)
     }
 
     fn init_agent_wallet(e: &Env, agent_id: u32, owner: &Address) {
@@ -224,22 +221,30 @@ impl IdentityRegistryContract {
         if storage::get_pending_upgrade(e).is_some() {
             return Err(IdentityError::UpgradeAlreadyProposed);
         }
+        let proposed_at = e.ledger().sequence();
         storage::set_pending_upgrade(
             e,
             &storage::UpgradeProposal {
-                wasm_hash: new_wasm_hash,
-                proposed_at: e.ledger().sequence(),
+                wasm_hash: new_wasm_hash.clone(),
+                proposed_at,
             },
         );
+        events::UpgradeProposed {
+            wasm_hash: new_wasm_hash,
+            executable_at: proposed_at.saturating_add(storage::TIMELOCK_LEDGERS),
+        }
+        .publish(e);
         Ok(())
     }
 
     #[only_owner]
     pub fn cancel_upgrade(e: &Env) -> Result<(), IdentityError> {
-        if storage::get_pending_upgrade(e).is_none() {
-            return Err(IdentityError::NoUpgradeProposed);
-        }
+        let proposal = storage::get_pending_upgrade(e).ok_or(IdentityError::NoUpgradeProposed)?;
         storage::remove_pending_upgrade(e);
+        events::UpgradeCancelled {
+            wasm_hash: proposal.wasm_hash,
+        }
+        .publish(e);
         Ok(())
     }
 
@@ -251,6 +256,10 @@ impl IdentityRegistryContract {
             return Err(IdentityError::TimelockNotExpired);
         }
         storage::remove_pending_upgrade(e);
+        events::UpgradeExecuted {
+            wasm_hash: proposal.wasm_hash.clone(),
+        }
+        .publish(e);
         e.deployer()
             .update_current_contract_wasm(proposal.wasm_hash);
         Ok(())
@@ -261,7 +270,7 @@ impl IdentityRegistryContract {
     }
 
     pub fn version(e: &Env) -> String {
-        String::from_str(e, "0.1.0")
+        String::from_str(e, "0.2.0")
     }
 
     /// Non-panicking `owner_of` (safe for cross-contract calls).
@@ -323,4 +332,10 @@ impl NonFungibleToken for IdentityRegistryContract {
 }
 
 #[contractimpl(contracttrait)]
-impl Ownable for IdentityRegistryContract {}
+impl Ownable for IdentityRegistryContract {
+    /// Disabled: without an owner the contract could never be upgraded again.
+    /// Hand ownership over with `transfer_ownership` and `accept_ownership`.
+    fn renounce_ownership(e: &Env) {
+        panic_with_error!(e, IdentityError::RenounceDisabled);
+    }
+}

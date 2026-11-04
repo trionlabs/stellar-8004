@@ -15,4 +15,5 @@ pub enum IdentityError {
     NoUpgradeProposed = 9,
     TimelockNotExpired = 10,
     UpgradeAlreadyProposed = 11,
+    RenounceDisabled = 12,
 }
