@@ -5,6 +5,7 @@ import {
 	Keypair,
 	Networks,
 	SorobanDataBuilder,
+	StrKey,
 	TransactionBuilder,
 	scValToNative,
 	xdr,
@@ -76,6 +77,25 @@ describe('wallets-to-sql', () => {
 		expect(() => walletSql([{ id: 1, wallet: "x'; DROP TABLE agents; --" }])).toThrow(
 			/Unexpected wallet/
 		);
+	});
+
+	it('accepts only checksummed account, contract and muxed addresses', () => {
+		const account = Keypair.random().publicKey();
+		const contract = StrKey.encodeContract(Buffer.alloc(32, 7));
+		const muxed = StrKey.encodeMed25519PublicKey(Buffer.alloc(40, 7));
+		expect(
+			walletSql([
+				{ id: 1, wallet: account },
+				{ id: 2, wallet: contract },
+				{ id: 3, wallet: muxed }
+			])
+		).toBe(
+			`UPDATE agents SET wallet = '${account}' WHERE id = 1;\n` +
+				`UPDATE agents SET wallet = '${contract}' WHERE id = 2;\n` +
+				`UPDATE agents SET wallet = '${muxed}' WHERE id = 3;\n`
+		);
+		const corrupted = account.slice(0, -1) + (account.endsWith('A') ? 'B' : 'A'); // bad checksum
+		expect(() => walletSql([{ id: 4, wallet: corrupted }])).toThrow(/Unexpected wallet/);
 	});
 
 	it('takes a list and ranges of agent ids', () => {

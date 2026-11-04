@@ -77,6 +77,7 @@ export async function runOnce(
 			throw new Error(`Refusing to run: RPC network is "${passphrase}", expected mainnet`);
 		}
 		const indexed = await indexContracts(env.DB, server, MAINNET_CONFIG.contracts, deadlineMs, {
+			owner,
 			allowRetentionClamp: env.ALLOW_RETENTION_CLAMP === 'true'
 		});
 		const resolve = await resolvePending(env.DB, deadlineMs);

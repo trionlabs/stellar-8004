@@ -1,4 +1,5 @@
 // `.ts` specifiers: scripts/wallets-to-sql.ts runs this file under plain node (type stripping).
+import { StrKey } from '@stellar/stellar-sdk';
 import { IdentityClient } from '@trionlabs/stellar8004/bindings';
 import { MAINNET_CONFIG } from '../../../packages/indexer/src/sdk-config.ts';
 
@@ -34,9 +35,13 @@ export function walletSql(wallets: readonly AgentWallet[]): string {
 	return wallets
 		.map(({ id, wallet }) => {
 			if (!Number.isSafeInteger(id) || id < 0) throw new Error(`Invalid agent id: ${id}`);
-			if (wallet !== null && !/^[GC][A-Z2-7]{55}$/.test(wallet)) {
+			const address =
+				wallet !== null &&
+				(StrKey.isValidEd25519PublicKey(wallet) ||
+					StrKey.isValidContract(wallet) ||
+					StrKey.isValidMed25519PublicKey(wallet));
+			if (wallet !== null && !address)
 				throw new Error(`Unexpected wallet for agent ${id}: ${wallet}`);
-			}
 			return `UPDATE agents SET wallet = ${wallet === null ? 'NULL' : `'${wallet}'`} WHERE id = ${id};\n`;
 		})
 		.join('');

@@ -88,7 +88,10 @@ export async function resolvePending(
 	return result;
 }
 
-/** Stores a fetched document and clears the try count. False, leaving the try recorded, otherwise. */
+/**
+ * Stores a fetched document and clears the try count. False, leaving the try recorded, when
+ * nothing was stored, including when the agent's URI changed while the document was fetched.
+ */
 async function store(
 	db: Db,
 	agent: PendingAgent,
@@ -105,7 +108,7 @@ async function store(
 			log({ level: 'warn', msg: 'Resolved document too big to store', agentId: agent.id, bytes });
 			return false;
 		}
-		await db
+		const { meta } = await db
 			.prepare(
 				`UPDATE agents
 				 SET agent_uri_data = ?1, supported_trust = ?2, services = ?3, x402_enabled = ?4, mpp_enabled = ?5,
@@ -123,7 +126,7 @@ async function store(
 				agent.agent_uri
 			)
 			.run();
-		return true;
+		return (meta.changes ?? 0) > 0;
 	} catch (error) {
 		// Say, JSON nested deeper than SQLite accepts. The try is already recorded.
 		log({
