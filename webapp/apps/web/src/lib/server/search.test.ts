@@ -22,7 +22,10 @@ beforeAll(async () => {
 		{ name: 'İstanbul Guide', description: 'City tips' }
 	];
 	for (const [i, data] of agents.entries()) {
-		await db.prepare('INSERT INTO agents (id, owner, agent_uri_data) VALUES (?, ?, ?)').bind(i, 'G', JSON.stringify(data)).run();
+		await db
+			.prepare('INSERT INTO agents (id, owner, agent_uri_data) VALUES (?, ?, ?)')
+			.bind(i, 'G', JSON.stringify(data))
+			.run();
 	}
 });
 
@@ -41,7 +44,15 @@ describe('ftsMatch', () => {
 	});
 
 	it('never reads user input as FTS5 syntax', async () => {
-		for (const q of ['logo*', '"logo', 'logo OR price', 'NEAR(logo price)', 'name:logo', '-logo', '(((']) {
+		for (const q of [
+			'logo*',
+			'"logo',
+			'logo OR price',
+			'NEAR(logo price)',
+			'name:logo',
+			'-logo',
+			'((('
+		]) {
 			await expect(search(q)).resolves.toBeDefined();
 		}
 		expect(await search('logo OR price')).toEqual([]); // "or" is a stopword; logo AND price

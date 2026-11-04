@@ -6,10 +6,19 @@ describe('decodeRow', () => {
 	it('parses JSON columns and turns 0/1 flags into booleans, as PostgREST did', async () => {
 		const db = createTestD1();
 		await db
-			.prepare('INSERT INTO agents (id, owner, agent_uri_data, services, x402_enabled) VALUES (1, ?, ?, ?, ?)')
-			.bind('GOWNER', JSON.stringify({ name: 'Nova' }), JSON.stringify([{ name: 'mcp', endpoint: 'https://x' }]), true)
+			.prepare(
+				'INSERT INTO agents (id, owner, agent_uri_data, services, x402_enabled) VALUES (1, ?, ?, ?, ?)'
+			)
+			.bind(
+				'GOWNER',
+				JSON.stringify({ name: 'Nova' }),
+				JSON.stringify([{ name: 'mcp', endpoint: 'https://x' }]),
+				true
+			)
 			.run();
-		const row = await db.prepare('SELECT * FROM agents WHERE id = 1').first<Record<string, unknown>>();
+		const row = await db
+			.prepare('SELECT * FROM agents WHERE id = 1')
+			.first<Record<string, unknown>>();
 
 		expect(decodeRow(row!)).toMatchObject({
 			agent_uri_data: { name: 'Nova' },
@@ -22,7 +31,11 @@ describe('decodeRow', () => {
 	});
 
 	it('leaves other columns alone, including agent_metadata.value', () => {
-		expect(decodeRow({ key: 'k', value: '1', agent_uri_data: null })).toEqual({ key: 'k', value: '1', agent_uri_data: null });
+		expect(decodeRow({ key: 'k', value: '1', agent_uri_data: null })).toEqual({
+			key: 'k',
+			value: '1',
+			agent_uri_data: null
+		});
 	});
 });
 

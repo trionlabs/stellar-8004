@@ -126,5 +126,6 @@ jobs:
             deno check --frozen --config "supabase/functions/$function/deno.json" "supabase/functions/$function/index.ts"
           done
       - run: pnpm --filter @stellar8004/web test
+      - run: pnpm --filter @stellar8004/web lint
       - run: pnpm --filter @stellar8004/web check
       - run: pnpm --filter @stellar8004/web build
