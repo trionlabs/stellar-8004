@@ -10,10 +10,11 @@ compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 workers_dev = false
 preview_urls = false
 
-# Off until cutover. Runs also stay blocked until the cutover step deletes the copy-fence row
-# in indexer_locks. A deploy applies this list, so it is the switch.
+# On since 2026-11-04: D1 is filled from the Supabase snapshot and indexed in parallel (shadow)
+# until the web Worker switches to it. Runs stay blocked while the copy-fence row exists in
+# indexer_locks. A deploy applies this list, so it is the switch.
 [triggers]
-crons = []
+crons = ["* * * * *"]
 
 [vars]
 STELLAR_NETWORK = "mainnet"
