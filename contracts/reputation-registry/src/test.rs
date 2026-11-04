@@ -647,7 +647,7 @@ fn test_get_summary_caps_explicit_client_list() {
     let reviewers: std::vec::Vec<Address> = (0..7).map(|_| Address::generate(&env)).collect();
     for r in &reviewers {
         client.give_feedback(
-            &r,
+            r,
             &0,
             &10,
             &0,

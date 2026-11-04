@@ -54,7 +54,7 @@ webapp/
 ```bash
 cargo install --locked stellar-cli --version 25.2.0
 make build    # Build all contracts using the local host toolchain
-make test     # 74 tests
+make test
 make fmt
 ```
 
@@ -62,12 +62,15 @@ make fmt
 
 Run `make verify-wasm` with Docker running. Local verification and CI both use
 [`scripts/verify-wasm.sh`](scripts/verify-wasm.sh), which pins the official Stellar
-CLI 25.2.0 image by its Linux/amd64 digest and explicitly selects
-`nightly-2025-08-11` with the `wasm32v1-none` target. It builds with the tracked
+CLI 25.2.0 image by its Linux/amd64 digest and selects the stable Rust toolchain
+pinned in [`rust-toolchain.toml`](rust-toolchain.toml) with the `wasm32v1-none`
+target. It builds with the tracked
 `Cargo.lock` and release profile, checks all three digests in
 [`contracts/wasm.sha256`](contracts/wasm.sha256), and copies successful outputs to
 `target/reproducible/`. The source mount is read-only; native build outputs stay
-in `target/wasm32v1-none/release/`.
+in `target/wasm32v1-none/release/`. After a contract change, `make update-wasm-hashes`
+records the new digests and `make verify-wasm` then confirms that a second build
+reproduces them.
 
 The build host is part of this recipe. Native macOS/arm64 and Linux/x86_64 builds
 with the same Rust and CLI versions assign different internal function indices
@@ -160,10 +163,10 @@ Rust/Soroban contracts, TypeScript SDK, SvelteKit, Supabase (Postgres + Edge Fun
 
 ## Dependencies
 
-- `soroban-sdk` 25.3.0
-- OpenZeppelin Stellar Contracts (pinned to commit `9dd85c30`)
+- `soroban-sdk` 26.1.1
+- OpenZeppelin Stellar Contracts 0.7.3
 - `stellar-cli` 25.2.0
-- Rust nightly pinned in `rust-toolchain.toml`
+- Rust 1.99.1 (stable), pinned in `rust-toolchain.toml`
 
 ## Links
 

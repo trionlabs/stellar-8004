@@ -23,6 +23,11 @@ build-validation: build-identity
 verify-wasm:
 	sh scripts/verify-wasm.sh
 
+# After a contract change: record the new digests, then run verify-wasm again
+# to confirm a second build reproduces them.
+update-wasm-hashes:
+	sh scripts/verify-wasm.sh --update
+
 test:
 	cargo test --workspace --locked
 

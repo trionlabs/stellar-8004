@@ -175,11 +175,7 @@ impl ValidationRegistryContract {
         // Integer division (50 not 50.5); use raw responses for precision.
         ValidationSummary {
             count: match_count,
-            average_response: if match_count > 0 {
-                (total_response / match_count) as u32
-            } else {
-                0
-            },
+            average_response: total_response.checked_div(match_count).unwrap_or(0) as u32,
         }
     }
 
