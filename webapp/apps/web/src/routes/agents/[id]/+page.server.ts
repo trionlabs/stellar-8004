@@ -1,10 +1,55 @@
-import type { Database } from '@stellar8004/db';
 import { error } from '@sveltejs/kit';
-import { createServerSupabase } from '$lib/supabase-server.js';
-import { readUriField, assertSuccess, toDisplayScore } from '$lib/server/utils.js';
+import { decodeRow, getDb } from '$lib/server/d1.js';
+import { readUriField, toDisplayScore, type AgentRow } from '$lib/server/utils.js';
 import type { PageServerLoad } from './$types';
 
-type FeedbackResponseRow = Database['public']['Tables']['feedback_responses']['Row'];
+type MetadataRow = { agent_id: number; key: string; value: string | null };
+type FeedbackRow = {
+	id: number;
+	agent_id: number;
+	client_address: string;
+	feedback_index: number;
+	value: string;
+	value_decimals: number;
+	tag1: string | null;
+	tag2: string | null;
+	feedback_uri: string | null;
+	feedback_hash: string | null;
+	is_revoked: boolean;
+	created_at: string;
+	created_ledger: number | null;
+	tx_hash: string | null;
+};
+type ScoreWithRank = {
+	total_score: number;
+	avg_score: number;
+	feedback_count: number;
+	unique_clients: number;
+	rank: number;
+};
+type FeedbackResponseRow = {
+	id: number;
+	agent_id: number;
+	client_address: string;
+	feedback_index: number;
+	responder: string;
+	response_uri: string | null;
+	created_at: string;
+};
+type ValidationRow = {
+	request_hash: string;
+	validator_address: string;
+	response: number | null;
+	has_response: boolean;
+	request_uri: string | null;
+	response_uri: string | null;
+	response_hash: string | null;
+	request_tx_hash: string | null;
+	response_tx_hash: string | null;
+	tag: string | null;
+	created_at: string;
+	responded_at: string | null;
+};
 
 function feedbackKey(agentId: number, clientAddress: string, feedbackIndex: number): string {
 	return `${agentId}:${clientAddress}:${feedbackIndex}`;
@@ -32,8 +77,7 @@ function normalizeServices(raw: unknown): Array<{
 
 const VALID_TAGS = ['starred', 'uptime', 'reachable', 'successRate', 'responseTime'] as const;
 
-export const load: PageServerLoad = async ({ params, url }) => {
-	const db = createServerSupabase();
+export const load: PageServerLoad = async ({ params, url, platform }) => {
 	const agentId = Number(params.id);
 
 	if (!Number.isInteger(agentId) || agentId < 0 || agentId > 2_147_483_647) {
@@ -46,11 +90,45 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const rawTx = url.searchParams.get('tx') ?? null;
 	const txHash = rawTx && /^[a-f0-9]{64}$/i.test(rawTx) ? rawTx : null;
 
-	// Query agent first to allow early return for indexing state
-	const agentResult = await db.from('agents').select('*').eq('id', agentId).maybeSingle();
-	const agent = assertSuccess(agentResult, 'Agent');
+	const db = getDb(platform);
+	const [
+		agentResult,
+		metadataResult,
+		feedbackResult,
+		scoreResult,
+		responsesResult,
+		totalAgentsResult,
+		validationsResult
+	] = await db.batch([
+		db.prepare('SELECT * FROM agents WHERE id = ?').bind(agentId),
+		db.prepare('SELECT * FROM agent_metadata WHERE agent_id = ? ORDER BY key').bind(agentId),
+		db
+			.prepare(
+				`SELECT * FROM feedback WHERE agent_id = ?1 AND (?2 = '' OR tag1 = ?2)
+				 ORDER BY created_at DESC, id DESC LIMIT 50`
+			)
+			.bind(agentId, tag),
+		// Rank: count agents with higher total_score + 1
+		db
+			.prepare(
+				`SELECT total_score, avg_score, feedback_count, unique_clients,
+				        (SELECT COUNT(*) FROM leaderboard_scores WHERE total_score > ls.total_score) + 1 AS rank
+				 FROM leaderboard_scores ls WHERE agent_id = ?`
+			)
+			.bind(agentId),
+		db
+			.prepare(
+				'SELECT * FROM feedback_responses WHERE agent_id = ? ORDER BY created_at DESC, id DESC LIMIT 200'
+			)
+			.bind(agentId),
+		db.prepare('SELECT COUNT(*) AS n FROM agents'),
+		db
+			.prepare('SELECT * FROM validations WHERE agent_id = ? ORDER BY created_at DESC LIMIT 100')
+			.bind(agentId)
+	]);
+	const agentRow = agentResult.results[0];
 
-	if (!agent) {
+	if (!agentRow) {
 		if (justRegistered) {
 			return {
 				state: 'indexing' as const,
@@ -124,6 +202,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		throw error(404, 'Agent not found');
 	}
 
+	const agent = decodeRow<AgentRow>(agentRow);
+
 	// Compute state from DB columns
 	const state = (() => {
 		if (agent.agent_uri_data) return 'ready' as const;
@@ -132,66 +212,12 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		return 'failed' as const;
 	})();
 
-	let feedbackQuery = db
-		.from('feedback')
-		.select('*')
-		.eq('agent_id', agentId)
-		.order('created_at', { ascending: false })
-		.limit(50);
-
-	if (tag) {
-		feedbackQuery = feedbackQuery.eq('tag1', tag);
-	}
-
-	const [
-		metadataResult,
-		feedbackResult,
-		leaderboardResult,
-		responsesResult,
-		totalAgentsResult,
-		validationsResult
-	] = await Promise.all([
-		db.from('agent_metadata').select('*').eq('agent_id', agentId),
-		feedbackQuery,
-		db.from('leaderboard_scores').select('*').eq('agent_id', agentId).maybeSingle(),
-		db
-			.from('feedback_responses')
-			.select('*')
-			.eq('agent_id', agentId)
-			.order('created_at', { ascending: false })
-			.limit(200),
-		db.from('agents').select('id', { count: 'exact', head: true }),
-		db
-			.from('validations')
-			.select('*')
-			.eq('agent_id', agentId)
-			.order('created_at', { ascending: false })
-			.limit(100)
-	]);
-
-	const metadataRows = assertSuccess(metadataResult, 'Metadata') ?? [];
-	const feedbackRows = assertSuccess(feedbackResult, 'Feedback') ?? [];
-	const leaderboard = assertSuccess(leaderboardResult, 'Leaderboard');
-	const responseRows = assertSuccess(
-		responsesResult,
-		'Feedback responses'
-	) as FeedbackResponseRow[];
-	const validationRows = assertSuccess(validationsResult, 'Validations') ?? [];
-
-	assertSuccess(totalAgentsResult, 'Total agents');
-	const totalAgents = totalAgentsResult.count ?? 0;
-
-	// Rank: count agents with higher total_score + 1
-	let rank: number | null = null;
-	if (leaderboard?.total_score != null) {
-		const { count, error: rankError } = await db
-			.from('leaderboard_scores')
-			.select('agent_id', { count: 'exact', head: true })
-			.gt('total_score', leaderboard.total_score);
-		if (!rankError && count != null) {
-			rank = count + 1;
-		}
-	}
+	const metadataRows = metadataResult.results as MetadataRow[];
+	const feedbackRows = feedbackResult.results.map(decodeRow<FeedbackRow>);
+	const scoreRow = scoreResult.results[0] as ScoreWithRank | undefined;
+	const responseRows = responsesResult.results as FeedbackResponseRow[];
+	const totalAgents = totalAgentsResult.results[0].n as number;
+	const validationRows = validationsResult.results.map(decodeRow<ValidationRow>);
 
 	const responsesByFeedback = new Map<string, FeedbackResponseRow[]>();
 
@@ -319,13 +345,13 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			createdAt: validation.created_at,
 			respondedAt: validation.responded_at
 		})),
-		scores: leaderboard
+		scores: scoreRow
 			? {
-					totalScore: leaderboard.total_score,
-					avgScore: leaderboard.avg_score,
-					feedbackCount: leaderboard.feedback_count ?? 0,
-					uniqueClients: leaderboard.unique_clients ?? 0,
-					rank,
+					totalScore: scoreRow.total_score,
+					avgScore: scoreRow.avg_score,
+					feedbackCount: scoreRow.feedback_count,
+					uniqueClients: scoreRow.unique_clients,
+					rank: scoreRow.rank,
 					totalAgents
 				}
 			: null,

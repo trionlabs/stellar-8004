@@ -17,8 +17,6 @@
 	"dependencies": {
 		"@stellar/freighter-api": "^6.0.1",
 		"@stellar/stellar-sdk": "^17.4.0",
-		"@stellar8004/db": "workspace:*",
-		"@supabase/supabase-js": "^2.118.0",
 		"@trionlabs/stellar8004": "workspace:*",
 		"@x402/core": "~2.29.0",
 		"@x402/stellar": "~2.29.0",
@@ -28,6 +26,7 @@
 		"viem": "^2.57.13"
 	},
 	"devDependencies": {
+		"@stellar8004/d1": "workspace:*",
 		"@eslint/compat": "^2.1.1",
 		"@eslint/js": "^10.0.1",
 		"@sveltejs/adapter-cloudflare": "^7.2.9",

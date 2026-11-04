@@ -107,6 +107,10 @@ jobs:
       - run: pnpm --filter @trionlabs/stellar8004 check
       - run: pnpm --filter @stellar8004/indexer test
       - run: pnpm --filter @stellar8004/indexer check
+      - run: pnpm --filter @stellar8004/d1 test
+      - run: pnpm --filter @stellar8004/d1 check
+      - run: pnpm --filter @stellar8004/indexer-d1 test
+      - run: pnpm --filter @stellar8004/indexer-d1 check
       # Fail if the committed Deno edge copy has drifted from the indexer
       # source. The copy is the deployed artifact, so drift = shipping stale code.
       - run: node scripts/sync-indexer-to-shared.js --check
@@ -122,5 +126,6 @@ jobs:
             deno check --frozen --config "supabase/functions/$function/deno.json" "supabase/functions/$function/index.ts"
           done
       - run: pnpm --filter @stellar8004/web test
+      - run: pnpm --filter @stellar8004/web lint
       - run: pnpm --filter @stellar8004/web check
       - run: pnpm --filter @stellar8004/web build
