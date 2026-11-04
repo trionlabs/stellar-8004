@@ -11,6 +11,9 @@ export const SECURITY_HEADERS: Record<string, string> = {
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
+	// The deployed Worker version; uploads are tagged with their git commit (versions upload --tag).
+	const build = event.platform?.env.CF_VERSION_METADATA;
+	if (build) response.headers.set('X-Build', build.tag || build.id);
 	for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
 		if (!response.headers.has(name)) response.headers.set(name, value);
 	}

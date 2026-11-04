@@ -11,5 +11,18 @@ describe('handle', () => {
 			if (name !== 'Referrer-Policy') expect(response.headers.get(name)).toBe(value);
 		}
 		expect(response.headers.get('Referrer-Policy')).toBe('no-referrer');
+		expect(response.headers.has('X-Build')).toBe(false);
+	});
+
+	it('names the deployed build, preferring the git tag over the version id', async () => {
+		const run = (tag: string) =>
+			handle({
+				event: {
+					platform: { env: { CF_VERSION_METADATA: { id: 'v-1', tag, timestamp: '' } } }
+				} as never,
+				resolve: async () => new Response('ok')
+			});
+		expect((await run('abc1234')).headers.get('X-Build')).toBe('abc1234');
+		expect((await run('')).headers.get('X-Build')).toBe('v-1');
 	});
 });
