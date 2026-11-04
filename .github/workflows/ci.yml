@@ -54,8 +54,11 @@ jobs:
       - name: Ensure the build did not mutate Cargo.lock
         run: git diff --exit-code Cargo.lock
 
+      # The upgrade tests run against the WASM verified above.
       - name: Run tests
-        run: make test
+        run: cargo test --workspace --locked
+        env:
+          WASM_DIR: target/reproducible
 
       - name: Check formatting
         run: cargo fmt --all -- --check

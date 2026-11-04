@@ -42,6 +42,7 @@ contracts/
   identity-registry/    - Agent NFTs, metadata, wallet binding
   reputation-registry/  - Feedback, self-feedback prevention, WAD averaging
   validation-registry/  - Third-party attestation requests/responses
+  upgrade-tests/        - Upgrade from the deployed mainnet WASM: state, events, timelock
 webapp/
   apps/web/             - SvelteKit frontend (stellar8004.com)
   packages/sdk/         - @trionlabs/stellar8004
@@ -54,7 +55,7 @@ webapp/
 ```bash
 cargo install --locked stellar-cli --version 25.2.0
 make build    # Build all contracts using the local host toolchain
-make test
+make test     # builds the WASM first: the upgrade tests deploy it
 make fmt
 ```
 
@@ -90,6 +91,9 @@ separate from the current reproducible-build manifest:
 | `identity_registry.wasm` | `f25af88f3e26f603a6569b2554b3f85ccc8af9a88f3b904fba873637c64eb2ab` |
 | `reputation_registry.wasm` | `74af1a031934346260f7265dacb633209dba507c1416f1e37d52405b53478f71` |
 | `validation_registry.wasm` | `9e5d7dc78ca00fc7c7afc914a0b3ecbcec61b4e7b1893a84bf47c3b811c68aa1` |
+
+These are the bytes in [`contracts/upgrade-tests/mainnet-v1`](contracts/upgrade-tests/mainnet-v1),
+which the upgrade tests deploy and then upgrade to the current build.
 
 Fetch an existing deployment to compare with its recorded digest:
 

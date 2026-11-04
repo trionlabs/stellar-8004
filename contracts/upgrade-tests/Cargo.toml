@@ -1,0 +1,14 @@
+[package]
+name = "upgrade-tests"
+version = "0.2.0"
+edition = "2021"
+publish = false
+
+[lib]
+doctest = false
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+identity-registry = { path = "../identity-registry" }
+reputation-registry = { path = "../reputation-registry" }
+validation-registry = { path = "../validation-registry" }

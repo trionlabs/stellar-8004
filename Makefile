@@ -28,7 +28,8 @@ verify-wasm:
 update-wasm-hashes:
 	sh scripts/verify-wasm.sh --update
 
-test:
+# The upgrade tests (contracts/upgrade-tests) load the WASM that build writes.
+test: build
 	cargo test --workspace --locked
 
 test-identity:
