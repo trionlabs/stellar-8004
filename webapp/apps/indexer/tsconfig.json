@@ -4,7 +4,8 @@
 		"noEmit": true,
 		"declaration": false,
 		"declarationMap": false,
+		"allowImportingTsExtensions": true,
 		"types": ["node"]
 	},
-	"include": ["src"]
+	"include": ["src", "scripts"]
 }

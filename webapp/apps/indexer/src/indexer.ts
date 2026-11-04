@@ -82,10 +82,22 @@ export async function indexContracts(
 	db: Db,
 	server: Rpc,
 	contractIds: Record<ContractName, string>,
-	deadlineMs: number
+	deadlineMs: number,
+	options: { allowRetentionClamp?: boolean } = {}
 ): Promise<IndexResult> {
 	const checkpoints = await readCheckpoints(db, CONTRACTS);
 	const { latestLedger, oldestLedger } = await server.getHealth();
+	// Skipping ledgers that aged out of RPC retention loses their events for good, on the word of
+	// one getHealth answer, so it takes an explicit opt-in (ALLOW_RETENTION_CLAMP).
+	const aged = CONTRACTS.filter(
+		(contract) => checkpoints.get(contract)!.lastLedger + 1 < oldestLedger
+	);
+	if (aged.length > 0 && !options.allowRetentionClamp) {
+		throw new Error(
+			`Checkpoints of ${aged.join(', ')} predate RPC retention (oldest ledger ${oldestLedger}); ` +
+				'set ALLOW_RETENTION_CLAMP=true to skip the gap and record it in indexer_dead_letter'
+		);
+	}
 	const result: IndexResult = { contracts: {}, timedOut: false };
 	let head = latestLedger;
 	for (const contract of CONTRACTS) {
@@ -139,6 +151,7 @@ async function indexContract(
 
 	let from = state.lastLedger + 1;
 	if (from < scan.oldest) {
+		// Allowed by the caller (indexContracts refuses otherwise).
 		await deadLetter(db, {
 			contract,
 			reason: 'retention-clamp',

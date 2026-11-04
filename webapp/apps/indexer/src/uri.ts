@@ -160,23 +160,25 @@ export function isPrivateOrLoopbackHost(hostname: string): boolean {
     ? lower.slice(1, -1)
     : lower;
 
-  if (stripped === '::1' || stripped === '::') return true;
-  if (
-    stripped.startsWith('fe8') ||
-    stripped.startsWith('fe9') ||
-    stripped.startsWith('fea') ||
-    stripped.startsWith('feb') // fe80::/10 link-local
-  ) {
-    return true;
-  }
-  if (stripped.startsWith('fc') || stripped.startsWith('fd')) return true; // fc00::/7 unique-local
-  if (stripped.startsWith('ff')) return true; // multicast
-
-  // IPv4-mapped / IPv4-embedded IPv6 (e.g. ::ffff:127.0.0.1, ::ffff:7f00:1,
-  // ::127.0.0.1, 64:ff9b::a.b.c.d NAT64). A resolver can hand back an AAAA
-  // record in any of these forms that ultimately targets a private IPv4, so
-  // extract the embedded IPv4 and re-check it.
+  // Only IPv6 literals contain ':'. The prefix checks must not run on names:
+  // fdroid.org, ffmpeg.org and fcc.gov are ordinary public hosts.
   if (stripped.includes(':')) {
+    if (stripped === '::1' || stripped === '::') return true;
+    if (
+      stripped.startsWith('fe8') ||
+      stripped.startsWith('fe9') ||
+      stripped.startsWith('fea') ||
+      stripped.startsWith('feb') // fe80::/10 link-local
+    ) {
+      return true;
+    }
+    if (stripped.startsWith('fc') || stripped.startsWith('fd')) return true; // fc00::/7 unique-local
+    if (stripped.startsWith('ff')) return true; // multicast
+
+    // IPv4-mapped / IPv4-embedded IPv6 (e.g. ::ffff:127.0.0.1, ::ffff:7f00:1,
+    // ::127.0.0.1, 64:ff9b::a.b.c.d NAT64). A resolver can hand back an AAAA
+    // record in any of these forms that ultimately targets a private IPv4, so
+    // extract the embedded IPv4 and re-check it.
     const dottedTail = stripped.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
     if (dottedTail && isPrivateOrLoopbackHost(dottedTail[1])) return true;
     // Only the IPv4-mapped prefix (::ffff:HHHH:HHHH), anchored so we don't

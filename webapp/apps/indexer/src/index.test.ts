@@ -71,6 +71,20 @@ describe('runOnce', () => {
 		expect(await locks()).toEqual([]);
 	});
 
+	it('fails on a checkpoint older than RPC retention unless ALLOW_RETENTION_CLAMP is "true"', async () => {
+		await removeFence();
+		await seedCheckpoints(db, 99);
+		const connect = () => fakeRpc([], { latest: 700, oldest: 500 });
+		const choose = async (urls: string[]) => urls[0];
+		await expect(runOnce(env, connect, choose)).rejects.toThrow(/ALLOW_RETENTION_CLAMP/);
+		expect(await locks()).toEqual([]);
+
+		const allowed = { ...env, ALLOW_RETENTION_CLAMP: 'true' };
+		await expect(runOnce(allowed, connect, choose)).resolves.toMatchObject({
+			contracts: { identity: { lastLedger: 700 } }
+		});
+	});
+
 	it('refuses an RPC that serves another network, and still releases the lock', async () => {
 		await removeFence();
 		await seedCheckpoints(db, 99);

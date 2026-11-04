@@ -20,6 +20,8 @@ STELLAR_NETWORK = "mainnet"
 # Each run uses the first of these whose getHealth is "healthy" (pickRpc in src/index.ts).
 STELLAR_MAINNET_RPC_PRIMARY_URL = "https://soroban-rpc.mainnet.stellar.gateway.fm"
 STELLAR_MAINNET_RPC_FALLBACK_URL = "https://mainnet.sorobanrpc.com"
+# A checkpoint older than RPC retention fails every run. Setting ALLOW_RETENTION_CLAMP = "true"
+# (for one deploy) skips the lost ledgers instead and records them in indexer_dead_letter.
 
 [observability]
 enabled = true

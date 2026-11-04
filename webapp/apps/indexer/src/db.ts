@@ -138,10 +138,13 @@ export function constraintFailure(error: unknown): 'parent' | 'constraint' | nul
 const SQL = {
 	registered: `INSERT INTO agents (id, owner, agent_uri, resolve_uri_pending, created_at, created_ledger, tx_hash)
 		VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING`,
+	// The last condition skips a replay of the update already applied (same ledger, same URI), so
+	// the document resolved since then is kept. Another URI in the same ledger still applies.
 	uriUpdated: `UPDATE agents
 		SET agent_uri = ?1, agent_uri_data = NULL, supported_trust = '[]', services = '[]', uri_resolve_attempts = 0,
 		    resolve_uri_pending = 1, uri_updated_ledger = ?2, updated_at = ?3
-		WHERE id = ?4 AND (uri_updated_ledger IS NULL OR uri_updated_ledger <= ?2)`,
+		WHERE id = ?4 AND (uri_updated_ledger IS NULL OR uri_updated_ledger <= ?2)
+		  AND NOT (uri_updated_ledger IS ?2 AND agent_uri IS ?1)`,
 	metadataSet: `INSERT INTO agent_metadata (agent_id, key, value) VALUES (?, ?, ?)
 		ON CONFLICT (agent_id, key) DO UPDATE SET value = excluded.value`,
 	walletSet: 'UPDATE agents SET wallet = ?, updated_at = ? WHERE id = ?',

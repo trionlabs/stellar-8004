@@ -16,9 +16,14 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-async function index(events: rpc.Api.EventResponse[], latest: number, oldest = 1) {
+async function index(
+	events: rpc.Api.EventResponse[],
+	latest: number,
+	oldest = 1,
+	options: { allowRetentionClamp?: boolean } = {}
+) {
 	const server = fakeRpc(events, { latest, oldest });
-	const result = await indexContracts(db, server, IDS, Date.now() + 60_000);
+	const result = await indexContracts(db, server, IDS, Date.now() + 60_000, options);
 	return { server, result };
 }
 const checkpoint = async (id: string) =>
@@ -86,6 +91,32 @@ describe('writers', () => {
 			agent_uri: 'https://agents.example/new.json'
 		});
 		expect(await rows(db, 'SELECT * FROM agent_metadata')).toEqual([]);
+	});
+
+	it('keeps the resolved document when a URI update is replayed, but applies a new URI', async () => {
+		const resolved = () =>
+			db
+				.prepare(`UPDATE agents SET agent_uri_data = '{"name":"one"}', resolve_uri_pending = 0`)
+				.run();
+		const updated = ev.uriUpdated(110, 1, OWNER, 'https://agents.example/x.json');
+		await index([ev.registered(100, 1, OWNER), updated], 120);
+		await resolved();
+
+		await rewind(99);
+		await index([ev.registered(100, 1, OWNER), updated], 120);
+		expect(await agent(1)).toMatchObject({
+			agent_uri_data: '{"name":"one"}',
+			resolve_uri_pending: 0
+		});
+
+		// A different URI later in the same ledger is a real change.
+		await rewind(109);
+		await index([ev.uriUpdated(110, 1, OWNER, 'https://agents.example/y.json')], 120);
+		expect(await agent(1)).toMatchObject({
+			agent_uri: 'https://agents.example/y.json',
+			agent_uri_data: null,
+			resolve_uri_pending: 1
+		});
 	});
 
 	it('stores feedback exactly, revokes it, numbers responses, and replays without duplicates', async () => {
@@ -313,19 +344,27 @@ describe('defer, skip and dead letters', () => {
 	});
 
 	it('counts other constraint failures toward skipping too', async () => {
+		// No event breaks a non-foreign-key constraint of the schema today; a test-only unique
+		// index stands in for one.
+		await db.exec('CREATE UNIQUE INDEX test_unique_value ON agent_metadata (value)');
 		await seedCheckpoints(db, 99, 4);
-		const bad = ev.validationResponse(102, VALIDATOR, 1, 7, 50, 'x'.repeat(65)); // the tag CHECK allows 64
-		const events = [ev.registered(100, 1, OWNER), ev.validationRequest(101, VALIDATOR, 1, 7), bad];
+		const bad = ev.metadata(102, 2, 'name', 'taken');
+		const events = [
+			ev.registered(100, 1, OWNER),
+			ev.registered(100, 2, OWNER),
+			ev.metadata(101, 1, 'name', 'taken'),
+			bad
+		];
 		await index(events, 110);
-		expect(await checkpoint('validation')).toMatchObject({ last_ledger: 99, defer_attempts: 5 });
+		expect(await checkpoint('identity')).toMatchObject({ last_ledger: 99, defer_attempts: 5 });
 		expect(await deadLetters()).toEqual([]);
 
 		await index(events, 110);
 		expect(await deadLetters()).toEqual([
-			{ contract: 'validation', reason: 'skip-nonretryable', event_id: bad.id, ledger: 102 }
+			{ contract: 'identity', reason: 'skip-nonretryable', event_id: bad.id, ledger: 102 }
 		]);
-		expect(await rows(db, 'SELECT has_response FROM validations')).toEqual([{ has_response: 0 }]);
-		expect(await checkpoint('validation')).toMatchObject({ last_ledger: 110, defer_attempts: 0 });
+		expect(await rows(db, 'SELECT agent_id FROM agent_metadata')).toEqual([{ agent_id: 1 }]);
+		expect(await checkpoint('identity')).toMatchObject({ last_ledger: 110, defer_attempts: 0 });
 	});
 
 	it('never counts an RPC failure toward skipping, and the other contracts go on', async () => {
@@ -371,9 +410,14 @@ describe('defer, skip and dead letters', () => {
 		expect(await checkpoint('identity')).toMatchObject({ last_ledger: 110 });
 	});
 
-	it('clamps a checkpoint older than RPC retention and records the skipped range', async () => {
+	it('refuses to skip ledgers that aged out of RPC retention unless allowed', async () => {
 		await seedCheckpoints(db, 99);
-		await index([ev.registered(600, 1, OWNER)], 700, 500);
+		const events = [ev.registered(600, 1, OWNER)];
+		await expect(index(events, 700, 500)).rejects.toThrow(/ALLOW_RETENTION_CLAMP/);
+		expect(await checkpoint('identity')).toMatchObject({ last_ledger: 99, last_advanced_at: null });
+		expect(await deadLetters()).toEqual([]);
+
+		await index(events, 700, 500, { allowRetentionClamp: true });
 		expect(await deadLetters()).toEqual([
 			{ contract: 'identity', reason: 'retention-clamp', event_id: null, ledger: 100 },
 			{ contract: 'reputation', reason: 'retention-clamp', event_id: null, ledger: 100 },
