@@ -1,6 +1,7 @@
 import type { rpc } from '@stellar/stellar-sdk';
 import { createTestD1, type TestD1 } from '@stellar8004/d1/test-db';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { acquireLock } from './db.js';
 import { indexContracts } from './indexer.js';
 import { IDS, account, ev, fakeRpc, rows, seedCheckpoints } from './test-helpers.js';
 
@@ -8,9 +9,12 @@ let db: TestD1;
 const OWNER = account();
 const CLIENT = account();
 const VALIDATOR = account();
+const RUN = 'this-run';
 
-beforeEach(() => {
+beforeEach(async () => {
 	db = createTestD1();
+	await db.prepare('DELETE FROM indexer_locks').run();
+	await acquireLock(db, RUN);
 });
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -23,7 +27,10 @@ async function index(
 	options: { allowRetentionClamp?: boolean } = {}
 ) {
 	const server = fakeRpc(events, { latest, oldest });
-	const result = await indexContracts(db, server, IDS, Date.now() + 60_000, options);
+	const result = await indexContracts(db, server, IDS, Date.now() + 60_000, {
+		owner: RUN,
+		...options
+	});
 	return { server, result };
 }
 const checkpoint = async (id: string) =>
@@ -119,6 +126,32 @@ describe('writers', () => {
 		});
 	});
 
+	it('resets what the old URI left behind when the URI changes', async () => {
+		await index([ev.registered(100, 1, OWNER), ev.registered(100, 2, OWNER)], 105);
+		// The old URI's flags, and a resolver that gave up on it.
+		await db
+			.prepare(
+				`UPDATE agents SET x402_enabled = 1, mpp_enabled = 1, uri_resolve_attempts = 5, resolve_uri_pending = 0,
+				   last_resolve_attempt_at = '2026-01-01T00:00:00+00:00'`
+			)
+			.run();
+		await index(
+			[
+				ev.uriUpdated(110, 1, OWNER, 'https://agents.example/new.json'),
+				ev.uriUpdated(110, 2, OWNER, '')
+			],
+			115
+		);
+		const reset = {
+			x402_enabled: 0,
+			mpp_enabled: 0,
+			uri_resolve_attempts: 0,
+			last_resolve_attempt_at: null
+		};
+		expect(await agent(1)).toMatchObject({ ...reset, resolve_uri_pending: 1 });
+		expect(await agent(2)).toMatchObject({ ...reset, agent_uri: '', resolve_uri_pending: 0 });
+	});
+
 	it('stores feedback exactly, revokes it, numbers responses, and replays without duplicates', async () => {
 		const responder = account();
 		const events = [
@@ -187,9 +220,9 @@ describe('writers', () => {
 describe('checkpoints', () => {
 	it('refuses to start without a checkpoint row instead of cold-starting', async () => {
 		const server = fakeRpc([], { latest: 100 });
-		await expect(indexContracts(db, server, IDS, Date.now() + 60_000)).rejects.toThrow(
-			/no row for identity/
-		);
+		await expect(
+			indexContracts(db, server, IDS, Date.now() + 60_000, { owner: RUN })
+		).rejects.toThrow(/no row for identity/);
 		expect(server.requests).toEqual([]);
 	});
 
@@ -254,7 +287,7 @@ describe('scan window (live indexer skipped backlogs over 10,000 ledgers)', () =
 			return page;
 		};
 
-		const result = await indexContracts(db, server, IDS, 1_000);
+		const result = await indexContracts(db, server, IDS, 1_000, { owner: RUN });
 		expect(result.timedOut).toBe(true);
 		expect(await rows(db, 'SELECT id FROM agents')).toEqual([{ id: 1 }]);
 		expect(await checkpoint('identity')).toMatchObject({ last_ledger: 11_000 });
@@ -269,8 +302,57 @@ describe('scan window (live indexer skipped backlogs over 10,000 ledgers)', () =
 			server.state.latest = 1_500; // a node behind the one that answered getHealth
 			return getEvents(request);
 		};
-		await indexContracts(db, server, IDS, Date.now() + 60_000);
+		await indexContracts(db, server, IDS, Date.now() + 60_000, { owner: RUN });
 		expect(await checkpoint('identity')).toMatchObject({ last_ledger: 1_500 });
+	});
+});
+
+describe('lock fencing', () => {
+	const twoWindows = () =>
+		fakeRpc([ev.registered(5_000, 1, OWNER), ev.registered(15_000, 2, OWNER)], { latest: 31_000 });
+
+	it('stops with a clear error when another run takes the lock mid-run', async () => {
+		await seedCheckpoints(db, 1_000);
+		const server = twoWindows();
+		const getEvents = server.getEvents;
+		let pages = 0;
+		server.getEvents = async (request) => {
+			if (++pages === 2) {
+				// Our lock went stale; another run took it and moved on.
+				await db.prepare("UPDATE indexer_locks SET owner = 'other-run'").run();
+				await db
+					.prepare("UPDATE indexer_state SET last_ledger = 30000 WHERE id = 'identity'")
+					.run();
+			}
+			return getEvents(request);
+		};
+		await expect(
+			indexContracts(db, server, IDS, Date.now() + 60_000, { owner: RUN })
+		).rejects.toThrow(/lost the indexer lock/);
+		expect(await checkpoint('identity')).toMatchObject({ last_ledger: 30_000 });
+	});
+
+	it('refreshes the lock with every checkpoint and never moves a checkpoint back', async () => {
+		await seedCheckpoints(db, 1_000);
+		await db.prepare("UPDATE indexer_locks SET acquired_at = '2026-01-01T00:00:00+00:00'").run();
+		const server = twoWindows();
+		const getEvents = server.getEvents;
+		let pages = 0;
+		server.getEvents = async (request) => {
+			if (++pages === 2) {
+				expect((await rows(db, 'SELECT acquired_at FROM indexer_locks'))[0].acquired_at).not.toBe(
+					'2026-01-01T00:00:00+00:00'
+				);
+				await db
+					.prepare("UPDATE indexer_state SET last_ledger = 30000 WHERE id = 'identity'")
+					.run();
+			}
+			return getEvents(request);
+		};
+		await expect(
+			indexContracts(db, server, IDS, Date.now() + 60_000, { owner: RUN })
+		).rejects.toThrow(/moved past/);
+		expect(await checkpoint('identity')).toMatchObject({ last_ledger: 30_000 });
 	});
 });
 
@@ -343,6 +425,20 @@ describe('defer, skip and dead letters', () => {
 		expect(await checkpoint('reputation')).toMatchObject({ last_ledger: 110, defer_attempts: 0 });
 	});
 
+	it('gives a later failure in the same run its own deferrals after skipping the stuck event', async () => {
+		await seedCheckpoints(db, 99, 5);
+		const stuck = ev.feedback(105, 9, CLIENT, 1, 1n); // agent 9 was never registered
+		const later = ev.feedback(15_000, 8, CLIENT, 1, 1n); // next scan window; agent 8 neither
+		await index([ev.registered(100, 1, OWNER), stuck, later], 25_000);
+		expect(await deadLetters()).toEqual([
+			{ contract: 'reputation', reason: 'skip-retryable', event_id: stuck.id, ledger: 105 }
+		]);
+		expect(await checkpoint('reputation')).toMatchObject({
+			last_ledger: 10_099,
+			defer_attempts: 1
+		});
+	});
+
 	it('counts other constraint failures toward skipping too', async () => {
 		// No event breaks a non-foreign-key constraint of the schema today; a test-only unique
 		// index stands in for one.
@@ -379,7 +475,7 @@ describe('defer, skip and dead letters', () => {
 				throw new Error('socket hang up');
 			return getEvents(request);
 		};
-		const result = await indexContracts(db, server, IDS, Date.now() + 60_000);
+		const result = await indexContracts(db, server, IDS, Date.now() + 60_000, { owner: RUN });
 		expect(result.contracts.reputation?.stopped).toBe('rpc-error');
 		expect(await checkpoint('reputation')).toMatchObject({ last_ledger: 99, defer_attempts: 4 });
 		expect(await checkpoint('validation')).toMatchObject({ last_ledger: 110, defer_attempts: 0 });
@@ -394,6 +490,39 @@ describe('defer, skip and dead letters', () => {
 		expect(await deadLetters()).toEqual([]);
 		expect(await checkpoint('identity')).toMatchObject({ last_ledger: 99, defer_attempts: 5 });
 		expect(await rows(db, 'SELECT id FROM agents')).toEqual([]);
+	});
+
+	it('dead-letters an update whose parent row is missing, without deferring', async () => {
+		await seedCheckpoints(db, 99);
+		const orphans = [
+			ev.uriUpdated(101, 5, OWNER, 'https://agents.example/5.json'),
+			ev.metadata(102, 5, 'agentWallet', OWNER),
+			ev.metadata(102, 5, 'agentWallet', ''),
+			ev.transfer(103, 5, OWNER, account()),
+			ev.revoked(104, 1, CLIENT, 7),
+			ev.validationResponse(105, VALIDATOR, 1, 9, 50)
+		];
+		await index([ev.registered(100, 1, OWNER), ...orphans], 110);
+		const contractOf = (index: number) =>
+			index < 4 ? 'identity' : index === 4 ? 'reputation' : 'validation';
+		expect(await deadLetters()).toEqual(
+			orphans.map((event, index) => ({
+				contract: contractOf(index),
+				reason: 'missing-parent',
+				event_id: event.id,
+				ledger: event.ledger
+			}))
+		);
+		for (const id of ['identity', 'reputation', 'validation']) {
+			expect(await checkpoint(id)).toMatchObject({ last_ledger: 110, defer_attempts: 0 });
+		}
+
+		// An update the ledger guard turns away is stale, not an orphan: its parent exists.
+		await index([ev.uriUpdated(111, 1, OWNER, 'https://agents.example/1-new.json')], 120);
+		await rewind(107);
+		await index([ev.uriUpdated(108, 1, OWNER, 'https://agents.example/1-old.json')], 120);
+		expect(await deadLetters()).toHaveLength(orphans.length);
+		expect(await agent(1)).toMatchObject({ agent_uri: 'https://agents.example/1-new.json' });
 	});
 
 	it('dead-letters an unparseable event once and moves past it', async () => {

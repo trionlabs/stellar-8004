@@ -93,7 +93,13 @@ describe('resolvePending', () => {
 				.run();
 			return id === 1 ? { name: 'for the old URI' } : null;
 		};
-		await resolvePending(db, deadline(), resolve, clock);
+		// Neither result was stored, so neither counts as resolved.
+		expect(await resolvePending(db, deadline(), resolve, clock)).toEqual({
+			checked: 2,
+			resolved: 0,
+			failed: 2,
+			exhausted: 0
+		});
 
 		for (const id of [1, 2]) {
 			expect(await agent(id)).toMatchObject({

@@ -23,6 +23,7 @@ import {
 	constraintFailure,
 	deadLetter,
 	eventStatement,
+	missingParentStatement,
 	pgTime,
 	readCheckpoints,
 	saveCheckpoint,
@@ -76,14 +77,15 @@ export interface IndexResult {
  * A write that fails on a constraint defers the contract without advancing past it; after
  * MAX_DEFER_ATTEMPTS such runs, failing events are skipped and dead-lettered. RPC failures stop
  * only their contract and never count toward skipping. Any other database error is thrown, so an
- * infrastructure fault can never skip an event.
+ * infrastructure fault can never skip an event. Checkpoints are saved only while `owner` holds the
+ * indexer lock; a run that lost it stops with an error.
  */
 export async function indexContracts(
 	db: Db,
 	server: Rpc,
 	contractIds: Record<ContractName, string>,
 	deadlineMs: number,
-	options: { allowRetentionClamp?: boolean } = {}
+	options: { owner: string; allowRetentionClamp?: boolean }
 ): Promise<IndexResult> {
 	const checkpoints = await readCheckpoints(db, CONTRACTS);
 	const { latestLedger, oldestLedger } = await server.getHealth();
@@ -110,7 +112,8 @@ export async function indexContracts(
 			contractId: contractIds[contract],
 			head,
 			oldest: oldestLedger,
-			deadlineMs
+			deadlineMs,
+			owner: options.owner
 		};
 		const outcome = await indexContract(db, server, scan, checkpoints.get(contract)!);
 		result.contracts[contract] = outcome;
@@ -128,6 +131,7 @@ interface Scan {
 	head: number;
 	oldest: number;
 	deadlineMs: number;
+	owner: string;
 }
 
 async function indexContract(
@@ -137,13 +141,12 @@ async function indexContract(
 	start: Checkpoint
 ): Promise<ContractResult> {
 	const { contract, head } = scan;
-	const skip = start.deferAttempts >= MAX_DEFER_ATTEMPTS;
 	const state = { ...start };
 	let saved = { ...start };
 	const save = async () => {
 		if (state.lastLedger === saved.lastLedger && state.deferAttempts === saved.deferAttempts)
 			return;
-		await saveCheckpoint(db, contract, state);
+		await saveCheckpoint(db, contract, state, scan.owner);
 		saved = { ...state };
 	};
 	const result: ContractResult = { lastLedger: state.lastLedger, processed: 0, skipped: 0 };
@@ -215,6 +218,9 @@ async function indexContract(
 			reached = last - 1;
 		}
 
+		// Skipping is armed only while the count is at the limit: once the stuck event is passed, the
+		// count resets and a later failure gets its own deferrals.
+		const skip = state.deferAttempts >= MAX_DEFER_ATTEMPTS;
 		const written = await writeEvents(db, contract, ready, skip);
 		result.processed += written.processed;
 		result.skipped += written.skipped;
@@ -284,49 +290,90 @@ async function writeEvents(
 	for (let offset = 0; offset < ordered.length; offset += BATCH_LIMIT) {
 		const chunk = ordered.slice(offset, offset + BATCH_LIMIT);
 		const statements = chunk.map((packet) => eventStatement(db, packet, now));
+		// Rows each statement changed; null for an event skipped below.
+		let changes: Array<number | null>;
 		try {
-			await db.batch(statements);
-			processed += chunk.length;
-			continue;
+			changes = (await db.batch(statements)).map((result) => result.meta.changes ?? 0);
 		} catch (error) {
 			if (constraintFailure(error) === null) throw error;
-		}
-		// The batch rolled back. Replay it one event at a time so only the failing event defers or skips.
-		for (const [index, statement] of statements.entries()) {
-			try {
-				await statement.run();
-				processed++;
-			} catch (error) {
-				const failure = constraintFailure(error);
-				if (failure === null) throw error;
-				const { id, data } = chunk[index];
-				if (!skip) {
+			// The batch rolled back. Replay it one event at a time so only the failing event defers or skips.
+			changes = [];
+			for (const [index, statement] of statements.entries()) {
+				try {
+					changes.push((await statement.run()).meta.changes ?? 0);
+				} catch (error) {
+					const failure = constraintFailure(error);
+					if (failure === null) throw error;
+					const { id, data } = chunk[index];
+					if (!skip) {
+						log({
+							level: 'warn',
+							msg: 'Write failed; deferring to the next run',
+							contract,
+							eventId: id,
+							error: String(error)
+						});
+						return { processed: processed + changes.length, skipped, deferred: true };
+					}
+					changes.push(null);
+					skipped++;
 					log({
-						level: 'warn',
-						msg: 'Write failed; deferring to the next run',
+						level: 'error',
+						msg: `Write failed ${MAX_DEFER_ATTEMPTS} runs in a row; skipping event`,
 						contract,
 						eventId: id,
 						error: String(error)
 					});
-					return { processed, skipped, deferred: true };
+					await deadLetter(db, {
+						contract,
+						reason: failure === 'parent' ? 'skip-retryable' : 'skip-nonretryable',
+						eventId: id,
+						ledger: data.ledger,
+						detail: String(error)
+					});
 				}
-				skipped++;
-				log({
-					level: 'error',
-					msg: `Write failed ${MAX_DEFER_ATTEMPTS} runs in a row; skipping event`,
-					contract,
-					eventId: id,
-					error: String(error)
-				});
-				await deadLetter(db, {
-					contract,
-					reason: failure === 'parent' ? 'skip-retryable' : 'skip-nonretryable',
-					eventId: id,
-					ledger: data.ledger,
-					detail: String(error)
-				});
 			}
 		}
+		processed += changes.filter((count) => count !== null).length;
+		skipped += await recordMissingParents(
+			db,
+			contract,
+			chunk.filter((_, index) => changes[index] === 0)
+		);
 	}
 	return { processed, skipped, deferred: false };
+}
+
+/**
+ * Dead-letters updates that changed no row because the row they update was never indexed. Not a
+ * deferral: that parent was lost earlier, so waiting would only stall the stream. Best effort,
+ * like deadLetter. Returns how many were recorded.
+ */
+async function recordMissingParents(
+	db: Db,
+	contract: ContractName,
+	unchanged: readonly EventPacket[]
+): Promise<number> {
+	const statements = unchanged.flatMap((packet) => missingParentStatement(db, packet) ?? []);
+	if (statements.length === 0) return 0;
+	try {
+		const recorded = (await db.batch(statements)).filter((result) => result.meta.changes).length;
+		if (recorded > 0) {
+			log({
+				level: 'error',
+				msg: 'Updates for rows never indexed dead-lettered',
+				contract,
+				recorded
+			});
+		}
+		return recorded;
+	} catch (error) {
+		log({
+			level: 'warn',
+			msg: 'Failed to record missing-parent dead letters',
+			contract,
+			error: String(error)
+		});
+		return 0;
+	}
 }

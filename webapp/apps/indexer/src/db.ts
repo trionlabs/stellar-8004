@@ -68,26 +68,44 @@ export async function readCheckpoints(
 	return checkpoints;
 }
 
-/** last_advanced_at moves only when last_ledger does, so health reads real progress. */
+/**
+ * Saves a checkpoint and refreshes the lock in one transaction. The write needs the lock still
+ * held by `owner` and never moves last_ledger back, so a run that outlived its lock stops here
+ * instead of overwriting its successor's progress. last_advanced_at moves only when last_ledger
+ * does, so health reads real progress.
+ */
 export async function saveCheckpoint(
 	db: Db,
 	contract: string,
 	checkpoint: Checkpoint,
+	owner: string,
 	now = new Date()
 ): Promise<void> {
-	await db
-		.prepare(
-			`UPDATE indexer_state
-			 SET last_ledger = ?1, expected_next_ledger = ?1 + 1, defer_attempts = ?2, updated_at = ?3,
-			     last_advanced_at = CASE WHEN ?1 > last_ledger THEN ?3 ELSE last_advanced_at END
-			 WHERE id = ?4`
-		)
-		.bind(checkpoint.lastLedger, checkpoint.deferAttempts, pgTime(now), contract)
-		.run();
+	const [lock, state] = await db.batch([
+		db
+			.prepare(`UPDATE indexer_locks SET acquired_at = ? WHERE lock_name = 'indexer' AND owner = ?`)
+			.bind(pgTime(now), owner),
+		db
+			.prepare(
+				`UPDATE indexer_state
+				 SET last_ledger = ?1, expected_next_ledger = ?1 + 1, defer_attempts = ?2, updated_at = ?3,
+				     last_advanced_at = CASE WHEN ?1 > last_ledger THEN ?3 ELSE last_advanced_at END
+				 WHERE id = ?4 AND last_ledger <= ?1
+				   AND EXISTS (SELECT 1 FROM indexer_locks WHERE lock_name = 'indexer' AND owner = ?5)`
+			)
+			.bind(checkpoint.lastLedger, checkpoint.deferAttempts, pgTime(now), contract, owner)
+	]);
+	if (!lock.meta.changes)
+		throw new Error('This run lost the indexer lock to another run; stopping');
+	if (!state.meta.changes) {
+		throw new Error(
+			`indexer_state for ${contract} moved past ledger ${checkpoint.lastLedger}; stopping`
+		);
+	}
 }
 
 export type DeadLetterReason =
-	'skip-retryable' | 'skip-nonretryable' | 'retention-clamp' | 'unparseable';
+	'skip-retryable' | 'skip-nonretryable' | 'retention-clamp' | 'unparseable' | 'missing-parent';
 
 /**
  * Records what the indexer moves past without writing. Best effort: a failure here is logged and
@@ -135,14 +153,66 @@ export function constraintFailure(error: unknown): 'parent' | 'constraint' | nul
 	return null;
 }
 
+/**
+ * For an event that changed no row: a dead letter, recorded once, if the row it updates does
+ * not exist. Null for events that are not updates. An update the ledger guard turned away has
+ * its row, so nothing is recorded for it.
+ */
+export function missingParentStatement(
+	db: Db,
+	{ id, contract, data: e }: EventPacket
+): DbStatement | null {
+	let parent: [table: string, where: string, ...params: unknown[]];
+	switch (e.type) {
+		case 'UriUpdated':
+		case 'AgentWalletSet':
+		case 'AgentWalletUnset':
+		case 'AgentTransferred':
+			parent = ['agents', 'id = ?', e.agentId];
+			break;
+		case 'FeedbackRevoked':
+			parent = [
+				'feedback',
+				'agent_id = ? AND client_address = ? AND feedback_index = ?',
+				e.agentId,
+				e.clientAddress,
+				e.feedbackIndex.toString()
+			];
+			break;
+		case 'ValidationResponse':
+			parent = ['validations', 'request_hash = ?', e.requestHash];
+			break;
+		default:
+			return null;
+	}
+	const [table, where, ...params] = parent;
+	return db
+		.prepare(
+			`INSERT INTO indexer_dead_letter (contract, reason, event_id, ledger, detail)
+			 SELECT ?, 'missing-parent', ?, ?, ?
+			 WHERE NOT EXISTS (SELECT 1 FROM ${table} WHERE ${where})
+			   AND NOT EXISTS (SELECT 1 FROM indexer_dead_letter WHERE event_id = ? AND reason = 'missing-parent')`
+		)
+		.bind(
+			contract,
+			id,
+			e.ledger,
+			`${e.type} for a ${table} row that was never indexed`,
+			...params,
+			id
+		);
+}
+
 const SQL = {
 	registered: `INSERT INTO agents (id, owner, agent_uri, resolve_uri_pending, created_at, created_ledger, tx_hash)
 		VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING`,
-	// The last condition skips a replay of the update already applied (same ledger, same URI), so
-	// the document resolved since then is kept. Another URI in the same ledger still applies.
+	// Clears everything derived from the old URI, the resolver's give-up on it included. The last
+	// condition skips a replay of the update already applied (same ledger, same URI), so the
+	// document resolved since then is kept; another URI in the same ledger still applies.
 	uriUpdated: `UPDATE agents
-		SET agent_uri = ?1, agent_uri_data = NULL, supported_trust = '[]', services = '[]', uri_resolve_attempts = 0,
-		    resolve_uri_pending = 1, uri_updated_ledger = ?2, updated_at = ?3
+		SET agent_uri = ?1, agent_uri_data = NULL, supported_trust = '[]', services = '[]', x402_enabled = 0,
+		    mpp_enabled = 0, uri_resolve_attempts = 0, last_resolve_attempt_at = NULL, resolve_uri_pending = (?1 <> ''),
+		    uri_updated_ledger = ?2, updated_at = ?3
 		WHERE id = ?4 AND (uri_updated_ledger IS NULL OR uri_updated_ledger <= ?2)
 		  AND NOT (uri_updated_ledger IS ?2 AND agent_uri IS ?1)`,
 	metadataSet: `INSERT INTO agent_metadata (agent_id, key, value) VALUES (?, ?, ?)
