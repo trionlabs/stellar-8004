@@ -1,26 +1,31 @@
 import { error } from '@sveltejs/kit';
-import { createServerSupabase } from '$lib/supabase-server.js';
-import { readUriField, assertSuccess } from '$lib/server/utils.js';
+import { decodeRow, getDb } from '$lib/server/d1.js';
+import { readUriField, type AgentRow } from '$lib/server/utils.js';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params }) => {
-	const db = createServerSupabase();
+export const load: PageServerLoad = async ({ params, platform }) => {
 	const agentId = Number(params.id);
 
 	if (!Number.isInteger(agentId) || agentId < 0 || agentId > 2_147_483_647) {
 		throw error(400, 'Invalid agent ID');
 	}
 
-	const agentResult = await db.from('agents').select('*').eq('id', agentId).maybeSingle();
-	const agent = assertSuccess(agentResult, 'Agent');
+	const row = await getDb(platform)
+		.prepare('SELECT * FROM agents WHERE id = ?')
+		.bind(agentId)
+		.first();
 
-	if (!agent) {
+	if (!row) {
 		throw error(404, 'Agent not found');
 	}
 
+	const agent = decodeRow<AgentRow>(row);
+	// Only a JSON object can be merged into the new metadata; a string here would spread
+	// into "0", "1", ... fields.
+	const uriData = agent.agent_uri_data;
 	const parsedUriData =
-		agent.agent_uri_data && !Array.isArray(agent.agent_uri_data)
-			? (agent.agent_uri_data as Record<string, unknown>)
+		uriData && typeof uriData === 'object' && !Array.isArray(uriData)
+			? (uriData as Record<string, unknown>)
 			: {};
 
 	return {

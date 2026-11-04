@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { createAnonSupabase } from '$lib/supabase-server.js';
+import { getDb } from '$lib/server/d1.js';
 import type { RequestHandler } from './$types';
 
 // Simple in-memory rate limiter: max 30 requests per IP per 60 seconds.
@@ -21,7 +21,7 @@ function isRateLimited(ip: string): boolean {
 // Stellar public keys: uppercase G + 55 alphanumeric chars
 const STELLAR_ADDRESS_RE = /^G[A-Z2-7]{55}$/;
 
-export const GET: RequestHandler = async ({ url, getClientAddress }) => {
+export const GET: RequestHandler = async ({ url, getClientAddress, platform }) => {
 	if (isRateLimited(getClientAddress())) {
 		return json({ error: 'Too many requests' }, { status: 429 });
 	}
@@ -31,13 +31,14 @@ export const GET: RequestHandler = async ({ url, getClientAddress }) => {
 		return json({ count: null }, { status: 400 });
 	}
 
-	const db = createAnonSupabase();
-	const { count, error } = await db
-		.from('agents')
-		.select('id', { count: 'exact', head: true })
-		.eq('owner', owner);
-
-	if (error) {
+	let count: number | null;
+	try {
+		count = await getDb(platform)
+			.prepare('SELECT COUNT(*) AS n FROM agents WHERE owner = ?')
+			.bind(owner)
+			.first<number>('n');
+	} catch (error) {
+		console.error('[Agent count] query failed:', error);
 		return json({ count: null }, { status: 500 });
 	}
 
