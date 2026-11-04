@@ -95,6 +95,9 @@ export function validateStellarAddress(address: string, label = 'Address'): void
 const CONTRACT_ERRORS: Record<string, Record<number, string>> = {
 	identity: {
 		1: 'Not authorized (must be agent owner or approved operator).',
+		4: 'A metadata key is too long (max 64 bytes).',
+		5: 'A metadata value is too long (max 4096 bytes).',
+		6: 'Too many metadata entries.',
 		7: 'agentWallet is a reserved key - use the wallet binding UI.',
 		8: 'Value cannot be empty.',
 	},
@@ -104,12 +107,13 @@ const CONTRACT_ERRORS: Record<string, Record<number, string>> = {
 		7: 'Response URI cannot be empty.',
 		8: 'Feedback value is out of the allowed range.',
 		9: 'Client addresses are required for summary queries.',
+		14: 'A tag is too long (max 64 bytes).',
 	},
 	validation: {
 		1: 'Not authorized (must be agent owner or approved operator).',
 		4: 'A validation request with this hash already exists.',
 		5: 'Only the designated validator can respond.',
-		12: 'The validator cannot be the agent owner or the requester.',
+		12: 'The validator cannot be the agent itself: its owner, an approved operator, its agentWallet or the requester.',
 	},
 };
 

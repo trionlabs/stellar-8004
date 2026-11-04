@@ -168,7 +168,13 @@ describe('formatSorobanError', () => {
 		// Without the registry the code is ambiguous, so no registry's message is guessed.
 		expect(formatSorobanError(err)).toBe('Contract error #8.');
 		expect(formatSorobanError(new Error('Error(Contract, #12)'), 'validation')).toBe(
-			'The validator cannot be the agent owner or the requester.',
+			'The validator cannot be the agent itself: its owner, an approved operator, its agentWallet or the requester.',
+		);
+		expect(formatSorobanError(new Error('Error(Contract, #5)'), 'identity')).toBe(
+			'A metadata value is too long (max 4096 bytes).',
+		);
+		expect(formatSorobanError(new Error('Error(Contract, #14)'), 'reputation')).toBe(
+			'A tag is too long (max 64 bytes).',
 		);
 	});
 
