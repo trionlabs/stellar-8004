@@ -29,6 +29,31 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  apps/indexer:
+    dependencies:
+      '@stellar/stellar-sdk':
+        specifier: ^17.4.0
+        version: 17.4.0
+      '@trionlabs/stellar8004':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      '@stellar8004/d1':
+        specifier: workspace:*
+        version: link:../../packages/d1
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.12
+        version: 4.1.12(@types/node@24.19.2)(vite@7.3.7(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.8.3))
+      wrangler:
+        specifier: ^4.149.0
+        version: 4.149.0(@types/node@24.19.2)
+
   apps/web:
     dependencies:
       '@stellar/freighter-api':

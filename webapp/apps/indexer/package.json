@@ -1,0 +1,20 @@
+{
+	"name": "@stellar8004/indexer-d1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"check": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@stellar/stellar-sdk": "^17.4.0",
+		"@trionlabs/stellar8004": "workspace:*"
+	},
+	"devDependencies": {
+		"@stellar8004/d1": "workspace:*",
+		"@types/node": "^24.19.2",
+		"typescript": "^5.9.3",
+		"vitest": "^4.1.12",
+		"wrangler": "^4.149.0"
+	}
+}
