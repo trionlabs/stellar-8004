@@ -11,6 +11,8 @@ declare global {
 		interface Platform {
 			env: {
 				DB: Db;
+				// Workers rate limiting binding ([[ratelimits]] in wrangler.toml).
+				API_RATE_LIMITER: { limit(options: { key: string }): Promise<{ success: boolean }> };
 			};
 		}
 	}

@@ -74,3 +74,13 @@ PUBLIC_VALIDATION_REGISTRY = "CBT6WWEVEPT2UFGFGVJJ7ELYGLQAGRYSVGDTGMCJTRWXOH27MW
 binding = "DB"
 database_name = "stellar8004"
 migrations_dir = "../../packages/d1/migrations"
+
+# Public API (/api/v1): 30 requests a minute per client IP. Cloudflare counts per location
+# and eventually consistently, so the limit is approximate by design.
+[[ratelimits]]
+name = "API_RATE_LIMITER"
+namespace_id = "8004"
+
+  [ratelimits.simple]
+  limit = 30
+  period = 60
