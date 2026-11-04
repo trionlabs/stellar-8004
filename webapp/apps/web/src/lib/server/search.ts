@@ -22,11 +22,14 @@ const MAX_TERMS = 16;
 export function ftsMatch(query: string): string | null {
 	const terms = [
 		...new Set(
+			// No lowercasing here: FTS5 runs query terms through the same tokenizer as the
+			// documents, so case folding stays consistent. JavaScript would turn "İ" into
+			// "i" + U+0307, which the tokenizer never produces. Combining marks stay inside words.
 			query
 				.slice(0, 500)
-				.toLowerCase()
-				.split(/[^\p{L}\p{N}]+/u)
-				.filter((term) => term !== '' && !STOPWORDS.has(term))
+				.normalize('NFC')
+				.split(/[^\p{L}\p{N}\p{M}]+/u)
+				.filter((term) => term !== '' && !STOPWORDS.has(term.toLowerCase()))
 		)
 	].slice(0, MAX_TERMS);
 	return terms.length === 0 ? null : terms.map((term) => `"${term}"`).join(' AND ');

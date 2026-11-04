@@ -143,6 +143,16 @@ describe('test database', () => {
 		const statement = db.prepare('SELECT 1');
 		expect(() => statement.bind(...Array.from({ length: 101 }, () => 1))).toThrow(/too many SQL variables/);
 		expect(() => statement.bind(undefined)).toThrow(/D1_TYPE_ERROR/);
+		expect(() => statement.bind(1n)).toThrow(/D1_TYPE_ERROR/);
+		expect(() => statement.bind('x'.repeat(2_000_001))).toThrow(/too big/);
+	});
+
+	it('rejects JSON5 in the JSON array columns', async () => {
+		for (const bad of ["['reputation']", '[{"name":"a",}]']) {
+			await expect(
+				db.prepare('INSERT INTO agents (id, owner, supported_trust) VALUES (1, ?, ?)').bind(OWNER, bad).run()
+			).rejects.toThrow(/CHECK constraint failed/);
+		}
 	});
 
 	it('rolls back a failed batch as a whole', async () => {

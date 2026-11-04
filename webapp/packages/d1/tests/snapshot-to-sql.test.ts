@@ -113,6 +113,17 @@ describe('snapshotToSql', () => {
 		expect(await db.prepare('SELECT count(*) AS n FROM agents').first('n')).toBe(1);
 	});
 
+	it('refuses to load after the cutover removed the copy fence', async () => {
+		const db = createTestD1();
+		const sql = snapshotToSql(writeSnapshot({ agents: [agentRow(1)], feedback: [], indexer_state: [] }));
+		await db.exec(sql);
+		await db.prepare("DELETE FROM indexer_locks WHERE owner = 'copy-fence'").run();
+		await db.prepare('INSERT INTO agents (id, owner) VALUES (2, ?)').bind('GNEW').run();
+
+		await expect(db.exec(sql)).rejects.toThrow(/CHECK constraint failed/);
+		expect(await db.prepare('SELECT count(*) AS n FROM agents').first('n')).toBe(2);
+	});
+
 	it('refuses snapshots that would lose data or consistency', () => {
 		expect(() => snapshotToSql(writeSnapshot({ agents: [], feedback: [], indexer_state: [] }, false))).toThrow(
 			/indexer lock/

@@ -83,7 +83,14 @@ export function snapshotToSql(dir: string): string {
 	const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'));
 	if (manifest.under_indexer_lock !== true) throw new Error('snapshot was not taken under the indexer lock');
 
-	const lines = [`-- Loaded from the Supabase snapshot taken at ${manifest.taken_at}.`];
+	const lines = [
+		`-- Loaded from the Supabase snapshot taken at ${manifest.taken_at}.`,
+		// Refuse to run once the cutover deleted the copy fence: loading then would rewind live
+		// data. The CHECK fails, and a D1 file import is atomic, so nothing below is applied.
+		'CREATE TABLE copy_guard (fence_present INTEGER NOT NULL CHECK (fence_present = 1));',
+		"INSERT INTO copy_guard SELECT EXISTS (SELECT 1 FROM indexer_locks WHERE lock_name = 'indexer' AND owner = 'copy-fence');",
+		'DROP TABLE copy_guard;'
+	];
 	for (const { table } of [...TABLES].reverse()) lines.push(`DELETE FROM ${table};`);
 	for (const { table, columns } of TABLES) {
 		const file = join(dir, `${table}.json`);

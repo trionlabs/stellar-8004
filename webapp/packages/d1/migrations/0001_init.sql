@@ -29,8 +29,9 @@ CREATE TABLE agents (
   uri_resolve_attempts    INTEGER NOT NULL DEFAULT 0,
   resolve_uri_pending     INTEGER NOT NULL DEFAULT 0 CHECK (resolve_uri_pending IN (0, 1)),
   last_resolve_attempt_at TEXT,
-  supported_trust         TEXT NOT NULL DEFAULT '[]' CHECK (json_type(supported_trust) = 'array'),
-  services                TEXT NOT NULL DEFAULT '[]' CHECK (json_type(services) = 'array'),
+  -- json_valid first: json_type alone also accepts JSON5, which JSON.parse rejects.
+  supported_trust         TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(supported_trust) AND json_type(supported_trust) = 'array'),
+  services                TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(services) AND json_type(services) = 'array'),
   x402_enabled            INTEGER NOT NULL DEFAULT 0 CHECK (x402_enabled IN (0, 1)),
   mpp_enabled             INTEGER NOT NULL DEFAULT 0 CHECK (mpp_enabled IN (0, 1)),
   uri_updated_ledger      INTEGER,
@@ -91,7 +92,7 @@ CREATE TABLE validations (
   response          INTEGER CHECK (response IS NULL OR response BETWEEN 0 AND 100),
   response_uri      TEXT,
   response_hash     TEXT,
-  tag               TEXT CHECK (tag IS NULL OR length(tag) <= 64),
+  tag               TEXT, -- no length cap: the contract accepts any length, and a cap stalls the stream
   has_response      INTEGER NOT NULL DEFAULT 0 CHECK (has_response IN (0, 1)),
   created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now')),
   responded_at      TEXT,
@@ -162,6 +163,11 @@ END;
 -- text, then rounded once. Outside that domain the view falls back to REAL and reports
 -- score_exact = 0. ponytail: REAL fallback for exotic values; aggregate with BigInt in the
 -- Worker if such rows ever appear.
+--
+-- ponytail: a view, so every query that reads it aggregates all feedback (61 rows today,
+-- negligible). Feedback is permissionless, so watch D1 rows_read: once feedback passes about
+-- 10k rows, have the indexer rebuild an indexed agent_scores table from this view after
+-- runs that touch feedback or agents, and point readers at the table.
 CREATE VIEW leaderboard_scores AS
 WITH fb AS (
   SELECT f.agent_id, f.client_address, f.value AS v, f.value_decimals AS d
@@ -203,3 +209,9 @@ SELECT a.id                              AS agent_id,
        COALESCE(sc.score, 0)             AS total_score,
        COALESCE(sc.exact, 1)             AS score_exact
 FROM agents a LEFT JOIN sc ON sc.agent_id = a.id;
+
+-- Lookups the pages and the API make outside the primary and unique keys.
+CREATE INDEX agents_owner ON agents (owner);
+CREATE INDEX agents_created_at ON agents (created_at);
+CREATE INDEX feedback_created_at ON feedback (created_at);
+CREATE INDEX validations_agent_id ON validations (agent_id);

@@ -18,7 +18,8 @@ beforeAll(async () => {
 	const agents = [
 		{ name: 'Stellar Logo Agent', description: 'Designs logos and wordmarks' },
 		{ name: 'Price Feed', description: 'Real-time market data for Stellar assets' },
-		{ name: 'Café Bot', description: null }
+		{ name: 'Café Bot', description: null },
+		{ name: 'İstanbul Guide', description: 'City tips' }
 	];
 	for (const [i, data] of agents.entries()) {
 		await db.prepare('INSERT INTO agents (id, owner, agent_uri_data) VALUES (?, ?, ?)').bind(i, 'G', JSON.stringify(data)).run();
@@ -46,7 +47,14 @@ describe('ftsMatch', () => {
 		expect(await search('logo OR price')).toEqual([]); // "or" is a stopword; logo AND price
 	});
 
-	it('keeps non-ASCII letters', async () => {
+	it('keeps non-ASCII letters, in either Unicode form', async () => {
 		expect(await search('café')).toEqual([2]);
+		expect(await search('café')).toEqual([2]); // decomposed é
+		expect(await search('İstanbul')).toEqual([3]);
+	});
+
+	it('leaves case folding to the tokenizer', async () => {
+		expect(await search('LOGO')).toEqual([0]);
+		expect(await search('The LOGOS')).toEqual([0]);
 	});
 });

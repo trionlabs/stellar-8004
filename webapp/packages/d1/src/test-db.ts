@@ -4,6 +4,8 @@ import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 const MIGRATIONS_DIR = new URL('../migrations/', import.meta.url);
 // D1 rejects statements with more bound parameters than this.
 const MAX_BOUND_PARAMETERS = 100;
+// D1's maximum string, BLOB or row size, in bytes.
+const MAX_LENGTH = 2_000_000;
 
 type Row = Record<string, unknown>;
 
@@ -14,12 +16,16 @@ export interface TestD1Result<T = Row> {
 }
 
 function toSqlValue(value: unknown): SQLInputValue {
-	if (value === undefined) throw new TypeError('D1_TYPE_ERROR: Type "undefined" is not supported');
+	if (value === undefined || typeof value === 'bigint') {
+		throw new TypeError(`D1_TYPE_ERROR: Type "${typeof value}" is not supported`);
+	}
 	if (typeof value === 'boolean') return value ? 1 : 0;
-	if (value === null || typeof value === 'number' || typeof value === 'string' || typeof value === 'bigint') {
+	if (value === null || typeof value === 'number') return value;
+	if (typeof value === 'string' || value instanceof Uint8Array) {
+		const bytes = typeof value === 'string' ? Buffer.byteLength(value) : value.byteLength;
+		if (bytes > MAX_LENGTH) throw new Error('D1_ERROR: string or blob too big: SQLITE_TOOBIG');
 		return value;
 	}
-	if (value instanceof Uint8Array) return value;
 	throw new TypeError(`D1_TYPE_ERROR: Type "${typeof value}" is not supported`);
 }
 
@@ -71,11 +77,15 @@ export class TestD1Statement {
 /**
  * In-memory stand-in for a D1 database in unit tests, built on node:sqlite with every
  * migration in ../migrations applied. It copies the parts of the D1 binding the Workers
- * use, and D1's rules for them: at most 100 bound parameters, no undefined bindings,
- * booleans stored as 0/1, foreign keys on, and batch() as one transaction.
+ * use, and D1's rules for them: at most 100 bound parameters, no undefined or BigInt
+ * bindings, booleans stored as 0/1, values and rows of at most 2,000,000 bytes, foreign
+ * keys on, and batch() as one transaction. (The row limit needs a Node whose node:sqlite
+ * accepts `limits`; older ones still enforce it per bound value.)
  */
 export function createTestD1() {
-	const sqlite = new DatabaseSync(':memory:');
+	const sqlite = new DatabaseSync(':memory:', { limits: { length: MAX_LENGTH } } as ConstructorParameters<
+		typeof DatabaseSync
+	>[1]);
 	sqlite.exec('PRAGMA foreign_keys = ON');
 	for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()) {
 		sqlite.exec(readFileSync(new URL(file, MIGRATIONS_DIR), 'utf8'));
