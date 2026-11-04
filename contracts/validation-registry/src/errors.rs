@@ -19,6 +19,5 @@ pub enum ValidationError {
     ValidatorNotIndependent = 12,
     RenounceDisabled = 13,
     TooManyValidators = 14,
-    RequestNotAnswered = 15,
-    BatchTooLarge = 16,
+    TagTooLong = 15,
 }

@@ -12,16 +12,17 @@ use crate::types::{ValidationStatus, ValidationSummary};
 // get_summary windows over answered validations only, so requests that are
 // never answered cannot push an answer out. Each validation it reads costs two
 // ledger entries (index slot and status). With validators listed it reads up to
-// MAX_SUMMARY_VALIDATIONS answers per validator: 5 count entries + 5 x 32 x 2 +
-// instance + code = 327 entries, within mainnet's per-transaction footprint
-// limit of 400 (tx_max_footprint_entries), as in the reputation registry.
-// Without validators it reads 1 + 32 x 2 + 2 = 67.
+// MAX_SUMMARY_VALIDATIONS answers per validator: 5 count entries + 5 x 32 x 2
+// slots and statuses + instance + code = 327 entries, within mainnet's
+// per-transaction footprint limit of 400 (tx_max_footprint_entries), as in the
+// reputation registry. Without validators: 1 + 32 x 2 + instance + code = 67.
+// The 325 persistent entries of the full read must be live: archived entries
+// count against the 200-entry disk-read limit (tx_max_disk_read_entries).
 pub(crate) const MAX_SUMMARY_VALIDATORS: u32 = 5;
 pub(crate) const MAX_SUMMARY_VALIDATIONS: u32 = 32;
-// index_answered touches up to 6 entries per hash (status, marker, two counts,
-// two slots) and writes 5 of them: 20 hashes need at most 121 entries and 100
-// writes, under the 400-entry footprint and 200-entry write limits.
-pub(crate) const MAX_INDEX_BATCH: u32 = 20;
+// Bytes per validation tag, as in the reputation registry; the SDK's
+// validateTag uses the same limit. Bounds what each status read costs.
+pub(crate) const MAX_TAG_LEN: u32 = 64;
 
 // Cross-contract auth delegates to identity registry; share custody.
 #[contractclient(name = "IdentityRegistryClient")]
@@ -120,6 +121,9 @@ impl ValidationRegistryContract {
         if response > 100 {
             return Err(ValidationError::InvalidResponse);
         }
+        if tag.len() > MAX_TAG_LEN {
+            return Err(ValidationError::TagTooLong);
+        }
 
         let mut status =
             storage::get_validation(e, &request_hash).ok_or(ValidationError::RequestNotFound)?;
@@ -134,8 +138,9 @@ impl ValidationRegistryContract {
         status.last_update = e.ledger().sequence() as u64;
         status.has_response = true;
         storage::set_validation(e, &request_hash, &status);
-        // The first response indexes the validation for get_summary. Later
-        // updates keep its place; v1 answers are indexed on their next update.
+        // The first v2 response indexes the validation for get_summary. Later
+        // updates keep its place. Answers given under v1 are not indexed until
+        // their validator updates them under v2.
         if !storage::is_answer_indexed(e, &request_hash) {
             storage::index_answer(e, &request_hash, status.agent_id, &status.validator_address)?;
         }
@@ -167,42 +172,17 @@ impl ValidationRegistryContract {
         storage::has_validation(e, &request_hash)
     }
 
-    /// Indexes validations answered before the upgrade to v2, which v1 did
-    /// not index, so get_summary counts them. Anyone may call it: it only
-    /// records answers already stored. Takes at most 20 hashes; hashes already
-    /// indexed are skipped; unknown or unanswered hashes fail the call.
-    /// Returns how many were added.
-    pub fn index_answered(
-        e: &Env,
-        request_hashes: Vec<BytesN<32>>,
-    ) -> Result<u32, ValidationError> {
-        if request_hashes.len() > MAX_INDEX_BATCH {
-            return Err(ValidationError::BatchTooLarge);
-        }
-        let mut added = 0u32;
-        for hash in request_hashes.iter() {
-            let status =
-                storage::get_validation(e, &hash).ok_or(ValidationError::RequestNotFound)?;
-            if !status.has_response {
-                return Err(ValidationError::RequestNotAnswered);
-            }
-            if !storage::is_answer_indexed(e, &hash) {
-                storage::index_answer(e, &hash, status.agent_id, &status.validator_address)?;
-                added += 1;
-            }
-        }
-        Ok(added)
-    }
-
     /// Averages answered validations of `agent_id`. With `validator_addresses`
     /// (at most 5, duplicates ignored) it reads each validator's 32 most recent
-    /// answers for the agent, so only that validator's own answers can push one
-    /// out. With an empty list it reads the agent's 32 most recent answers from
-    /// any validator: the owner picks validators, so an owner with 32
-    /// cooperating answers can still push an answer out of this view; filter
-    /// by validator for a result the owner cannot steer. Answers count in the
-    /// order of their first response; validations answered under v1 count once
-    /// indexed (`index_answered`). Summarize larger histories off-chain.
+    /// answers for the agent; with an empty list, the agent's 32 most recent
+    /// answers from any validator. The tag filter applies inside that window.
+    /// Requests nobody answers never enter it, but the owner chooses which
+    /// validators to ask: by filing many requests to one validator (routine
+    /// checks under another tag, say) the owner can push that validator's
+    /// older answer out of a tag-filtered view, and validators the owner picks
+    /// can fill the unfiltered view. Answers count in the order of their first
+    /// v2 response. Answers given under v1 count only once their validator
+    /// updates them under v2. Summarize larger histories off-chain.
     pub fn get_summary(
         e: &Env,
         agent_id: u32,

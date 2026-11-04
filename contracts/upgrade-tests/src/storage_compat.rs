@@ -209,28 +209,31 @@ fn mainnet_v1_state_survives_upgrade_to_v2() {
         val2.get_validator_requests_paginated(&validator_a, &0, &10),
         vec![&env, h(10)]
     );
-    // v1 did not index answers, so get_summary counts them once anyone
-    // backfills them; unanswered requests cannot be backfilled.
+    // v1 did not index answers and v2 has no backfill: answers given under
+    // v1 are not counted after the upgrade until their validator updates them.
     let summary_of = |validators: soroban_sdk::Vec<Address>| {
         let summary = val2.get_summary(&1, &validators, &s("security"));
         (summary.count, summary.average_response)
     };
     let only_a = vec![&env, validator_a.clone()];
     assert_eq!(summary_of(only_a.clone()), (0, 0));
-    assert_eq!(
-        val2.try_index_answered(&vec![&env, h(10), h(12)]),
-        Err(Ok(ValidationError::RequestNotAnswered))
+    assert_eq!(summary_of(vec![&env]), (0, 0));
+    val2.validation_response(
+        &validator_a,
+        &h(10),
+        &70,
+        &s("ipfs://a-2"),
+        &h(18),
+        &s("security"),
     );
-    assert_eq!(val2.index_answered(&vec![&env, h(10), h(10)]), 1);
-    assert_eq!(val2.index_answered(&vec![&env, h(10)]), 0);
-    assert_eq!(summary_of(only_a.clone()), (1, 80));
+    assert_eq!(summary_of(only_a.clone()), (1, 70));
     // More unanswered requests than the summary window holds do not push
     // the answer out, filtered or not.
     for n in 100..140 {
         val2.validation_request(&bob, &validator_b, &1, &s(""), &h(n));
     }
-    assert_eq!(summary_of(only_a.clone()), (1, 80));
-    assert_eq!(summary_of(vec![&env]), (1, 80));
+    assert_eq!(summary_of(only_a.clone()), (1, 70));
+    assert_eq!(summary_of(vec![&env]), (1, 70));
 
     // Writes on v1 records through v2. Records v2 would reject stay
     // revocable, respondable and answerable; new ones are refused.
@@ -252,8 +255,8 @@ fn mainnet_v1_state_survives_upgrade_to_v2() {
         &s("security"),
     );
     assert_eq!(val2.get_validation_status(&h(13)).response, 90);
-    // Updating a v1 answer indexes it as well.
-    assert_eq!(summary_of(vec![&env]), (2, 85));
+    // Updating a v1 answer indexes it, here bob's self-validation.
+    assert_eq!(summary_of(vec![&env]), (2, 80));
     val2.validation_response(&validator_b, &h(12), &60, &s("ipfs://b"), &h(16), &s(""));
     assert_eq!(
         val2.try_validation_request(&bob, &bob, &1, &s(""), &h(17)),
