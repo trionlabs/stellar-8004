@@ -16,6 +16,8 @@ const MAX_SUMMARY_CLIENTS: u32 = 5;
 // ledger entries, within mainnet's per-transaction footprint limit of 400
 // (tx_max_footprint_entries).
 pub(crate) const MAX_SUMMARY_FEEDBACK_PER_CLIENT: u64 = 64;
+// Bytes per feedback tag; the SDK's validateTag uses the same limit.
+pub(crate) const MAX_TAG_LEN: u32 = 64;
 const MAX_ABS_VALUE: i128 = 100_000_000_000_000_000_000_000_000_000_000_000_000; // 1e38
 
 // Cross-contract auth delegates to identity registry; trust its admin.
@@ -53,6 +55,11 @@ impl ReputationRegistryContract {
 
         if value_decimals > 18 {
             return Err(ReputationError::InvalidValueDecimals);
+        }
+        // Tags are stored and read back by get_summary for every entry it scans, so their
+        // size bounds its cost the way the entry cap bounds the count.
+        if tag1.len() > MAX_TAG_LEN || tag2.len() > MAX_TAG_LEN {
+            return Err(ReputationError::TagTooLong);
         }
         // The value must also survive get_summary's WAD normalization
         // (value x 10^(18 - decimals) within i128), so it can always be summarized.

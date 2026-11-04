@@ -8,6 +8,7 @@ use soroban_sdk::{
 
 use crate::contract::{
     ReputationRegistryContract, ReputationRegistryContractClient, MAX_SUMMARY_FEEDBACK_PER_CLIENT,
+    MAX_TAG_LEN,
 };
 use crate::errors::ReputationError;
 use crate::storage::{DataKey, TTL_BUMP};
@@ -895,4 +896,37 @@ fn test_get_summary_reads_only_recent_feedback_per_client() {
     let result = summary(&client, &[&reviewer]);
     assert_eq!(result.count, MAX_SUMMARY_FEEDBACK_PER_CLIENT);
     assert_eq!(result.summary_value, 0, "the oldest entry must not count");
+}
+
+#[test]
+fn test_give_feedback_rejects_oversized_tags() {
+    // get_summary reads every scanned entry's tags, so their size is capped like the count.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _, reviewer) = setup(&env);
+    let tag = |len: usize| String::from_str(&env, &"t".repeat(len));
+    let give = |tag1: &String, tag2: &String| {
+        client.try_give_feedback(
+            &reviewer,
+            &0,
+            &80,
+            &0,
+            tag1,
+            tag2,
+            &empty_str(&env),
+            &empty_str(&env),
+            &zero_hash(&env),
+        )
+    };
+
+    let max = MAX_TAG_LEN as usize;
+    assert_eq!(
+        give(&tag(max + 1), &tag(0)),
+        Err(Ok(ReputationError::TagTooLong))
+    );
+    assert_eq!(
+        give(&tag(0), &tag(max + 1)),
+        Err(Ok(ReputationError::TagTooLong))
+    );
+    assert!(give(&tag(max), &tag(max)).is_ok());
 }

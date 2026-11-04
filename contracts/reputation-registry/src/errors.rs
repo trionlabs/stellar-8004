@@ -18,4 +18,5 @@ pub enum ReputationError {
     TimelockNotExpired = 11,
     UpgradeAlreadyProposed = 12,
     RenounceDisabled = 13,
+    TagTooLong = 14,
 }

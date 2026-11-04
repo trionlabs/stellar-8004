@@ -18,6 +18,7 @@ mod mock_identity {
     #[contracttype]
     pub enum DataKey {
         Owner(u32),
+        Wallet(u32),
     }
 
     #[contract]
@@ -49,6 +50,20 @@ mod mock_identity {
 
         pub fn is_approved_for_all(_e: &Env, _owner: Address, _operator: Address) -> bool {
             false
+        }
+
+        pub fn is_authorized_or_owner(e: &Env, spender: Address, agent_id: u32) -> bool {
+            Self::find_owner(e, agent_id) == Some(spender)
+        }
+
+        pub fn set_wallet(e: &Env, agent_id: u32, wallet: Address) {
+            e.storage()
+                .persistent()
+                .set(&DataKey::Wallet(agent_id), &wallet);
+        }
+
+        pub fn get_agent_wallet(e: &Env, agent_id: u32) -> Option<Address> {
+            e.storage().persistent().get(&DataKey::Wallet(agent_id))
         }
     }
 }
@@ -481,6 +496,27 @@ fn test_validator_cannot_be_agent_owner() {
         Err(Ok(ValidationError::ValidatorNotIndependent))
     );
     assert!(!client.request_exists(&test_hash(&env, 1)));
+}
+
+#[test]
+fn test_validator_cannot_be_agent_wallet() {
+    // The bound agentWallet acts for the agent, as in the reputation registry.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, identity, agent_owner, _) = setup(&env);
+    let wallet = Address::generate(&env);
+    identity.set_wallet(&0, &wallet);
+
+    assert_eq!(
+        client.try_validation_request(
+            &agent_owner,
+            &wallet,
+            &0,
+            &String::from_str(&env, ""),
+            &test_hash(&env, 1),
+        ),
+        Err(Ok(ValidationError::ValidatorNotIndependent))
+    );
 }
 
 #[test]

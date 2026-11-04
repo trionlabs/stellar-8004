@@ -20,6 +20,8 @@ pub trait IdentityRegistryInterface {
     fn agent_exists(e: &Env, agent_id: u32) -> bool;
     fn get_approved(e: &Env, token_id: u32) -> Option<Address>;
     fn is_approved_for_all(e: &Env, owner: Address, operator: Address) -> bool;
+    fn is_authorized_or_owner(e: &Env, spender: Address, agent_id: u32) -> bool;
+    fn get_agent_wallet(e: &Env, agent_id: u32) -> Option<Address>;
 }
 
 #[contract]
@@ -47,9 +49,13 @@ impl ValidationRegistryContract {
         let owner = identity
             .find_owner(&agent_id)
             .ok_or(ValidationError::AgentNotFound)?;
-        // The agent's owner, or whoever files the request, must not validate it.
-        // Independence beyond that cannot be checked on-chain.
-        if validator_address == owner || validator_address == caller {
+        // Whoever acts for the agent must not validate it: the requester, the owner,
+        // an approved operator and the bound agentWallet. These are the addresses the
+        // reputation registry rejects as self-feedback. Off-chain ties cannot be seen.
+        if validator_address == caller
+            || identity.is_authorized_or_owner(&validator_address, &agent_id)
+            || identity.get_agent_wallet(&agent_id) == Some(validator_address.clone())
+        {
             return Err(ValidationError::ValidatorNotIndependent);
         }
         if caller != owner {

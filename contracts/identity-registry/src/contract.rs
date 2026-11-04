@@ -83,6 +83,10 @@ impl IdentityRegistryContract {
             return Err(IdentityError::TooManyMetadataKeys);
         }
         for entry in metadata.iter() {
+            // Same rule as set_metadata, so registration cannot store a key no edit can reach.
+            if entry.key.is_empty() {
+                return Err(IdentityError::EmptyValue);
+            }
             if entry.key.len() > MAX_METADATA_KEY_LEN {
                 return Err(IdentityError::MetadataKeyTooLong);
             }

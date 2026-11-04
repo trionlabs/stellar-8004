@@ -778,3 +778,24 @@ fn test_extend_ttl_bumps_oz_owner_and_balance() {
         );
     });
 }
+
+#[test]
+fn test_register_full_rejects_empty_metadata_key() {
+    // Same rule as set_metadata: registration must not store a key no edit can reach.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let metadata = Vec::from_array(
+        &env,
+        [MetadataEntry {
+            key: String::from_str(&env, ""),
+            value: Bytes::from_slice(&env, b"x"),
+        }],
+    );
+
+    assert_eq!(
+        client.try_register_full(&user, &String::from_str(&env, "ipfs://x"), &metadata),
+        Err(Ok(IdentityError::EmptyValue))
+    );
+}
