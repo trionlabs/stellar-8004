@@ -46,8 +46,10 @@ pnpm --filter @stellar8004/web check       # svelte-check + tsc
 ## Deploy
 
 The explorer web app is served from Cloudflare Workers
-(`@sveltejs/adapter-cloudflare`; config in `apps/web/wrangler.toml`, published
-with `wrangler deploy`). Supabase runs as a hosted project, so the migrations
+(`@sveltejs/adapter-cloudflare`; config in `apps/web/wrangler.toml`, uploaded
+with `pnpm --filter @stellar8004/web upload`, which tags the version with the git
+commit that every response reports in its `X-Build` header, then promoted with
+`wrangler versions deploy`). Supabase runs as a hosted project, so the migrations
 and Edge Functions (`api`, `indexer`, `resolve-uris`, `indexer-health`) are
 deployed to it directly. The `docker/` compose stack is for running the full
 Supabase stack self-hosted.
