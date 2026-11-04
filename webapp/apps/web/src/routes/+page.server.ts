@@ -1,82 +1,65 @@
-import { createServerSupabase } from '$lib/supabase-server.js';
-import {
-	type AgentUriData,
-	readUriField,
-	assertSuccess,
-	toDisplayScore
-} from '$lib/server/utils.js';
+import { decodeRow, getDb } from '$lib/server/d1.js';
+import { readUriField, toDisplayScore } from '$lib/server/utils.js';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-	const db = createServerSupabase();
+type Stats = { agents: number; feedback: number; clients: number };
+type RecentAgent = { id: number; agent_uri_data: unknown; created_at: string };
+type RecentFeedback = {
+	id: number;
+	agent_id: number;
+	client_address: string;
+	value: string;
+	value_decimals: number;
+	tag1: string | null;
+	created_at: string;
+	agent_uri_data: unknown;
+};
 
-	const [
-		agentsCountResult,
-		feedbackCountResult,
-		uniqueClientsResult,
-		recentAgentsResult,
-		recentFeedbackResult
-	] = await Promise.all([
-		db.from('agents').select('*', { count: 'exact', head: true }),
-		db.from('feedback').select('*', { count: 'exact', head: true }).eq('is_revoked', false),
-		db.from('leaderboard_scores').select('unique_clients'),
-		db
-			.from('agents')
-			.select('id, agent_uri_data, created_at')
-			.order('created_at', { ascending: false })
-			.limit(10),
-		db
-			.from('feedback')
-			.select(
-				'id, agent_id, client_address, value, value_decimals, tag1, created_at, agent:agents!feedback_agent_id_fkey(agent_uri_data)'
-			)
-			.eq('is_revoked', false)
-			.order('created_at', { ascending: false })
-			.limit(10)
+export const load: PageServerLoad = async ({ platform }) => {
+	const db = getDb(platform);
+
+	const [statsResult, recentAgentsResult, recentFeedbackResult] = await db.batch([
+		db.prepare(
+			`SELECT (SELECT COUNT(*) FROM agents) AS agents,
+			        (SELECT COUNT(*) FROM feedback WHERE is_revoked = 0) AS feedback,
+			        (SELECT COALESCE(SUM(unique_clients), 0) FROM leaderboard_scores) AS clients`
+		),
+		db.prepare(
+			'SELECT id, agent_uri_data, created_at FROM agents ORDER BY created_at DESC, id DESC LIMIT 10'
+		),
+		db.prepare(
+			`SELECT f.id, f.agent_id, f.client_address, f.value, f.value_decimals, f.tag1, f.created_at,
+			        a.agent_uri_data
+			 FROM feedback f LEFT JOIN agents a ON a.id = f.agent_id
+			 WHERE f.is_revoked = 0
+			 ORDER BY f.created_at DESC, f.id DESC
+			 LIMIT 10`
+		)
 	]);
 
-	assertSuccess(agentsCountResult, 'Agents count');
-	assertSuccess(feedbackCountResult, 'Feedback count');
-
-	const uniqueClientsRows = assertSuccess(uniqueClientsResult, 'Unique clients') ?? [];
-	const recentAgentRows = assertSuccess(recentAgentsResult, 'Recent agents') ?? [];
-	const recentFeedbackRows = (assertSuccess(recentFeedbackResult, 'Recent feedback') ??
-		[]) as Array<{
-		id: number;
-		agent_id: number;
-		client_address: string;
-		value: string | number | null;
-		value_decimals: number;
-		tag1: string | null;
-		created_at: string;
-		agent: { agent_uri_data: AgentUriData } | { agent_uri_data: AgentUriData }[] | null;
-	}>;
+	const stats = statsResult.results[0] as Stats;
+	const recentAgentRows = recentAgentsResult.results.map(decodeRow<RecentAgent>);
+	const recentFeedbackRows = recentFeedbackResult.results.map(decodeRow<RecentFeedback>);
 
 	return {
 		stats: {
-			totalAgents: agentsCountResult.count ?? 0,
-			totalFeedback: feedbackCountResult.count ?? 0,
-			totalClients: uniqueClientsRows.reduce((sum, row) => sum + (row.unique_clients ?? 0), 0)
+			totalAgents: stats.agents,
+			totalFeedback: stats.feedback,
+			totalClients: stats.clients
 		},
 		recentAgents: recentAgentRows.map((agent) => ({
 			id: agent.id,
 			name: readUriField(agent.agent_uri_data, 'name') ?? `Agent #${agent.id}`,
 			createdAt: agent.created_at
 		})),
-		recentFeedback: recentFeedbackRows.map((feedback) => {
-			const agentRecord = Array.isArray(feedback.agent) ? feedback.agent[0] : feedback.agent;
-
-			return {
-				id: feedback.id,
-				agentId: feedback.agent_id,
-				agentName:
-					readUriField(agentRecord?.agent_uri_data ?? null, 'name') ??
-					`Agent #${feedback.agent_id}`,
-				clientAddress: feedback.client_address,
-				score: toDisplayScore(feedback.value, feedback.value_decimals),
-				tag: feedback.tag1,
-				createdAt: feedback.created_at
-			};
-		})
+		recentFeedback: recentFeedbackRows.map((feedback) => ({
+			id: feedback.id,
+			agentId: feedback.agent_id,
+			agentName: readUriField(feedback.agent_uri_data, 'name') ?? `Agent #${feedback.agent_id}`,
+			clientAddress: feedback.client_address,
+			score: toDisplayScore(feedback.value, feedback.value_decimals),
+			tag: feedback.tag1,
+			createdAt: feedback.created_at
+		}))
 	};
 };

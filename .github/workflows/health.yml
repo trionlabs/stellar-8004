@@ -1,0 +1,31 @@
+name: health
+
+# External check of the live site. A failed run is GitHub's alert: it emails the person who
+# last changed the schedule below. Costs one request to the public API every 15 minutes.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Site and API answer, indexer is current
+        run: |
+          set -euo pipefail
+          for url in https://stellar8004.com/ https://mcp.stellar8004.com/; do
+            curl -fsS --retry 2 --max-time 20 -o /dev/null "$url"
+          done
+          body=$(curl -fsS --retry 2 --max-time 20 -H 'Cache-Control: no-cache' \
+            "https://stellar8004.com/api/v1/health?t=$(date +%s)")
+          echo "$body" | jq -e '.success == true' >/dev/null
+          stale=$(echo "$body" | jq '[.data.indexer[] | select(.stale)] | length')
+          echo "$body" | jq -c '.data.indexer'
+          if [ "$stale" -gt 0 ]; then
+            echo "::error::$stale indexed contract(s) are stale (no progress for 5+ minutes)"
+            exit 1
+          fi

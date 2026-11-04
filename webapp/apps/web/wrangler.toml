@@ -7,15 +7,14 @@
 # use — it never deployed.
 #
 # Replaces a self-hosted Docker deployment; the driver was separating this app off a shared box, not
-# RAM. Bonus: /api/v1/[...path] is a pure reverse proxy to Supabase Edge Functions, so on Workers it
-# terminates at the edge instead of round-tripping to the origin region.
+# RAM. The pages and the public API (/api/v1) read the D1 database bound below.
 # (Infra topology / origin details deliberately kept out of this public repo.)
 
 name = "stellar8004-web"
 main = ".svelte-kit/cloudflare/_worker.js"
 compatibility_date = "2026-04-01"
 
-# @supabase/supabase-js and @stellar/stellar-sdk pull node builtins (stream/crypto/util).
+# @stellar/stellar-sdk pulls node builtins (stream/crypto/util).
 compatibility_flags = ["nodejs_compat"]
 
 # CUTOVER via Workers Route, deliberately NOT a DNS change. The zone is already proxied through
@@ -50,19 +49,33 @@ binding = "ASSETS"
 [observability]
 enabled = true
 
-# SECRETS — set via `wrangler secret put`, NEVER committed:
-#   SUPABASE_URL                (<project>.supabase.co — hosted, not self-hosted)
-#   SUPABASE_SERVICE_ROLE_KEY   (bypasses RLS; server-only)
-#   SUPABASE_ANON_KEY
-# Read via $env/dynamic/private INSIDE functions (src/lib/supabase-server.ts), never at module
-# scope — which is exactly what workerd requires, so no code change was needed.
+# No secrets: the data lives in the D1 database bound below, and everything else is public config.
 
 [vars]
 # Public, build-and-runtime config read via $env/dynamic/public. Not secrets: contract addresses
 # and the RPC URL are on-chain public data, and the client bundle needs them anyway. Mirrors the
 # env of the Docker service being replaced.
 PUBLIC_STELLAR_NETWORK = "mainnet"
-PUBLIC_STELLAR_RPC_URL = "https://mainnet.sorobanrpc.com"
+# gateway.fm already ran a Protocol 30 release when this was set (2026-11-04); browsers call it directly (CORS *).
+PUBLIC_STELLAR_RPC_URL = "https://soroban-rpc.mainnet.stellar.gateway.fm"
 PUBLIC_IDENTITY_REGISTRY = "CBGPDCJIHQ32G42BE7F2CIT3YW6XRN5ED6GQJHCRZSNAYH6TGMCL6X35"
 PUBLIC_REPUTATION_REGISTRY = "CBOIAIMMWAXI57OATLX6BWVDQLCC4YU55HV6MZXFRP6CBSGAMXSTEPPA"
 PUBLIC_VALIDATION_REGISTRY = "CBT6WWEVEPT2UFGFGVJJ7ELYGLQAGRYSVGDTGMCJTRWXOH27MWUO7UJG"
+
+# D1 holds the explorer data (agents, feedback, validations, indexer checkpoints) and
+# replaces Supabase. Bound by name only: wrangler resolves or provisions the database, so
+# no database ID lives in this public repo. Never commit an ID wrangler writes back here.
+[[d1_databases]]
+binding = "DB"
+database_name = "stellar8004"
+migrations_dir = "../../packages/d1/migrations"
+
+# Public API (/api/v1): 30 requests a minute per client IP. Cloudflare counts per location
+# and eventually consistently, so the limit is approximate by design.
+[[ratelimits]]
+name = "API_RATE_LIMITER"
+namespace_id = "8004"
+
+  [ratelimits.simple]
+  limit = 30
+  period = 60

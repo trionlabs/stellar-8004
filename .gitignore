@@ -19,6 +19,9 @@ docs/
 .env
 .env.*
 !.env.example
+# wrangler's local secrets file
+.dev.vars
+.dev.vars.*
 *.pem
 *.key
 *.crt

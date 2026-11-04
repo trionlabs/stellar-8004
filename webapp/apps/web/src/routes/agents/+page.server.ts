@@ -1,10 +1,7 @@
-import type { Database } from '@stellar8004/db';
-import { createServerSupabase } from '$lib/supabase-server.js';
-import { readUriField, assertSuccess } from '$lib/server/utils.js';
+import { decodeRow, getDb } from '$lib/server/d1.js';
+import { ftsMatch } from '$lib/server/search.js';
+import { readUriField, type ScoreRow } from '$lib/server/utils.js';
 import type { PageServerLoad } from './$types';
-
-type SearchAgentRow = Database['public']['Functions']['search_agents']['Returns'][number];
-type LeaderboardRow = Database['public']['Views']['leaderboard_scores']['Row'];
 
 type AgentListItem = {
 	id: number;
@@ -19,6 +16,24 @@ type AgentListItem = {
 	supportedTrust: string[];
 	hasServices: boolean;
 };
+
+/** An agents row with its leaderboard_scores numbers (AGENT_COLUMNS), after decodeRow. */
+type AgentScoreRow = {
+	id: number;
+	owner: string;
+	agent_uri_data: unknown;
+	created_at: string;
+	supported_trust: string[];
+	services: unknown[];
+	total_score: number;
+	avg_score: number;
+	feedback_count: number;
+	unique_clients: number;
+};
+
+const AGENT_COLUMNS =
+	'a.id, a.owner, a.agent_uri_data, a.created_at, a.supported_trust, a.services, ' +
+	'ls.total_score, ls.avg_score, ls.feedback_count, ls.unique_clients';
 
 const SORT_OPTIONS = ['created_at', 'score', 'feedback'] as const;
 
@@ -59,54 +74,23 @@ function sortAgents(
 	});
 }
 
-async function loadScoreMap(
-	db: ReturnType<typeof createServerSupabase>,
-	agentIds: number[]
-): Promise<Map<number, LeaderboardRow>> {
-	if (agentIds.length === 0) {
-		return new Map();
-	}
-
-	const scoreRows =
-		assertSuccess(
-			await db.from('leaderboard_scores').select('*').in('agent_id', agentIds),
-			'Leaderboard scores'
-		) ?? [];
-
-	return new Map(
-		scoreRows
-			.filter((row): row is LeaderboardRow & { agent_id: number } => row.agent_id != null)
-			.map((row) => [row.agent_id, row])
-	);
-}
-
-function normalizeAgentRow(
-	agent: Pick<
-		SearchAgentRow,
-		'id' | 'owner' | 'agent_uri_data' | 'created_at' | 'supported_trust' | 'services'
-	>,
-	score?: LeaderboardRow | null
-): AgentListItem {
+function normalizeAgentRow(agent: AgentScoreRow): AgentListItem {
 	return {
 		id: agent.id,
 		name: readUriField(agent.agent_uri_data, 'name') ?? `Agent #${agent.id}`,
 		image: readUriField(agent.agent_uri_data, 'image'),
 		owner: agent.owner,
 		createdAt: agent.created_at,
-		totalScore: score?.total_score ?? null,
-		avgScore: score?.avg_score ?? null,
-		feedbackCount: score?.feedback_count ?? 0,
-		uniqueClients: score?.unique_clients ?? 0,
-		supportedTrust: agent.supported_trust ?? [],
-		hasServices: Array.isArray(agent.services) ? agent.services.length > 0 : false
+		totalScore: agent.total_score,
+		avgScore: agent.avg_score,
+		feedbackCount: agent.feedback_count,
+		uniqueClients: agent.unique_clients,
+		supportedTrust: agent.supported_trust,
+		hasServices: agent.services.length > 0
 	};
 }
 
-function normalizeLeaderboardRow(row: LeaderboardRow): AgentListItem | null {
-	if (row.agent_id == null || row.owner == null) {
-		return null;
-	}
-
+function normalizeLeaderboardRow(row: ScoreRow): AgentListItem {
 	return {
 		id: row.agent_id,
 		name: row.agent_name ?? `Agent #${row.agent_id}`,
@@ -114,22 +98,23 @@ function normalizeLeaderboardRow(row: LeaderboardRow): AgentListItem | null {
 		owner: row.owner,
 		createdAt: null,
 		totalScore: row.total_score,
-		avgScore: row.avg_score ?? null,
-		feedbackCount: row.feedback_count ?? 0,
-		uniqueClients: row.unique_clients ?? 0,
-		supportedTrust: row.supported_trust ?? [],
-		hasServices: row.has_services ?? false
+		avgScore: row.avg_score,
+		feedbackCount: row.feedback_count,
+		uniqueClients: row.unique_clients,
+		supportedTrust: row.supported_trust,
+		hasServices: row.has_services
 	};
 }
 
-export const load: PageServerLoad = async ({ url }) => {
-	const db = createServerSupabase();
+export const load: PageServerLoad = async ({ url, platform }) => {
+	const db = getDb(platform);
 	const query = (url.searchParams.get('q') ?? '').trim().slice(0, 500);
 	const sortParam = url.searchParams.get('sort');
 	const sort = SORT_OPTIONS.includes(sortParam as (typeof SORT_OPTIONS)[number])
 		? (sortParam as (typeof SORT_OPTIONS)[number])
 		: 'created_at';
 	const order = url.searchParams.get('order') === 'asc' ? 'asc' : 'desc';
+	const direction = order === 'asc' ? 'ASC' : 'DESC';
 	const pageParam = Number(url.searchParams.get('page') ?? '1');
 	const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
 	const perPage = 20;
@@ -139,151 +124,93 @@ export const load: PageServerLoad = async ({ url }) => {
 	const trustFilter = url.searchParams.getAll('trust').filter((t) => t.length > 0);
 	const minScoreParam = Number(url.searchParams.get('min_score') ?? '0');
 	const minScore = Number.isFinite(minScoreParam) ? Math.max(0, Math.min(100, minScoreParam)) : 0;
-	const hasServicesParam = url.searchParams.get('services');
-	const hasServices = hasServicesParam === 'true' ? true : null;
+	const hasServices = url.searchParams.get('services') === 'true';
 
 	const ownerFilter = url.searchParams.get('owner')?.trim() ?? '';
+	const owner = ownerFilter || null;
 
-	const hasFilters = trustFilter.length > 0 || minScore > 0 || hasServices !== null;
+	// FTS5 MATCH expression for the query; null without a query or a searchable word in it.
+	const match = ftsMatch(query);
 
-	if (hasFilters) {
-		const rpcResult = await db.rpc('search_agents_advanced', {
-			search_query: query,
-			trust_filter: trustFilter,
-			min_score: minScore,
-			has_services_filter: hasServices ?? undefined,
-			result_limit: perPage,
-			result_offset: offset,
-			owner_filter: ownerFilter || null
-		});
+	let agents: AgentListItem[];
 
-		if (rpcResult.error) {
-			console.error('[Advanced search] query failed:', rpcResult.error.message);
-			// Fall through to unfiltered listing instead of 500
-		} else {
-			const advancedRows = rpcResult.data ?? [];
-
-			const agents: AgentListItem[] = advancedRows.map((row) => ({
-				id: row.agent_id,
-				name: row.agent_name ?? `Agent #${row.agent_id}`,
-				image: row.agent_image,
-				owner: row.owner,
-				createdAt: null,
-				totalScore: row.total_score,
-				avgScore: row.avg_score ?? null,
-				feedbackCount: row.feedback_count ?? 0,
-				uniqueClients: row.unique_clients ?? 0,
-				supportedTrust: row.supported_trust ?? [],
-				hasServices: row.has_services ?? false
-			}));
-
-			return {
-				agents,
-				query,
-				sort,
-				order,
-				page,
-				hasMore: advancedRows.length === perPage,
-				filters: { trust: trustFilter, minScore, hasServices: hasServices ?? false },
-				ownerFilter
-			};
-		}
+	if (query && !match) {
+		agents = []; // only stopwords or punctuation: plainto_tsquery matched nothing either
+	} else if (trustFilter.length > 0 || minScore > 0 || hasServices) {
+		// search_agents_advanced: every filter applies, the text query only when there is one.
+		const { results } = await db
+			.prepare(
+				`SELECT ls.* FROM leaderboard_scores ls
+				 WHERE (?1 IS NULL OR ls.agent_id IN (SELECT rowid FROM agents_fts WHERE agents_fts MATCH ?1))
+				   AND (?2 IS NULL OR EXISTS (
+				         SELECT 1 FROM json_each(ls.supported_trust) AS t
+				         WHERE t.value IN (SELECT value FROM json_each(?2))))
+				   AND ls.total_score >= ?3
+				   AND (?4 = 0 OR ls.has_services)
+				   AND (?5 IS NULL OR ls.owner = ?5)
+				 ORDER BY ls.total_score DESC, ls.agent_id
+				 LIMIT ?6 OFFSET ?7`
+			)
+			.bind(
+				match,
+				trustFilter.length > 0 ? JSON.stringify(trustFilter) : null,
+				minScore,
+				hasServices,
+				owner,
+				perPage,
+				offset
+			)
+			.all();
+		agents = results.map(decodeRow<ScoreRow>).map(normalizeLeaderboardRow);
+	} else if (query) {
+		// search_agents: the most relevant matches, then shown in the chosen sort order.
+		const { results } = await db
+			.prepare(
+				`SELECT ${AGENT_COLUMNS}
+				 FROM agents_fts
+				 JOIN agents a ON a.id = agents_fts.rowid
+				 JOIN leaderboard_scores ls ON ls.agent_id = a.id
+				 WHERE agents_fts MATCH ?1 AND (?2 IS NULL OR a.owner = ?2)
+				 ORDER BY agents_fts.rank, a.id
+				 LIMIT ?3 OFFSET ?4`
+			)
+			.bind(match, owner, perPage, offset)
+			.all();
+		agents = sortAgents(results.map(decodeRow<AgentScoreRow>).map(normalizeAgentRow), sort, order);
+	} else if (sort === 'created_at') {
+		const { results } = await db
+			.prepare(
+				`SELECT ${AGENT_COLUMNS}
+				 FROM agents a JOIN leaderboard_scores ls ON ls.agent_id = a.id
+				 WHERE ?1 IS NULL OR a.owner = ?1
+				 ORDER BY a.created_at ${direction}, a.id
+				 LIMIT ?2 OFFSET ?3`
+			)
+			.bind(owner, perPage, offset)
+			.all();
+		agents = results.map(decodeRow<AgentScoreRow>).map(normalizeAgentRow);
+	} else {
+		const column = sort === 'score' ? 'total_score' : 'feedback_count';
+		const { results } = await db
+			.prepare(
+				`SELECT * FROM leaderboard_scores
+				 WHERE ?1 IS NULL OR owner = ?1
+				 ORDER BY ${column} ${direction}, agent_id
+				 LIMIT ?2 OFFSET ?3`
+			)
+			.bind(owner, perPage, offset)
+			.all();
+		agents = results.map(decodeRow<ScoreRow>).map(normalizeLeaderboardRow);
 	}
-
-	if (query.length > 0) {
-		// Send owner_filter as null, never undefined: undefined is dropped from the request, and
-		// PostgREST then can't choose between the 3- and 4-argument search_agents overloads in
-		// the database, so every search failed and fell through to the unfiltered list.
-		const searchResult = await db.rpc('search_agents', {
-			search_query: query,
-			result_limit: perPage,
-			result_offset: offset,
-			owner_filter: ownerFilter || null
-		});
-
-		if (!searchResult.error) {
-			const searchRows = searchResult.data ?? [];
-			const scoreMap = await loadScoreMap(
-				db,
-				searchRows.map((agent) => agent.id)
-			);
-			const agents = sortAgents(
-				searchRows.map((agent) => normalizeAgentRow(agent, scoreMap.get(agent.id))),
-				sort,
-				order
-			);
-
-			return {
-				agents,
-				query,
-				sort,
-				order,
-				page,
-				hasMore: searchRows.length === perPage,
-				filters: { trust: [] as string[], minScore: 0, hasServices: false },
-				ownerFilter
-			};
-		}
-
-		console.error('[Agent search] query failed:', searchResult.error.message);
-		// Fall through to unfiltered listing
-	}
-
-	if (sort === 'created_at') {
-		let agentQuery = db
-			.from('agents')
-			.select('id, owner, agent_uri_data, created_at, supported_trust, services')
-			.order('created_at', { ascending: order === 'asc' })
-			.range(offset, offset + perPage - 1);
-
-		if (ownerFilter) {
-			agentQuery = agentQuery.eq('owner', ownerFilter);
-		}
-
-		const agentRows = assertSuccess(await agentQuery, 'Agent list') ?? [];
-
-		const scoreMap = await loadScoreMap(
-			db,
-			agentRows.map((agent) => agent.id)
-		);
-
-		return {
-			agents: agentRows.map((agent) => normalizeAgentRow(agent, scoreMap.get(agent.id))),
-			query,
-			sort,
-			order,
-			page,
-			hasMore: agentRows.length === perPage,
-			filters: { trust: [] as string[], minScore: 0, hasServices: false },
-			ownerFilter
-		};
-	}
-
-	const scoreColumn = sort === 'score' ? 'total_score' : 'feedback_count';
-
-	let lbQuery = db
-		.from('leaderboard_scores')
-		.select('*')
-		.order(scoreColumn, { ascending: order === 'asc' })
-		.order('agent_id', { ascending: true })
-		.range(offset, offset + perPage - 1);
-
-	if (ownerFilter) {
-		lbQuery = lbQuery.eq('owner', ownerFilter);
-	}
-
-	const leaderboardRows = assertSuccess(await lbQuery, 'Leaderboard list') ?? [];
 
 	return {
-		agents: leaderboardRows
-			.map((row) => normalizeLeaderboardRow(row))
-			.filter((agent): agent is AgentListItem => agent != null),
+		agents,
 		query,
 		sort,
 		order,
 		page,
-		hasMore: leaderboardRows.length === perPage,
-		filters: { trust: [] as string[], minScore: 0, hasServices: false },
+		hasMore: agents.length === perPage,
+		filters: { trust: trustFilter, minScore, hasServices },
 		ownerFilter
 	};
 };

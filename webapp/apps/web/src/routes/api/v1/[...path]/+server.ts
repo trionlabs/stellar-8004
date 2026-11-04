@@ -1,120 +1,106 @@
+// The public API (/api/v1/*), served from D1. It replaces the Supabase edge function
+// (supabase/functions/api) and the proxy that used to forward to it, and keeps both
+// behaviours: the proxy's path guard, then the edge function's router.
 import type { RequestHandler } from './$types';
-import { env } from '$env/dynamic/private';
-import { fetchWithRetry } from '$lib/server/fetch-with-retry.js';
+import { getDb, type Db } from '$lib/server/d1.js';
+import { withinRateLimit } from '$lib/server/rate-limit.js';
+import { errorResponse } from '$lib/server/api/response.js';
+import {
+	handleAccounts,
+	handleAgentDetail,
+	handleAgentFeedback,
+	handleAgentsList,
+	handleHealth,
+	handleSearch,
+	handleStats
+} from '$lib/server/api/handlers.js';
 
-const FORWARDED_HEADERS = [
-	'content-type',
-	'cache-control',
-	'access-control-allow-origin',
-	'access-control-allow-methods',
-	'access-control-allow-headers',
-	'x-ratelimit-limit',
-	'x-ratelimit-remaining',
-	'x-ratelimit-reset'
-];
+const ALLOWED_ENDPOINTS = new Set(['agents', 'accounts', 'search', 'stats', 'health']);
 
-const handler: RequestHandler = async ({ params, url, request, getClientAddress }) => {
-	const kongUrl = env.SUPABASE_URL;
-	if (!kongUrl) {
-		return new Response(
-			JSON.stringify({
-				success: false,
-				error: { code: 'CONFIG_ERROR', message: 'API backend not configured' }
-			}),
-			{
-				status: 502,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
-	}
+const PREFLIGHT_HEADERS = {
+	'Access-Control-Allow-Origin': '*',
+	'Access-Control-Allow-Methods': 'GET, OPTIONS',
+	'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+	'Access-Control-Max-Age': '86400'
+};
 
-	// SSRF/traversal guard combining both hardening passes:
-	//   - positive endpoint allowlist (origin/main 5ecfc5b): only known api endpoints, so a crafted
-	//     path can't hop out of the `api` function to another edge function (/indexer, /rest/v1, /auth/v1).
-	//   - full multi-pass percent-decode + new URL() origin/prefix assertion (feat 2093be8): kills
-	//     `..`, `%2e%2e`, `%252e%252e`, `..%2f` incl. second-order decodes, then re-encodes each
-	//     segment and asserts the resolved URL stays same-origin and under the api/v1 prefix.
-	const PREFIX = '/functions/v1/api/v1/';
-	const ALLOWED_ENDPOINTS = new Set(['agents', 'accounts', 'search', 'stats', 'health']);
-	const notFound = () =>
-		new Response(
-			JSON.stringify({
-				success: false,
-				error: { code: 'NOT_FOUND', message: 'Endpoint not found' }
-			}),
-			{
-				status: 404,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
-
-	let target: URL;
+/**
+ * The proxy's traversal guard: fully percent-decode (beats %252e and deeper encodings),
+ * reject any '%' that survives and any backslash, allow only known endpoints, and reject
+ * empty and dot segments. Returns the segments re-encoded, which is how the edge function
+ * saw them (so /agents/%201 stays a 400), or null for a 404.
+ */
+function guard(path: string): string[] | null {
 	try {
-		// 1. Fully percent-decode (loop beats %252e / deeper second-order encodings).
-		let decoded = params.path ?? '';
+		let decoded = path;
 		for (let i = 0; i < 6; i++) {
 			const next = decodeURIComponent(decoded);
 			if (next === decoded) break;
 			decoded = next;
 		}
-		// Any surviving '%' means the input was encoded deeper than the loop unwound;
-		// reject it (and any backslash) outright — allowlisted endpoints/ids never
-		// contain either, so this closes the multi-layer-encoding gap with no loop race.
-		if (decoded.includes('%') || decoded.includes('\\')) throw new Error('traversal');
+		if (decoded.includes('%') || decoded.includes('\\')) return null;
 		const segments = decoded.split('/');
-		// 2. Positive allowlist + dot-segment/empty rejection.
 		if (
 			!ALLOWED_ENDPOINTS.has(segments[0]) ||
 			segments.some((s) => s === '' || s === '.' || s === '..')
 		) {
-			return notFound();
+			return null;
 		}
-		// 3. Rebuild from re-encoded segments so fetch()'s own decode can't reintroduce traversal.
-		const safePath = segments.map((s) => encodeURIComponent(s)).join('/');
-		const base = new URL(kongUrl);
-		target = new URL(PREFIX + safePath, base);
-		target.search = url.search;
-		// 4. Defense in depth: assert same-origin AND under prefix.
-		if (target.origin !== base.origin || !target.pathname.startsWith(PREFIX)) return notFound();
+		return segments.map((s) => encodeURIComponent(s));
 	} catch {
-		return notFound();
+		return null;
 	}
-	const anonKey = env.SUPABASE_ANON_KEY;
+}
 
-	let resp: Response;
-	try {
-		resp = await fetchWithRetry(target, {
-			method: request.method,
-			headers: {
-				'x-real-ip': getClientAddress(),
-				...(anonKey ? { apikey: anonKey, Authorization: `Bearer ${anonKey}` } : {})
-			},
-			body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined
-		});
-	} catch {
-		return new Response(
-			JSON.stringify({
-				success: false,
-				error: { code: 'UPSTREAM_ERROR', message: 'API backend unavailable' }
-			}),
-			{
-				status: 502,
-				headers: { 'Content-Type': 'application/json' }
-			}
-		);
+function route(db: Db, parts: string[], url: URL): Promise<Response> | Response {
+	const [endpoint, param, sub] = parts;
+	if (parts.length === 1) {
+		if (endpoint === 'health') return handleHealth(db);
+		if (endpoint === 'stats') return handleStats(db);
+		if (endpoint === 'search') return handleSearch(db, url);
+		if (endpoint === 'agents') return handleAgentsList(db, url);
+	}
+	if (endpoint === 'agents' && parts.length === 2) return handleAgentDetail(db, param);
+	if (parts.length === 3) {
+		if (endpoint === 'agents' && sub === 'feedback') return handleAgentFeedback(db, param, url);
+		if (endpoint === 'accounts' && sub === 'agents') return handleAccounts(db, param, url);
+	}
+	return errorResponse('NOT_FOUND', 'Endpoint not found', 404);
+}
+
+// Only a fallback export, so every method lands here (with a GET export SvelteKit would answer
+// HEAD itself): OPTIONS gets the preflight answer and everything but GET a 405, as before.
+export const fallback: RequestHandler = async ({
+	params,
+	url,
+	request,
+	platform,
+	getClientAddress
+}) => {
+	const parts = guard(params.path);
+	if (!parts) return errorResponse('NOT_FOUND', 'Endpoint not found', 404);
+	if (request.method === 'OPTIONS') {
+		return new Response(null, { status: 204, headers: PREFLIGHT_HEADERS });
+	}
+	if (request.method !== 'GET') {
+		return errorResponse('METHOD_NOT_ALLOWED', 'Only GET requests are supported', 405);
 	}
 
-	const headers = new Headers();
-	for (const key of FORWARDED_HEADERS) {
-		const val = resp.headers.get(key);
-		if (val) headers.set(key, val);
+	let response: Response;
+	if (await withinRateLimit(platform, getClientAddress)) {
+		try {
+			response = await route(getDb(platform), parts, url);
+		} catch (err) {
+			console.error('API error:', err);
+			response = errorResponse('INTERNAL_ERROR', 'An unexpected error occurred', 500);
+		}
+	} else {
+		response = errorResponse('RATE_LIMITED', 'Too many requests. Try again later.', 429);
+		response.headers.set('X-RateLimit-Remaining', '0');
 	}
-
-	return new Response(resp.body, {
-		status: resp.status,
-		headers
-	});
+	// No Retry-After, and a Reset that is not a number: the SDK sleeps on either before it
+	// retries, which would leave MCP tool calls hanging for minutes.
+	response.headers.set('X-RateLimit-Limit', '30');
+	response.headers.set('X-RateLimit-Reset', new Date(Date.now() + 60_000).toISOString());
+	return response;
 };
-
-export const GET = handler;
-export const OPTIONS = handler;
