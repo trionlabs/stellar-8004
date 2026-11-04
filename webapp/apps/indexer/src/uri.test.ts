@@ -44,6 +44,8 @@ describe('resolveUri', () => {
 		'http://[::1]/a',
 		'http://[fe80::1]/a',
 		'http://[fd00::1]/a',
+		'http://[fc00::1]/a',
+		'http://[ff02::1]/a',
 		'http://[::ffff:127.0.0.1]/a',
 		'https://8.8.8.8/a.json',
 		'https://[2606:4700::1111]/a.json'
@@ -51,6 +53,17 @@ describe('resolveUri', () => {
 		const fetchMock = stubFetch();
 		await expect(resolveUri(uri)).resolves.toBeNull();
 		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		'https://fdroid.org/a.json',
+		'https://ffmpeg.org/a.json',
+		'https://fcc.gov/a.json',
+		'https://feb.example/a.json'
+	])('fetches %s: IPv6 prefixes apply to IP literals only', async (uri) => {
+		const fetchMock = stubFetch(json({ name: 'public' }));
+		await expect(resolveUri(uri)).resolves.toEqual({ name: 'public' });
+		expect(fetchMock).toHaveBeenCalledOnce();
 	});
 
 	it('follows one redirect after checking its target, without redirect: "error" (workerd rejects it)', async () => {

@@ -84,8 +84,11 @@ describe('resolvePending', () => {
 		await pending(2);
 		const resolve = async (uri: string) => {
 			const id = uri.endsWith('1.json') ? 1 : 2;
+			// What the indexer's UriUpdated write does.
 			await db
-				.prepare('UPDATE agents SET agent_uri = ? WHERE id = ?')
+				.prepare(
+					'UPDATE agents SET agent_uri = ?, agent_uri_data = NULL, uri_resolve_attempts = 0, resolve_uri_pending = 1 WHERE id = ?'
+				)
 				.bind(`https://agents.example/new-${id}.json`, id)
 				.run();
 			return id === 1 ? { name: 'for the old URI' } : null;
@@ -123,17 +126,42 @@ describe('resolvePending', () => {
 		).toEqual([{ n: 5 }]);
 	});
 
-	it('counts a document the database refuses as a failed try instead of failing the run', async () => {
-		await pending(1);
+	it('records each try first, so a document it cannot store backs off and never blocks the queue', async () => {
+		for (let id = 1; id <= 4; id++) await pending(id);
 		let nested: unknown = [];
 		for (let depth = 0; depth < 1_500; depth++) nested = [nested]; // deeper than SQLite's JSON accepts
-		const result = await resolvePending(db, deadline(), async () => nested, clock);
+		const documents: Record<string, unknown> = {
+			// About 1.6 MB stored: the endpoint is copied into services. D1 caps a row at 2,000,000 bytes.
+			'https://agents.example/1.json': {
+				name: 'big',
+				services: [{ name: 'x', endpoint: `https://e.example/${'a'.repeat(800_000)}` }]
+			},
+			'https://agents.example/2.json': nested,
+			'https://agents.example/3.json': { name: 10n }, // JSON.stringify throws
+			'https://agents.example/4.json': { name: 'honest' }
+		};
+		const resolve = vi.fn(async (uri: string) => documents[uri]);
 
-		expect(result).toEqual({ checked: 1, resolved: 0, failed: 1, exhausted: 0 });
-		expect(await agent(1)).toMatchObject({
-			agent_uri_data: null,
-			uri_resolve_attempts: 1,
-			resolve_uri_pending: 1
+		const result = await resolvePending(db, deadline(), resolve, clock);
+
+		expect(result).toEqual({ checked: 4, resolved: 1, failed: 3, exhausted: 0 });
+		expect(await agent(4)).toMatchObject({
+			agent_uri_data: '{"name":"honest"}',
+			resolve_uri_pending: 0
 		});
+		for (const id of [1, 2, 3]) {
+			expect(await agent(id)).toMatchObject({
+				agent_uri_data: null,
+				services: '[]',
+				uri_resolve_attempts: 1,
+				resolve_uri_pending: 1,
+				last_resolve_attempt_at: pgTime(NOW)
+			});
+		}
+
+		// A minute later all three are still backing off.
+		resolve.mockClear();
+		await resolvePending(db, deadline(), resolve, () => new Date(NOW.getTime() + 60_000));
+		expect(resolve).not.toHaveBeenCalled();
 	});
 });

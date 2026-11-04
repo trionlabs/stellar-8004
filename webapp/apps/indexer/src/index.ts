@@ -16,6 +16,8 @@ export interface Env {
 	STELLAR_NETWORK?: string;
 	STELLAR_MAINNET_RPC_PRIMARY_URL?: string;
 	STELLAR_MAINNET_RPC_FALLBACK_URL?: string;
+	/** "true" lets a run skip ledgers that aged out of RPC retention; otherwise such a run fails. */
+	ALLOW_RETENTION_CLAMP?: string;
 }
 
 // Stop starting new work after this; in-flight requests are bounded by their own timeouts.
@@ -74,7 +76,9 @@ export async function runOnce(
 		if (passphrase !== Networks.PUBLIC) {
 			throw new Error(`Refusing to run: RPC network is "${passphrase}", expected mainnet`);
 		}
-		const indexed = await indexContracts(env.DB, server, MAINNET_CONFIG.contracts, deadlineMs);
+		const indexed = await indexContracts(env.DB, server, MAINNET_CONFIG.contracts, deadlineMs, {
+			allowRetentionClamp: env.ALLOW_RETENTION_CLAMP === 'true'
+		});
 		const resolve = await resolvePending(env.DB, deadlineMs);
 		return { skipped: false, ...indexed, resolve };
 	} finally {
