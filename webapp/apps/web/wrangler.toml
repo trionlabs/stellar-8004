@@ -7,15 +7,14 @@
 # use — it never deployed.
 #
 # Replaces a self-hosted Docker deployment; the driver was separating this app off a shared box, not
-# RAM. Bonus: /api/v1/[...path] is a pure reverse proxy to Supabase Edge Functions, so on Workers it
-# terminates at the edge instead of round-tripping to the origin region.
+# RAM. The pages and the public API (/api/v1) read the D1 database bound below.
 # (Infra topology / origin details deliberately kept out of this public repo.)
 
 name = "stellar8004-web"
 main = ".svelte-kit/cloudflare/_worker.js"
 compatibility_date = "2026-04-01"
 
-# @supabase/supabase-js and @stellar/stellar-sdk pull node builtins (stream/crypto/util).
+# @stellar/stellar-sdk pulls node builtins (stream/crypto/util).
 compatibility_flags = ["nodejs_compat"]
 
 # CUTOVER via Workers Route, deliberately NOT a DNS change. The zone is already proxied through
@@ -50,12 +49,7 @@ binding = "ASSETS"
 [observability]
 enabled = true
 
-# SECRETS — set via `wrangler secret put`, NEVER committed:
-#   SUPABASE_URL                (<project>.supabase.co — hosted, not self-hosted)
-#   SUPABASE_SERVICE_ROLE_KEY   (bypasses RLS; server-only)
-#   SUPABASE_ANON_KEY
-# Read via $env/dynamic/private INSIDE functions (src/lib/supabase-server.ts), never at module
-# scope — which is exactly what workerd requires, so no code change was needed.
+# No secrets: the data lives in the D1 database bound below, and everything else is public config.
 
 [vars]
 # Public, build-and-runtime config read via $env/dynamic/public. Not secrets: contract addresses

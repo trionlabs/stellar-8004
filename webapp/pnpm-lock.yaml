@@ -37,12 +37,6 @@ importers:
       '@stellar/stellar-sdk':
         specifier: ^17.4.0
         version: 17.4.0
-      '@stellar8004/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@supabase/supabase-js':
-        specifier: ^2.117.3
-        version: 2.117.3
       '@trionlabs/stellar8004':
         specifier: workspace:*
         version: link:../../packages/sdk
