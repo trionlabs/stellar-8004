@@ -9,9 +9,19 @@ use crate::events;
 use crate::storage;
 use crate::types::{ValidationStatus, ValidationSummary};
 
-// get_summary reads at most this many of the agent's most recent validations,
-// two ledger entries each (index slot and status).
-pub(crate) const MAX_SUMMARY_VALIDATIONS: u32 = 45;
+// get_summary windows over answered validations only, so requests that are
+// never answered cannot push an answer out. Each validation it reads costs two
+// ledger entries (index slot and status). With validators listed it reads up to
+// MAX_SUMMARY_VALIDATIONS answers per validator: 5 count entries + 5 x 32 x 2 +
+// instance + code = 327 entries, within mainnet's per-transaction footprint
+// limit of 400 (tx_max_footprint_entries), as in the reputation registry.
+// Without validators it reads 1 + 32 x 2 + 2 = 67.
+pub(crate) const MAX_SUMMARY_VALIDATORS: u32 = 5;
+pub(crate) const MAX_SUMMARY_VALIDATIONS: u32 = 32;
+// index_answered touches up to 6 entries per hash (status, marker, two counts,
+// two slots) and writes 5 of them: 20 hashes need at most 121 entries and 100
+// writes, under the 400-entry footprint and 200-entry write limits.
+pub(crate) const MAX_INDEX_BATCH: u32 = 20;
 
 // Cross-contract auth delegates to identity registry; share custody.
 #[contractclient(name = "IdentityRegistryClient")]
@@ -124,6 +134,11 @@ impl ValidationRegistryContract {
         status.last_update = e.ledger().sequence() as u64;
         status.has_response = true;
         storage::set_validation(e, &request_hash, &status);
+        // The first response indexes the validation for get_summary. Later
+        // updates keep its place; v1 answers are indexed on their next update.
+        if !storage::is_answer_indexed(e, &request_hash) {
+            storage::index_answer(e, &request_hash, status.agent_id, &status.validator_address)?;
+        }
 
         events::validation_responded(
             e,
@@ -152,50 +167,85 @@ impl ValidationRegistryContract {
         storage::has_validation(e, &request_hash)
     }
 
-    /// Aggregates the `MAX_SUMMARY_VALIDATIONS` most recent validations.
-    /// Summarize larger histories off-chain from the paginated reads.
+    /// Indexes validations answered before the upgrade to v2, which v1 did
+    /// not index, so get_summary counts them. Anyone may call it: it only
+    /// records answers already stored. Takes at most 20 hashes; hashes already
+    /// indexed are skipped; unknown or unanswered hashes fail the call.
+    /// Returns how many were added.
+    pub fn index_answered(
+        e: &Env,
+        request_hashes: Vec<BytesN<32>>,
+    ) -> Result<u32, ValidationError> {
+        if request_hashes.len() > MAX_INDEX_BATCH {
+            return Err(ValidationError::BatchTooLarge);
+        }
+        let mut added = 0u32;
+        for hash in request_hashes.iter() {
+            let status =
+                storage::get_validation(e, &hash).ok_or(ValidationError::RequestNotFound)?;
+            if !status.has_response {
+                return Err(ValidationError::RequestNotAnswered);
+            }
+            if !storage::is_answer_indexed(e, &hash) {
+                storage::index_answer(e, &hash, status.agent_id, &status.validator_address)?;
+                added += 1;
+            }
+        }
+        Ok(added)
+    }
+
+    /// Averages answered validations of `agent_id`. With `validator_addresses`
+    /// (at most 5, duplicates ignored) it reads each validator's 32 most recent
+    /// answers for the agent, so only that validator's own answers can push one
+    /// out. With an empty list it reads the agent's 32 most recent answers from
+    /// any validator: the owner picks validators, so an owner with 32
+    /// cooperating answers can still push an answer out of this view; filter
+    /// by validator for a result the owner cannot steer. Answers count in the
+    /// order of their first response; validations answered under v1 count once
+    /// indexed (`index_answered`). Summarize larger histories off-chain.
     pub fn get_summary(
         e: &Env,
         agent_id: u32,
         validator_addresses: Vec<Address>,
         tag: String,
-    ) -> ValidationSummary {
-        let count = storage::get_agent_validation_count(e, agent_id);
+    ) -> Result<ValidationSummary, ValidationError> {
+        if validator_addresses.len() > MAX_SUMMARY_VALIDATORS {
+            return Err(ValidationError::TooManyValidators);
+        }
+        let mut hashes = Vec::new(e);
+        if validator_addresses.is_empty() {
+            hashes = storage::recent_answered(e, agent_id, None, MAX_SUMMARY_VALIDATIONS);
+        } else {
+            for (i, validator) in validator_addresses.iter().enumerate() {
+                if validator_addresses.first_index_of(&validator) != Some(i as u32) {
+                    continue;
+                }
+                hashes.append(&storage::recent_answered(
+                    e,
+                    agent_id,
+                    Some(&validator),
+                    MAX_SUMMARY_VALIDATIONS,
+                ));
+            }
+        }
+
         let mut total_response = 0u64;
         let mut match_count = 0u64;
-
-        for i in count.saturating_sub(MAX_SUMMARY_VALIDATIONS)..count {
-            if let Some(hash) = storage::get_agent_validation_at(e, agent_id, i) {
-                if let Some(status) = storage::get_validation(e, &hash) {
-                    if !status.has_response {
-                        continue;
-                    }
-                    if !validator_addresses.is_empty() {
-                        let mut found = false;
-                        for va in validator_addresses.iter() {
-                            if va == status.validator_address {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if !found {
-                            continue;
-                        }
-                    }
-                    if !tag.is_empty() && status.tag != tag {
-                        continue;
-                    }
-                    total_response += status.response as u64;
-                    match_count += 1;
+        for hash in hashes.iter() {
+            if let Some(status) = storage::get_validation(e, &hash) {
+                if !tag.is_empty() && status.tag != tag {
+                    continue;
                 }
+                total_response += status.response as u64;
+                match_count += 1;
             }
         }
 
         // Integer division (50 not 50.5); use raw responses for precision.
-        ValidationSummary {
+        Ok(ValidationSummary {
             count: match_count,
             average_response: total_response.checked_div(match_count).unwrap_or(0) as u32,
-        }
+        })
     }
 
     pub fn get_agent_validations_paginated(

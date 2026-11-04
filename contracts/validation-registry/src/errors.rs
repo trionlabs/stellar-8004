@@ -18,4 +18,7 @@ pub enum ValidationError {
     UpgradeAlreadyProposed = 11,
     ValidatorNotIndependent = 12,
     RenounceDisabled = 13,
+    TooManyValidators = 14,
+    RequestNotAnswered = 15,
+    BatchTooLarge = 16,
 }
