@@ -1,4 +1,4 @@
-use soroban_sdk::{contractevent, Address, Bytes, Env, String};
+use soroban_sdk::{contractevent, Address, Bytes, BytesN, Env, String};
 
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -29,6 +29,27 @@ pub struct MetadataSet {
     #[topic]
     pub key: String,
     pub value: Bytes,
+}
+
+/// Emitted by `propose_upgrade`. `execute_upgrade` succeeds from ledger
+/// `executable_at` onwards.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UpgradeProposed {
+    pub wasm_hash: BytesN<32>,
+    pub executable_at: u32,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UpgradeCancelled {
+    pub wasm_hash: BytesN<32>,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UpgradeExecuted {
+    pub wasm_hash: BytesN<32>,
 }
 
 pub fn registered(e: &Env, agent_id: u32, owner: &Address, agent_uri: &String) {

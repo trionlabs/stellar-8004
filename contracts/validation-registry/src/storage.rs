@@ -21,6 +21,14 @@ pub enum DataKey {
     ValidatorRequestCount(Address),
     ValidatorRequestAt(Address, u32),
     PendingUpgrade,
+    // Answered validations, in the order their first response was indexed.
+    // New variants are appended so the keys stored by v1 keep their encoding.
+    AgentAnsweredCount(u32),
+    AgentAnsweredAt(u32, u32),
+    ValidatorAnsweredCount(u32, Address),
+    ValidatorAnsweredAt(u32, Address, u32),
+    // Set once a request hash is in both answered indexes.
+    AnswerIndexed(BytesN<32>),
 }
 
 #[contracttype]
@@ -209,6 +217,95 @@ pub fn get_validator_requests_paginated(
             e.storage()
                 .persistent()
                 .extend_ttl(&key, TTL_THRESHOLD, TTL_BUMP);
+            result.push_back(hash);
+        }
+    }
+    result
+}
+
+// --- Answered validations (indexed per agent and per agent and validator) ---
+
+fn read<V: soroban_sdk::TryFromVal<Env, soroban_sdk::Val>>(e: &Env, key: &DataKey) -> Option<V> {
+    let value = e.storage().persistent().get(key);
+    if value.is_some() {
+        e.storage()
+            .persistent()
+            .extend_ttl(key, TTL_THRESHOLD, TTL_BUMP);
+    }
+    value
+}
+
+fn write<V: soroban_sdk::IntoVal<Env, soroban_sdk::Val>>(e: &Env, key: &DataKey, value: &V) {
+    e.storage().persistent().set(key, value);
+    e.storage()
+        .persistent()
+        .extend_ttl(key, TTL_THRESHOLD, TTL_BUMP);
+}
+
+/// Appends `request_hash` to a count/slot list.
+fn append(
+    e: &Env,
+    count_key: DataKey,
+    slot_key: impl Fn(u32) -> DataKey,
+    request_hash: &BytesN<32>,
+) -> Result<(), ValidationError> {
+    let count: u32 = read(e, &count_key).unwrap_or(0);
+    let next = count
+        .checked_add(1)
+        .ok_or(ValidationError::CounterOverflow)?;
+    write(e, &slot_key(count), request_hash);
+    write(e, &count_key, &next);
+    Ok(())
+}
+
+pub fn is_answer_indexed(e: &Env, request_hash: &BytesN<32>) -> bool {
+    read::<bool>(e, &DataKey::AnswerIndexed(request_hash.clone())).is_some()
+}
+
+/// Adds an answered validation to the agent's and the (agent, validator)
+/// answered indexes. Callers check `is_answer_indexed` first.
+pub fn index_answer(
+    e: &Env,
+    request_hash: &BytesN<32>,
+    agent_id: u32,
+    validator: &Address,
+) -> Result<(), ValidationError> {
+    append(
+        e,
+        DataKey::AgentAnsweredCount(agent_id),
+        |i| DataKey::AgentAnsweredAt(agent_id, i),
+        request_hash,
+    )?;
+    append(
+        e,
+        DataKey::ValidatorAnsweredCount(agent_id, validator.clone()),
+        |i| DataKey::ValidatorAnsweredAt(agent_id, validator.clone(), i),
+        request_hash,
+    )?;
+    write(e, &DataKey::AnswerIndexed(request_hash.clone()), &true);
+    Ok(())
+}
+
+/// The newest `max` answered request hashes of `agent_id`, or only those
+/// answered by `validator` when given.
+pub fn recent_answered(
+    e: &Env,
+    agent_id: u32,
+    validator: Option<&Address>,
+    max: u32,
+) -> Vec<BytesN<32>> {
+    let count_key = match validator {
+        Some(v) => DataKey::ValidatorAnsweredCount(agent_id, v.clone()),
+        None => DataKey::AgentAnsweredCount(agent_id),
+    };
+    let count: u32 = read(e, &count_key).unwrap_or(0);
+    let mut result = Vec::new(e);
+    for i in count.saturating_sub(max)..count {
+        let slot = match validator {
+            Some(v) => DataKey::ValidatorAnsweredAt(agent_id, v.clone(), i),
+            None => DataKey::AgentAnsweredAt(agent_id, i),
+        };
+        if let Some(hash) = read(e, &slot) {
             result.push_back(hash);
         }
     }

@@ -1,4 +1,6 @@
-use soroban_sdk::{contract, contractclient, contractimpl, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{
+    contract, contractclient, contractimpl, panic_with_error, Address, BytesN, Env, String, Vec,
+};
 use stellar_access::ownable::{self as ownable, Ownable};
 use stellar_macros::only_owner;
 
@@ -7,6 +9,21 @@ use crate::events;
 use crate::storage;
 use crate::types::{ValidationStatus, ValidationSummary};
 
+// get_summary windows over answered validations only, so requests that are
+// never answered cannot push an answer out. Each validation it reads costs two
+// ledger entries (index slot and status). With validators listed it reads up to
+// MAX_SUMMARY_VALIDATIONS answers per validator: 5 count entries + 5 x 32 x 2
+// slots and statuses + instance + code = 327 entries, within mainnet's
+// per-transaction footprint limit of 400 (tx_max_footprint_entries), as in the
+// reputation registry. Without validators: 1 + 32 x 2 + instance + code = 67.
+// The 325 persistent entries of the full read must be live: archived entries
+// count against the 200-entry disk-read limit (tx_max_disk_read_entries).
+pub(crate) const MAX_SUMMARY_VALIDATORS: u32 = 5;
+pub(crate) const MAX_SUMMARY_VALIDATIONS: u32 = 32;
+// Bytes per validation tag, as in the reputation registry; the SDK's
+// validateTag uses the same limit. Bounds what each status read costs.
+pub(crate) const MAX_TAG_LEN: u32 = 64;
+
 // Cross-contract auth delegates to identity registry; share custody.
 #[contractclient(name = "IdentityRegistryClient")]
 pub trait IdentityRegistryInterface {
@@ -14,6 +31,8 @@ pub trait IdentityRegistryInterface {
     fn agent_exists(e: &Env, agent_id: u32) -> bool;
     fn get_approved(e: &Env, token_id: u32) -> Option<Address>;
     fn is_approved_for_all(e: &Env, owner: Address, operator: Address) -> bool;
+    fn is_authorized_or_owner(e: &Env, spender: Address, agent_id: u32) -> bool;
+    fn get_agent_wallet(e: &Env, agent_id: u32) -> Option<Address>;
 }
 
 #[contract]
@@ -41,6 +60,15 @@ impl ValidationRegistryContract {
         let owner = identity
             .find_owner(&agent_id)
             .ok_or(ValidationError::AgentNotFound)?;
+        // Whoever acts for the agent must not validate it: the requester, the owner,
+        // an approved operator and the bound agentWallet. These are the addresses the
+        // reputation registry rejects as self-feedback. Off-chain ties cannot be seen.
+        if validator_address == caller
+            || identity.is_authorized_or_owner(&validator_address, &agent_id)
+            || identity.get_agent_wallet(&agent_id) == Some(validator_address.clone())
+        {
+            return Err(ValidationError::ValidatorNotIndependent);
+        }
         if caller != owner {
             let mut authorized = false;
             if let Some(approved) = identity.get_approved(&agent_id) {
@@ -93,6 +121,9 @@ impl ValidationRegistryContract {
         if response > 100 {
             return Err(ValidationError::InvalidResponse);
         }
+        if tag.len() > MAX_TAG_LEN {
+            return Err(ValidationError::TagTooLong);
+        }
 
         let mut status =
             storage::get_validation(e, &request_hash).ok_or(ValidationError::RequestNotFound)?;
@@ -107,6 +138,12 @@ impl ValidationRegistryContract {
         status.last_update = e.ledger().sequence() as u64;
         status.has_response = true;
         storage::set_validation(e, &request_hash, &status);
+        // The first v2 response indexes the validation for get_summary. Later
+        // updates keep its place. Answers given under v1 are not indexed until
+        // their validator updates them under v2.
+        if !storage::is_answer_indexed(e, &request_hash) {
+            storage::index_answer(e, &request_hash, status.agent_id, &status.validator_address)?;
+        }
 
         events::validation_responded(
             e,
@@ -135,52 +172,60 @@ impl ValidationRegistryContract {
         storage::has_validation(e, &request_hash)
     }
 
+    /// Averages answered validations of `agent_id`. With `validator_addresses`
+    /// (at most 5, duplicates ignored) it reads each validator's 32 most recent
+    /// answers for the agent; with an empty list, the agent's 32 most recent
+    /// answers from any validator. The tag filter applies inside that window.
+    /// Requests nobody answers never enter it, but the owner chooses which
+    /// validators to ask: by filing many requests to one validator (routine
+    /// checks under another tag, say) the owner can push that validator's
+    /// older answer out of a tag-filtered view, and validators the owner picks
+    /// can fill the unfiltered view. Answers count in the order of their first
+    /// v2 response. Answers given under v1 count only once their validator
+    /// updates them under v2. Summarize larger histories off-chain.
     pub fn get_summary(
         e: &Env,
         agent_id: u32,
         validator_addresses: Vec<Address>,
         tag: String,
-    ) -> ValidationSummary {
-        let count = storage::get_agent_validation_count(e, agent_id);
+    ) -> Result<ValidationSummary, ValidationError> {
+        if validator_addresses.len() > MAX_SUMMARY_VALIDATORS {
+            return Err(ValidationError::TooManyValidators);
+        }
+        let mut hashes = Vec::new(e);
+        if validator_addresses.is_empty() {
+            hashes = storage::recent_answered(e, agent_id, None, MAX_SUMMARY_VALIDATIONS);
+        } else {
+            for (i, validator) in validator_addresses.iter().enumerate() {
+                if validator_addresses.first_index_of(&validator) != Some(i as u32) {
+                    continue;
+                }
+                hashes.append(&storage::recent_answered(
+                    e,
+                    agent_id,
+                    Some(&validator),
+                    MAX_SUMMARY_VALIDATIONS,
+                ));
+            }
+        }
+
         let mut total_response = 0u64;
         let mut match_count = 0u64;
-
-        for i in 0..count {
-            if let Some(hash) = storage::get_agent_validation_at(e, agent_id, i) {
-                if let Some(status) = storage::get_validation(e, &hash) {
-                    if !status.has_response {
-                        continue;
-                    }
-                    if !validator_addresses.is_empty() {
-                        let mut found = false;
-                        for va in validator_addresses.iter() {
-                            if va == status.validator_address {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if !found {
-                            continue;
-                        }
-                    }
-                    if !tag.is_empty() && status.tag != tag {
-                        continue;
-                    }
-                    total_response += status.response as u64;
-                    match_count += 1;
+        for hash in hashes.iter() {
+            if let Some(status) = storage::get_validation(e, &hash) {
+                if !tag.is_empty() && status.tag != tag {
+                    continue;
                 }
+                total_response += status.response as u64;
+                match_count += 1;
             }
         }
 
         // Integer division (50 not 50.5); use raw responses for precision.
-        ValidationSummary {
+        Ok(ValidationSummary {
             count: match_count,
-            average_response: if match_count > 0 {
-                (total_response / match_count) as u32
-            } else {
-                0
-            },
-        }
+            average_response: total_response.checked_div(match_count).unwrap_or(0) as u32,
+        })
     }
 
     pub fn get_agent_validations_paginated(
@@ -218,22 +263,30 @@ impl ValidationRegistryContract {
         if storage::get_pending_upgrade(e).is_some() {
             return Err(ValidationError::UpgradeAlreadyProposed);
         }
+        let proposed_at = e.ledger().sequence();
         storage::set_pending_upgrade(
             e,
             &storage::UpgradeProposal {
-                wasm_hash: new_wasm_hash,
-                proposed_at: e.ledger().sequence(),
+                wasm_hash: new_wasm_hash.clone(),
+                proposed_at,
             },
         );
+        events::UpgradeProposed {
+            wasm_hash: new_wasm_hash,
+            executable_at: proposed_at.saturating_add(storage::TIMELOCK_LEDGERS),
+        }
+        .publish(e);
         Ok(())
     }
 
     #[only_owner]
     pub fn cancel_upgrade(e: &Env) -> Result<(), ValidationError> {
-        if storage::get_pending_upgrade(e).is_none() {
-            return Err(ValidationError::NoUpgradeProposed);
-        }
+        let proposal = storage::get_pending_upgrade(e).ok_or(ValidationError::NoUpgradeProposed)?;
         storage::remove_pending_upgrade(e);
+        events::UpgradeCancelled {
+            wasm_hash: proposal.wasm_hash,
+        }
+        .publish(e);
         Ok(())
     }
 
@@ -245,6 +298,10 @@ impl ValidationRegistryContract {
             return Err(ValidationError::TimelockNotExpired);
         }
         storage::remove_pending_upgrade(e);
+        events::UpgradeExecuted {
+            wasm_hash: proposal.wasm_hash.clone(),
+        }
+        .publish(e);
         e.deployer()
             .update_current_contract_wasm(proposal.wasm_hash);
         Ok(())
@@ -255,9 +312,15 @@ impl ValidationRegistryContract {
     }
 
     pub fn version(e: &Env) -> String {
-        String::from_str(e, "0.1.0")
+        String::from_str(e, "0.2.0")
     }
 }
 
 #[contractimpl(contracttrait)]
-impl Ownable for ValidationRegistryContract {}
+impl Ownable for ValidationRegistryContract {
+    /// Disabled: without an owner the contract could never be upgraded again.
+    /// Hand ownership over with `transfer_ownership` and `accept_ownership`.
+    fn renounce_ownership(e: &Env) {
+        panic_with_error!(e, ValidationError::RenounceDisabled);
+    }
+}

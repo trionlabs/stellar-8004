@@ -7,6 +7,7 @@ use soroban_sdk::{
 };
 
 use crate::contract::{IdentityRegistryContract, IdentityRegistryContractClient};
+use crate::errors::IdentityError;
 use crate::types::MetadataEntry;
 
 fn create_client<'a>(e: &Env) -> (IdentityRegistryContractClient<'a>, Address) {
@@ -22,7 +23,7 @@ fn test_version() {
     let env = Env::default();
     let (client, _) = create_client(&env);
     let version = client.version();
-    assert_eq!(version, String::from_str(&env, "0.1.0"));
+    assert_eq!(version, String::from_str(&env, "0.2.0"));
 }
 
 #[test]
@@ -634,12 +635,10 @@ fn test_register_full_rejects_excess_metadata_entries() {
         });
     }
 
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        client.register_full(&user, &String::from_str(&env, "ipfs://x"), &entries)
-    }));
-    assert!(
-        result.is_err(),
-        "register_full with >100 metadata entries must be rejected"
+    // M1: a typed error instead of a host trap.
+    assert_eq!(
+        client.try_register_full(&user, &String::from_str(&env, "ipfs://x"), &entries),
+        Err(Ok(IdentityError::TooManyMetadataKeys))
     );
 }
 
@@ -659,12 +658,56 @@ fn test_register_full_rejects_reserved_agent_wallet_key() {
         }],
     );
 
-    // register_full uses assert! and panics on the reserved key, so this
-    // call should fail at the host level.
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        client.register_full(&user, &String::from_str(&env, ""), &metadata)
-    }));
-    assert!(result.is_err());
+    assert_eq!(
+        client.try_register_full(&user, &String::from_str(&env, ""), &metadata),
+        Err(Ok(IdentityError::ReservedMetadataKey))
+    );
+}
+
+#[test]
+fn test_register_full_rejects_oversized_metadata() {
+    // M1: the key and value length caps are typed errors too.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let uri = String::from_str(&env, "ipfs://x");
+    let entry = |key: &str, value: &[u8]| {
+        Vec::from_array(
+            &env,
+            [MetadataEntry {
+                key: String::from_str(&env, key),
+                value: Bytes::from_slice(&env, value),
+            }],
+        )
+    };
+
+    assert_eq!(
+        client.try_register_full(&user, &uri, &entry(&"k".repeat(65), b"v")),
+        Err(Ok(IdentityError::MetadataKeyTooLong))
+    );
+    assert_eq!(
+        client.try_register_full(&user, &uri, &entry("k", &[b'v'; 4097])),
+        Err(Ok(IdentityError::MetadataValueTooLong))
+    );
+    // Nothing was minted by the rejected calls.
+    assert_eq!(client.total_agents(), 0);
+}
+
+#[test]
+fn test_renounce_ownership_is_disabled() {
+    // #14: renouncing would leave no owner to run the timelocked upgrade.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, owner) = create_client(&env);
+
+    assert_eq!(
+        client.try_renounce_ownership(),
+        Err(Ok(soroban_sdk::Error::from_contract_error(
+            IdentityError::RenounceDisabled as u32
+        )))
+    );
+    assert_eq!(client.get_owner(), Some(owner));
 }
 
 #[test]
@@ -734,4 +777,25 @@ fn test_extend_ttl_bumps_oz_owner_and_balance() {
             "OZ Balance entry should be extended by extend_ttl"
         );
     });
+}
+
+#[test]
+fn test_register_full_rejects_empty_metadata_key() {
+    // Same rule as set_metadata: registration must not store a key no edit can reach.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = create_client(&env);
+    let user = Address::generate(&env);
+    let metadata = Vec::from_array(
+        &env,
+        [MetadataEntry {
+            key: String::from_str(&env, ""),
+            value: Bytes::from_slice(&env, b"x"),
+        }],
+    );
+
+    assert_eq!(
+        client.try_register_full(&user, &String::from_str(&env, "ipfs://x"), &metadata),
+        Err(Ok(IdentityError::EmptyValue))
+    );
 }

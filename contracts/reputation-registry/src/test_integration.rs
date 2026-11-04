@@ -4,6 +4,7 @@ extern crate std;
 use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String, Vec};
 
 use crate::contract::{ReputationRegistryContract, ReputationRegistryContractClient};
+use crate::errors::ReputationError;
 use identity_registry::contract::{IdentityRegistryContract, IdentityRegistryContractClient};
 
 fn setup(
@@ -152,4 +153,35 @@ fn test_multiple_reviewers_with_real_identity() {
     // Verify client pagination
     let clients = rep_client.get_clients_paginated(&agent_id, &0, &10);
     assert_eq!(clients.len(), 5);
+}
+
+#[test]
+fn test_bound_wallet_self_feedback_rejected_with_real_identity() {
+    // C1 against the real identity registry: the owner binds a wallet that
+    // is neither the owner nor an approved operator; it still cannot rate
+    // its own agent.
+    let env = Env::default();
+    env.mock_all_auths();
+    let (rep_client, id_client, _admin) = setup(&env);
+
+    let agent_owner = Address::generate(&env);
+    let agent_id = id_client.register(&agent_owner);
+    let bound_wallet = Address::generate(&env);
+    id_client.set_agent_wallet(&agent_owner, &agent_id, &bound_wallet);
+
+    let give = |caller: &Address| {
+        rep_client.try_give_feedback(
+            caller,
+            &agent_id,
+            &100,
+            &0,
+            &empty_str(&env),
+            &empty_str(&env),
+            &empty_str(&env),
+            &empty_str(&env),
+            &zero_hash(&env),
+        )
+    };
+    assert_eq!(give(&bound_wallet), Err(Ok(ReputationError::SelfFeedback)));
+    assert_eq!(give(&Address::generate(&env)), Ok(Ok(())));
 }

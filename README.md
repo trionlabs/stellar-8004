@@ -42,6 +42,7 @@ contracts/
   identity-registry/    - Agent NFTs, metadata, wallet binding
   reputation-registry/  - Feedback, self-feedback prevention, WAD averaging
   validation-registry/  - Third-party attestation requests/responses
+  upgrade-tests/        - Upgrade from the deployed mainnet WASM: state, events, timelock
 webapp/
   apps/web/             - SvelteKit frontend (stellar8004.com)
   packages/sdk/         - @trionlabs/stellar8004
@@ -54,7 +55,7 @@ webapp/
 ```bash
 cargo install --locked stellar-cli --version 25.2.0
 make build    # Build all contracts using the local host toolchain
-make test     # 74 tests
+make test     # builds the WASM first: the upgrade tests deploy it
 make fmt
 ```
 
@@ -62,12 +63,15 @@ make fmt
 
 Run `make verify-wasm` with Docker running. Local verification and CI both use
 [`scripts/verify-wasm.sh`](scripts/verify-wasm.sh), which pins the official Stellar
-CLI 25.2.0 image by its Linux/amd64 digest and explicitly selects
-`nightly-2025-08-11` with the `wasm32v1-none` target. It builds with the tracked
+CLI 25.2.0 image by its Linux/amd64 digest and selects the stable Rust toolchain
+pinned in [`rust-toolchain.toml`](rust-toolchain.toml) with the `wasm32v1-none`
+target. It builds with the tracked
 `Cargo.lock` and release profile, checks all three digests in
 [`contracts/wasm.sha256`](contracts/wasm.sha256), and copies successful outputs to
 `target/reproducible/`. The source mount is read-only; native build outputs stay
-in `target/wasm32v1-none/release/`.
+in `target/wasm32v1-none/release/`. After a contract change, `make update-wasm-hashes`
+records the new digests and `make verify-wasm` then confirms that a second build
+reproduces them.
 
 The build host is part of this recipe. Native macOS/arm64 and Linux/x86_64 builds
 with the same Rust and CLI versions assign different internal function indices
@@ -87,6 +91,9 @@ separate from the current reproducible-build manifest:
 | `identity_registry.wasm` | `f25af88f3e26f603a6569b2554b3f85ccc8af9a88f3b904fba873637c64eb2ab` |
 | `reputation_registry.wasm` | `74af1a031934346260f7265dacb633209dba507c1416f1e37d52405b53478f71` |
 | `validation_registry.wasm` | `9e5d7dc78ca00fc7c7afc914a0b3ecbcec61b4e7b1893a84bf47c3b811c68aa1` |
+
+These are the bytes in [`contracts/upgrade-tests/mainnet-v1`](contracts/upgrade-tests/mainnet-v1),
+which the upgrade tests deploy and then upgrade to the current build.
 
 Fetch an existing deployment to compare with its recorded digest:
 
@@ -160,10 +167,10 @@ Rust/Soroban contracts, TypeScript SDK, SvelteKit, Supabase (Postgres + Edge Fun
 
 ## Dependencies
 
-- `soroban-sdk` 25.3.0
-- OpenZeppelin Stellar Contracts (pinned to commit `9dd85c30`)
+- `soroban-sdk` 26.1.1
+- OpenZeppelin Stellar Contracts 0.7.3
 - `stellar-cli` 25.2.0
-- Rust nightly pinned in `rust-toolchain.toml`
+- Rust 1.99.1 (stable), pinned in `rust-toolchain.toml`
 
 ## Links
 

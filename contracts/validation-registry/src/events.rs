@@ -27,6 +27,27 @@ pub struct ValidationResponse {
     pub tag: String,
 }
 
+/// Emitted by `propose_upgrade`. `execute_upgrade` succeeds from ledger
+/// `executable_at` onwards.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UpgradeProposed {
+    pub wasm_hash: BytesN<32>,
+    pub executable_at: u32,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UpgradeCancelled {
+    pub wasm_hash: BytesN<32>,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UpgradeExecuted {
+    pub wasm_hash: BytesN<32>,
+}
+
 pub fn validation_requested(
     e: &Env,
     validator_address: &Address,

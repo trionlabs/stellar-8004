@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { IdentityError } from '../src/bindings/identity.js';
+import { ReputationError } from '../src/bindings/reputation.js';
+import { ValidationError } from '../src/bindings/validation.js';
 import { createClients } from '../src/core/clients.js';
 import { TESTNET_CONFIG, MAINNET_CONFIG } from '../src/core/config.js';
 
@@ -23,6 +26,18 @@ describe('createClients', () => {
 		expect(clients.identity).toBeDefined();
 		expect(clients.reputation).toBeDefined();
 		expect(clients.validation).toBeDefined();
+	});
+
+	it('uses the v2 contract interface', () => {
+		const { identity } = createClients(TESTNET_CONFIG, mockSigner);
+		const [output] = identity.spec.getFunc('register_full').outputs;
+		expect(JSON.parse(JSON.stringify(output))).toEqual({
+			result: { ok_type: 'u32', error_type: { udt: { name: 'IdentityError' } } },
+		});
+		expect(IdentityError[12].message).toBe('RenounceDisabled');
+		expect(ReputationError[13].message).toBe('RenounceDisabled');
+		expect(ValidationError[12].message).toBe('ValidatorNotIndependent');
+		expect(ValidationError[13].message).toBe('RenounceDisabled');
 	});
 
 	it('works without signAuthEntry', () => {
