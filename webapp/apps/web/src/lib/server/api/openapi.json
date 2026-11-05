@@ -1,0 +1,1431 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "Stellar8004 API",
+		"version": "1.0.0",
+		"description": "Read-only explorer API for the ERC-8004 identity, reputation and validation registries on Stellar. GET only, CORS open, 30 requests per minute per client."
+	},
+	"servers": [
+		{
+			"url": "https://stellar8004.com"
+		}
+	],
+	"security": [],
+	"tags": [
+		{
+			"name": "v1",
+			"description": "Paged reads, lenient parameters"
+		},
+		{
+			"name": "v2",
+			"description": "Strict parameters, cursor pagination"
+		}
+	],
+	"paths": {
+		"/api/v1/agents": {
+			"get": {
+				"operationId": "listAgents",
+				"summary": "List agents",
+				"description": "Newest first by default.",
+				"tags": ["v1"],
+				"parameters": [
+					{
+						"$ref": "#/components/parameters/network"
+					},
+					{
+						"name": "page",
+						"in": "query",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 10000,
+							"default": 1
+						},
+						"description": "Out-of-range values are clamped"
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100,
+							"default": 20
+						},
+						"description": "Out-of-range values are clamped"
+					},
+					{
+						"name": "sortBy",
+						"in": "query",
+						"schema": {
+							"enum": ["created_at", "id"],
+							"default": "created_at"
+						},
+						"description": "Order column"
+					},
+					{
+						"name": "sortOrder",
+						"in": "query",
+						"schema": {
+							"enum": ["desc", "asc"],
+							"default": "desc"
+						},
+						"description": "Order direction"
+					},
+					{
+						"name": "search",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Full-text search over name, description and services"
+					},
+					{
+						"name": "trust",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Comma-separated trust models; matches agents that support any of them"
+					},
+					{
+						"name": "minScore",
+						"in": "query",
+						"schema": {
+							"type": "number"
+						},
+						"description": "Only agents whose score is at least this (ignored unless > 0)"
+					},
+					{
+						"name": "hasServices",
+						"in": "query",
+						"schema": {
+							"enum": ["true"]
+						},
+						"description": "Only agents that list services"
+					},
+					{
+						"name": "x402",
+						"in": "query",
+						"schema": {
+							"enum": ["true"]
+						},
+						"description": "Only agents that accept x402"
+					},
+					{
+						"name": "mpp",
+						"in": "query",
+						"schema": {
+							"enum": ["true"]
+						},
+						"description": "Only agents that accept MPP"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"headers": {
+							"X-RateLimit-Limit": {
+								"$ref": "#/components/headers/Limit"
+							},
+							"X-RateLimit-Reset": {
+								"$ref": "#/components/headers/Reset"
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"const": true
+										},
+										"data": {
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/Agent"
+											}
+										},
+										"meta": {
+											"$ref": "#/components/schemas/PagedMeta"
+										}
+									},
+									"required": ["success", "data", "meta"]
+								}
+							}
+						}
+					},
+					"400": {
+						"$ref": "#/components/responses/BadRequest"
+					},
+					"429": {
+						"$ref": "#/components/responses/RateLimited"
+					},
+					"500": {
+						"$ref": "#/components/responses/InternalError"
+					}
+				}
+			}
+		},
+		"/api/v1/agents/{id}": {
+			"get": {
+				"operationId": "getAgent",
+				"summary": "Get one agent",
+				"description": "Agent card, services, on-chain metadata and scores.",
+				"tags": ["v1"],
+				"parameters": [
+					{
+						"$ref": "#/components/parameters/network"
+					},
+					{
+						"name": "id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "integer"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"headers": {
+							"X-RateLimit-Limit": {
+								"$ref": "#/components/headers/Limit"
+							},
+							"X-RateLimit-Reset": {
+								"$ref": "#/components/headers/Reset"
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"const": true
+										},
+										"data": {
+											"$ref": "#/components/schemas/AgentDetail"
+										},
+										"meta": {
+											"$ref": "#/components/schemas/Meta"
+										}
+									},
+									"required": ["success", "data", "meta"]
+								}
+							}
+						}
+					},
+					"404": {
+						"$ref": "#/components/responses/NotFound"
+					},
+					"400": {
+						"$ref": "#/components/responses/BadRequest"
+					},
+					"429": {
+						"$ref": "#/components/responses/RateLimited"
+					},
+					"500": {
+						"$ref": "#/components/responses/InternalError"
+					}
+				}
+			}
+		},
+		"/api/v1/agents/{id}/feedback": {
+			"get": {
+				"operationId": "getAgentFeedback",
+				"summary": "Feedback for an agent",
+				"description": "Newest first, revoked feedback included, each with its responses.",
+				"tags": ["v1"],
+				"parameters": [
+					{
+						"$ref": "#/components/parameters/network"
+					},
+					{
+						"name": "id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "integer"
+						}
+					},
+					{
+						"name": "page",
+						"in": "query",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 10000,
+							"default": 1
+						},
+						"description": "Out-of-range values are clamped"
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100,
+							"default": 20
+						},
+						"description": "Out-of-range values are clamped"
+					},
+					{
+						"name": "tag",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Only feedback whose tag1 equals this"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"headers": {
+							"X-RateLimit-Limit": {
+								"$ref": "#/components/headers/Limit"
+							},
+							"X-RateLimit-Reset": {
+								"$ref": "#/components/headers/Reset"
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"const": true
+										},
+										"data": {
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/Feedback"
+											}
+										},
+										"meta": {
+											"$ref": "#/components/schemas/PagedMeta"
+										}
+									},
+									"required": ["success", "data", "meta"]
+								}
+							}
+						}
+					},
+					"400": {
+						"$ref": "#/components/responses/BadRequest"
+					},
+					"429": {
+						"$ref": "#/components/responses/RateLimited"
+					},
+					"500": {
+						"$ref": "#/components/responses/InternalError"
+					}
+				}
+			}
+		},
+		"/api/v1/accounts/{address}/agents": {
+			"get": {
+				"operationId": "getAccountAgents",
+				"summary": "Agents owned by an account",
+				"description": "Newest first by default.",
+				"tags": ["v1"],
+				"parameters": [
+					{
+						"$ref": "#/components/parameters/network"
+					},
+					{
+						"name": "address",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"pattern": "^G[A-Z2-7]{55}$",
+							"description": "Stellar account (G...)"
+						}
+					},
+					{
+						"name": "page",
+						"in": "query",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 10000,
+							"default": 1
+						},
+						"description": "Out-of-range values are clamped"
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100,
+							"default": 20
+						},
+						"description": "Out-of-range values are clamped"
+					},
+					{
+						"name": "sortBy",
+						"in": "query",
+						"schema": {
+							"enum": ["created_at", "id"],
+							"default": "created_at"
+						},
+						"description": "Order column"
+					},
+					{
+						"name": "sortOrder",
+						"in": "query",
+						"schema": {
+							"enum": ["desc", "asc"],
+							"default": "desc"
+						},
+						"description": "Order direction"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"headers": {
+							"X-RateLimit-Limit": {
+								"$ref": "#/components/headers/Limit"
+							},
+							"X-RateLimit-Reset": {
+								"$ref": "#/components/headers/Reset"
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"const": true
+										},
+										"data": {
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/Agent"
+											}
+										},
+										"meta": {
+											"$ref": "#/components/schemas/PagedMeta"
+										}
+									},
+									"required": ["success", "data", "meta"]
+								}
+							}
+						}
+					},
+					"400": {
+						"$ref": "#/components/responses/BadRequest"
+					},
+					"429": {
+						"$ref": "#/components/responses/RateLimited"
+					},
+					"500": {
+						"$ref": "#/components/responses/InternalError"
+					}
+				}
+			}
+		},
+		"/api/v1/search": {
+			"get": {
+				"operationId": "searchAgents",
+				"summary": "Search agents",
+				"description": "Full-text search, best score first.",
+				"tags": ["v1"],
+				"parameters": [
+					{
+						"$ref": "#/components/parameters/network"
+					},
+					{
+						"name": "q",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Search text",
+						"required": true
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100,
+							"default": 20
+						},
+						"description": "Out-of-range values are clamped"
+					},
+					{
+						"name": "trust",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "Comma-separated trust models; matches agents that support any of them"
+					},
+					{
+						"name": "minScore",
+						"in": "query",
+						"schema": {
+							"type": "number",
+							"minimum": 0
+						},
+						"description": "Only agents whose score is at least this"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"headers": {
+							"X-RateLimit-Limit": {
+								"$ref": "#/components/headers/Limit"
+							},
+							"X-RateLimit-Reset": {
+								"$ref": "#/components/headers/Reset"
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"const": true
+										},
+										"data": {
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/SearchResult"
+											}
+										},
+										"meta": {
+											"$ref": "#/components/schemas/Meta"
+										}
+									},
+									"required": ["success", "data", "meta"]
+								}
+							}
+						}
+					},
+					"400": {
+						"$ref": "#/components/responses/BadRequest"
+					},
+					"429": {
+						"$ref": "#/components/responses/RateLimited"
+					},
+					"500": {
+						"$ref": "#/components/responses/InternalError"
+					}
+				}
+			}
+		},
+		"/api/v1/stats": {
+			"get": {
+				"operationId": "getStats",
+				"summary": "Registry totals",
+				"description": "Counts across the whole registry.",
+				"tags": ["v1"],
+				"parameters": [
+					{
+						"$ref": "#/components/parameters/network"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"headers": {
+							"X-RateLimit-Limit": {
+								"$ref": "#/components/headers/Limit"
+							},
+							"X-RateLimit-Reset": {
+								"$ref": "#/components/headers/Reset"
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"const": true
+										},
+										"data": {
+											"$ref": "#/components/schemas/Stats"
+										},
+										"meta": {
+											"$ref": "#/components/schemas/Meta"
+										}
+									},
+									"required": ["success", "data", "meta"]
+								}
+							}
+						}
+					},
+					"400": {
+						"$ref": "#/components/responses/BadRequest"
+					},
+					"429": {
+						"$ref": "#/components/responses/RateLimited"
+					},
+					"500": {
+						"$ref": "#/components/responses/InternalError"
+					}
+				}
+			}
+		},
+		"/api/v1/health": {
+			"get": {
+				"operationId": "getHealth",
+				"summary": "Indexer health",
+				"description": "How far each registry is indexed, and whether it is stale.",
+				"tags": ["v1"],
+				"parameters": [
+					{
+						"$ref": "#/components/parameters/network"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"headers": {
+							"X-RateLimit-Limit": {
+								"$ref": "#/components/headers/Limit"
+							},
+							"X-RateLimit-Reset": {
+								"$ref": "#/components/headers/Reset"
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"const": true
+										},
+										"data": {
+											"$ref": "#/components/schemas/Health"
+										},
+										"meta": {
+											"$ref": "#/components/schemas/Meta"
+										}
+									},
+									"required": ["success", "data", "meta"]
+								}
+							}
+						}
+					},
+					"400": {
+						"$ref": "#/components/responses/BadRequest"
+					},
+					"429": {
+						"$ref": "#/components/responses/RateLimited"
+					},
+					"500": {
+						"$ref": "#/components/responses/InternalError"
+					}
+				}
+			}
+		},
+		"/api/v2/discovery": {
+			"get": {
+				"operationId": "discoverAgents",
+				"summary": "Discover agents (strict, cursor-paged)",
+				"description": "Walk the whole registry page by page. Unknown or repeated parameters are a 400. Answers 503 INDEX_STALE rather than serve a stale index.",
+				"tags": ["v2"],
+				"parameters": [
+					{
+						"name": "network",
+						"in": "query",
+						"schema": {
+							"enum": ["mainnet", "testnet"]
+						},
+						"description": "Must name the network this explorer indexes",
+						"required": true
+					},
+					{
+						"name": "text",
+						"in": "query",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"description": "Full-text search"
+					},
+					{
+						"name": "x402",
+						"in": "query",
+						"schema": {
+							"enum": ["true", "false"]
+						},
+						"description": "Filter on x402"
+					},
+					{
+						"name": "mpp",
+						"in": "query",
+						"schema": {
+							"enum": ["true", "false"]
+						},
+						"description": "Filter on MPP"
+					},
+					{
+						"name": "hasServices",
+						"in": "query",
+						"schema": {
+							"enum": ["true", "false"]
+						},
+						"description": "Filter on listed services"
+					},
+					{
+						"name": "trust",
+						"in": "query",
+						"schema": {
+							"type": "string",
+							"minLength": 1
+						},
+						"description": "Comma-separated trust models; matches agents that support any of them"
+					},
+					{
+						"name": "minScore",
+						"in": "query",
+						"schema": {
+							"type": "number",
+							"minimum": 0,
+							"maximum": 100
+						},
+						"description": "Compared with `score`"
+					},
+					{
+						"name": "sort",
+						"in": "query",
+						"schema": {
+							"enum": ["score", "newest", "id"],
+							"default": "score"
+						},
+						"description": "Order"
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100,
+							"default": 20
+						},
+						"description": "Page size; may change between pages"
+					},
+					{
+						"name": "cursor",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						},
+						"description": "`meta.pagination.nextCursor` of the previous page; only valid for the same query"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"headers": {
+							"X-RateLimit-Limit": {
+								"$ref": "#/components/headers/Limit"
+							},
+							"X-RateLimit-Reset": {
+								"$ref": "#/components/headers/Reset"
+							}
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"const": true
+										},
+										"data": {
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/DiscoveryAgent"
+											}
+										},
+										"meta": {
+											"$ref": "#/components/schemas/DiscoveryMeta"
+										}
+									},
+									"required": ["success", "data", "meta"]
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "INDEX_STALE: the index is behind the chain",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"400": {
+						"$ref": "#/components/responses/BadRequest"
+					},
+					"429": {
+						"$ref": "#/components/responses/RateLimited"
+					},
+					"500": {
+						"$ref": "#/components/responses/InternalError"
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"schemas": {
+			"Agent": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "integer"
+					},
+					"owner": {
+						"type": "string",
+						"pattern": "^G[A-Z2-7]{55}$",
+						"description": "Stellar account (G...)"
+					},
+					"name": {
+						"type": "string",
+						"description": "From the agent card; `Agent #<id>` when it has none"
+					},
+					"description": {
+						"type": ["string", "null"]
+					},
+					"image": {
+						"type": ["string", "null"]
+					},
+					"supportedTrust": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					},
+					"x402Enabled": {
+						"type": "boolean"
+					},
+					"mppEnabled": {
+						"type": "boolean"
+					},
+					"hasServices": {
+						"type": "boolean"
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"totalScore": {
+						"type": "number",
+						"description": "Feedback average (the leaderboard score)"
+					},
+					"avgScore": {
+						"type": "number"
+					},
+					"feedbackCount": {
+						"type": "integer"
+					},
+					"uniqueClients": {
+						"type": "integer"
+					}
+				},
+				"required": [
+					"id",
+					"owner",
+					"name",
+					"description",
+					"image",
+					"supportedTrust",
+					"x402Enabled",
+					"mppEnabled",
+					"hasServices",
+					"createdAt",
+					"totalScore",
+					"avgScore",
+					"feedbackCount",
+					"uniqueClients"
+				]
+			},
+			"AgentDetail": {
+				"allOf": [
+					{
+						"$ref": "#/components/schemas/Agent"
+					},
+					{
+						"type": "object",
+						"properties": {
+							"wallet": {
+								"type": ["string", "null"]
+							},
+							"agentUri": {
+								"type": ["string", "null"]
+							},
+							"services": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"name": {
+											"type": "string"
+										},
+										"endpoint": {
+											"type": "string"
+										},
+										"version": {
+											"type": "string"
+										},
+										"description": {
+											"type": "string"
+										},
+										"inputExample": {
+											"type": "string"
+										}
+									},
+									"required": ["name", "endpoint"]
+								}
+							},
+							"metadata": {
+								"type": "object",
+								"additionalProperties": {
+									"type": "string"
+								},
+								"description": "On-chain metadata, keys verbatim"
+							},
+							"scores": {
+								"type": "object",
+								"properties": {
+									"total": {
+										"type": "number"
+									},
+									"average": {
+										"type": "number"
+									},
+									"feedbackCount": {
+										"type": "integer"
+									},
+									"uniqueClients": {
+										"type": "integer"
+									}
+								},
+								"required": ["total", "average", "feedbackCount", "uniqueClients"]
+							},
+							"resolveStatus": {
+								"enum": ["ready", "resolving", "no-uri"]
+							},
+							"createdLedger": {
+								"type": ["integer", "null"]
+							},
+							"txHash": {
+								"type": ["string", "null"]
+							}
+						},
+						"required": [
+							"wallet",
+							"agentUri",
+							"services",
+							"metadata",
+							"scores",
+							"resolveStatus",
+							"createdLedger",
+							"txHash"
+						]
+					}
+				]
+			},
+			"Feedback": {
+				"type": "object",
+				"properties": {
+					"feedbackIndex": {
+						"type": "integer"
+					},
+					"clientAddress": {
+						"type": "string",
+						"pattern": "^G[A-Z2-7]{55}$",
+						"description": "Stellar account (G...)"
+					},
+					"value": {
+						"type": "number"
+					},
+					"valueDecimals": {
+						"type": "integer"
+					},
+					"tag1": {
+						"type": ["string", "null"]
+					},
+					"tag2": {
+						"type": ["string", "null"]
+					},
+					"endpoint": {
+						"type": ["string", "null"]
+					},
+					"feedbackUri": {
+						"type": ["string", "null"]
+					},
+					"isRevoked": {
+						"type": "boolean"
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"responses": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"responder": {
+									"type": "string",
+									"pattern": "^G[A-Z2-7]{55}$",
+									"description": "Stellar account (G...)"
+								},
+								"responseUri": {
+									"type": ["string", "null"]
+								},
+								"createdAt": {
+									"type": "string",
+									"format": "date-time"
+								}
+							},
+							"required": ["responder", "responseUri", "createdAt"]
+						}
+					}
+				},
+				"required": [
+					"feedbackIndex",
+					"clientAddress",
+					"value",
+					"valueDecimals",
+					"tag1",
+					"tag2",
+					"endpoint",
+					"feedbackUri",
+					"isRevoked",
+					"createdAt",
+					"responses"
+				]
+			},
+			"SearchResult": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "integer"
+					},
+					"name": {
+						"type": ["string", "null"]
+					},
+					"image": {
+						"type": ["string", "null"]
+					},
+					"owner": {
+						"type": "string",
+						"pattern": "^G[A-Z2-7]{55}$",
+						"description": "Stellar account (G...)"
+					},
+					"supportedTrust": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					},
+					"hasServices": {
+						"type": "boolean"
+					},
+					"x402Enabled": {
+						"type": "boolean"
+					},
+					"mppEnabled": {
+						"type": "boolean"
+					},
+					"totalScore": {
+						"type": "number"
+					},
+					"avgScore": {
+						"type": "number"
+					},
+					"feedbackCount": {
+						"type": "integer"
+					},
+					"uniqueClients": {
+						"type": "integer"
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"image",
+					"owner",
+					"supportedTrust",
+					"hasServices",
+					"x402Enabled",
+					"mppEnabled",
+					"totalScore",
+					"avgScore",
+					"feedbackCount",
+					"uniqueClients"
+				]
+			},
+			"Stats": {
+				"type": "object",
+				"properties": {
+					"totalAgents": {
+						"type": "integer"
+					},
+					"totalFeedbacks": {
+						"type": "integer"
+					},
+					"totalValidations": {
+						"type": "integer"
+					},
+					"totalUniqueClients": {
+						"type": "integer"
+					},
+					"averageFeedbackScore": {
+						"type": "number"
+					},
+					"agentsWithServices": {
+						"type": "integer"
+					},
+					"agentsWithX402": {
+						"type": "integer"
+					},
+					"agentsWithMpp": {
+						"type": "integer"
+					},
+					"network": {
+						"type": "string"
+					},
+					"protocolDistribution": {
+						"type": "object",
+						"properties": {
+							"a2a": {
+								"type": "integer"
+							},
+							"mcp": {
+								"type": "integer"
+							},
+							"other": {
+								"type": "integer"
+							}
+						},
+						"required": ["a2a", "mcp", "other"]
+					},
+					"trustDistribution": {
+						"type": "object",
+						"properties": {
+							"reputation": {
+								"type": "integer"
+							},
+							"validation": {
+								"type": "integer"
+							},
+							"tee": {
+								"type": "integer"
+							}
+						},
+						"required": ["reputation", "validation", "tee"]
+					}
+				},
+				"required": [
+					"totalAgents",
+					"totalFeedbacks",
+					"totalValidations",
+					"totalUniqueClients",
+					"averageFeedbackScore",
+					"agentsWithServices",
+					"agentsWithX402",
+					"agentsWithMpp",
+					"network",
+					"protocolDistribution",
+					"trustDistribution"
+				]
+			},
+			"Health": {
+				"type": "object",
+				"properties": {
+					"status": {
+						"enum": ["healthy", "degraded"],
+						"description": "`degraded` when a registry has not advanced for 5 minutes"
+					},
+					"indexer": {
+						"type": "object",
+						"properties": {
+							"identity": {
+								"$ref": "#/components/schemas/IndexerStatus"
+							},
+							"reputation": {
+								"$ref": "#/components/schemas/IndexerStatus"
+							},
+							"validation": {
+								"$ref": "#/components/schemas/IndexerStatus"
+							}
+						},
+						"required": ["identity", "reputation", "validation"]
+					},
+					"network": {
+						"type": "string"
+					}
+				},
+				"required": ["status", "indexer", "network"]
+			},
+			"IndexerStatus": {
+				"type": "object",
+				"properties": {
+					"lastLedger": {
+						"type": "integer"
+					},
+					"stale": {
+						"type": "boolean"
+					}
+				},
+				"required": ["lastLedger", "stale"]
+			},
+			"DiscoveryAgent": {
+				"allOf": [
+					{
+						"$ref": "#/components/schemas/Agent"
+					},
+					{
+						"type": "object",
+						"properties": {
+							"score": {
+								"type": "number",
+								"minimum": 0,
+								"maximum": 100,
+								"description": "Feedback average clamped to 0-100; what `sort=score` and `minScore` use"
+							}
+						},
+						"required": ["score"]
+					}
+				]
+			},
+			"Meta": {
+				"type": "object",
+				"properties": {
+					"version": {
+						"type": "string",
+						"description": "1.0.0 on v1, 2.0.0 on v2"
+					},
+					"chain": {
+						"const": "stellar"
+					},
+					"network": {
+						"type": "string"
+					},
+					"timestamp": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"requestId": {
+						"type": "string",
+						"format": "uuid"
+					}
+				},
+				"required": ["version", "chain", "network", "timestamp", "requestId"]
+			},
+			"PagedMeta": {
+				"allOf": [
+					{
+						"$ref": "#/components/schemas/Meta"
+					},
+					{
+						"type": "object",
+						"properties": {
+							"pagination": {
+								"type": "object",
+								"properties": {
+									"page": {
+										"type": "integer"
+									},
+									"limit": {
+										"type": "integer"
+									},
+									"total": {
+										"type": "integer"
+									},
+									"hasMore": {
+										"type": "boolean"
+									}
+								},
+								"required": ["page", "limit", "total", "hasMore"]
+							}
+						},
+						"required": ["pagination"]
+					}
+				]
+			},
+			"DiscoveryMeta": {
+				"allOf": [
+					{
+						"$ref": "#/components/schemas/Meta"
+					},
+					{
+						"type": "object",
+						"properties": {
+							"version": {
+								"const": "2.0.0"
+							},
+							"pagination": {
+								"type": "object",
+								"properties": {
+									"limit": {
+										"type": "integer"
+									},
+									"hasMore": {
+										"type": "boolean"
+									},
+									"nextCursor": {
+										"type": ["string", "null"]
+									}
+								},
+								"required": ["limit", "hasMore", "nextCursor"]
+							},
+							"asOfLedger": {
+								"type": "integer",
+								"description": "Lowest ledger all three registries are indexed to"
+							},
+							"indexedAt": {
+								"type": ["string", "null"],
+								"format": "date-time"
+							},
+							"coverage": {
+								"type": "object",
+								"properties": {
+									"scope": {
+										"const": "indexed_projection"
+									},
+									"queryComplete": {
+										"const": true
+									},
+									"snapshot": {
+										"const": false
+									}
+								},
+								"required": ["scope", "queryComplete", "snapshot"]
+							}
+						},
+						"required": ["version", "pagination", "asOfLedger", "indexedAt", "coverage"]
+					}
+				]
+			},
+			"Error": {
+				"type": "object",
+				"properties": {
+					"success": {
+						"const": false
+					},
+					"error": {
+						"type": "object",
+						"properties": {
+							"code": {
+								"enum": [
+									"INVALID_ID",
+									"INVALID_ADDRESS",
+									"MISSING_PARAM",
+									"INVALID_PARAM",
+									"INVALID_CURSOR",
+									"NOT_FOUND",
+									"METHOD_NOT_ALLOWED",
+									"RATE_LIMITED",
+									"INDEX_STALE",
+									"INTERNAL_ERROR"
+								]
+							},
+							"message": {
+								"type": "string"
+							}
+						},
+						"required": ["code", "message"]
+					},
+					"meta": {
+						"$ref": "#/components/schemas/Meta"
+					}
+				},
+				"required": ["success", "error", "meta"]
+			}
+		},
+		"parameters": {
+			"network": {
+				"name": "network",
+				"in": "query",
+				"schema": {
+					"enum": ["mainnet", "testnet"]
+				},
+				"description": "Optional; a network this explorer does not index is a 400"
+			}
+		},
+		"headers": {
+			"Limit": {
+				"schema": {
+					"type": "integer"
+				},
+				"description": "Requests allowed per minute"
+			},
+			"Reset": {
+				"schema": {
+					"type": "string",
+					"format": "date-time"
+				},
+				"description": "When the window resets"
+			}
+		},
+		"responses": {
+			"BadRequest": {
+				"description": "Invalid parameter",
+				"content": {
+					"application/json": {
+						"schema": {
+							"$ref": "#/components/schemas/Error"
+						}
+					}
+				}
+			},
+			"NotFound": {
+				"description": "Not found",
+				"content": {
+					"application/json": {
+						"schema": {
+							"$ref": "#/components/schemas/Error"
+						}
+					}
+				}
+			},
+			"RateLimited": {
+				"description": "Over 30 requests per minute",
+				"content": {
+					"application/json": {
+						"schema": {
+							"$ref": "#/components/schemas/Error"
+						}
+					}
+				}
+			},
+			"InternalError": {
+				"description": "Unexpected error",
+				"content": {
+					"application/json": {
+						"schema": {
+							"$ref": "#/components/schemas/Error"
+						}
+					}
+				}
+			}
+		}
+	}
+}
