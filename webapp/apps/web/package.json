@@ -34,7 +34,7 @@
 		"@playwright/test": "1.62.0",
 		"@stellar8004/d1": "workspace:*",
 		"@sveltejs/adapter-cloudflare": "^7.2.9",
-		"@sveltejs/kit": "^2.70.3",
+		"@sveltejs/kit": "^3.0.0",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/vite": "^4.3.3",
 		"@types/node": "^24.19.2",
