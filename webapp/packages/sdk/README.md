@@ -92,6 +92,18 @@ const agents = await explorer.getAgents({ page: 1, limit: 10 });
 const stats = await explorer.getStats();
 ```
 
+`discover()` walks the whole registry with `/api/v2/discovery`: strict filters and a
+cursor, so pages never skip or repeat an agent.
+
+```ts
+let cursor: string | undefined;
+do {
+  const page = await explorer.discover({ network: 'mainnet', x402: true, cursor });
+  for (const agent of page.data) console.log(agent.id, agent.name, agent.score);
+  cursor = page.meta.pagination.nextCursor ?? undefined;
+} while (cursor);
+```
+
 ### Storage
 
 - `AutoStorage` chooses `data:` URIs under the 8KB limit and falls back to Pinata/IPFS when configured.
@@ -113,6 +125,11 @@ import { AutoStorage } from '@trionlabs/stellar8004/storage/auto';
 ```
 
 ## Changelog
+
+### 0.0.13
+
+- `createClients(config)` works without a signer. Read calls such as `agent_uri` and `owner_of` need no key and no funded account.
+- `ExplorerClient.discover()` pages through `/api/v2/discovery` with a cursor.
 
 ### 0.0.12
 
