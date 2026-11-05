@@ -945,14 +945,26 @@ describe('leaderboard', () => {
 				total_score: 0
 			}
 		]);
-		expect(data).toMatchObject({ page: 1, hasMore: false, startRank: 1 });
+		// The count is every ranked agent, not the 50 on this page.
+		expect(data).toMatchObject({ page: 1, total: 5, hasMore: false, startRank: 1 });
 		expect(await run(leaderboardLoad, '/leaderboard?page=2')).toEqual({
 			leaders: [],
 			page: 2,
+			total: 5,
 			hasMore: false,
 			startRank: 51
 		});
 		expect((await run(leaderboardLoad, '/leaderboard?page=abc')).page).toBe(1);
+	});
+
+	it('pages past 50 and offers no next page when the last page is exactly full', async () => {
+		for (let i = 1; i <= 50; i++) await insert('agents', { id: i, owner: OWNER_A });
+		expect(await run(leaderboardLoad, '/leaderboard')).toMatchObject({ total: 50, hasMore: false });
+		await insert('agents', { id: 51, owner: OWNER_A });
+		expect(await run(leaderboardLoad, '/leaderboard')).toMatchObject({ total: 51, hasMore: true });
+		const second = await run(leaderboardLoad, '/leaderboard?page=2');
+		expect(second).toMatchObject({ total: 51, hasMore: false, startRank: 51 });
+		expect(second.leaders).toHaveLength(1);
 	});
 });
 

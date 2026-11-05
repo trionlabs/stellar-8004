@@ -27,9 +27,7 @@
 	<!-- -- Header -- -->
 	<header class="flex items-center justify-between">
 		<div class="flex items-baseline gap-2">
-			<span class="font-mono text-xl font-light text-accent/60 tabular-nums"
-				>{data.leaders.length}</span
-			>
+			<span class="font-mono text-xl font-light text-accent/60 tabular-nums">{data.total}</span>
 			<h1 class="text-xl font-light tracking-tight text-text">Leaderboard</h1>
 		</div>
 		<span class="text-[11px] tracking-[0.2em] text-text-dim/40 uppercase">Ranked by score</span>
