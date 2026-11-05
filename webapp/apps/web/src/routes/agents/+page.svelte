@@ -88,9 +88,7 @@
 	<!-- -- Header -- -->
 	<header class="flex items-center justify-between">
 		<div class="flex items-baseline gap-2">
-			<span class="font-mono text-xl font-light text-accent/60 tabular-nums"
-				>{data.agents.length}</span
-			>
+			<span class="font-mono text-xl font-light text-accent/60 tabular-nums">{data.total}</span>
 			<h1 class="text-xl font-light tracking-tight text-text">
 				{data.ownerFilter ? 'My Agents' : 'Agents'}
 			</h1>
