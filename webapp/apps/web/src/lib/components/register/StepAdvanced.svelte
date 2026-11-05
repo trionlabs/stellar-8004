@@ -1,21 +1,28 @@
-<script lang="ts">
-	const TRUST_OPTIONS = [
+<script module lang="ts">
+	import type { IconName } from './RegisterIcon.svelte';
+
+	export const TRUST_OPTIONS: { value: IconName; label: string; desc: string }[] = [
 		{
 			value: 'reputation',
-			label: 'Reputation-based Trust',
+			label: 'Reputation',
 			desc: 'Validators provide subjective feedback on agent performance and behavior'
 		},
 		{
 			value: 'crypto-economic',
-			label: 'Crypto-economic Trust',
+			label: 'Crypto-economic',
 			desc: 'Validators stake tokens to vouch for agent behavior; slashed if found malicious'
 		},
 		{
 			value: 'tee-attestation',
-			label: 'TEE Attestation Trust',
+			label: 'TEE',
 			desc: 'Trusted Execution Environment provides cryptographic proof of agent code and execution integrity'
 		}
 	];
+</script>
+
+<script lang="ts">
+	import RegisterIcon from './RegisterIcon.svelte';
+	import { chip } from './ui.js';
 
 	let {
 		supportedTrust,
@@ -25,81 +32,54 @@
 
 	function toggleTrust(value: string) {
 		const idx = supportedTrust.indexOf(value);
-		if (idx === -1) {
-			supportedTrust.push(value);
-		} else {
-			supportedTrust.splice(idx, 1);
-		}
+		if (idx === -1) supportedTrust.push(value);
+		else supportedTrust.splice(idx, 1);
 	}
 </script>
 
-<div class="space-y-6">
-	<div class="flex items-center gap-2.5 rounded-xl bg-accent/4 px-4 py-3 ring-1 ring-accent/10">
-		<span class="h-1.5 w-1.5 rounded-full bg-accent"></span>
-		<p class="text-xs text-text-muted">
-			These options help users understand your agent's trust model and operational capabilities.
-		</p>
+<div class="space-y-10">
+	<div class="space-y-3" role="group" aria-labelledby="trust-label">
+		<p id="trust-label" class="text-sm text-text-muted">Trust</p>
+		<div class="flex flex-wrap gap-2">
+			{#each TRUST_OPTIONS as opt (opt.value)}
+				{@const on = supportedTrust.includes(opt.value)}
+				<button
+					type="button"
+					aria-pressed={on}
+					title={opt.desc}
+					onclick={() => toggleTrust(opt.value)}
+					class={chip(on)}
+				>
+					<RegisterIcon name={opt.value} />
+					{opt.label}
+				</button>
+			{/each}
+		</div>
 	</div>
 
-	<div class="space-y-3">
-		<h3 class="text-xs font-medium text-text-muted">Supported Trust Mechanisms</h3>
-		<p class="text-[11px] text-text-dim">Select the trust mechanisms your agent supports</p>
-		{#each TRUST_OPTIONS as opt (opt.value)}
-			<label
-				class="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-raised"
+	<div class="space-y-3" role="group" aria-labelledby="pay-label">
+		<p id="pay-label" class="text-sm text-text-muted">Payments</p>
+		<div class="flex flex-wrap gap-2">
+			<button
+				type="button"
+				aria-pressed={x402Enabled}
+				title="HTTP 402 payments through a facilitator (OZ Channels / Coinbase)"
+				onclick={() => (x402Enabled = !x402Enabled)}
+				class={chip(x402Enabled)}
 			>
-				<input
-					type="checkbox"
-					checked={supportedTrust.includes(opt.value)}
-					onchange={() => toggleTrust(opt.value)}
-					class="mt-0.5 h-4 w-4 rounded border-border text-accent focus:ring-accent/20"
-				/>
-				<div>
-					<span class="text-sm font-medium text-text">{opt.label}</span>
-					<p class="text-[11px] text-text-dim">{opt.desc}</p>
-				</div>
-			</label>
-		{/each}
-	</div>
-
-	<hr class="border-border" />
-
-	<div class="space-y-3">
-		<h3 class="text-xs font-medium text-text-muted">Payment Protocol Support</h3>
-		<p class="text-[11px] text-text-dim">
-			Indicate support for the HTTP 402 Payment Required standard
-		</p>
-		<label
-			class="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-raised"
-		>
-			<input
-				type="checkbox"
-				bind:checked={x402Enabled}
-				class="mt-0.5 h-4 w-4 rounded border-border text-accent focus:ring-accent/20"
-			/>
-			<div>
-				<span class="text-sm font-medium text-text">HTTP 402 Payment Support (x402)</span>
-				<p class="text-[11px] text-text-dim">
-					Enable if your agent uses x402 with a facilitator (OZ Channels / Coinbase) for paid
-					services
-				</p>
-			</div>
-		</label>
-		<label
-			class="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-raised"
-		>
-			<input
-				type="checkbox"
-				bind:checked={mppEnabled}
-				class="mt-0.5 h-4 w-4 rounded border-border text-accent focus:ring-accent/20"
-			/>
-			<div>
-				<span class="text-sm font-medium text-text">HTTP 402 Payment Support (MPP Charge)</span>
-				<p class="text-[11px] text-text-dim">
-					Enable if your agent uses the Machine Payments Protocol for direct on-chain settlement (no
-					facilitator required)
-				</p>
-			</div>
-		</label>
+				<RegisterIcon name="x402" />
+				x402
+			</button>
+			<button
+				type="button"
+				aria-pressed={mppEnabled}
+				title="Machine Payments Protocol: direct on-chain settlement, no facilitator"
+				onclick={() => (mppEnabled = !mppEnabled)}
+				class={chip(mppEnabled)}
+			>
+				<RegisterIcon name="mpp" />
+				MPP
+			</button>
+		</div>
 	</div>
 </div>

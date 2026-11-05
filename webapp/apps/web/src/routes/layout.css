@@ -162,24 +162,27 @@ body::after {
 	color: var(--color-text);
 }
 
-input,
-select,
-textarea {
-	background: var(--color-surface);
-	border-color: var(--color-border);
-	color: var(--color-text);
-}
+/* Element defaults sit in the base layer so a component's utility classes can override them. */
+@layer base {
+	input,
+	select,
+	textarea {
+		background: var(--color-surface);
+		border-color: var(--color-border);
+		color: var(--color-text);
+	}
 
-input::placeholder,
-textarea::placeholder {
-	color: var(--color-text-dim);
-}
+	input::placeholder,
+	textarea::placeholder {
+		color: var(--color-text-dim);
+	}
 
-input:focus,
-select:focus,
-textarea:focus {
-	border-color: var(--color-accent);
-	outline: none;
+	input:focus,
+	select:focus,
+	textarea:focus {
+		border-color: var(--color-accent);
+		outline: none;
+	}
 }
 
 /* Glass card utility — semi-transparent with blur for star show-through */
