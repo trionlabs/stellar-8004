@@ -16,7 +16,9 @@
 		codeToHtml(code, {
 			lang,
 			themes: { light: 'github-light-default', dark: 'github-dark-default' },
-			defaultColor: 'dark'
+			defaultColor: 'dark',
+			// GitHub's light comment grey is 4.28:1 on our #f8f8f8 surface; this one is 4.74:1 (AA).
+			colorReplacements: { 'github-light-default': { '#6e7781': '#67707a' } }
 		}).then((result) => {
 			html = result;
 		});
