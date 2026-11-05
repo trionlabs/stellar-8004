@@ -1,5 +1,5 @@
 import type { Db } from '@stellar8004/d1';
-import { log } from '../../../packages/indexer/src/logger.js';
+import { log } from './chain/logger.js';
 import { pgTime } from './db.js';
 import {
 	extractMpp,

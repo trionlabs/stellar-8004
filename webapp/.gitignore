@@ -43,7 +43,6 @@ build/
 coverage/
 playwright-report/
 test-results/
-supabase/functions/_shared/indexer/
 
 # Caches
 *.tsbuildinfo
@@ -74,3 +73,7 @@ scripts/e2e-*.ts
 # OS files
 .DS_Store
 Thumbs.db
+
+# Retired Supabase stack: keep leftover local files (project refs, env) out of git.
+supabase/
+docker/

@@ -1,8 +1,0 @@
-{
-  "imports": {
-    "jose": "npm:jose@6.2.12"
-  },
-  "compilerOptions": {
-    "types": ["./edge-runtime.d.ts"]
-  }
-}

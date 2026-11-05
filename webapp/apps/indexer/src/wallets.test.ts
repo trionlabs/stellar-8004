@@ -12,7 +12,7 @@ import {
 	type Operation
 } from '@stellar/stellar-sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MAINNET_CONFIG } from '../../../packages/indexer/src/sdk-config.js';
+import { MAINNET_CONFIG } from './chain/sdk-config.js';
 import { parseIds } from '../scripts/wallets-to-sql.ts';
 import { identityClient, readWallets, walletSql } from './wallets.js';
 

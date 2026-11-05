@@ -1,24 +1,24 @@
 import type { rpc } from '@stellar/stellar-sdk';
 import type { Db } from '@stellar8004/d1';
-import { interpretEvent } from '../../../packages/indexer/src/event-interpretation.js';
+import { interpretEvent } from './chain/event-interpretation.js';
 import {
 	parentsFirst,
 	type ContractName,
 	type EventPacket
-} from '../../../packages/indexer/src/events.js';
-import { log } from '../../../packages/indexer/src/logger.js';
+} from './chain/events.js';
+import { log } from './chain/logger.js';
 import {
 	IDENTITY_EVENT_NAMES,
 	parseIdentityEvent
-} from '../../../packages/indexer/src/parsers/identity.js';
+} from './chain/parsers/identity.js';
 import {
 	REPUTATION_EVENT_NAMES,
 	parseReputationEvent
-} from '../../../packages/indexer/src/parsers/reputation.js';
+} from './chain/parsers/reputation.js';
 import {
 	VALIDATION_EVENT_NAMES,
 	parseValidationEvent
-} from '../../../packages/indexer/src/parsers/validation.js';
+} from './chain/parsers/validation.js';
 import {
 	constraintFailure,
 	deadLetter,
