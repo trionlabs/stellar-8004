@@ -1,4 +1,3 @@
-#![cfg(test)]
 extern crate std;
 
 use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String, Vec};
