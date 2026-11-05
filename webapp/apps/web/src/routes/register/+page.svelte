@@ -39,12 +39,6 @@
 	let currentStep = $state(0);
 	let showQuickMode = $state(false);
 
-	const MODES = [
-		{ id: 'agent', label: 'Give it to your agent' },
-		{ id: 'form', label: 'Fill the form' }
-	] as const;
-	const AGENT_STEPS = ['Reads the guide', 'Shows you its profile', 'Registers itself on-chain'];
-
 	let formData = $state<AgentFormData>({
 		name: '',
 		description: '',
@@ -75,14 +69,16 @@
 	const guideUrl = $derived(`${page.url.origin}/skill.md`);
 	const agentPrompt = $derived(`Read ${guideUrl} and register yourself on Stellar8004.`);
 	let copied = $state(false);
+	let promptEl: HTMLElement | undefined = $state();
 
 	async function copyPrompt() {
 		try {
 			await navigator.clipboard.writeText(agentPrompt);
 			copied = true;
-			setTimeout(() => (copied = false), 2000);
+			setTimeout(() => (copied = false), 2500);
 		} catch {
-			// Clipboard blocked: the prompt stays selectable on the page.
+			// Clipboard blocked: select the line so a manual copy takes exactly it.
+			if (promptEl) window.getSelection()?.selectAllChildren(promptEl);
 		}
 	}
 
@@ -184,61 +180,98 @@
 </svelte:head>
 
 <div class="mx-auto max-w-2xl space-y-8">
-	<div class="space-y-2">
-		<h1 class="text-2xl font-light tracking-tight text-text sm:text-3xl">Register an agent</h1>
-		<p class="text-sm text-text-muted">Put your agent on-chain in one transaction.</p>
-	</div>
-
-	<div class="inline-flex rounded-xl border border-border p-1 text-sm" role="tablist">
-		{#each MODES as m (m.id)}
-			<button
-				type="button"
-				role="tab"
-				aria-selected={mode === m.id}
-				onclick={() => (mode = m.id)}
-				class="rounded-lg px-4 py-1.5 transition-colors {mode === m.id
-					? 'bg-accent-fill text-accent'
-					: 'text-text-muted hover:text-text'}">{m.label}</button
-			>
-		{/each}
-	</div>
-
 	{#if mode === 'agent'}
-		<section class="space-y-5">
-			<p class="text-sm text-text">Paste this to your agent</p>
-			<div
-				data-frame
-				class="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-4 sm:px-5"
-			>
-				<p
-					class="min-w-0 flex-1 font-mono text-[13px] leading-relaxed [overflow-wrap:anywhere] text-text select-all"
+		<section class="enter space-y-9 pt-6 sm:pt-20">
+			<h1 class="text-[30px] leading-tight font-light tracking-[-0.015em] text-text sm:text-[40px]">
+				Give this to your agent
+			</h1>
+
+			<div class="space-y-3">
+				<button
+					type="button"
+					onclick={copyPrompt}
+					title="Copy"
+					data-frame
+					class="group flex w-full items-start gap-3 rounded-2xl bg-surface-raised px-4 py-4 text-left transition-colors hover:bg-surface-overlay focus-visible:ring-1 focus-visible:ring-accent/50 focus-visible:outline-none sm:gap-4 sm:px-6 sm:py-5"
 				>
-					{agentPrompt}
+					<code
+						bind:this={promptEl}
+						class="min-w-0 flex-1 font-mono text-[12px] leading-relaxed [overflow-wrap:anywhere] text-text sm:text-sm"
+						><span class="block">Read {guideUrl}</span><span class="block"
+							>and register yourself on Stellar8004.</span
+						></code
+					>
+					<span
+						aria-hidden="true"
+						class="mt-0.5 shrink-0 transition-colors {copied
+							? 'text-positive'
+							: 'text-text-dim group-hover:text-text'}"
+					>
+						{#if copied}
+							<svg
+								class="h-4 w-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.75"
+								><path
+									d="M5 12.5l4.5 4.5L19 7.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								/></svg
+							>
+						{:else}
+							<svg
+								class="h-4 w-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.5"
+								><rect x="8" y="8" width="12" height="12" rx="2.5" /><path
+									d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"
+								/></svg
+							>
+						{/if}
+					</span>
+				</button>
+				<p class="text-sm text-text-muted" aria-live="polite">
+					{#if copied}
+						Copied. Paste it into your agent.
+					{:else}
+						Reads the
+						<!-- /skill.md is served by hooks.server.ts, not a route, so resolve() cannot type it. -->
+						<!-- eslint-disable svelte/no-navigation-without-resolve -->
+						<a
+							href={guideUrl}
+							class="text-text-muted underline decoration-border underline-offset-4 hover:text-text"
+							>guide</a
+						>
+						<!-- eslint-enable svelte/no-navigation-without-resolve -->
+						and registers itself · ~2&nbsp;XLM
+					{/if}
 				</p>
-				<div class="shrink-0">
-					<CtaButton onclick={copyPrompt} size="md">{copied ? 'Copied' : 'Copy'}</CtaButton>
-				</div>
 			</div>
-			<p class="text-xs text-text-dim">
-				Works with Claude, Cursor, Codex or any agent that can run code.
-			</p>
-			<ol class="grid gap-4 border-t border-border pt-5 text-sm sm:grid-cols-3">
-				{#each AGENT_STEPS as step, i (step)}
-					<li class="flex gap-3">
-						<span class="font-mono text-xs leading-5 text-accent">{i + 1}</span>
-						<span class="text-text-muted">{step}</span>
-					</li>
-				{/each}
-			</ol>
-			<p class="text-xs text-text-dim">
-				It uses its own Stellar key and about 2 XLM.
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-				<a href={guideUrl} class="underline hover:text-text">Read the guide</a>
-				·
-				<a href={resolve('/developers')} class="underline hover:text-text">SDK docs</a>
+
+			<p class="pt-10 text-sm text-text-dim">
+				<button type="button" onclick={() => (mode = 'form')} class="hover:text-text"
+					>Fill the form instead</button
+				>
+				<span class="px-2" aria-hidden="true">·</span>
+				<a href={resolve('/developers')} class="hover:text-text">SDK docs</a>
 			</p>
 		</section>
 	{:else}
+		<div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+			<h1 class="text-2xl font-light tracking-tight text-text sm:text-3xl">Register an agent</h1>
+			<button
+				type="button"
+				onclick={() => (mode = 'agent')}
+				class="text-sm text-text-dim hover:text-text"
+			>
+				Give it to your agent instead
+			</button>
+		</div>
+
 		{#if !showQuickMode}
 			<p class="text-xs text-text-muted">
 				Already have a metadata URL?
@@ -446,50 +479,21 @@
 			{/if}
 		{/if}
 	{/if}
-
-	<div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-text-dim">
-		<span class="flex items-center gap-1.5">
-			<svg
-				class="h-3.5 w-3.5 text-positive"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="1.5"
-				><path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-				/></svg
-			>
-			8004 for Stellar
-		</span>
-		<span class="h-3 w-px bg-border"></span>
-		<span class="flex items-center gap-1.5">
-			<svg
-				class="h-3.5 w-3.5 text-positive"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="1.5"
-				><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg
-			>
-			Soroban
-		</span>
-		<span class="h-3 w-px bg-border"></span>
-		<span class="flex items-center gap-1.5">
-			<svg
-				class="h-3.5 w-3.5 text-positive"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="1.5"
-				><path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15A2.25 2.25 0 002.25 6.75v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z"
-				/></svg
-			>
-			Agent Identity
-		</span>
-	</div>
 </div>
+
+<style>
+	.enter {
+		animation: enter 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+	}
+	@keyframes enter {
+		from {
+			opacity: 0;
+			transform: translateY(6px);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.enter {
+			animation: none;
+		}
+	}
+</style>
