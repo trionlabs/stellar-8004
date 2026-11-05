@@ -16,3 +16,25 @@ for (const path of PAGES) {
 		expect(serious).toEqual([]);
 	});
 }
+
+test('code blocks keep light colours in light mode when the dark theme loads last', async ({
+	page
+}, info) => {
+	test.skip(info.project.name !== 'light');
+	// Each Shiki theme is its own chunk; hold back the dark one (#0d1117 background).
+	await page.route('**/_app/immutable/chunks/*.js', async (route) => {
+		const response = await route.fetch();
+		const body = await response.text();
+		if (body.includes('"activityBar.background":"#0d1117"')) {
+			await new Promise((resolve) => setTimeout(resolve, 1500));
+		}
+		await route.fulfill({ response, body });
+	});
+	await page.goto('/developers');
+	await page.waitForTimeout(3000);
+	const { violations } = await new AxeBuilder({ page })
+		.include('.shiki')
+		.withTags(['wcag2aa'])
+		.analyze();
+	expect(violations.map((v) => `${v.id} (${v.nodes.length})`)).toEqual([]);
+});
