@@ -1,11 +1,21 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import type { ServiceEntry } from '$lib/types.js';
 	import { validateUrl } from '@trionlabs/stellar8004';
+	import RegisterIcon, { serviceIcon } from './RegisterIcon.svelte';
+	import { chip, field } from './ui.js';
 
 	let { services }: { services: ServiceEntry[] } = $props();
 
-	let activeTab = $state<'MCP' | 'A2A' | 'Custom'>('MCP');
-	let currentName = $state('');
+	const TYPES = [
+		{ id: 'MCP', placeholder: 'https://api.example.com/mcp' },
+		{ id: 'A2A', placeholder: 'https://api.example.com/.well-known/agent-card.json' },
+		{ id: 'Custom', placeholder: 'https://…' }
+	] as const;
+	type ServiceType = (typeof TYPES)[number]['id'];
+
+	let activeTab = $state<ServiceType>('MCP');
+	let currentName = $state('MCP');
 	let currentEndpoint = $state('');
 	let currentVersion = $state('');
 	let currentDescription = $state('');
@@ -35,155 +45,136 @@
 		currentInputExample = '';
 	}
 
-	function removeService(index: number) {
-		services.splice(index, 1);
-	}
+	// A valid endpoint typed but never added is kept when the person moves on.
+	onDestroy(saveService);
 
-	function switchTab(tab: 'MCP' | 'A2A' | 'Custom') {
+	function switchTab(tab: ServiceType) {
 		activeTab = tab;
-		if (tab !== 'Custom') {
-			currentName = tab;
-		} else {
-			currentName = '';
-		}
+		currentName = tab === 'Custom' ? '' : tab;
 	}
-
-	const tabLabel = $derived(activeTab === 'MCP' ? 'MCP' : activeTab === 'A2A' ? 'A2A' : 'Custom');
 </script>
 
-<div class="space-y-6">
-	<div class="flex items-center gap-2.5 rounded-xl bg-accent/4 px-4 py-3 ring-1 ring-accent/10">
-		<span class="h-1.5 w-1.5 rounded-full bg-accent"></span>
-		<p class="text-xs text-text-muted">Services are optional. Skip this step or add them now.</p>
-	</div>
-
-	<div class="flex gap-2">
-		{#each ['MCP', 'A2A', 'Custom'] as tab (tab)}
-			<button
-				type="button"
-				onclick={() => switchTab(tab as 'MCP' | 'A2A' | 'Custom')}
-				class="rounded-xl border px-4 py-2 text-xs font-medium transition-colors
-					{activeTab === tab
-					? 'border-accent bg-accent/8 text-accent'
-					: 'border-border text-text-muted hover:bg-surface-raised'}"
-			>
-				{tab}
-			</button>
-		{/each}
-	</div>
-
-	{#if activeTab === 'MCP'}
-		<p class="text-[11px] text-text-dim">
-			Model Context Protocol service for AI tools, prompts, and resources
-		</p>
-	{:else if activeTab === 'A2A'}
-		<p class="text-[11px] text-text-dim">
-			Agent-to-Agent communication service for inter-agent collaboration
-		</p>
-	{:else}
-		<p class="text-[11px] text-text-dim">Custom service type for other protocols or services</p>
-	{/if}
+<div
+	class="space-y-3"
+	role="group"
+	aria-labelledby="services-label"
+	onfocusout={(e) => {
+		// Leaving the composer (e.g. for Register) keeps a valid endpoint that was not added yet.
+		if (!e.currentTarget.contains(e.relatedTarget as Node | null)) saveService();
+	}}
+>
+	<p id="services-label" class="text-sm text-text-muted">Services</p>
 
 	{#if !isAtLimit}
-		<div class="space-y-3">
-			{#if activeTab === 'Custom'}
-				<input
-					type="text"
-					bind:value={currentName}
-					placeholder="Service name (e.g. Web, REST, gRPC)"
-					class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
-				/>
-			{/if}
+		<div class="flex flex-wrap gap-2">
+			{#each TYPES as type (type.id)}
+				<button
+					type="button"
+					aria-pressed={activeTab === type.id}
+					onclick={() => switchTab(type.id)}
+					class={chip(activeTab === type.id)}
+				>
+					<RegisterIcon name={serviceIcon(type.id)} />
+					{type.id}
+				</button>
+			{/each}
+		</div>
+
+		{#if activeTab === 'Custom'}
 			<input
 				type="text"
+				bind:value={currentName}
+				placeholder="Service name, e.g. REST"
+				aria-label="Service name"
+				class={field}
+			/>
+		{/if}
+		<div class="flex gap-2">
+			<input
+				type="text"
+				inputmode="url"
 				bind:value={currentEndpoint}
-				placeholder={activeTab === 'MCP'
-					? 'https://api.example.com/mcp'
-					: activeTab === 'A2A'
-						? 'https://api.example.com/.well-known/agent-card.json'
-						: 'https://...'}
-				class="w-full rounded-xl border {endpointError
-					? 'border-negative'
-					: 'border-border'} bg-surface px-4 py-3 text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
+				placeholder={TYPES.find((t) => t.id === activeTab)?.placeholder}
+				aria-label="{activeTab} endpoint"
+				onkeydown={(e) => {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						saveService();
+					}
+				}}
+				class="{field} {endpointError ? 'ring-1 ring-negative/50' : ''}"
 			/>
-			{#if endpointError}
-				<p class="text-[10px] text-negative">{endpointError}</p>
-			{/if}
-			<input
-				type="text"
-				bind:value={currentVersion}
-				placeholder="Version (e.g. 1.0.0)"
-				class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
-			/>
-			<textarea
-				bind:value={currentDescription}
-				placeholder="What does this service do? (optional)"
-				rows="2"
-				class="w-full resize-y rounded-xl border border-border bg-surface px-4 py-3 text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
-			></textarea>
-			<textarea
-				bind:value={currentInputExample}
-				placeholder={'Example input JSON (optional)\ne.g. { "url": "https://example.com" }'}
-				rows="2"
-				class="w-full resize-y rounded-xl border border-border bg-surface px-4 py-3 font-mono text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
-			></textarea>
 			<button
 				type="button"
 				onclick={saveService}
 				disabled={!canSave}
-				class="flex items-center gap-2 rounded-xl bg-accent/8 px-4 py-2.5 text-sm font-medium text-accent transition-colors hover:bg-accent/15 disabled:opacity-40"
+				aria-label="Add service"
+				title="Add"
+				class="grid w-12 shrink-0 place-items-center rounded-xl bg-text text-surface transition-opacity hover:opacity-85 disabled:opacity-20"
 			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-				</svg>
-				Save & Add Another {tabLabel} Service
+				<RegisterIcon name="plus" />
 			</button>
 		</div>
+		{#if endpointError}
+			<p class="text-xs text-negative">{endpointError}</p>
+		{/if}
+
+		<details class="group">
+			<summary
+				class="inline-flex cursor-pointer list-none items-center gap-1.5 text-sm text-text-dim transition-colors hover:text-text [&::-webkit-details-marker]:hidden"
+			>
+				<RegisterIcon name="plus" class="h-3.5 w-3.5 transition-transform group-open:rotate-45" />
+				Version, description, example input
+			</summary>
+			<div class="space-y-2 pt-3">
+				<input
+					type="text"
+					bind:value={currentVersion}
+					placeholder="Version, e.g. 1.0.0"
+					aria-label="Version"
+					class={field}
+				/>
+				<textarea
+					bind:value={currentDescription}
+					placeholder="What this service does"
+					aria-label="Service description"
+					rows="2"
+					class="{field} resize-y"
+				></textarea>
+				<textarea
+					bind:value={currentInputExample}
+					placeholder={'Example input, e.g. { "url": "https://example.com" }'}
+					aria-label="Example input"
+					rows="2"
+					class="{field} resize-y font-mono"
+				></textarea>
+			</div>
+		</details>
 	{/if}
 
 	{#if services.length > 0}
-		<div class="space-y-2">
-			<h3 class="text-xs font-medium text-text-muted">Added Services ({services.length})</h3>
+		<ul class="space-y-2 pt-3">
 			{#each services as service, i (service.endpoint)}
-				<div class="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
-					<span class="rounded-md bg-accent/8 px-2 py-0.5 text-[10px] font-medium text-accent"
-						>{service.name}</span
+				<li class="flex items-center gap-3 rounded-xl bg-surface-raised py-2.5 pr-2.5 pl-4 text-sm">
+					<RegisterIcon name={serviceIcon(service.name)} class="h-4 w-4 shrink-0 text-text-dim" />
+					<span class="shrink-0 text-text">{service.name}</span>
+					<span class="min-w-0 flex-1 truncate font-mono text-xs text-text-dim"
+						>{service.endpoint}</span
 					>
-					<div class="min-w-0 flex-1">
-						<span class="block truncate font-mono text-[11px] text-text-muted"
-							>{service.endpoint}</span
-						>
-						{#if service.description}
-							<span class="block truncate text-[10px] text-text-dim">{service.description}</span>
-						{/if}
-					</div>
 					{#if service.version}
-						<span class="text-[10px] text-text-dim">v{service.version}</span>
+						<span class="text-xs text-text-dim">v{service.version}</span>
 					{/if}
 					<button
 						type="button"
-						onclick={() => removeService(i)}
-						aria-label="Remove service"
-						class="rounded-md p-1 text-text-dim transition-colors hover:bg-negative/5 hover:text-negative"
+						onclick={() => services.splice(i, 1)}
+						aria-label="Remove {service.name}"
+						title="Remove"
+						class="rounded-lg p-1.5 text-text-dim transition-colors hover:text-negative"
 					>
-						<svg
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-						</svg>
+						<RegisterIcon name="close" />
 					</button>
-				</div>
+				</li>
 			{/each}
-		</div>
-	{:else}
-		<div
-			class="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-dim"
-		>
-			No services added yet
-		</div>
+		</ul>
 	{/if}
 </div>
