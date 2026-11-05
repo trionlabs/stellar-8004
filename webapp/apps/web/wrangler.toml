@@ -59,8 +59,11 @@ enabled = true
 # and the RPC URL are on-chain public data, and the client bundle needs them anyway. Mirrors the
 # env of the Docker service being replaced.
 PUBLIC_STELLAR_NETWORK = "mainnet"
-# gateway.fm already ran a Protocol 30 release when this was set (2026-11-04); browsers call it directly (CORS *).
-PUBLIC_STELLAR_RPC_URL = "https://soroban-rpc.mainnet.stellar.gateway.fm"
+# Browsers call these directly (both send CORS *), in order of preference: on page load the first
+# one whose getHealth says "healthy" is used (src/lib/sdk-client.ts). gateway.fm ran a Protocol 30
+# release first (2026-11-04); an RPC that cannot follow the chain after the upgrade stops reporting
+# healthy, so the list fails over by itself.
+PUBLIC_STELLAR_RPC_URL = "https://soroban-rpc.mainnet.stellar.gateway.fm,https://mainnet.sorobanrpc.com"
 PUBLIC_IDENTITY_REGISTRY = "CBGPDCJIHQ32G42BE7F2CIT3YW6XRN5ED6GQJHCRZSNAYH6TGMCL6X35"
 PUBLIC_REPUTATION_REGISTRY = "CBOIAIMMWAXI57OATLX6BWVDQLCC4YU55HV6MZXFRP6CBSGAMXSTEPPA"
 PUBLIC_VALIDATION_REGISTRY = "CBT6WWEVEPT2UFGFGVJJ7ELYGLQAGRYSVGDTGMCJTRWXOH27MWUO7UJG"
