@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { getClients, stellarConfig } from '$lib/sdk-client.js';
 	import {
@@ -38,6 +39,12 @@
 	let currentStep = $state(0);
 	let showQuickMode = $state(false);
 
+	const MODES = [
+		{ id: 'agent', label: 'Give it to your agent' },
+		{ id: 'form', label: 'Fill the form' }
+	] as const;
+	const AGENT_STEPS = ['Reads the guide', 'Shows you its profile', 'Registers itself on-chain'];
+
 	let formData = $state<AgentFormData>({
 		name: '',
 		description: '',
@@ -60,6 +67,22 @@
 			Object.assign(formData, parsed);
 		} catch {
 			sessionStorage.removeItem(STORAGE_KEY);
+		}
+	}
+
+	// A saved draft means the person was filling the form: reopen it there.
+	let mode = $state<'agent' | 'form'>(formData.name ? 'form' : 'agent');
+	const guideUrl = $derived(`${page.url.origin}/skill.md`);
+	const agentPrompt = $derived(`Read ${guideUrl} and register yourself on Stellar8004.`);
+	let copied = $state(false);
+
+	async function copyPrompt() {
+		try {
+			await navigator.clipboard.writeText(agentPrompt);
+			copied = true;
+			setTimeout(() => (copied = false), 2000);
+		} catch {
+			// Clipboard blocked: the prompt stays selectable on the page.
 		}
 	}
 
@@ -161,120 +184,133 @@
 </svelte:head>
 
 <div class="mx-auto max-w-2xl space-y-8">
-	<div class="rounded-xl border border-border/60 bg-surface-raised/30 p-4 sm:p-5">
-		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-			<div class="space-y-1">
-				<div class="flex items-center gap-2">
-					<svg
-						class="h-3.5 w-3.5 text-accent"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="1.5"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-						/></svg
-					>
-					<span class="text-[11px] tracking-[0.25em] text-accent uppercase">Are you an agent?</span>
-				</div>
-				<p class="text-sm text-text-muted">
-					Register programmatically with the TypeScript SDK and follow the registration examples.
-				</p>
-			</div>
-			<a
-				href={resolve('/developers')}
-				class="shrink-0 text-xs text-text-muted transition-colors hover:text-accent"
-				>View SDK docs →</a
-			>
-		</div>
+	<div class="space-y-2">
+		<h1 class="text-2xl font-light tracking-tight text-text sm:text-3xl">Register an agent</h1>
+		<p class="text-sm text-text-muted">Put your agent on-chain in one transaction.</p>
 	</div>
 
-	<div class="space-y-4">
-		<div class="flex items-center justify-between">
-			<div class="flex items-center gap-2.5">
-				<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
-				<span class="text-[11px] tracking-[0.25em] text-text-muted uppercase"
-					>Agent Registration</span
+	<div class="inline-flex rounded-xl border border-border p-1 text-sm" role="tablist">
+		{#each MODES as m (m.id)}
+			<button
+				type="button"
+				role="tab"
+				aria-selected={mode === m.id}
+				onclick={() => (mode = m.id)}
+				class="rounded-lg px-4 py-1.5 transition-colors {mode === m.id
+					? 'bg-accent-fill text-accent'
+					: 'text-text-muted hover:text-text'}">{m.label}</button
+			>
+		{/each}
+	</div>
+
+	{#if mode === 'agent'}
+		<section class="space-y-5">
+			<p class="text-sm text-text">Paste this to your agent</p>
+			<div
+				data-frame
+				class="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-4 sm:px-5"
+			>
+				<p
+					class="min-w-0 flex-1 font-mono text-[13px] leading-relaxed [overflow-wrap:anywhere] text-text select-all"
+				>
+					{agentPrompt}
+				</p>
+				<div class="shrink-0">
+					<CtaButton onclick={copyPrompt} size="md">{copied ? 'Copied' : 'Copy'}</CtaButton>
+				</div>
+			</div>
+			<p class="text-xs text-text-dim">
+				Works with Claude, Cursor, Codex or any agent that can run code.
+			</p>
+			<ol class="grid gap-4 border-t border-border pt-5 text-sm sm:grid-cols-3">
+				{#each AGENT_STEPS as step, i (step)}
+					<li class="flex gap-3">
+						<span class="font-mono text-xs leading-5 text-accent">{i + 1}</span>
+						<span class="text-text-muted">{step}</span>
+					</li>
+				{/each}
+			</ol>
+			<p class="text-xs text-text-dim">
+				It uses its own Stellar key and about 2 XLM.
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+				<a href={guideUrl} class="underline hover:text-text">Read the guide</a>
+				·
+				<a href={resolve('/developers')} class="underline hover:text-text">SDK docs</a>
+			</p>
+		</section>
+	{:else}
+		{#if !showQuickMode}
+			<p class="text-xs text-text-muted">
+				Already have a metadata URL?
+				<button
+					type="button"
+					onclick={() => {
+						showQuickMode = true;
+						currentStep = 0;
+					}}
+					class="text-accent underline">Quick register</button
+				>
+			</p>
+		{/if}
+
+		{#if !wallet.connected && currentStep > 0 && !showQuickMode}
+			<div class="rounded-xl bg-warning/6 px-4 py-2 text-xs text-warning">
+				Wallet not connected - you'll need it to submit.
+				<button type="button" onclick={() => wallet.connect()} class="underline">Connect now</button
 				>
 			</div>
-			{#if !showQuickMode}
-				<div class="text-xs text-text-muted">
-					Already have a metadata URL?
-					<button
-						type="button"
-						onclick={() => {
-							showQuickMode = true;
-							currentStep = 0;
-						}}
-						class="text-accent underline">Quick register</button
-					>
-				</div>
-			{/if}
-		</div>
-		<h1 class="text-2xl font-light tracking-tight text-text sm:text-3xl">Register your agent</h1>
-		<p class="text-sm text-text-muted">
-			Register your autonomous agent on the 8004 for Stellar registry
-		</p>
-	</div>
+		{/if}
 
-	{#if !wallet.connected && currentStep > 0 && !showQuickMode}
-		<div class="rounded-xl bg-warning/6 px-4 py-2 text-xs text-warning">
-			Wallet not connected - you'll need it to submit.
-			<button type="button" onclick={() => wallet.connect()} class="underline">Connect now</button>
-		</div>
-	{/if}
-
-	{#if showQuickMode}
-		<div class="space-y-6">
-			<div class="overflow-hidden rounded-2xl border border-border bg-surface-raised/40">
-				<div class="h-px bg-linear-to-r from-transparent via-accent/50 to-transparent"></div>
-				<div class="space-y-6 p-8 sm:p-10">
-					{#if !wallet.connected}
-						<CtaButton onclick={() => wallet.connect()} disabled={wallet.loading} size="md" full>
-							{wallet.loading ? 'Connecting...' : 'Connect Wallet'}
-						</CtaButton>
-					{:else}
-						{#if wallet.networkMismatch}
-							<div
-								class="flex items-center gap-2.5 rounded-xl bg-warning/6 px-4 py-3 ring-1 ring-warning/12"
-							>
-								<span class="h-1.5 w-1.5 rounded-full bg-warning"></span>
-								<p class="text-xs text-warning">
-									Switch to <span class="font-medium uppercase">{stellarConfig.network}</span> in Freighter
-								</p>
-							</div>
+		{#if showQuickMode}
+			<div class="space-y-6">
+				<div class="overflow-hidden rounded-2xl border border-border bg-surface-raised/40">
+					<div class="h-px bg-linear-to-r from-transparent via-accent/50 to-transparent"></div>
+					<div class="space-y-6 p-8 sm:p-10">
+						{#if !wallet.connected}
+							<CtaButton onclick={() => wallet.connect()} disabled={wallet.loading} size="md" full>
+								{wallet.loading ? 'Connecting...' : 'Connect Wallet'}
+							</CtaButton>
 						{:else}
-							<div
-								class="flex items-center justify-between rounded-xl bg-positive/5 px-4 py-3 ring-1 ring-positive/10"
-							>
-								<div class="flex items-center gap-2.5">
-									<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-positive"></span>
-									<p class="text-xs text-positive">{stellarConfig.network}</p>
+							{#if wallet.networkMismatch}
+								<div
+									class="flex items-center gap-2.5 rounded-xl bg-warning/6 px-4 py-3 ring-1 ring-warning/12"
+								>
+									<span class="h-1.5 w-1.5 rounded-full bg-warning"></span>
+									<p class="text-xs text-warning">
+										Switch to <span class="font-medium uppercase">{stellarConfig.network}</span> in Freighter
+									</p>
 								</div>
-								<p class="truncate pl-4 font-mono text-[11px] text-text-dim">
-									{wallet.address?.slice(0, 8)}...{wallet.address?.slice(-6)}
-								</p>
-							</div>
-						{/if}
+							{:else}
+								<div
+									class="flex items-center justify-between rounded-xl bg-positive/5 px-4 py-3 ring-1 ring-positive/10"
+								>
+									<div class="flex items-center gap-2.5">
+										<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-positive"></span>
+										<p class="text-xs text-positive">{stellarConfig.network}</p>
+									</div>
+									<p class="truncate pl-4 font-mono text-[11px] text-text-dim">
+										{wallet.address?.slice(0, 8)}...{wallet.address?.slice(-6)}
+									</p>
+								</div>
+							{/if}
 
-						<div class="space-y-2">
-							<label class="text-xs font-medium text-text-muted" for="quick-uri">Metadata URI</label
-							>
-							<input
-								id="quick-uri"
-								type="text"
-								bind:value={manualUri}
-								placeholder="https://... or ipfs://..."
-								class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
-							/>
-							<p class="text-[10px] text-text-dim">
-								Your URI should point to a JSON file like this:
-							</p>
-							<CodeBlock
-								class="mt-2"
-								code={`{
+							<div class="space-y-2">
+								<label class="text-xs font-medium text-text-muted" for="quick-uri"
+									>Metadata URI</label
+								>
+								<input
+									id="quick-uri"
+									type="text"
+									bind:value={manualUri}
+									placeholder="https://... or ipfs://..."
+									class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
+								/>
+								<p class="text-[10px] text-text-dim">
+									Your URI should point to a JSON file like this:
+								</p>
+								<CodeBlock
+									class="mt-2"
+									code={`{
   "name": "DataBot",
   "description": "Real-time market data feed",
   "image": "https://example.com/avatar.png",
@@ -283,134 +319,135 @@
       "endpoint": "https://api.example.com/feed" }
   ]
 }`}
-							/>
-							<p class="mt-1.5 text-[10px] text-text-dim">
-								Only <code class="rounded bg-surface-raised px-1 py-0.5 font-mono">name</code> is
-								required. Optional:
-								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">description</code>,
-								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">image</code>,
-								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">services</code>,
-								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">x402</code>,
-								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">mpp</code>
-							</p>
-						</div>
-
-						<CtaButton
-							onclick={() => submitQuick(manualUri)}
-							disabled={status === 'submitting' || wallet.networkMismatch}
-							size="md"
-							full
-						>
-							{#if status === 'submitting'}
-								<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"
-									><circle
-										cx="12"
-										cy="12"
-										r="10"
-										stroke="currentColor"
-										stroke-width="2"
-										opacity="0.25"
-									/><path
-										d="M12 2a10 10 0 019.95 9"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-									/></svg
-								>
-								Registering...
-							{:else}
-								Register on Stellar
-							{/if}
-						</CtaButton>
-
-						{#if status === 'error'}
-							<div
-								class="flex items-start gap-2.5 rounded-xl bg-negative/6 px-4 py-3 ring-1 ring-negative/12"
-							>
-								<svg
-									class="mt-0.5 h-3.5 w-3.5 shrink-0 text-negative"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="1.5"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-									/></svg
-								>
-								<p class="text-xs text-negative">{errorMsg}</p>
+								/>
+								<p class="mt-1.5 text-[10px] text-text-dim">
+									Only <code class="rounded bg-surface-raised px-1 py-0.5 font-mono">name</code> is
+									required. Optional:
+									<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">description</code>,
+									<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">image</code>,
+									<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">services</code>,
+									<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">x402</code>,
+									<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">mpp</code>
+								</p>
 							</div>
+
+							<CtaButton
+								onclick={() => submitQuick(manualUri)}
+								disabled={status === 'submitting' || wallet.networkMismatch}
+								size="md"
+								full
+							>
+								{#if status === 'submitting'}
+									<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"
+										><circle
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											stroke-width="2"
+											opacity="0.25"
+										/><path
+											d="M12 2a10 10 0 019.95 9"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+										/></svg
+									>
+									Registering...
+								{:else}
+									Register on Stellar
+								{/if}
+							</CtaButton>
+
+							{#if status === 'error'}
+								<div
+									class="flex items-start gap-2.5 rounded-xl bg-negative/6 px-4 py-3 ring-1 ring-negative/12"
+								>
+									<svg
+										class="mt-0.5 h-3.5 w-3.5 shrink-0 text-negative"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="1.5"
+										><path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+										/></svg
+									>
+									<p class="text-xs text-negative">{errorMsg}</p>
+								</div>
+							{/if}
 						{/if}
+					</div>
+					<div class="h-px bg-linear-to-r from-transparent via-accent/20 to-transparent"></div>
+				</div>
+				<a
+					href={resolve('/')}
+					class="inline-flex items-center gap-2 text-xs text-text-muted hover:text-text"
+					>Cancel and go home</a
+				>
+			</div>
+		{:else}
+			<Stepper steps={STEPS} {currentStep} />
+
+			<div class="overflow-hidden rounded-2xl border border-border bg-surface-raised/40">
+				<div class="h-px bg-linear-to-r from-transparent via-accent/50 to-transparent"></div>
+
+				<div class="p-8 sm:p-10">
+					{#if currentStep === 0}
+						<StepBasicInfo {formData} />
+					{:else if currentStep === 1}
+						<StepServices services={formData.services} />
+					{:else if currentStep === 2}
+						<StepAdvanced
+							supportedTrust={formData.supportedTrust}
+							bind:x402Enabled={formData.x402Enabled}
+							bind:mppEnabled={formData.mppEnabled}
+						/>
+					{:else if currentStep === 3}
+						<StepUri {formData} bind:uriMode bind:manualUri />
+					{:else if currentStep === 4}
+						<StepReview {formData} {uriMode} {manualUri} {status} {errorMsg} onSubmit={submit} />
 					{/if}
 				</div>
+
 				<div class="h-px bg-linear-to-r from-transparent via-accent/20 to-transparent"></div>
 			</div>
-			<a
-				href={resolve('/')}
-				class="inline-flex items-center gap-2 text-xs text-text-muted hover:text-text"
-				>Cancel and go home</a
-			>
-		</div>
-	{:else}
-		<Stepper steps={STEPS} {currentStep} />
 
-		<div class="overflow-hidden rounded-2xl border border-border bg-surface-raised/40">
-			<div class="h-px bg-linear-to-r from-transparent via-accent/50 to-transparent"></div>
+			{#if currentStep < 4}
+				<div class="flex items-center justify-between">
+					{#if currentStep > 0}
+						<button
+							type="button"
+							onclick={back}
+							class="flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm text-text-muted transition-colors hover:bg-surface-raised"
+						>
+							Back
+						</button>
+					{:else}
+						<a
+							href={resolve('/')}
+							class="flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm text-text-muted transition-colors hover:bg-surface-raised"
+						>
+							Cancel
+						</a>
+					{/if}
 
-			<div class="p-8 sm:p-10">
-				{#if currentStep === 0}
-					<StepBasicInfo {formData} />
-				{:else if currentStep === 1}
-					<StepServices services={formData.services} />
-				{:else if currentStep === 2}
-					<StepAdvanced
-						supportedTrust={formData.supportedTrust}
-						bind:x402Enabled={formData.x402Enabled}
-						bind:mppEnabled={formData.mppEnabled}
-					/>
-				{:else if currentStep === 3}
-					<StepUri {formData} bind:uriMode bind:manualUri />
-				{:else if currentStep === 4}
-					<StepReview {formData} {uriMode} {manualUri} {status} {errorMsg} onSubmit={submit} />
-				{/if}
-			</div>
-
-			<div class="h-px bg-linear-to-r from-transparent via-accent/20 to-transparent"></div>
-		</div>
-
-		{#if currentStep < 4}
-			<div class="flex items-center justify-between">
-				{#if currentStep > 0}
 					<button
 						type="button"
-						onclick={back}
-						class="flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm text-text-muted transition-colors hover:bg-surface-raised"
+						onclick={next}
+						disabled={!canProceed}
+						class="rounded-xl border border-accent/30 bg-accent-fill px-6 py-2.5 text-sm font-medium text-accent transition-colors hover:border-accent/45 hover:bg-accent-fill-hover disabled:opacity-40"
 					>
-						Back
+						Next: {STEPS[currentStep + 1]?.label} ->
 					</button>
-				{:else}
-					<a
-						href={resolve('/')}
-						class="flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm text-text-muted transition-colors hover:bg-surface-raised"
-					>
-						Cancel
-					</a>
-				{/if}
-
-				<button
-					type="button"
-					onclick={next}
-					disabled={!canProceed}
-					class="rounded-xl border border-accent/30 bg-accent-fill px-6 py-2.5 text-sm font-medium text-accent transition-colors hover:border-accent/45 hover:bg-accent-fill-hover disabled:opacity-40"
-				>
-					Next: {STEPS[currentStep + 1]?.label} ->
-				</button>
-			</div>
+				</div>
+			{/if}
 		{/if}
 	{/if}
 
-	<div class="flex items-center justify-center gap-4 text-xs text-text-dim">
+	<div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-text-dim">
 		<span class="flex items-center gap-1.5">
 			<svg
 				class="h-3.5 w-3.5 text-positive"
