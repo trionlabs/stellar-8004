@@ -132,3 +132,7 @@ jobs:
       - run: pnpm --filter @stellar8004/web lint
       - run: pnpm --filter @stellar8004/web check
       - run: pnpm --filter @stellar8004/web build
+      # Browser tests: the built worker on a seeded local D1. Each main page, light and dark,
+      # must render and pass axe with no serious or critical WCAG 2 A/AA violation.
+      - run: pnpm --filter @stellar8004/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @stellar8004/web e2e

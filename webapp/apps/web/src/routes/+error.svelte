@@ -16,7 +16,7 @@
 </svelte:head>
 
 <div class="space-y-3 py-24 text-center">
-	<p class="font-mono text-3xl font-light text-accent/60 tabular-nums">{page.status}</p>
+	<p class="font-mono text-3xl font-light text-accent/80 tabular-nums">{page.status}</p>
 	<p class="text-sm text-text-muted">{message}</p>
 	<div class="pt-2">
 		<CtaButton href={resolve('/')} variant="secondary" size="sm">Back to home</CtaButton>

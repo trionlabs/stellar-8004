@@ -24,7 +24,7 @@
      text  -> primary            (WCAG AAA: 16:1)                 */
 	--color-text: oklch(0.93 0.006 250);
 	--color-text-muted: oklch(0.65 0.014 250);
-	--color-text-dim: oklch(0.52 0.014 250);
+	--color-text-dim: oklch(0.59 0.014 250);
 
 	/* -- Accent - steel-blue with presence ---------------------  */
 	--color-accent: oklch(0.74 0.09 250);
@@ -73,7 +73,7 @@
 	/* Text - pure black-gray scale */
 	--color-text: oklch(0.16 0 0);
 	--color-text-muted: oklch(0.42 0 0);
-	--color-text-dim: oklch(0.58 0 0);
+	--color-text-dim: oklch(0.51 0 0);
 
 	/* Accent - just darker gray, no color. Contrast does the work */
 	--color-accent: oklch(0.28 0 0);

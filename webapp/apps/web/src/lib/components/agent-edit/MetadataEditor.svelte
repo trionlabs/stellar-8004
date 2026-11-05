@@ -171,12 +171,10 @@
 			<div class="flex items-center gap-2.5">
 				<span class="h-1.5 w-1.5 rounded-full bg-text-dim/30"></span>
 				<span class="text-xs font-medium tracking-wide text-text-dim uppercase">URI Settings</span>
-				<span class="text-[10px] text-text-dim/50">URI storage mode</span>
+				<span class="text-[10px] text-text-dim">URI storage mode</span>
 			</div>
 			<svg
-				class="h-3.5 w-3.5 text-text-dim/50 transition-transform duration-200 {openSections.has(
-					'uri'
-				)
+				class="h-3.5 w-3.5 text-text-dim transition-transform duration-200 {openSections.has('uri')
 					? 'rotate-180'
 					: ''}"
 				fill="none"
