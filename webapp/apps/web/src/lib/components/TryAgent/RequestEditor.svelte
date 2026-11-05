@@ -44,7 +44,7 @@
 				disabled={busy}
 				placeholder="Enter request body as JSON"
 				rows="4"
-				class="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text placeholder:text-text-dim/40 focus:border-accent/50 focus:outline-none"
+				class="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
 			></textarea>
 		</div>
 	{/if}

@@ -27,10 +27,10 @@
 	<!-- -- Header -- -->
 	<header class="flex items-center justify-between">
 		<div class="flex items-baseline gap-2">
-			<span class="font-mono text-xl font-light text-accent/60 tabular-nums">{data.total}</span>
+			<span class="font-mono text-xl font-light text-accent/80 tabular-nums">{data.total}</span>
 			<h1 class="text-xl font-light tracking-tight text-text">Leaderboard</h1>
 		</div>
-		<span class="text-[11px] tracking-[0.2em] text-text-dim/40 uppercase">Ranked by score</span>
+		<span class="text-[11px] tracking-[0.2em] text-text-dim uppercase">Ranked by score</span>
 	</header>
 
 	{#if data.leaders.length === 0}
@@ -83,10 +83,7 @@
 						>
 							{leader.agent_name ?? `Agent #${leader.agent_id}`}
 						</p>
-						{#if leader.owner}<p
-								class="font-mono text-[10px] text-text-dim/50"
-								title={leader.owner}
-							>
+						{#if leader.owner}<p class="font-mono text-[10px] text-text-dim" title={leader.owner}>
 								{shortAddress(leader.owner)}
 							</p>{/if}
 					</div>
@@ -127,7 +124,7 @@
 					>
 						{#if (leader.feedback_count ?? 0) > 0}
 							<p class="text-xs text-text-muted tabular-nums">{fmt(leader.avg_score)}</p>
-							<p class="text-[9px] text-text-dim/40">{leader.feedback_count}</p>
+							<p class="text-[9px] text-text-dim">{leader.feedback_count}</p>
 						{:else}
 							<p class="text-text-dim/20">-</p>
 						{/if}
@@ -166,7 +163,7 @@
 					>
 				</a>
 			{/if}
-			<span class="px-3 font-mono text-[11px] text-text-dim/50 tabular-nums">{data.page}</span>
+			<span class="px-3 font-mono text-[11px] text-text-dim tabular-nums">{data.page}</span>
 			{#if data.hasMore}
 				<a
 					href="{lbPath}?page={data.page + 1}"

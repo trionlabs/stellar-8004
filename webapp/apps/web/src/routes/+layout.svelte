@@ -159,7 +159,7 @@
 						>8004</span
 					></span
 				>
-				<span class="text-text-dim/40">&middot;</span>
+				<span class="text-text-dim">&middot;</span>
 				<a
 					href="https://trionlabs.dev"
 					target="_blank"
@@ -177,7 +177,7 @@
 			<div class="flex items-center gap-4">
 				{#if data?.indexerStatus}
 					<span
-						class="inline-flex items-center gap-1.5 text-text-dim/60"
+						class="inline-flex items-center gap-1.5 text-text-dim"
 						title={data.indexerStatus.stale
 							? 'Indexer is behind — data may be delayed'
 							: `Mirror synced to ledger ${data.indexerStatus.syncedLedger}`}

@@ -272,7 +272,7 @@
 				<span class="text-xs font-medium tracking-wide text-text-muted uppercase"
 					>Wallet Binding</span
 				>
-				<span class="text-[10px] text-text-dim/50">Separate transaction</span>
+				<span class="text-[10px] text-text-dim">Separate transaction</span>
 			</div>
 			<svg
 				class="h-3.5 w-3.5 text-text-dim transition-transform duration-200 {walletSectionOpen

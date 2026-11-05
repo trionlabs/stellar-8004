@@ -272,7 +272,7 @@
 							maxlength="256"
 							class="fb-input"
 						/>
-						<p class="mt-1 text-[10px] text-text-dim/50">
+						<p class="mt-1 text-[10px] text-text-dim">
 							Link to off-chain evidence (logs, payment proof). Hashed on-chain for integrity.
 						</p>
 					</div>
