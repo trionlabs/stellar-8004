@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { codeToHtml } from 'shiki/bundle/web';
-	import { theme } from '$lib/theme.svelte.js';
 
 	let {
 		code,
@@ -10,11 +9,14 @@
 
 	let html = $state('');
 
+	// Both themes in one pass: the dark colours inline, the light ones as --shiki-light, picked by
+	// [data-theme] in CSS. Highlighting no longer waits on the JS theme store, so light mode never
+	// flashes dark-theme code.
 	$effect(() => {
-		const shikiTheme = theme.resolved === 'light' ? 'github-light-default' : 'github-dark-default';
 		codeToHtml(code, {
 			lang,
-			theme: shikiTheme
+			themes: { light: 'github-light-default', dark: 'github-dark-default' },
+			defaultColor: 'dark'
 		}).then((result) => {
 			html = result;
 		});
@@ -32,5 +34,10 @@
 <style>
 	:global(.shiki) {
 		background: transparent !important;
+	}
+
+	:global([data-theme='light'] .shiki),
+	:global([data-theme='light'] .shiki span) {
+		color: var(--shiki-light) !important;
 	}
 </style>
