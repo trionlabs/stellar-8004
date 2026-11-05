@@ -52,7 +52,7 @@ function route(db: Db, parts: string[], url: URL): Promise<Response> | Response 
 	const network = url.searchParams.get('network');
 	if (network !== null && network !== env.PUBLIC_STELLAR_NETWORK) {
 		return errorResponse(
-			'INVALID_NETWORK',
+			'INVALID_PARAM',
 			`This explorer indexes ${env.PUBLIC_STELLAR_NETWORK}, not "${network}"`,
 			400
 		);

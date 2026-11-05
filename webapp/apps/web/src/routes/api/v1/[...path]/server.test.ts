@@ -658,7 +658,7 @@ describe('router', () => {
 		]) {
 			const { status, body } = await json(path);
 			expect(status, path).toBe(400);
-			expect(body.error.code).toBe('INVALID_NETWORK');
+			expect(body.error.code).toBe('INVALID_PARAM');
 		}
 		expect((await json('agents?network=testnet')).body.error.message).toBe(
 			'This explorer indexes mainnet, not "testnet"'
