@@ -165,7 +165,7 @@
   "devDependencies": {
     "@stellar/freighter-api": "^6.0.1",
     "@types/node": "^24.19.2",
-    "tsup": "^8.5.1",
+    "tsup": "^9.0.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.12"
   }
