@@ -63,7 +63,7 @@ console.log(sent.result, sent.sendTransactionResponse?.hash); // agent ID, trans
 
 ## Main APIs
 
-### `createClients(config, signer)`
+### `createClients(config, signer?)`
 
 Returns `{ identity, reputation, validation }`, one typed client per registry. Each
 method builds and simulates a transaction; call `signAndSend()` on it to submit, and
@@ -72,6 +72,13 @@ read the return value from `.result`.
 - `identity`: `register`, `register_with_uri`, `register_full`, `set_agent_uri`, `set_metadata`, `set_agent_wallet`, `unset_agent_wallet`, and reads such as `agent_uri`, `owner_of`, `total_agents`
 - `reputation`: `give_feedback`, `revoke_feedback`, `append_response`, `read_feedback`, `get_summary`
 - `validation`: `validation_request`, `validation_response`, `get_validation_status`, `get_summary`
+
+The signer is optional. Without it the clients are read-only and need no funded account:
+
+```ts
+const { identity } = createClients(MAINNET_CONFIG);
+const uri = (await identity.agent_uri({ agent_id: 1 })).result.unwrap();
+```
 
 ### `ExplorerClient`
 

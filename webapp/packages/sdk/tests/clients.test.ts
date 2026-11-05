@@ -25,6 +25,15 @@ describe('createClients', () => {
 		expect(clients.validation).toBeDefined();
 	});
 
+	it('builds read-only clients without a signer', () => {
+		// No public key means simulations run from the SDK's null account, so reads need no funded account.
+		const clients = createClients(TESTNET_CONFIG);
+
+		expect(clients.identity.options.publicKey).toBeUndefined();
+		expect(clients.identity.options.signTransaction).toBeUndefined();
+		expect(clients.reputation.options.contractId).toBe(TESTNET_CONFIG.contracts.reputation);
+	});
+
 	it('works without signAuthEntry', () => {
 		const signerNoAuth = {
 			publicKey: mockSigner.publicKey,
