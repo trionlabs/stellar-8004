@@ -2,6 +2,7 @@
 // (supabase/functions/api) and the proxy that used to forward to it, and keeps both
 // behaviours: the proxy's path guard, then the edge function's router.
 import type { RequestHandler } from './$types';
+import { env } from '$env/dynamic/public';
 import type { Db } from '$lib/server/d1.js';
 import { errorResponse } from '$lib/server/api/response.js';
 import { serveApi } from '$lib/server/api/serve.js';
@@ -47,6 +48,15 @@ function guard(path: string): string[] | null {
 
 function route(db: Db, parts: string[], url: URL): Promise<Response> | Response {
 	const [endpoint, param, sub] = parts;
+	// One network per explorer: answering ?network=testnet with mainnet rows misleads.
+	const network = url.searchParams.get('network');
+	if (network !== null && network !== env.PUBLIC_STELLAR_NETWORK) {
+		return errorResponse(
+			'INVALID_NETWORK',
+			`This explorer indexes ${env.PUBLIC_STELLAR_NETWORK}, not "${network}"`,
+			400
+		);
+	}
 	if (parts.length === 1) {
 		if (endpoint === 'health') return handleHealth(db);
 		if (endpoint === 'stats') return handleStats(db);
