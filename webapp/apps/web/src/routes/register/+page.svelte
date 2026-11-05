@@ -163,7 +163,9 @@
 					{#if copied}
 						Copied. Paste it into your agent.
 					{:else}
-						Paste it into Claude Code, Cursor or any AI agent<span class="max-sm:hidden"> ·</span>
+						Paste it into Claude Code, Cursor or any AI agent<span class="max-sm:hidden"
+							>&nbsp;·</span
+						>
 						<span class="whitespace-nowrap max-sm:block">free, network fee only</span>
 					{/if}
 				</p>
