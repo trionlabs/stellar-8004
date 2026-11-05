@@ -57,7 +57,7 @@
 			bind:this={nameEl}
 			bind:value={formData.name}
 			type="text"
-			placeholder="Agent name"
+			placeholder="Name your agent"
 			aria-label="Agent name"
 			maxlength="256"
 			required

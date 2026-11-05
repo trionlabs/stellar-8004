@@ -141,7 +141,7 @@
 					onclick={copyPrompt}
 					title="Copy"
 					data-frame
-					class="group flex w-full items-start gap-3 rounded-2xl bg-surface-raised px-4 py-4 text-left transition-colors hover:bg-surface-overlay focus-visible:ring-1 focus-visible:ring-accent/50 focus-visible:outline-none sm:gap-4 sm:px-6 sm:py-5"
+					class="group flex w-full items-center gap-2 rounded-2xl bg-surface-raised py-4 pr-3 pl-4 text-left transition-colors hover:bg-surface-overlay focus-visible:ring-1 focus-visible:ring-accent/50 focus-visible:outline-none sm:gap-4 sm:px-6 sm:py-5"
 				>
 					<code
 						bind:this={promptEl}
@@ -152,35 +152,11 @@
 					>
 					<span
 						aria-hidden="true"
-						class="mt-0.5 shrink-0 transition-colors {copied
+						class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-overlay transition-colors sm:h-10 sm:w-10 {copied
 							? 'text-positive'
-							: 'text-text-dim group-hover:text-text'}"
+							: 'text-text-muted group-hover:text-text'}"
 					>
-						{#if copied}
-							<svg
-								class="h-4 w-4"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="1.75"
-								><path
-									d="M5 12.5l4.5 4.5L19 7.5"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								/></svg
-							>
-						{:else}
-							<svg
-								class="h-4 w-4"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="1.5"
-								><rect x="8" y="8" width="12" height="12" rx="2.5" /><path
-									d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"
-								/></svg
-							>
-						{/if}
+						<RegisterIcon name={copied ? 'check' : 'copy'} class="h-[18px] w-[18px]" />
 					</span>
 				</button>
 				<p class="text-sm text-text-muted" aria-live="polite">
@@ -196,16 +172,21 @@
 							>skill</a
 						>
 						<!-- eslint-enable svelte/no-navigation-without-resolve -->
-						and registers itself · ~2&nbsp;XLM
+						and registers itself · <span class="whitespace-nowrap">free, network fee only</span>
 					{/if}
 				</p>
 			</div>
 
 			<p class="flex flex-wrap gap-x-6 gap-y-2 pt-10 text-sm text-text-dim">
-				<button type="button" onclick={() => (mode = 'form')} class="hover:text-text"
-					>Fill the form instead</button
+				<button
+					type="button"
+					onclick={() => (mode = 'form')}
+					class="inline-flex items-center gap-1.5 hover:text-text"
+					><RegisterIcon name="edit" />Fill the form instead</button
 				>
-				<a href={resolve('/developers')} class="hover:text-text">SDK docs</a>
+				<a href={resolve('/developers')} class="inline-flex items-center gap-1.5 hover:text-text"
+					><RegisterIcon name="code" />SDK docs</a
+				>
 			</p>
 		</section>
 	{:else}
@@ -241,7 +222,7 @@
 						/>
 					{/if}
 
-					{#if hasName && closed.length}
+					{#if closed.length}
 						<div class="enter flex flex-wrap gap-x-5 gap-y-2 text-sm text-text-dim">
 							{#each closed as key (key)}
 								<button
@@ -257,71 +238,67 @@
 				</div>
 			{/if}
 
-			{#if hasName || uriMode === 'manual'}
-				<div class="enter space-y-6 pt-4">
+			<div class="space-y-6 pt-4">
+				{#if hasName || uriMode === 'manual'}
 					<MetadataOptions {formData} bind:uriMode bind:manualUri />
+				{/if}
 
-					{#if status === 'error'}
-						<p class="flex items-start gap-2 text-sm text-negative" role="alert">
-							<RegisterIcon name="alert" class="mt-0.5 h-4 w-4 shrink-0" />{errorMsg}
-						</p>
+				{#if status === 'error'}
+					<p class="flex items-start gap-2 text-sm text-negative" role="alert">
+						<RegisterIcon name="alert" class="mt-0.5 h-4 w-4 shrink-0" />{errorMsg}
+					</p>
+				{/if}
+
+				<div class="flex flex-wrap items-center justify-end gap-x-5 gap-y-3">
+					{#if wallet.connected}
+						<span class="flex items-center gap-2 text-sm text-text-dim">
+							{#if wallet.networkMismatch}
+								<span class="h-1.5 w-1.5 rounded-full bg-warning"></span>
+								<span class="text-warning">Switch Freighter to {stellarConfig.network}</span>
+							{:else}
+								<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
+								<span class="font-mono text-xs">{shortAddress(wallet.address ?? '')}</span>
+							{/if}
+						</span>
+						<button
+							type="button"
+							onclick={submit}
+							disabled={!canRegister || status === 'submitting' || wallet.networkMismatch}
+							class={primary}
+						>
+							{#if status === 'submitting'}
+								<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+									><circle
+										cx="12"
+										cy="12"
+										r="9"
+										stroke="currentColor"
+										stroke-width="1.5"
+										opacity="0.25"
+									/><path
+										d="M12 3a9 9 0 0 1 9 9"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linecap="round"
+									/></svg
+								>
+								Registering…
+							{:else}
+								Register<RegisterIcon name="next" />
+							{/if}
+						</button>
+					{:else}
+						<button
+							type="button"
+							onclick={() => wallet.connect()}
+							disabled={wallet.loading}
+							class={primary}
+						>
+							<RegisterIcon name="wallet" />{wallet.loading ? 'Connecting…' : 'Connect wallet'}
+						</button>
 					{/if}
-
-					<div class="flex flex-wrap items-center justify-end gap-x-5 gap-y-3">
-						{#if wallet.connected}
-							<span class="flex items-center gap-2 text-sm text-text-dim">
-								{#if wallet.networkMismatch}
-									<span class="h-1.5 w-1.5 rounded-full bg-warning"></span>
-									<span class="text-warning">Switch Freighter to {stellarConfig.network}</span>
-								{:else}
-									<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
-									<span class="font-mono text-xs">{shortAddress(wallet.address ?? '')}</span>
-								{/if}
-							</span>
-							<button
-								type="button"
-								onclick={submit}
-								disabled={!canRegister || status === 'submitting' || wallet.networkMismatch}
-								class={primary}
-							>
-								{#if status === 'submitting'}
-									<svg
-										class="h-4 w-4 animate-spin"
-										viewBox="0 0 24 24"
-										fill="none"
-										aria-hidden="true"
-										><circle
-											cx="12"
-											cy="12"
-											r="9"
-											stroke="currentColor"
-											stroke-width="1.5"
-											opacity="0.25"
-										/><path
-											d="M12 3a9 9 0 0 1 9 9"
-											stroke="currentColor"
-											stroke-width="1.5"
-											stroke-linecap="round"
-										/></svg
-									>
-									Registering…
-								{:else}
-									Register<RegisterIcon name="next" />
-								{/if}
-							</button>
-						{:else}
-							<button
-								type="button"
-								onclick={() => wallet.connect()}
-								disabled={wallet.loading}
-								class={primary}
-							>
-								<RegisterIcon name="wallet" />{wallet.loading ? 'Connecting…' : 'Connect wallet'}
-							</button>
-						{/if}
-					</div>
 				</div>
-			{/if}
+			</div>
 
 			<p class="flex flex-wrap gap-x-6 gap-y-2 pt-6 text-sm text-text-dim">
 				<button type="button" onclick={() => (mode = 'agent')} class="hover:text-text"
