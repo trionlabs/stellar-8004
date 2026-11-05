@@ -132,7 +132,7 @@
 	{#if mode === 'agent'}
 		<section class="enter space-y-9 pt-6 sm:pt-20">
 			<h1 class="text-[30px] leading-tight font-light tracking-[-0.015em] text-text sm:text-[40px]">
-				Give your agent the skill
+				Let your agent register itself
 			</h1>
 
 			<div class="space-y-3">
@@ -163,16 +163,8 @@
 					{#if copied}
 						Copied. Paste it into your agent.
 					{:else}
-						Reads the
-						<!-- /skill.md is served by hooks.server.ts, not a route, so resolve() cannot type it. -->
-						<!-- eslint-disable svelte/no-navigation-without-resolve -->
-						<a
-							href={skillUrl}
-							class="text-text-muted underline decoration-border underline-offset-4 hover:text-text"
-							>skill</a
-						>
-						<!-- eslint-enable svelte/no-navigation-without-resolve -->
-						and registers itself · <span class="whitespace-nowrap">free, network fee only</span>
+						Paste it into Claude Code, Cursor or any AI agent<span class="max-sm:hidden"> ·</span>
+						<span class="whitespace-nowrap max-sm:block">free, network fee only</span>
 					{/if}
 				</p>
 			</div>
@@ -302,7 +294,7 @@
 
 			<p class="flex flex-wrap gap-x-6 gap-y-2 pt-6 text-sm text-text-dim">
 				<button type="button" onclick={() => (mode = 'agent')} class="hover:text-text"
-					>Give your agent the skill instead</button
+					>Let your agent do it instead</button
 				>
 				{#if uriMode === 'auto' && !hasName}
 					<button type="button" onclick={() => (uriMode = 'manual')} class="hover:text-text"
