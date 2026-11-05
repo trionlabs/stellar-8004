@@ -650,6 +650,23 @@ describe('router', () => {
 		}
 	});
 
+	it('rejects a network this explorer does not index instead of answering for another', async () => {
+		for (const path of [
+			'agents?network=testnet',
+			'stats?network=testnet',
+			'agents/67?network=Mainnet'
+		]) {
+			const { status, body } = await json(path);
+			expect(status, path).toBe(400);
+			expect(body.error.code).toBe('INVALID_PARAM');
+		}
+		expect((await json('agents?network=testnet')).body.error.message).toBe(
+			'This explorer indexes mainnet, not "testnet"'
+		);
+		expect((await json('stats?network=mainnet')).status).toBe(200);
+		expect((await json('stats')).status).toBe(200);
+	});
+
 	it('reads meta.network from PUBLIC_STELLAR_NETWORK on every request', async () => {
 		const { body } = await json('agents/67');
 		expect(body.meta).toMatchObject({ version: '1.0.0', chain: 'stellar', network: 'mainnet' });
