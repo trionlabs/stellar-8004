@@ -2,6 +2,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StrKey } from '@stellar/stellar-sdk';
 import { createTestD1, type TestD1 } from '@stellar8004/d1/test-db';
 import { fallback } from './+server.js';
+import { PARAMS } from '$lib/server/api/discovery.js';
+import spec from '$lib/server/api/openapi.json';
 
 vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_STELLAR_NETWORK: 'mainnet' } }));
 
@@ -171,5 +173,12 @@ describe('GET /api/v2/discovery', () => {
 		await setIndexer('2026-01-01T00:00:00+00:00');
 		const { status, body } = await get('network=mainnet');
 		expect([status, body.error.code]).toEqual([503, 'INDEX_STALE']);
+	});
+});
+
+describe('openapi.json', () => {
+	it('documents exactly the parameters discovery accepts', () => {
+		const documented = spec.paths['/api/v2/discovery'].get.parameters.map((p) => p.name);
+		expect(new Set(documented)).toEqual(PARAMS);
 	});
 });

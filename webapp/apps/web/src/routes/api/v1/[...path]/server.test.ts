@@ -10,6 +10,7 @@ import {
 import { createTestD1, type TestD1 } from '@stellar8004/d1/test-db';
 import { env } from '$env/dynamic/public';
 import { fallback } from './+server.js';
+import spec from '$lib/server/api/openapi.json';
 
 vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_STELLAR_NETWORK: 'mainnet' } }));
 
@@ -660,6 +661,30 @@ describe('router', () => {
 		} finally {
 			env.PUBLIC_STELLAR_NETWORK = 'mainnet';
 		}
+	});
+});
+
+describe('openapi.json', () => {
+	it('documents every v1 route, and the fields the API returns', async () => {
+		const v1 = Object.keys(spec.paths).filter((path) => path.startsWith('/api/v1/'));
+		expect(v1.map((path) => path.split('/')[3]).sort()).toEqual(
+			['accounts', 'agents', 'agents', 'agents', 'health', 'search', 'stats'].sort()
+		);
+		for (const path of v1) {
+			const concrete = path
+				.slice('/api/v1/'.length)
+				.replace('{id}', '1')
+				.replace('{address}', OWNER_A);
+			const { status } = await json(concrete === 'search' ? 'search?q=agent' : concrete);
+			expect(status, path).toBe(200);
+		}
+		const keys = (o: object) => Object.keys(o).sort();
+		const { schemas } = spec.components;
+		expect(keys((await json('agents')).body.data[0])).toEqual([...schemas.Agent.required].sort());
+		expect(keys((await json('stats')).body.data)).toEqual([...schemas.Stats.required].sort());
+		expect(keys((await json('agents/1/feedback')).body.data[0])).toEqual(
+			[...schemas.Feedback.required].sort()
+		);
 	});
 });
 

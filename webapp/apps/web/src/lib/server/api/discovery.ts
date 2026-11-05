@@ -11,7 +11,7 @@ import { errorResponse, formatAgent, successWithCache } from './response.js';
 type Row = Record<string, unknown>;
 type Key = [number | string, number];
 
-const PARAMS = new Set([
+export const PARAMS = new Set([
 	'network',
 	'text',
 	'x402',
