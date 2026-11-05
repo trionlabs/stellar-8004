@@ -43,6 +43,9 @@ pnpm --filter @stellar8004/web check        # svelte-check + tsc
 ## Deploy
 
 Everything runs on Cloudflare: both Workers bind the same D1 database by name.
+The explorer is uploaded with `pnpm --filter @stellar8004/web upload`, which tags
+the version with the git commit that every response reports in its `X-Build`
+header, then promoted with `wrangler versions deploy`.
 
 - Schema: `npx wrangler d1 migrations apply DB --remote` from `apps/web`.
 - Indexer: `npx wrangler deploy` from `apps/indexer` (runs every minute).

@@ -31,7 +31,7 @@ jobs:
         with:
           toolchain: nightly-2025-08-11
           targets: wasm32v1-none
-          components: rustfmt
+          components: rustfmt, clippy
 
       - name: Cache cargo
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -61,6 +61,9 @@ jobs:
 
       - name: Check formatting
         run: cargo fmt --all -- --check
+
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
 
   webapp:
     runs-on: ubuntu-latest
@@ -94,3 +97,7 @@ jobs:
       - run: pnpm --filter @stellar8004/web lint
       - run: pnpm --filter @stellar8004/web check
       - run: pnpm --filter @stellar8004/web build
+      # Browser tests: the built worker on a seeded local D1. Each main page, light and dark,
+      # must render and pass axe with no serious or critical WCAG 2 A/AA violation.
+      - run: pnpm --filter @stellar8004/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @stellar8004/web e2e

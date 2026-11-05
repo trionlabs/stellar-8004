@@ -41,11 +41,7 @@
 				<div class="hidden md:flex md:items-center md:gap-1">
 					<a href={resolve('/agents')} class="nav-link">Agents</a>
 					<a href={resolve('/leaderboard')} class="nav-link">Ranks</a>
-					<a href={resolve('/developers')} class="nav-link"
-						><span class="bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent"
-							>Skills</span
-						></a
-					>
+					<a href={resolve('/developers')} class="nav-link">Skills</a>
 					<a href={resolve('/intro')} class="nav-link" title="What is stellar8004?">
 						<svg
 							class="h-3 w-3"
@@ -60,7 +56,6 @@
 							/></svg
 						>
 					</a>
-					<span class="mx-1.5 h-4 w-px bg-border/40"></span>
 					<a href={resolve('/register')} class="nav-link nav-link--cta">
 						<svg
 							class="h-3 w-3"
@@ -76,7 +71,6 @@
 						>
 						Register
 					</a>
-					<span class="mx-1.5 h-4 w-px bg-border/40"></span>
 					<ThemeToggle />
 					<ProfileBadge />
 				</div>
@@ -140,9 +134,7 @@
 					d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"
 				/></svg
 			>
-			<span class="bg-linear-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent"
-				>Skills</span
-			>
+			<span>Skills</span>
 		</a>
 		<a href={resolve('/intro')} class="btm-nav-item">
 			<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"
@@ -167,7 +159,7 @@
 						>8004</span
 					></span
 				>
-				<span class="text-text-dim/40">&middot;</span>
+				<span class="text-text-dim">&middot;</span>
 				<a
 					href="https://trionlabs.dev"
 					target="_blank"
@@ -185,7 +177,7 @@
 			<div class="flex items-center gap-4">
 				{#if data?.indexerStatus}
 					<span
-						class="inline-flex items-center gap-1.5 text-text-dim/60"
+						class="inline-flex items-center gap-1.5 text-text-dim"
 						title={data.indexerStatus.stale
 							? 'Indexer is behind — data may be delayed'
 							: `Mirror synced to ledger ${data.indexerStatus.syncedLedger}`}

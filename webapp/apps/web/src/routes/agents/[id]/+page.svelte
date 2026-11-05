@@ -443,7 +443,7 @@
 							<button
 								type="button"
 								onclick={() => copyToClipboard(data.agent.owner)}
-								class="cursor-pointer font-mono text-text-dim/50 transition hover:text-text-muted"
+								class="cursor-pointer font-mono text-text-dim transition hover:text-text-muted"
 							>
 								{shortAddress(data.agent.owner)}
 							</button>
@@ -453,7 +453,7 @@
 								href={explorerAccountUrl(data.agent.owner)}
 								target="_blank"
 								rel="external noopener noreferrer"
-								class="text-text-dim/40 transition hover:text-accent"
+								class="text-text-dim transition hover:text-accent"
 								title="View owner account on Stellar Explorer"
 								aria-label="View owner account on Stellar Explorer"
 							>
@@ -472,8 +472,7 @@
 							</a>
 						{/if}
 						<span class="text-text-dim/25">-</span>
-						<span class="text-text-dim/50"
-							>{dateFormatter.format(new Date(data.agent.createdAt))}</span
+						<span class="text-text-dim">{dateFormatter.format(new Date(data.agent.createdAt))}</span
 						>
 						<span class="text-text-dim/25">-</span>
 						<Tooltip
@@ -484,7 +483,7 @@
 							<button
 								type="button"
 								onclick={() => copyToClipboard(String(data.agent.id))}
-								class="cursor-pointer text-accent/60 transition hover:text-accent"
+								class="cursor-pointer text-accent/80 transition hover:text-accent"
 							>
 								#{data.agent.id}
 							</button>
@@ -496,7 +495,7 @@
 									href={explorerContractUrl(identityRegistryAddress)}
 									target="_blank"
 									rel="external noopener noreferrer"
-									class="text-text-dim/40 transition hover:text-accent"
+									class="text-text-dim transition hover:text-accent"
 								>
 									registry
 								</a>
@@ -569,7 +568,7 @@
 				class="stat-row grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-border/30"
 			>
 				<div class="stat-cell px-4 py-3" title="Aggregate trust score from feedback and volume">
-					<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Score</p>
+					<p class="text-[10px] tracking-wide text-text-dim uppercase">Score</p>
 					<p class="mt-1 text-lg font-light text-positive tabular-nums">
 						{#if data.scores?.totalScore != null}
 							{scoreFormatter.format(data.scores.totalScore)}
@@ -578,27 +577,27 @@
 						{/if}
 					</p>
 					{#if data.scores?.rank != null}
-						<p class="mt-0.5 text-[10px] text-text-dim/40">
+						<p class="mt-0.5 text-[10px] text-text-dim">
 							#{data.scores.rank}{data.scores.totalAgents ? ` / ${data.scores.totalAgents}` : ''}
 						</p>
 					{/if}
 				</div>
 				<div class="stat-cell px-4 py-3" title="Total feedback submissions">
-					<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Feedback</p>
+					<p class="text-[10px] tracking-wide text-text-dim uppercase">Feedback</p>
 					<p class="mt-1 text-lg font-light text-text tabular-nums">
 						{data.scores?.feedbackCount ?? 0}
 					</p>
 					{#if data.scores && data.scores.feedbackCount > 0}
 						<Tooltip text="Unique wallets that submitted feedback" position="bottom">
 							<p
-								class="mt-0.5 cursor-help border-b border-dashed border-text-dim/20 text-[10px] text-text-dim/40"
+								class="mt-0.5 cursor-help border-b border-dashed border-text-dim/20 text-[10px] text-text-dim"
 							>
 								{data.scores.uniqueClients} user{data.scores.uniqueClients !== 1 ? 's' : ''}
 							</p>
 						</Tooltip>
 					{/if}
 					{#if data.recentFeedbackCount > 0}
-						<p class="mt-0.5 text-[10px] text-accent/50">{data.recentFeedbackCount} in 7d</p>
+						<p class="mt-0.5 text-[10px] text-accent/80">{data.recentFeedbackCount} in 7d</p>
 					{/if}
 				</div>
 				<div
@@ -607,7 +606,7 @@
 						? `Missing: ${data.metadataMissing.join(', ')}`
 						: 'All metadata fields complete'}
 				>
-					<p class="text-[10px] tracking-wide text-text-dim/50 uppercase">Metadata</p>
+					<p class="text-[10px] tracking-wide text-text-dim uppercase">Metadata</p>
 					<p
 						class="mt-1 text-lg font-light tabular-nums {data.metadataCompleteness >= 80
 							? 'text-positive'
@@ -755,7 +754,7 @@
 						<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
 							{#each data.metadata as entry (entry.key)}
 								<div class="glass-card rounded-lg border border-border/40 bg-surface px-3.5 py-2.5">
-									<p class="text-[10px] tracking-wider text-text-dim/50 uppercase">{entry.key}</p>
+									<p class="text-[10px] tracking-wider text-text-dim uppercase">{entry.key}</p>
 									<p class="mt-0.5 text-sm text-text-muted">{entry.value ?? ''}</p>
 								</div>
 							{/each}
@@ -769,7 +768,7 @@
 						<div>
 							<h2 class="text-sm font-medium text-text">Registration Payload</h2>
 							{#if data.agent.agentUri}
-								<p class="mt-0.5 truncate font-mono text-[11px] text-text-dim/50">
+								<p class="mt-0.5 truncate font-mono text-[11px] text-text-dim">
 									{data.agent.agentUri}
 								</p>
 							{/if}
@@ -839,7 +838,7 @@
 														>
 															{#each Object.entries(item) as [k, v] (k)}
 																<div class="flex gap-2 py-0.5 text-[11px]">
-																	<span class="shrink-0 text-text-dim/50">{k}:</span>
+																	<span class="shrink-0 text-text-dim">{k}:</span>
 																	<span class="truncate text-text-muted"
 																		>{typeof v === 'string' ? v : JSON.stringify(v)}</span
 																	>
@@ -891,7 +890,7 @@
 
 				<!-- Tag filter pills -->
 				<div class="flex items-center gap-2">
-					<span class="text-[11px] tracking-wider text-text-dim/50 uppercase">Filter</span>
+					<span class="text-[11px] tracking-wider text-text-dim uppercase">Filter</span>
 					<div class="flex flex-wrap gap-1.5">
 						{#each TAG_FILTER_OPTIONS as tag (tag.value)}
 							<button
@@ -958,7 +957,7 @@
 										{/if}
 									</div>
 
-									<div class="mt-1 flex items-center gap-3 text-[11px] text-text-dim/50">
+									<div class="mt-1 flex items-center gap-3 text-[11px] text-text-dim">
 										<span>{dateTimeFormatter.format(new Date(feedback.createdAt))}</span>
 										{#if feedback.responses.length > 0}
 											<span
@@ -972,7 +971,7 @@
 												href={explorerTxUrl(feedback.txHash)}
 												target="_blank"
 												rel="external noopener noreferrer"
-												class="inline-flex items-center gap-1 text-accent/60 transition hover:text-accent"
+												class="inline-flex items-center gap-1 text-accent/80 transition hover:text-accent"
 												title="Verify this feedback transaction on Stellar Explorer"
 											>
 												<svg
@@ -994,7 +993,7 @@
 
 									{#if feedback.feedbackHash}
 										<p
-											class="mt-1 truncate font-mono text-[10px] text-text-dim/40"
+											class="mt-1 truncate font-mono text-[10px] text-text-dim"
 											title={`On-chain feedback hash: ${feedback.feedbackHash}`}
 										>
 											hash: {feedback.feedbackHash.startsWith('0x')
@@ -1027,7 +1026,7 @@
 				<!-- Client breakdown (only if 3+ feedbacks) -->
 				{#if data.clientBreakdown.length >= 2}
 					<div class="space-y-3">
-						<h3 class="text-[11px] tracking-wider text-text-dim/50 uppercase">By Client</h3>
+						<h3 class="text-[11px] tracking-wider text-text-dim uppercase">By Client</h3>
 						<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
 							{#each data.clientBreakdown as client (client.clientAddress)}
 								<div
@@ -1040,7 +1039,7 @@
 										<p class="truncate font-mono text-[11px] text-text-muted">
 											{shortAddress(client.clientAddress)}
 										</p>
-										<p class="text-[10px] text-text-dim/40">
+										<p class="text-[10px] text-text-dim">
 											{client.feedbackCount} review{client.feedbackCount !== 1 ? 's' : ''}
 										</p>
 									</div>
@@ -1089,7 +1088,7 @@
 									<!-- Validator (independent attester) -->
 									<div class="min-w-0 flex-1">
 										<div class="flex flex-wrap items-center gap-2">
-											<span class="text-[10px] tracking-wider text-text-dim/50 uppercase"
+											<span class="text-[10px] tracking-wider text-text-dim uppercase"
 												>Validator</span
 											>
 											<Tooltip text={validation.validatorAddress}>
@@ -1109,7 +1108,7 @@
 											{/if}
 										</div>
 
-										<div class="mt-1 flex items-center gap-3 text-[11px] text-text-dim/50">
+										<div class="mt-1 flex items-center gap-3 text-[11px] text-text-dim">
 											<span>{dateTimeFormatter.format(new Date(validation.createdAt))}</span>
 											{#if validation.respondedAt}
 												<span
@@ -1126,7 +1125,7 @@
 								<div class="space-y-1 text-[11px]">
 									{#if validation.requestUri}
 										<div class="flex items-start gap-2">
-											<span class="w-16 shrink-0 text-text-dim/40">request</span>
+											<span class="w-16 shrink-0 text-text-dim">request</span>
 											<span
 												class="min-w-0 flex-1 truncate font-mono text-text-muted"
 												title={validation.requestUri}>{validation.requestUri}</span
@@ -1135,7 +1134,7 @@
 									{/if}
 									{#if validation.responseUri}
 										<div class="flex items-start gap-2">
-											<span class="w-16 shrink-0 text-text-dim/40">response</span>
+											<span class="w-16 shrink-0 text-text-dim">response</span>
 											<span
 												class="min-w-0 flex-1 truncate font-mono text-text-muted"
 												title={validation.responseUri}>{validation.responseUri}</span
@@ -1143,17 +1142,17 @@
 										</div>
 									{/if}
 									<div class="flex items-start gap-2">
-										<span class="w-16 shrink-0 text-text-dim/40">req hash</span>
+										<span class="w-16 shrink-0 text-text-dim">req hash</span>
 										<span
-											class="min-w-0 flex-1 truncate font-mono text-text-dim/50"
+											class="min-w-0 flex-1 truncate font-mono text-text-dim"
 											title={validation.requestHash}>{validation.requestHashShort}</span
 										>
 									</div>
 									{#if validation.responseHash}
 										<div class="flex items-start gap-2">
-											<span class="w-16 shrink-0 text-text-dim/40">res hash</span>
+											<span class="w-16 shrink-0 text-text-dim">res hash</span>
 											<span
-												class="min-w-0 flex-1 truncate font-mono text-text-dim/50"
+												class="min-w-0 flex-1 truncate font-mono text-text-dim"
 												title={validation.responseHash}>{validation.responseHash}</span
 											>
 										</div>
@@ -1168,7 +1167,7 @@
 												href={explorerTxUrl(validation.requestTxHash)}
 												target="_blank"
 												rel="external noopener noreferrer"
-												class="inline-flex items-center gap-1 text-accent/60 transition hover:text-accent"
+												class="inline-flex items-center gap-1 text-accent/80 transition hover:text-accent"
 												title="Verify validation request transaction"
 											>
 												<svg
@@ -1191,7 +1190,7 @@
 												href={explorerTxUrl(validation.responseTxHash)}
 												target="_blank"
 												rel="external noopener noreferrer"
-												class="inline-flex items-center gap-1 text-accent/60 transition hover:text-accent"
+												class="inline-flex items-center gap-1 text-accent/80 transition hover:text-accent"
 												title="Verify validation response transaction"
 											>
 												<svg

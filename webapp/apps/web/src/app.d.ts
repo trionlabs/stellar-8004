@@ -13,6 +13,8 @@ declare global {
 				DB: Db;
 				// Workers rate limiting binding ([[ratelimits]] in wrangler.toml).
 				API_RATE_LIMITER: { limit(options: { key: string }): Promise<{ success: boolean }> };
+				// [version_metadata] in wrangler.toml.
+				CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
 			};
 		}
 	}

@@ -1,31 +1,24 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { wallet } from '$lib/wallet.svelte.js';
 	import { getClients, stellarConfig } from '$lib/sdk-client.js';
 	import {
 		buildMetadataJson,
 		toDataUri,
 		validateAgentUri,
+		validateUrl,
 		formatSorobanError
 	} from '@trionlabs/stellar8004';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
-	import CtaButton from '$lib/components/CtaButton.svelte';
-	import Stepper from '$lib/components/Stepper.svelte';
-	import StepBasicInfo from '$lib/components/register/StepBasicInfo.svelte';
+	import AgentCardEditor from '$lib/components/register/AgentCardEditor.svelte';
 	import StepServices from '$lib/components/register/StepServices.svelte';
 	import StepAdvanced from '$lib/components/register/StepAdvanced.svelte';
-	import StepUri from '$lib/components/register/StepUri.svelte';
-	import StepReview from '$lib/components/register/StepReview.svelte';
-	import CodeBlock from '$lib/components/CodeBlock.svelte';
-
-	const STEPS = [
-		{ label: 'Basic Info' },
-		{ label: 'Services' },
-		{ label: 'Advanced' },
-		{ label: 'URI' },
-		{ label: 'Review' }
-	];
+	import MetadataOptions from '$lib/components/register/MetadataOptions.svelte';
+	import RegisterIcon from '$lib/components/register/RegisterIcon.svelte';
+	import { field, primary } from '$lib/components/register/ui.js';
+	import { shortAddress } from '$lib/formatters.js';
 
 	// Single sessionStorage key per origin. If a user opens the registration
 	// form in two tabs, both tabs share this key and the second one to write
@@ -34,9 +27,6 @@
 	// scope, and the only failure mode is that draft state from one tab is
 	// not visible in another. Accept and document.
 	const STORAGE_KEY = 'registration-form';
-
-	let currentStep = $state(0);
-	let showQuickMode = $state(false);
 
 	let formData = $state<AgentFormData>({
 		name: '',
@@ -63,36 +53,43 @@
 		}
 	}
 
+	// A saved draft means the person was filling the form: reopen it there.
+	let mode = $state<'agent' | 'form'>(formData.name ? 'form' : 'agent');
+	const skillUrl = $derived(`${page.url.origin}/skill.md`);
+	const agentPrompt = $derived(`Read ${skillUrl} and register yourself on Stellar8004.`);
+	let copied = $state(false);
+	let promptEl: HTMLElement | undefined = $state();
+
+	async function copyPrompt() {
+		try {
+			await navigator.clipboard.writeText(agentPrompt);
+			copied = true;
+			setTimeout(() => (copied = false), 2500);
+		} catch {
+			// Clipboard blocked: select the line so a manual copy takes exactly it.
+			if (promptEl) window.getSelection()?.selectAllChildren(promptEl);
+		}
+	}
+
 	$effect(() => {
 		if (typeof window !== 'undefined' && status !== 'success') {
 			sessionStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
 		}
 	});
 
-	const canProceed = $derived.by(() => {
-		switch (currentStep) {
-			case 0:
-				return formData.name.trim().length > 0;
-			case 1:
-				return true;
-			case 2:
-				return true;
-			case 3:
-				return uriMode === 'auto' || manualUri.trim().length > 0;
-			case 4:
-				return wallet.connected && !wallet.networkMismatch;
-			default:
-				return false;
-		}
+	// Optional parts of the profile stay folded away until asked for; a restored draft reopens them.
+	const ADD_LABELS = { image: 'Image', services: 'Services', trust: 'Trust', payments: 'Payments' };
+	type Part = keyof typeof ADD_LABELS;
+	let open = $state<Record<Part, boolean>>({
+		image: !!formData.imageUrl,
+		services: formData.services.length > 0,
+		trust: formData.supportedTrust.length > 0,
+		payments: formData.x402Enabled || formData.mppEnabled
 	});
-
-	function next() {
-		if (currentStep < STEPS.length - 1 && canProceed) currentStep++;
-	}
-
-	function back() {
-		if (currentStep > 0) currentStep--;
-	}
+	const closed = $derived((Object.keys(ADD_LABELS) as Part[]).filter((k) => !open[k]));
+	const hasName = $derived(formData.name.trim().length > 0);
+	const imageError = $derived(validateUrl(formData.imageUrl));
+	const canRegister = $derived(uriMode === 'auto' ? hasName : manualUri.trim().length > 0);
 
 	async function submit() {
 		status = 'submitting';
@@ -125,35 +122,6 @@
 			status = 'error';
 		}
 	}
-
-	async function submitQuick(agentUri: string) {
-		status = 'submitting';
-		errorMsg = '';
-
-		try {
-			const caller = wallet.address;
-			if (!caller) {
-				errorMsg = 'Wallet disconnected. Reconnect and try again.';
-				status = 'error';
-				return;
-			}
-
-			const trimmedUri = agentUri.trim() || undefined;
-			if (trimmedUri) validateAgentUri(trimmedUri);
-			const { identity } = getClients();
-			const tx = trimmedUri
-				? await identity.register_with_uri({ caller, agent_uri: trimmedUri })
-				: await identity.register({ caller });
-			const sent = await tx.signAndSend();
-			const resultAgentId = sent.result;
-			const txHash = sent.sendTransactionResponse?.hash ?? '';
-			status = 'success';
-			await goto(resolve(`/agents/${resultAgentId}?registered=true&tx=${txHash}`));
-		} catch (err) {
-			errorMsg = formatSorobanError(err, 'identity');
-			status = 'error';
-		}
-	}
 </script>
 
 <svelte:head>
@@ -161,298 +129,196 @@
 </svelte:head>
 
 <div class="mx-auto max-w-2xl space-y-8">
-	<div class="rounded-xl border border-border/60 bg-surface-raised/30 p-4 sm:p-5">
-		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-			<div class="space-y-1">
-				<div class="flex items-center gap-2">
-					<svg
-						class="h-3.5 w-3.5 text-accent"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="1.5"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-						/></svg
+	{#if mode === 'agent'}
+		<section class="enter space-y-9 pt-6 sm:pt-20">
+			<h1 class="text-[30px] leading-tight font-light tracking-[-0.015em] text-text sm:text-[40px]">
+				Let your agent register itself
+			</h1>
+
+			<div class="space-y-3">
+				<button
+					type="button"
+					onclick={copyPrompt}
+					title="Copy"
+					data-frame
+					class="group flex w-full items-center gap-2 rounded-2xl bg-surface-raised py-4 pr-3 pl-4 text-left transition-colors hover:bg-surface-overlay focus-visible:ring-1 focus-visible:ring-accent/50 focus-visible:outline-none sm:gap-4 sm:px-6 sm:py-5"
+				>
+					<code
+						bind:this={promptEl}
+						class="min-w-0 flex-1 font-mono text-[12px] leading-relaxed [overflow-wrap:anywhere] text-text sm:text-sm"
+						><span class="block">Read {skillUrl}</span><span class="block"
+							>and register yourself on Stellar8004.</span
+						></code
 					>
-					<span class="text-[11px] tracking-[0.25em] text-accent uppercase">Are you an agent?</span>
-				</div>
-				<p class="text-sm text-text-muted">
-					Register programmatically with the TypeScript SDK and follow the registration examples.
+					<span
+						aria-hidden="true"
+						class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-overlay transition-colors sm:h-10 sm:w-10 {copied
+							? 'text-positive'
+							: 'text-text-muted group-hover:text-text'}"
+					>
+						<RegisterIcon name={copied ? 'check' : 'copy'} class="h-[18px] w-[18px]" />
+					</span>
+				</button>
+				<p class="text-sm text-text-muted" aria-live="polite">
+					{#if copied}
+						Copied. Paste it into your agent.
+					{:else}
+						Paste it into Claude Code, Cursor or any AI agent<span class="max-sm:hidden"> ·</span>
+						<span class="whitespace-nowrap max-sm:block">free, network fee only</span>
+					{/if}
 				</p>
 			</div>
-			<a
-				href={resolve('/developers')}
-				class="shrink-0 text-xs text-text-muted transition-colors hover:text-accent"
-				>View SDK docs →</a
-			>
-		</div>
-	</div>
 
-	<div class="space-y-4">
-		<div class="flex items-center justify-between">
-			<div class="flex items-center gap-2.5">
-				<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
-				<span class="text-[11px] tracking-[0.25em] text-text-muted uppercase"
-					>Agent Registration</span
+			<p class="flex flex-wrap gap-x-6 gap-y-2 pt-10 text-sm text-text-dim">
+				<button
+					type="button"
+					onclick={() => (mode = 'form')}
+					class="inline-flex items-center gap-1.5 hover:text-text"
+					><RegisterIcon name="edit" />Fill the form instead</button
 				>
-			</div>
-			{#if !showQuickMode}
-				<div class="text-xs text-text-muted">
-					Already have a metadata URL?
-					<button
-						type="button"
-						onclick={() => {
-							showQuickMode = true;
-							currentStep = 0;
-						}}
-						class="text-accent underline">Quick register</button
-					>
+				<a href={resolve('/developers')} class="inline-flex items-center gap-1.5 hover:text-text"
+					><RegisterIcon name="code" />SDK docs</a
+				>
+			</p>
+		</section>
+	{:else}
+		<section class="enter space-y-8 pt-6 sm:pt-20">
+			<h1 class="text-[30px] leading-tight font-light tracking-[-0.015em] text-text sm:text-[40px]">
+				Register an agent
+			</h1>
+
+			{#if uriMode === 'auto'}
+				<div class="space-y-6">
+					<AgentCardEditor {formData} onImage={() => (open.image = true)} />
+
+					{#if open.image}
+						<label class="block space-y-2">
+							<span class="text-sm text-text-muted">Image URL</span>
+							<input
+								type="text"
+								inputmode="url"
+								bind:value={formData.imageUrl}
+								placeholder="https://… or ipfs://…"
+								class="{field} {imageError ? 'ring-1 ring-negative/50' : ''}"
+							/>
+							{#if imageError}<span class="block text-xs text-negative">{imageError}</span>{/if}
+						</label>
+					{/if}
+					{#if open.services}<StepServices services={formData.services} />{/if}
+					{#if open.trust || open.payments}
+						<StepAdvanced
+							only={open.trust && open.payments ? undefined : open.trust ? 'trust' : 'payments'}
+							supportedTrust={formData.supportedTrust}
+							bind:x402Enabled={formData.x402Enabled}
+							bind:mppEnabled={formData.mppEnabled}
+						/>
+					{/if}
+
+					{#if closed.length}
+						<div class="enter flex flex-wrap gap-x-5 gap-y-2 text-sm text-text-dim">
+							{#each closed as key (key)}
+								<button
+									type="button"
+									onclick={() => (open[key] = true)}
+									class="inline-flex items-center gap-1.5 transition-colors hover:text-text"
+								>
+									<RegisterIcon name="plus" class="h-3.5 w-3.5" />{ADD_LABELS[key]}
+								</button>
+							{/each}
+						</div>
+					{/if}
 				</div>
 			{/if}
-		</div>
-		<h1 class="text-2xl font-light tracking-tight text-text sm:text-3xl">Register your agent</h1>
-		<p class="text-sm text-text-muted">
-			Register your autonomous agent on the 8004 for Stellar registry
-		</p>
-	</div>
 
-	{#if !wallet.connected && currentStep > 0 && !showQuickMode}
-		<div class="rounded-xl bg-warning/6 px-4 py-2 text-xs text-warning">
-			Wallet not connected - you'll need it to submit.
-			<button type="button" onclick={() => wallet.connect()} class="underline">Connect now</button>
-		</div>
-	{/if}
+			<div class="space-y-6 pt-4">
+				{#if hasName || uriMode === 'manual'}
+					<MetadataOptions {formData} bind:uriMode bind:manualUri />
+				{/if}
 
-	{#if showQuickMode}
-		<div class="space-y-6">
-			<div class="overflow-hidden rounded-2xl border border-border bg-surface-raised/40">
-				<div class="h-px bg-linear-to-r from-transparent via-accent/50 to-transparent"></div>
-				<div class="space-y-6 p-8 sm:p-10">
-					{#if !wallet.connected}
-						<CtaButton onclick={() => wallet.connect()} disabled={wallet.loading} size="md" full>
-							{wallet.loading ? 'Connecting...' : 'Connect Wallet'}
-						</CtaButton>
-					{:else}
-						{#if wallet.networkMismatch}
-							<div
-								class="flex items-center gap-2.5 rounded-xl bg-warning/6 px-4 py-3 ring-1 ring-warning/12"
-							>
+				{#if status === 'error'}
+					<p class="flex items-start gap-2 text-sm text-negative" role="alert">
+						<RegisterIcon name="alert" class="mt-0.5 h-4 w-4 shrink-0" />{errorMsg}
+					</p>
+				{/if}
+
+				<div class="flex flex-wrap items-center justify-end gap-x-5 gap-y-3">
+					{#if wallet.connected}
+						<span class="flex items-center gap-2 text-sm text-text-dim">
+							{#if wallet.networkMismatch}
 								<span class="h-1.5 w-1.5 rounded-full bg-warning"></span>
-								<p class="text-xs text-warning">
-									Switch to <span class="font-medium uppercase">{stellarConfig.network}</span> in Freighter
-								</p>
-							</div>
-						{:else}
-							<div
-								class="flex items-center justify-between rounded-xl bg-positive/5 px-4 py-3 ring-1 ring-positive/10"
-							>
-								<div class="flex items-center gap-2.5">
-									<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-positive"></span>
-									<p class="text-xs text-positive">{stellarConfig.network}</p>
-								</div>
-								<p class="truncate pl-4 font-mono text-[11px] text-text-dim">
-									{wallet.address?.slice(0, 8)}...{wallet.address?.slice(-6)}
-								</p>
-							</div>
-						{/if}
-
-						<div class="space-y-2">
-							<label class="text-xs font-medium text-text-muted" for="quick-uri">Metadata URI</label
-							>
-							<input
-								id="quick-uri"
-								type="text"
-								bind:value={manualUri}
-								placeholder="https://... or ipfs://..."
-								class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm transition-colors placeholder:text-text-dim focus:border-accent/50 focus:outline-none"
-							/>
-							<p class="text-[10px] text-text-dim">
-								Your URI should point to a JSON file like this:
-							</p>
-							<CodeBlock
-								class="mt-2"
-								code={`{
-  "name": "DataBot",
-  "description": "Real-time market data feed",
-  "image": "https://example.com/avatar.png",
-  "services": [
-    { "name": "market-feed",
-      "endpoint": "https://api.example.com/feed" }
-  ]
-}`}
-							/>
-							<p class="mt-1.5 text-[10px] text-text-dim">
-								Only <code class="rounded bg-surface-raised px-1 py-0.5 font-mono">name</code> is
-								required. Optional:
-								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">description</code>,
-								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">image</code>,
-								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">services</code>,
-								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">x402</code>,
-								<code class="rounded bg-surface-raised px-1 py-0.5 font-mono">mpp</code>
-							</p>
-						</div>
-
-						<CtaButton
-							onclick={() => submitQuick(manualUri)}
-							disabled={status === 'submitting' || wallet.networkMismatch}
-							size="md"
-							full
+								<span class="text-warning">Switch Freighter to {stellarConfig.network}</span>
+							{:else}
+								<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
+								<span class="font-mono text-xs">{shortAddress(wallet.address ?? '')}</span>
+							{/if}
+						</span>
+						<button
+							type="button"
+							onclick={submit}
+							disabled={!canRegister || status === 'submitting' || wallet.networkMismatch}
+							class={primary}
 						>
 							{#if status === 'submitting'}
-								<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"
+								<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"
 									><circle
 										cx="12"
 										cy="12"
-										r="10"
+										r="9"
 										stroke="currentColor"
-										stroke-width="2"
+										stroke-width="1.5"
 										opacity="0.25"
 									/><path
-										d="M12 2a10 10 0 019.95 9"
+										d="M12 3a9 9 0 0 1 9 9"
 										stroke="currentColor"
-										stroke-width="2"
+										stroke-width="1.5"
 										stroke-linecap="round"
 									/></svg
 								>
-								Registering...
+								Registering…
 							{:else}
-								Register on Stellar
+								Register<RegisterIcon name="next" />
 							{/if}
-						</CtaButton>
-
-						{#if status === 'error'}
-							<div
-								class="flex items-start gap-2.5 rounded-xl bg-negative/6 px-4 py-3 ring-1 ring-negative/12"
-							>
-								<svg
-									class="mt-0.5 h-3.5 w-3.5 shrink-0 text-negative"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="1.5"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-									/></svg
-								>
-								<p class="text-xs text-negative">{errorMsg}</p>
-							</div>
-						{/if}
+						</button>
+					{:else}
+						<button
+							type="button"
+							onclick={() => wallet.connect()}
+							disabled={wallet.loading}
+							class={primary}
+						>
+							<RegisterIcon name="wallet" />{wallet.loading ? 'Connecting…' : 'Connect wallet'}
+						</button>
 					{/if}
 				</div>
-				<div class="h-px bg-linear-to-r from-transparent via-accent/20 to-transparent"></div>
-			</div>
-			<a
-				href={resolve('/')}
-				class="inline-flex items-center gap-2 text-xs text-text-muted hover:text-text"
-				>Cancel and go home</a
-			>
-		</div>
-	{:else}
-		<Stepper steps={STEPS} {currentStep} />
-
-		<div class="overflow-hidden rounded-2xl border border-border bg-surface-raised/40">
-			<div class="h-px bg-linear-to-r from-transparent via-accent/50 to-transparent"></div>
-
-			<div class="p-8 sm:p-10">
-				{#if currentStep === 0}
-					<StepBasicInfo {formData} />
-				{:else if currentStep === 1}
-					<StepServices services={formData.services} />
-				{:else if currentStep === 2}
-					<StepAdvanced
-						supportedTrust={formData.supportedTrust}
-						bind:x402Enabled={formData.x402Enabled}
-						bind:mppEnabled={formData.mppEnabled}
-					/>
-				{:else if currentStep === 3}
-					<StepUri {formData} bind:uriMode bind:manualUri />
-				{:else if currentStep === 4}
-					<StepReview {formData} {uriMode} {manualUri} {status} {errorMsg} onSubmit={submit} />
-				{/if}
 			</div>
 
-			<div class="h-px bg-linear-to-r from-transparent via-accent/20 to-transparent"></div>
-		</div>
-
-		{#if currentStep < 4}
-			<div class="flex items-center justify-between">
-				{#if currentStep > 0}
-					<button
-						type="button"
-						onclick={back}
-						class="flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm text-text-muted transition-colors hover:bg-surface-raised"
-					>
-						Back
-					</button>
-				{:else}
-					<a
-						href={resolve('/')}
-						class="flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm text-text-muted transition-colors hover:bg-surface-raised"
-					>
-						Cancel
-					</a>
-				{/if}
-
-				<button
-					type="button"
-					onclick={next}
-					disabled={!canProceed}
-					class="rounded-xl border border-accent/30 bg-accent-fill px-6 py-2.5 text-sm font-medium text-accent transition-colors hover:border-accent/45 hover:bg-accent-fill-hover disabled:opacity-40"
+			<p class="flex flex-wrap gap-x-6 gap-y-2 pt-6 text-sm text-text-dim">
+				<button type="button" onclick={() => (mode = 'agent')} class="hover:text-text"
+					>Let your agent do it instead</button
 				>
-					Next: {STEPS[currentStep + 1]?.label} ->
-				</button>
-			</div>
-		{/if}
+				{#if uriMode === 'auto' && !hasName}
+					<button type="button" onclick={() => (uriMode = 'manual')} class="hover:text-text"
+						>I have a metadata URL</button
+					>
+				{/if}
+			</p>
+		</section>
 	{/if}
-
-	<div class="flex items-center justify-center gap-4 text-xs text-text-dim">
-		<span class="flex items-center gap-1.5">
-			<svg
-				class="h-3.5 w-3.5 text-positive"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="1.5"
-				><path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-				/></svg
-			>
-			8004 for Stellar
-		</span>
-		<span class="h-3 w-px bg-border"></span>
-		<span class="flex items-center gap-1.5">
-			<svg
-				class="h-3.5 w-3.5 text-positive"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="1.5"
-				><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg
-			>
-			Soroban
-		</span>
-		<span class="h-3 w-px bg-border"></span>
-		<span class="flex items-center gap-1.5">
-			<svg
-				class="h-3.5 w-3.5 text-positive"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="1.5"
-				><path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15A2.25 2.25 0 002.25 6.75v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z"
-				/></svg
-			>
-			Agent Identity
-		</span>
-	</div>
 </div>
+
+<style>
+	.enter {
+		animation: enter 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+	}
+	@keyframes enter {
+		from {
+			opacity: 0;
+			transform: translateY(6px);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.enter {
+			animation: none;
+		}
+	}
+</style>

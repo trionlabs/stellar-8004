@@ -292,10 +292,12 @@ describe('agents page', () => {
 			sort: 'created_at',
 			order: 'desc',
 			page: 1,
+			total: 4,
 			hasMore: false,
 			filters: { trust: [], minScore: 0, hasServices: false },
 			ownerFilter: ''
 		});
+		expect((await run(agentsLoad, `/agents?owner=${OWNER_B}`)).total).toBe(2);
 		expect(ids(await run(agentsLoad, '/agents?order=asc'))).toEqual([1, 2, 3, 4]);
 		expect(ids(await run(agentsLoad, `/agents?owner=${OWNER_A}`))).toEqual([3, 1]);
 		expect(ids(await run(agentsLoad, '/agents?sort=bogus&order=sideways'))).toEqual([3, 4, 2, 1]);
@@ -316,6 +318,7 @@ describe('agents page', () => {
 	it('searches every word of names and descriptions, then applies the chosen sort', async () => {
 		const data = await run(agentsLoad, '/agents?q=%20logos%20');
 		expect(data.agents).toEqual([listed[4], listed[1]]);
+		expect(data.total).toBe(2);
 		expect(data.query).toBe('logos');
 		expect(ids(await run(agentsLoad, '/agents?q=logo&sort=score'))).toEqual([1, 4]);
 		expect(ids(await run(agentsLoad, '/agents?q=stellar+market'))).toEqual([2]);
@@ -324,6 +327,7 @@ describe('agents page', () => {
 		// Only stopwords: no match, as plainto_tsquery gave none.
 		expect(await run(agentsLoad, '/agents?q=the')).toMatchObject({
 			agents: [],
+			total: 0,
 			hasMore: false,
 			query: 'the'
 		});
@@ -333,6 +337,7 @@ describe('agents page', () => {
 		const data = await run(agentsLoad, '/agents?trust=reputation&trust=crypto-economic&trust=');
 		// Agent 4 trusts reputation, but min_score 0 still applies, as in search_agents_advanced.
 		expect(data.agents).toEqual([ranked(2), ranked(1)]);
+		expect(data.total).toBe(2);
 		expect(data.filters).toEqual({
 			trust: ['reputation', 'crypto-economic'],
 			minScore: 0,
@@ -362,11 +367,13 @@ describe('agents page paging', () => {
 			});
 		}
 
-		expect(await run(agentsLoad, '/agents')).toMatchObject({ page: 1, hasMore: true });
+		// The count is every match, not the 20 on this page.
+		expect(await run(agentsLoad, '/agents')).toMatchObject({ page: 1, total: 21, hasMore: true });
 		expect(ids(await run(agentsLoad, '/agents'))).toHaveLength(20);
 		expect(await run(agentsLoad, '/agents?page=2')).toMatchObject({
 			agents: [{ id: 1 }],
 			page: 2,
+			total: 21,
 			hasMore: false
 		});
 		expect(ids(await run(agentsLoad, '/agents?sort=score&page=2'))).toEqual([21]);
@@ -379,6 +386,21 @@ describe('agents page paging', () => {
 		for (const page of ['0', '-3', 'abc', '']) {
 			expect((await run(agentsLoad, `/agents?page=${page}`)).page).toBe(1);
 		}
+	});
+
+	it('offers no next page when the last page is exactly full', async () => {
+		for (let i = 1; i <= 20; i++) {
+			await insert('agents', {
+				id: i,
+				owner: OWNER_A,
+				created_at: `2026-03-${pad(i)}T00:00:00+00:00`
+			});
+		}
+		expect(await run(agentsLoad, '/agents')).toMatchObject({ total: 20, hasMore: false });
+		expect(await run(agentsLoad, '/agents?sort=score')).toMatchObject({
+			total: 20,
+			hasMore: false
+		});
 	});
 
 	it('fills a search page with the most relevant matches, as ts_rank ordering did', async () => {
@@ -923,14 +945,26 @@ describe('leaderboard', () => {
 				total_score: 0
 			}
 		]);
-		expect(data).toMatchObject({ page: 1, hasMore: false, startRank: 1 });
+		// The count is every ranked agent, not the 50 on this page.
+		expect(data).toMatchObject({ page: 1, total: 5, hasMore: false, startRank: 1 });
 		expect(await run(leaderboardLoad, '/leaderboard?page=2')).toEqual({
 			leaders: [],
 			page: 2,
+			total: 5,
 			hasMore: false,
 			startRank: 51
 		});
 		expect((await run(leaderboardLoad, '/leaderboard?page=abc')).page).toBe(1);
+	});
+
+	it('pages past 50 and offers no next page when the last page is exactly full', async () => {
+		for (let i = 1; i <= 50; i++) await insert('agents', { id: i, owner: OWNER_A });
+		expect(await run(leaderboardLoad, '/leaderboard')).toMatchObject({ total: 50, hasMore: false });
+		await insert('agents', { id: 51, owner: OWNER_A });
+		expect(await run(leaderboardLoad, '/leaderboard')).toMatchObject({ total: 51, hasMore: true });
+		const second = await run(leaderboardLoad, '/leaderboard?page=2');
+		expect(second).toMatchObject({ total: 51, hasMore: false, startRank: 51 });
+		expect(second.leaders).toHaveLength(1);
 	});
 });
 

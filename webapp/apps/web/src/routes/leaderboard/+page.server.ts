@@ -7,21 +7,26 @@ export const load: PageServerLoad = async ({ url, platform }) => {
 	const perPage = 50;
 	const offset = (page - 1) * perPage;
 
-	const { results } = await getDb(platform)
-		.prepare(
-			`SELECT agent_id, agent_name, agent_image, owner, supported_trust, has_services,
-			        feedback_count, avg_score, unique_clients, total_score
-			 FROM leaderboard_scores
-			 ORDER BY total_score DESC, agent_id
-			 LIMIT ? OFFSET ?`
-		)
-		.bind(perPage, offset)
-		.all();
+	const db = getDb(platform);
+	const [list, count] = await db.batch([
+		db
+			.prepare(
+				`SELECT agent_id, agent_name, agent_image, owner, supported_trust, has_services,
+				        feedback_count, avg_score, unique_clients, total_score
+				 FROM leaderboard_scores
+				 ORDER BY total_score DESC, agent_id
+				 LIMIT ? OFFSET ?`
+			)
+			.bind(perPage, offset),
+		db.prepare('SELECT COUNT(*) AS n FROM leaderboard_scores')
+	]);
+	const total = Number((count.results[0] as { n: number }).n);
 
 	return {
-		leaders: results.map(decodeRow<ScoreRow>),
+		leaders: list.results.map(decodeRow<ScoreRow>),
 		page,
-		hasMore: results.length === perPage,
+		total,
+		hasMore: offset + list.results.length < total,
 		startRank: offset + 1
 	};
 };

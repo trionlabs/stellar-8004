@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CodeBlock from '$lib/components/CodeBlock.svelte';
+	import { resolve } from '$app/paths';
 
 	const skills = [
 		{
@@ -9,6 +10,20 @@
 			install: 'npx skills add https://github.com/stellar/stellar-dev-skill',
 			repo: 'https://github.com/stellar/stellar-dev-skill'
 		}
+	];
+
+	// The codes in the OpenAPI spec (components.schemas.Error), in HTTP order.
+	const errors = [
+		{ code: 'INVALID_PARAM', http: '400', desc: 'Invalid or unknown query parameter' },
+		{ code: 'MISSING_PARAM', http: '400', desc: 'Required parameter missing' },
+		{ code: 'INVALID_ID', http: '400', desc: 'Agent ID is not a number' },
+		{ code: 'INVALID_ADDRESS', http: '400', desc: 'Not a Stellar account address' },
+		{ code: 'INVALID_CURSOR', http: '400', desc: 'Cursor is malformed or from another query' },
+		{ code: 'NOT_FOUND', http: '404', desc: 'Agent or endpoint not found' },
+		{ code: 'METHOD_NOT_ALLOWED', http: '405', desc: 'Only GET is supported' },
+		{ code: 'RATE_LIMITED', http: '429', desc: 'Over 30 requests per minute' },
+		{ code: 'INTERNAL_ERROR', http: '500', desc: 'Server error, retry with backoff' },
+		{ code: 'INDEX_STALE', http: '503', desc: 'Discovery only: the index is behind the chain' }
 	];
 
 	const endpoints = [
@@ -34,7 +49,12 @@
 		},
 		{ method: 'GET', path: '/api/v1/search?q=...', desc: 'Full-text search across agents' },
 		{ method: 'GET', path: '/api/v1/stats', desc: 'Aggregate network statistics' },
-		{ method: 'GET', path: '/api/v1/health', desc: 'Indexer health status' }
+		{ method: 'GET', path: '/api/v1/health', desc: 'Indexer health status' },
+		{
+			method: 'GET',
+			path: '/api/v2/discovery?network=mainnet',
+			desc: 'Cursor-paged discovery: strict filters, stable score/newest/id order, 0-100 score'
+		}
 	];
 
 	const codeExamples = {
@@ -443,7 +463,12 @@ console.log('Indexer status:', health.data.status);`;
 	</div>
 
 	<section class="space-y-4">
-		<h2 class="text-lg font-medium text-text">Endpoints</h2>
+		<div class="flex items-baseline justify-between gap-4">
+			<h2 class="text-lg font-medium text-text">Endpoints</h2>
+			<a href={resolve('/openapi.json')} class="text-sm text-text-dim hover:text-text"
+				>OpenAPI spec</a
+			>
+		</div>
 
 		<div class="hidden overflow-x-auto rounded-lg border border-border bg-surface sm:block">
 			<table class="min-w-full text-sm">
@@ -744,32 +769,19 @@ console.log('Indexer status:', health.data.status);`;
 					</tr>
 				</thead>
 				<tbody>
-					<tr class="border-t border-border">
-						<td class="px-4 py-3 font-mono text-xs">INVALID_PARAMS</td>
-						<td class="px-4 py-3">400</td>
-						<td class="px-4 py-3 text-text-muted">Missing or invalid query parameters</td>
-					</tr>
-					<tr class="border-t border-border">
-						<td class="px-4 py-3 font-mono text-xs">NOT_FOUND</td>
-						<td class="px-4 py-3">404</td>
-						<td class="px-4 py-3 text-text-muted">Agent or endpoint not found</td>
-					</tr>
-					<tr class="border-t border-border">
-						<td class="px-4 py-3 font-mono text-xs">RATE_LIMITED</td>
-						<td class="px-4 py-3">429</td>
-						<td class="px-4 py-3 text-text-muted">Too many requests - try again later</td>
-					</tr>
-					<tr class="border-t border-border">
-						<td class="px-4 py-3 font-mono text-xs">INTERNAL_ERROR</td>
-						<td class="px-4 py-3">500</td>
-						<td class="px-4 py-3 text-text-muted">Server error - retry with backoff</td>
-					</tr>
+					{#each errors as err (err.code)}
+						<tr class="border-t border-border">
+							<td class="px-4 py-3 font-mono text-xs">{err.code}</td>
+							<td class="px-4 py-3">{err.http}</td>
+							<td class="px-4 py-3 text-text-muted">{err.desc}</td>
+						</tr>
+					{/each}
 				</tbody>
 			</table>
 		</div>
 
 		<div class="space-y-2 sm:hidden">
-			{#each [{ code: 'INVALID_PARAMS', http: '400', desc: 'Missing or invalid query parameters' }, { code: 'NOT_FOUND', http: '404', desc: 'Agent or endpoint not found' }, { code: 'RATE_LIMITED', http: '429', desc: 'Too many requests - try again later' }, { code: 'INTERNAL_ERROR', http: '500', desc: 'Server error - retry with backoff' }] as err (err.code)}
+			{#each errors as err (err.code)}
 				<div class="space-y-1 rounded-lg border border-border bg-surface p-3">
 					<div class="flex items-center gap-2">
 						<span class="rounded bg-negative/6 px-1.5 py-0.5 font-mono text-[10px] text-negative"

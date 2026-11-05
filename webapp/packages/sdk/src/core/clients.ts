@@ -16,16 +16,20 @@ export interface SignerOptions {
 	signAuthEntry?: SignAuthEntry;
 }
 
+/**
+ * Without a signer the clients are read-only: simulations run from the SDK's null account,
+ * so reads need no funded account, and `signAndSend()` fails.
+ */
 export function createClients(
 	config: StellarConfig,
-	signer: SignerOptions
+	signer?: SignerOptions
 ): ClientSet {
 	const baseOpts = {
 		networkPassphrase: config.networkPassphrase,
 		rpcUrl: config.rpcUrl,
-		publicKey: signer.publicKey,
-		signTransaction: signer.signTransaction.bind(signer),
-		signAuthEntry: signer.signAuthEntry?.bind(signer),
+		publicKey: signer?.publicKey,
+		signTransaction: signer?.signTransaction.bind(signer),
+		signAuthEntry: signer?.signAuthEntry?.bind(signer),
 	};
 
 	return {

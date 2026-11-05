@@ -88,9 +88,7 @@
 	<!-- -- Header -- -->
 	<header class="flex items-center justify-between">
 		<div class="flex items-baseline gap-2">
-			<span class="font-mono text-xl font-light text-accent/60 tabular-nums"
-				>{data.agents.length}</span
-			>
+			<span class="font-mono text-xl font-light text-accent/80 tabular-nums">{data.total}</span>
 			<h1 class="text-xl font-light tracking-tight text-text">
 				{data.ownerFilter ? 'My Agents' : 'Agents'}
 			</h1>
@@ -114,7 +112,7 @@
 		{#if data.ownerFilter}<input type="hidden" name="owner" value={data.ownerFilter} />{/if}
 		<div class="search-bar">
 			<svg
-				class="h-4 w-4 shrink-0 text-text-dim/40 transition group-focus-within:text-accent/50"
+				class="h-4 w-4 shrink-0 text-text-dim transition group-focus-within:text-accent/80"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
@@ -133,7 +131,7 @@
 				class="flex-1 border-0 bg-transparent text-[13px] text-text placeholder:text-text-dim/30 focus:outline-none"
 			/>
 			<div class="flex items-center gap-px">
-				<select name="sort" class="sort-select">
+				<select name="sort" aria-label="Sort agents" class="sort-select">
 					<option value="created_at" selected={data.sort === 'created_at'}>Newest</option>
 					<option value="score" selected={data.sort === 'score'}>Score</option>
 					<option value="feedback" selected={data.sort === 'feedback'}>Feedback</option>
@@ -225,7 +223,7 @@
 
 		<Tooltip text="Minimum trust score (0-100)" position="bottom">
 			<div class="chip focus-within:border-accent/25">
-				<span class="text-text-dim/50">&ge;</span>
+				<span class="text-text-dim">&ge;</span>
 				<input
 					type="number"
 					min="0"
@@ -242,7 +240,7 @@
 			<button
 				type="button"
 				onclick={clearFilters}
-				class="ml-auto text-[10px] text-text-dim/40 transition hover:text-negative"
+				class="ml-auto text-[10px] text-text-dim transition hover:text-negative"
 			>
 				clear {activeFilterCount}
 			</button>
@@ -284,7 +282,7 @@
 								>
 							{/if}
 						</div>
-						<p class="font-mono text-[10px] text-text-dim/50" title={agent.owner}>
+						<p class="font-mono text-[10px] text-text-dim" title={agent.owner}>
 							{shortAddress(agent.owner)}
 						</p>
 					</div>
@@ -330,7 +328,7 @@
 							<p class="text-xs text-text-muted tabular-nums">
 								{scoreFormatter.format(agent.avgScore ?? 0)}
 							</p>
-							<p class="text-[9px] text-text-dim/40">{agent.feedbackCount}</p>
+							<p class="text-[9px] text-text-dim">{agent.feedbackCount}</p>
 						{:else}
 							<p class="text-text-dim/20">-</p>
 						{/if}
@@ -438,7 +436,7 @@
 					</button>
 				</form>
 			{/if}
-			<span class="px-3 font-mono text-[11px] text-text-dim/50 tabular-nums">{data.page}</span>
+			<span class="px-3 font-mono text-[11px] text-text-dim tabular-nums">{data.page}</span>
 			{#if data.hasMore}
 				<form action={baseAgentsPath} method="get">
 					<input type="hidden" name="page" value={data.page + 1} />
