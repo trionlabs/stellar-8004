@@ -27,8 +27,14 @@
 	let {
 		supportedTrust,
 		x402Enabled = $bindable(),
-		mppEnabled = $bindable()
-	}: { supportedTrust: string[]; x402Enabled: boolean; mppEnabled: boolean } = $props();
+		mppEnabled = $bindable(),
+		only
+	}: {
+		supportedTrust: string[];
+		x402Enabled: boolean;
+		mppEnabled: boolean;
+		only?: 'trust' | 'payments';
+	} = $props();
 
 	function toggleTrust(value: string) {
 		const idx = supportedTrust.indexOf(value);
@@ -38,48 +44,52 @@
 </script>
 
 <div class="space-y-10">
-	<div class="space-y-3" role="group" aria-labelledby="trust-label">
-		<p id="trust-label" class="text-sm text-text-muted">Trust</p>
-		<div class="flex flex-wrap gap-2">
-			{#each TRUST_OPTIONS as opt (opt.value)}
-				{@const on = supportedTrust.includes(opt.value)}
+	{#if only !== 'payments'}
+		<div class="space-y-3" role="group" aria-labelledby="trust-label">
+			<p id="trust-label" class="text-sm text-text-muted">Trust</p>
+			<div class="flex flex-wrap gap-2">
+				{#each TRUST_OPTIONS as opt (opt.value)}
+					{@const on = supportedTrust.includes(opt.value)}
+					<button
+						type="button"
+						aria-pressed={on}
+						title={opt.desc}
+						onclick={() => toggleTrust(opt.value)}
+						class={chip(on)}
+					>
+						<RegisterIcon name={opt.value} />
+						{opt.label}
+					</button>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
+	{#if only !== 'trust'}
+		<div class="space-y-3" role="group" aria-labelledby="pay-label">
+			<p id="pay-label" class="text-sm text-text-muted">Payments</p>
+			<div class="flex flex-wrap gap-2">
 				<button
 					type="button"
-					aria-pressed={on}
-					title={opt.desc}
-					onclick={() => toggleTrust(opt.value)}
-					class={chip(on)}
+					aria-pressed={x402Enabled}
+					title="HTTP 402 payments through a facilitator (OZ Channels / Coinbase)"
+					onclick={() => (x402Enabled = !x402Enabled)}
+					class={chip(x402Enabled)}
 				>
-					<RegisterIcon name={opt.value} />
-					{opt.label}
+					<RegisterIcon name="x402" />
+					x402
 				</button>
-			{/each}
+				<button
+					type="button"
+					aria-pressed={mppEnabled}
+					title="Machine Payments Protocol: direct on-chain settlement, no facilitator"
+					onclick={() => (mppEnabled = !mppEnabled)}
+					class={chip(mppEnabled)}
+				>
+					<RegisterIcon name="mpp" />
+					MPP
+				</button>
+			</div>
 		</div>
-	</div>
-
-	<div class="space-y-3" role="group" aria-labelledby="pay-label">
-		<p id="pay-label" class="text-sm text-text-muted">Payments</p>
-		<div class="flex flex-wrap gap-2">
-			<button
-				type="button"
-				aria-pressed={x402Enabled}
-				title="HTTP 402 payments through a facilitator (OZ Channels / Coinbase)"
-				onclick={() => (x402Enabled = !x402Enabled)}
-				class={chip(x402Enabled)}
-			>
-				<RegisterIcon name="x402" />
-				x402
-			</button>
-			<button
-				type="button"
-				aria-pressed={mppEnabled}
-				title="Machine Payments Protocol: direct on-chain settlement, no facilitator"
-				onclick={() => (mppEnabled = !mppEnabled)}
-				class={chip(mppEnabled)}
-			>
-				<RegisterIcon name="mpp" />
-				MPP
-			</button>
-		</div>
-	</div>
+	{/if}
 </div>

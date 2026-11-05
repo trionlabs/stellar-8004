@@ -6,7 +6,6 @@
 		getMetadataSize,
 		toDataUri
 	} from '@trionlabs/stellar8004';
-	import AgentPreview from './AgentPreview.svelte';
 	import RegisterIcon from './RegisterIcon.svelte';
 	import { field } from './ui.js';
 
@@ -32,28 +31,23 @@
 </script>
 
 {#if uriMode === 'auto'}
-	<div class="space-y-4">
-		<div data-frame class="rounded-2xl bg-surface-raised p-5 sm:p-6">
-			<AgentPreview {formData} />
-		</div>
-		<div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-text-dim">
-			{#if metadata.error}
-				<span class="text-negative">{metadata.error}</span>
-			{:else if hasName}
-				<span>Stored on-chain · {metadata.size} B</span>
-			{/if}
-			<button
-				type="button"
-				onclick={() => downloadMetadataJson(buildMetadataJson(formData))}
-				disabled={!hasName}
-				class="{link} disabled:opacity-40"
-			>
-				<RegisterIcon name="download" />JSON
-			</button>
-			<button type="button" onclick={() => (uriMode = 'manual')} class={link}>
-				<RegisterIcon name="link" />Use my own URL
-			</button>
-		</div>
+	<div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-text-dim">
+		{#if metadata.error}
+			<span class="text-negative">{metadata.error}</span>
+		{:else if hasName}
+			<span>Stored on-chain · {metadata.size} B</span>
+		{/if}
+		<button
+			type="button"
+			onclick={() => downloadMetadataJson(buildMetadataJson(formData))}
+			disabled={!hasName}
+			class="{link} disabled:opacity-40"
+		>
+			<RegisterIcon name="download" />JSON
+		</button>
+		<button type="button" onclick={() => (uriMode = 'manual')} class={link}>
+			<RegisterIcon name="link" />Use my own URL
+		</button>
 	</div>
 {:else}
 	<div class="space-y-4">

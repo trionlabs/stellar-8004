@@ -8,18 +8,17 @@
 		buildMetadataJson,
 		toDataUri,
 		validateAgentUri,
+		validateUrl,
 		formatSorobanError
 	} from '@trionlabs/stellar8004';
 	import type { AgentFormData, UriMode } from '$lib/types.js';
-	import StepBasicInfo from '$lib/components/register/StepBasicInfo.svelte';
+	import AgentCardEditor from '$lib/components/register/AgentCardEditor.svelte';
 	import StepServices from '$lib/components/register/StepServices.svelte';
 	import StepAdvanced from '$lib/components/register/StepAdvanced.svelte';
-	import StepReview from '$lib/components/register/StepReview.svelte';
+	import MetadataOptions from '$lib/components/register/MetadataOptions.svelte';
 	import RegisterIcon from '$lib/components/register/RegisterIcon.svelte';
-	import { primary } from '$lib/components/register/ui.js';
+	import { field, primary } from '$lib/components/register/ui.js';
 	import { shortAddress } from '$lib/formatters.js';
-
-	const STEPS = ['Identity', 'Capabilities', 'Register'];
 
 	// Single sessionStorage key per origin. If a user opens the registration
 	// form in two tabs, both tabs share this key and the second one to write
@@ -28,8 +27,6 @@
 	// scope, and the only failure mode is that draft state from one tab is
 	// not visible in another. Accept and document.
 	const STORAGE_KEY = 'registration-form';
-
-	let currentStep = $state(0);
 
 	let formData = $state<AgentFormData>({
 		name: '',
@@ -58,8 +55,8 @@
 
 	// A saved draft means the person was filling the form: reopen it there.
 	let mode = $state<'agent' | 'form'>(formData.name ? 'form' : 'agent');
-	const guideUrl = $derived(`${page.url.origin}/skill.md`);
-	const agentPrompt = $derived(`Read ${guideUrl} and register yourself on Stellar8004.`);
+	const skillUrl = $derived(`${page.url.origin}/skill.md`);
+	const agentPrompt = $derived(`Read ${skillUrl} and register yourself on Stellar8004.`);
 	let copied = $state(false);
 	let promptEl: HTMLElement | undefined = $state();
 
@@ -80,26 +77,19 @@
 		}
 	});
 
-	const canProceed = $derived.by(() => {
-		switch (currentStep) {
-			case 0:
-				return formData.name.trim().length > 0;
-			case 1:
-				return true;
-			case 2:
-				return uriMode === 'auto' ? formData.name.trim().length > 0 : manualUri.trim().length > 0;
-			default:
-				return false;
-		}
+	// Optional parts of the profile stay folded away until asked for; a restored draft reopens them.
+	const ADD_LABELS = { image: 'Image', services: 'Services', trust: 'Trust', payments: 'Payments' };
+	type Part = keyof typeof ADD_LABELS;
+	let open = $state<Record<Part, boolean>>({
+		image: !!formData.imageUrl,
+		services: formData.services.length > 0,
+		trust: formData.supportedTrust.length > 0,
+		payments: formData.x402Enabled || formData.mppEnabled
 	});
-
-	function next() {
-		if (currentStep < STEPS.length - 1 && canProceed) currentStep++;
-	}
-
-	function back() {
-		if (currentStep > 0) currentStep--;
-	}
+	const closed = $derived((Object.keys(ADD_LABELS) as Part[]).filter((k) => !open[k]));
+	const hasName = $derived(formData.name.trim().length > 0);
+	const imageError = $derived(validateUrl(formData.imageUrl));
+	const canRegister = $derived(uriMode === 'auto' ? hasName : manualUri.trim().length > 0);
 
 	async function submit() {
 		status = 'submitting';
@@ -142,7 +132,7 @@
 	{#if mode === 'agent'}
 		<section class="enter space-y-9 pt-6 sm:pt-20">
 			<h1 class="text-[30px] leading-tight font-light tracking-[-0.015em] text-text sm:text-[40px]">
-				Give this to your agent
+				Give your agent the skill
 			</h1>
 
 			<div class="space-y-3">
@@ -156,7 +146,7 @@
 					<code
 						bind:this={promptEl}
 						class="min-w-0 flex-1 font-mono text-[12px] leading-relaxed [overflow-wrap:anywhere] text-text sm:text-sm"
-						><span class="block">Read {guideUrl}</span><span class="block"
+						><span class="block">Read {skillUrl}</span><span class="block"
 							>and register yourself on Stellar8004.</span
 						></code
 					>
@@ -201,9 +191,9 @@
 						<!-- /skill.md is served by hooks.server.ts, not a route, so resolve() cannot type it. -->
 						<!-- eslint-disable svelte/no-navigation-without-resolve -->
 						<a
-							href={guideUrl}
+							href={skillUrl}
 							class="text-text-muted underline decoration-border underline-offset-4 hover:text-text"
-							>guide</a
+							>skill</a
 						>
 						<!-- eslint-enable svelte/no-navigation-without-resolve -->
 						and registers itself · ~2&nbsp;XLM
@@ -219,158 +209,131 @@
 			</p>
 		</section>
 	{:else}
-		<div class="enter space-y-5 pt-6 sm:pt-20">
+		<section class="enter space-y-8 pt-6 sm:pt-20">
 			<h1 class="text-[30px] leading-tight font-light tracking-[-0.015em] text-text sm:text-[40px]">
 				Register an agent
 			</h1>
-			<ol class="flex gap-5 text-sm" aria-label="Progress">
-				{#each STEPS as step, i (step)}
-					<li
-						aria-current={i === currentStep ? 'step' : undefined}
-						class="flex items-center gap-1.5 transition-colors {i === currentStep
-							? 'text-text'
-							: i < currentStep
-								? 'text-text-muted'
-								: 'text-text-dim'}"
-					>
-						{#if i < currentStep}
-							<svg
-								class="h-3.5 w-3.5 text-positive"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								aria-hidden="true"
-								><path
-									d="M5 12.5l4.5 4.5L19 7.5"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								/></svg
-							>
-						{:else}
-							<span class="tabular-nums">{i + 1}</span>
-						{/if}
-						{step}
-					</li>
-				{/each}
-			</ol>
-		</div>
 
-		<form
-			class="space-y-12"
-			onsubmit={(e) => {
-				e.preventDefault();
-				next();
-			}}
-		>
-			{#if currentStep === 0}
-				<StepBasicInfo {formData} />
-			{:else if currentStep === 1}
-				<div class="space-y-10">
-					<StepServices services={formData.services} />
-					<StepAdvanced
-						supportedTrust={formData.supportedTrust}
-						bind:x402Enabled={formData.x402Enabled}
-						bind:mppEnabled={formData.mppEnabled}
-					/>
-				</div>
-			{:else}
-				<StepReview {formData} bind:uriMode bind:manualUri />
-			{/if}
-
-			<div class="space-y-4">
-				{#if status === 'error'}
-					<p class="flex items-start gap-2 text-sm text-negative" role="alert">
-						<RegisterIcon name="alert" class="mt-0.5 h-4 w-4 shrink-0" />{errorMsg}
-					</p>
-				{/if}
-				{#if currentStep === STEPS.length - 1 && wallet.connected}
-					<p class="flex items-center gap-2 text-sm text-text-dim">
-						{#if wallet.networkMismatch}
-							<span class="h-1.5 w-1.5 rounded-full bg-warning"></span>
-							<span class="text-warning">Switch Freighter to {stellarConfig.network}</span>
-						{:else}
-							<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
-							<span class="font-mono text-xs">{shortAddress(wallet.address ?? '')}</span>
-							<span>{stellarConfig.network}</span>
-						{/if}
-					</p>
-				{/if}
-
-				<div class="flex items-center justify-between">
-					{#if currentStep > 0}
-						<button
-							type="button"
-							onclick={back}
-							class="inline-flex items-center gap-1.5 text-sm text-text-dim transition-colors hover:text-text"
-						>
-							<RegisterIcon name="back" />Back
-						</button>
-					{:else}
-						<span></span>
-					{/if}
-
-					{#if currentStep < STEPS.length - 1}
-						<button type="submit" disabled={!canProceed} class={primary}>
-							Continue<RegisterIcon name="next" />
-						</button>
-					{:else if !wallet.connected}
-						<button
-							type="button"
-							onclick={() => wallet.connect()}
-							disabled={wallet.loading}
-							class={primary}
-						>
-							<RegisterIcon name="wallet" />{wallet.loading ? 'Connecting…' : 'Connect wallet'}
-						</button>
-					{:else}
-						<button
-							type="button"
-							onclick={submit}
-							disabled={!canProceed || status === 'submitting' || wallet.networkMismatch}
-							class={primary}
-						>
-							{#if status === 'submitting'}
-								<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"
-									><circle
-										cx="12"
-										cy="12"
-										r="9"
-										stroke="currentColor"
-										stroke-width="1.5"
-										opacity="0.25"
-									/><path
-										d="M12 3a9 9 0 0 1 9 9"
-										stroke="currentColor"
-										stroke-width="1.5"
-										stroke-linecap="round"
-									/></svg
-								>
-								Registering…
-							{:else}
-								Register<RegisterIcon name="next" />
-							{/if}
-						</button>
-					{/if}
-				</div>
-			</div>
-		</form>
-
-		<p class="flex flex-wrap gap-x-6 gap-y-2 pt-6 text-sm text-text-dim">
-			<button type="button" onclick={() => (mode = 'agent')} class="hover:text-text"
-				>Give it to your agent instead</button
-			>
 			{#if uriMode === 'auto'}
-				<button
-					type="button"
-					onclick={() => {
-						uriMode = 'manual';
-						currentStep = STEPS.length - 1;
-					}}
-					class="hover:text-text">I have a metadata URL</button
-				>
+				<div class="space-y-6">
+					<AgentCardEditor {formData} onImage={() => (open.image = true)} />
+
+					{#if open.image}
+						<label class="block space-y-2">
+							<span class="text-sm text-text-muted">Image URL</span>
+							<input
+								type="text"
+								inputmode="url"
+								bind:value={formData.imageUrl}
+								placeholder="https://… or ipfs://…"
+								class="{field} {imageError ? 'ring-1 ring-negative/50' : ''}"
+							/>
+							{#if imageError}<span class="block text-xs text-negative">{imageError}</span>{/if}
+						</label>
+					{/if}
+					{#if open.services}<StepServices services={formData.services} />{/if}
+					{#if open.trust || open.payments}
+						<StepAdvanced
+							only={open.trust && open.payments ? undefined : open.trust ? 'trust' : 'payments'}
+							supportedTrust={formData.supportedTrust}
+							bind:x402Enabled={formData.x402Enabled}
+							bind:mppEnabled={formData.mppEnabled}
+						/>
+					{/if}
+
+					{#if hasName && closed.length}
+						<div class="enter flex flex-wrap gap-x-5 gap-y-2 text-sm text-text-dim">
+							{#each closed as key (key)}
+								<button
+									type="button"
+									onclick={() => (open[key] = true)}
+									class="inline-flex items-center gap-1.5 transition-colors hover:text-text"
+								>
+									<RegisterIcon name="plus" class="h-3.5 w-3.5" />{ADD_LABELS[key]}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
 			{/if}
-		</p>
+
+			{#if hasName || uriMode === 'manual'}
+				<div class="enter space-y-6 pt-4">
+					<MetadataOptions {formData} bind:uriMode bind:manualUri />
+
+					{#if status === 'error'}
+						<p class="flex items-start gap-2 text-sm text-negative" role="alert">
+							<RegisterIcon name="alert" class="mt-0.5 h-4 w-4 shrink-0" />{errorMsg}
+						</p>
+					{/if}
+
+					<div class="flex flex-wrap items-center justify-end gap-x-5 gap-y-3">
+						{#if wallet.connected}
+							<span class="flex items-center gap-2 text-sm text-text-dim">
+								{#if wallet.networkMismatch}
+									<span class="h-1.5 w-1.5 rounded-full bg-warning"></span>
+									<span class="text-warning">Switch Freighter to {stellarConfig.network}</span>
+								{:else}
+									<span class="h-1.5 w-1.5 rounded-full bg-positive"></span>
+									<span class="font-mono text-xs">{shortAddress(wallet.address ?? '')}</span>
+								{/if}
+							</span>
+							<button
+								type="button"
+								onclick={submit}
+								disabled={!canRegister || status === 'submitting' || wallet.networkMismatch}
+								class={primary}
+							>
+								{#if status === 'submitting'}
+									<svg
+										class="h-4 w-4 animate-spin"
+										viewBox="0 0 24 24"
+										fill="none"
+										aria-hidden="true"
+										><circle
+											cx="12"
+											cy="12"
+											r="9"
+											stroke="currentColor"
+											stroke-width="1.5"
+											opacity="0.25"
+										/><path
+											d="M12 3a9 9 0 0 1 9 9"
+											stroke="currentColor"
+											stroke-width="1.5"
+											stroke-linecap="round"
+										/></svg
+									>
+									Registering…
+								{:else}
+									Register<RegisterIcon name="next" />
+								{/if}
+							</button>
+						{:else}
+							<button
+								type="button"
+								onclick={() => wallet.connect()}
+								disabled={wallet.loading}
+								class={primary}
+							>
+								<RegisterIcon name="wallet" />{wallet.loading ? 'Connecting…' : 'Connect wallet'}
+							</button>
+						{/if}
+					</div>
+				</div>
+			{/if}
+
+			<p class="flex flex-wrap gap-x-6 gap-y-2 pt-6 text-sm text-text-dim">
+				<button type="button" onclick={() => (mode = 'agent')} class="hover:text-text"
+					>Give your agent the skill instead</button
+				>
+				{#if uriMode === 'auto' && !hasName}
+					<button type="button" onclick={() => (uriMode = 'manual')} class="hover:text-text"
+						>I have a metadata URL</button
+					>
+				{/if}
+			</p>
+		</section>
 	{/if}
 </div>
 

@@ -54,7 +54,15 @@
 	}
 </script>
 
-<div class="space-y-3" role="group" aria-labelledby="services-label">
+<div
+	class="space-y-3"
+	role="group"
+	aria-labelledby="services-label"
+	onfocusout={(e) => {
+		// Leaving the composer (e.g. for Register) keeps a valid endpoint that was not added yet.
+		if (!e.currentTarget.contains(e.relatedTarget as Node | null)) saveService();
+	}}
+>
 	<p id="services-label" class="text-sm text-text-muted">Services</p>
 
 	{#if !isAtLimit}
