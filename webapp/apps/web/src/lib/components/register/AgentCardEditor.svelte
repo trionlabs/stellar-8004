@@ -31,6 +31,17 @@
 		...(formData.x402Enabled ? [{ icon: 'x402' as const, label: 'x402' }] : []),
 		...(formData.mppEnabled ? [{ icon: 'mpp' as const, label: 'MPP' }] : [])
 	]);
+
+	// How complete the public profile is: the name is required, the rest makes the agent easier to find and trust.
+	const complete = $derived(
+		(formData.name.trim() ? 30 : 0) +
+			(formData.description.trim() ? 20 : 0) +
+			(image ? 15 : 0) +
+			(formData.services.length ? 20 : 0) +
+			(formData.supportedTrust.length ? 10 : 0) +
+			(formData.x402Enabled || formData.mppEnabled ? 5 : 0)
+	);
+	const RING = 2 * Math.PI * 15;
 </script>
 
 <div data-frame class="flex items-start gap-4 rounded-2xl bg-surface-raised p-5 sm:gap-5 sm:p-6">
@@ -81,4 +92,40 @@
 			</ul>
 		{/if}
 	</div>
+	{#if complete}
+		<div
+			class="relative grid h-10 w-10 shrink-0 place-items-center {complete === 100
+				? 'text-positive'
+				: 'text-accent'}"
+			role="img"
+			aria-label="Profile {complete}% complete"
+			title="Profile completeness"
+		>
+			<svg class="absolute inset-0 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+				<circle
+					cx="18"
+					cy="18"
+					r="15"
+					fill="none"
+					stroke-width="2.5"
+					class="stroke-surface-overlay"
+				/>
+				<circle
+					cx="18"
+					cy="18"
+					r="15"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.5"
+					stroke-linecap="round"
+					stroke-dasharray={RING}
+					stroke-dashoffset={RING * (1 - complete / 100)}
+					class="transition-[stroke-dashoffset] duration-500 motion-reduce:transition-none"
+				/>
+			</svg>
+			<span class="text-[10px] font-medium text-text tabular-nums"
+				>{complete}<span class="text-text-dim">%</span></span
+			>
+		</div>
+	{/if}
 </div>
