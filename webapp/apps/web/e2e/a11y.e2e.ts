@@ -1,13 +1,22 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-const PAGES = ['/', '/agents', '/agents/0', '/leaderboard', '/register', '/developers'];
+const PAGES = ['/', '/agents', '/agents/0', '/leaderboard', '/register', '/developers', '/intro'];
 
 for (const path of PAGES) {
 	test(`${path} renders and has no serious WCAG 2 AA violations`, async ({ page }) => {
 		const response = await page.goto(path);
 		expect(response?.status()).toBe(200);
 		await expect(page.locator('h1').first()).toBeVisible();
+		// Let entry fades finish (axe reads mid-fade opacity as low contrast); skip endless loops.
+		await page.evaluate(() =>
+			Promise.all(
+				document
+					.getAnimations()
+					.filter((a) => a.effect?.getTiming().iterations !== Infinity)
+					.map((a) => a.finished)
+			)
+		);
 
 		const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
 		const serious = violations
